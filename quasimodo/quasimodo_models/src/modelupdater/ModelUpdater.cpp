@@ -16,7 +16,7 @@
 #include "opencv2/features2d/features2d.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
-#include "opencv2/nonfree/nonfree.hpp"
+//#include "opencv2/nonfree/nonfree.hpp"
 
 typedef boost::property<boost::edge_weight_t, float> edge_weight_property;
 typedef boost::property<boost::vertex_name_t, size_t> vertex_name_property;
@@ -604,8 +604,8 @@ void ModelUpdater::makeInitialSetup(){
 
     int minHessian = 400;
 
-    cv::SurfFeatureDetector detector( minHessian );
-    cv::SurfDescriptorExtractor extractor;
+//    cv::SurfFeatureDetector detector( minHessian );
+//    cv::SurfDescriptorExtractor extractor;
 
 
     //cv::ORB orb = cv::ORB(250);//,1.2f, 1, 3, 0,2, cv::ORB::HARRIS_SCORE, 31);
@@ -639,7 +639,7 @@ void ModelUpdater::makeInitialSetup(){
 	MassRegistrationPPR2 * massreg = new MassRegistrationPPR2(0.05);
 	massreg->timeout = 4*massreg_timeout;
 	massreg->viewer = viewer;
-	massreg->visualizationLvl = 1;//1;
+	massreg->visualizationLvl = 0;//1;
 	massreg->maskstep = std::max(1,int(0.5+0.2*double(model->frames.size())));
 	massreg->nomaskstep = std::max(5,int(0.5+1.0*double(model->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
 	massreg->nomask = true;
@@ -1076,7 +1076,7 @@ printf("%s::%i\n",__FILE__,__LINE__);
 	MassRegistrationPPR * massreg = new MassRegistrationPPR(reg);
     massreg->timeout = massreg_timeout;
 	massreg->viewer = viewer;
-	massreg->visualizationLvl = 1;
+	massreg->visualizationLvl = 0;
 	massreg->maskstep = 4;//std::max(1,int(0.5+0.02*double(model->frames.size())));
 	massreg->nomaskstep = std::max(1,int(0.5+1.0*double(model->frames.size())));
 	printf("maskstep: %i nomaskstep: %i\n",massreg->maskstep,massreg->nomaskstep);
