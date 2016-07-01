@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(quasimodo_models)
 
 #find_package(catkin REQUIRED)# quasimodo_msgs)# COMPONENTS quasimodo_msgs)
-set(CMAKE_CXX_FLAGS "-O4 -g -pg -Wunknown-pragmas -Wno-unknown-pragmas -Wsign-compare -fPIC -std=c++0x -o popcnt -mssse3")
+set(CMAKE_CXX_FLAGS "-O4 -g -pg -Wunknown-pragmas -Wno-unknown-pragmas -Wsign-compare -fopenmp -fPIC -std=c++0x -o popcnt -mssse3")
 
 
 find_package(catkin REQUIRED COMPONENTS
@@ -14,7 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES quasimodo_ModelUpdater quasimodo_reglib quasimodo_massreglib quasimodo_model quasimodo_core quasimodo_Mesher quasimodo_weightlib quasimodo_modelmask
+  LIBRARIES quasimodo_ModelUpdater quasimodo_SICP quasimodo_reglib quasimodo_massreglib quasimodo_model quasimodo_core quasimodo_myhull quasimodo_Mesher quasimodo_weightlib quasimodo_modelmask
 #  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
 )
@@ -62,14 +62,14 @@ target_link_libraries(quasimodo_core ${CERES_LIBRARIES} ${OpenCV_LIBRARIES} ${ca
 add_library(quasimodo_reglib src/registration/Registration.cpp src/registration/RegistrationRandom.cpp src/registration/RegistrationRefinement.cpp)
 target_link_libraries(quasimodo_reglib quasimodo_weightlib ceres glog ${catkin_LIBRARIES})
 
-add_library(quasimodo_massreglib src/registration/MassRegistration.cpp src/registration/MassRegistrationPPR.cpp)
-target_link_libraries(quasimodo_massreglib quasimodo_reglib quasimodo_core)
-
 add_library(quasimodo_modelmask src/model/ModelMask.cpp)
 target_link_libraries(quasimodo_modelmask quasimodo_core quasimodo_reglib ${catkin_LIBRARIES})
 
 add_library(quasimodo_model src/model/Model.cpp)
 target_link_libraries(quasimodo_model quasimodo_modelmask quasimodo_core quasimodo_reglib ${catkin_LIBRARIES})
+
+add_library(quasimodo_massreglib src/registration/MassRegistration.cpp src/registration/MassRegistrationPPR.cpp src/registration/MassRegistrationPPR2.cpp)
+target_link_libraries(quasimodo_massreglib quasimodo_model quasimodo_reglib quasimodo_core)
 
 add_library(quasimodo_Mesher src/mesher/Mesh.cpp)
 target_link_libraries(quasimodo_Mesher quasimodo_model ${catkin_LIBRARIES})

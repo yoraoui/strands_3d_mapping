@@ -1,5 +1,5 @@
-#ifndef MassRegistrationPPR_H
-#define MassRegistrationPPR_H
+#ifndef MassRegistrationPPR2_H
+#define MassRegistrationPPR2_H
 
 #include "MassRegistration.h"
 #include <time.h>
@@ -7,7 +7,23 @@
 namespace reglib
 {
 
-	class MassRegistrationPPR : public MassRegistration
+	class TestMatch{
+		public:
+
+		int src;
+		int dst;
+		double d;
+
+		TestMatch(int src_, int dst_,	double d_){
+			src = src_;
+			dst = dst_;
+			d = d_;
+		}
+
+		~TestMatch(){}
+	};
+
+	class MassRegistrationPPR2 : public MassRegistration
 	{
 		public:
 
@@ -38,6 +54,18 @@ namespace reglib
 		double * Xn_arr;
 		double * rangeW_arr;
 
+		double * kp_Qp_arr;
+		double * kp_Qn_arr;
+		double * kp_Xp_arr;
+		double * kp_Xn_arr;
+		double * kp_rangeW_arr;
+
+		double * depthedge_Qp_arr;
+		double * depthedge_Xp_arr;
+		double * depthedge_rangeW_arr;
+
+		Model * model;
+
 		std::vector<int> nr_datas;
 
 		std::vector< bool > is_ok;
@@ -48,18 +76,43 @@ namespace reglib
 		std::vector< Eigen::Matrix<double, 3, Eigen::Dynamic> > transformed_normals;
 		std::vector< Eigen::VectorXd > informations;
 
-		std::vector< int > nr_arraypoints;
+		std::vector< int >				kp_nr_arraypoints;
+		std::vector< double * >			kp_arraypoints;
+		std::vector< double * >			kp_arraynormals;
+		std::vector< double * >			kp_arrayinformations;
+		std::vector< uint64_t * >		kp_arraydescriptors;
+		std::vector< std::vector< std::vector< TestMatch > > > kp_matches;
+
+		//std::vector< std::vector< std::vector<int> > > matchids;
+
+		bool use_surface;
+		std::vector< int >      frameid;
+
+		std::vector< int >		nr_arraypoints;
 		std::vector< double * > arraypoints;
 		std::vector< double * > arraynormals;
 		std::vector< double * > arraycolors;
 		std::vector< double * > arrayinformations;
-
 
 		std::vector< Tree3d * > trees3d;
 		std::vector< ArrayData3D<double> * > a3dv;
 
 		std::vector<int> nr_matches;
 		std::vector< std::vector< std::vector<int> > > matchids;
+        std::vector< std::vector< std::vector<double> > > matchdists;
+
+
+		bool use_depthedge;
+		std::vector< int >		depthedge_nr_arraypoints;
+		std::vector< double * > depthedge_arraypoints;
+		std::vector< double * > depthedge_arrayinformations;
+		std::vector< Tree3d * > depthedge_trees3d;
+		std::vector< ArrayData3D<double> * > depthedge_a3dv;
+
+		std::vector<int> depthedge_nr_matches;
+		std::vector< std::vector< std::vector<int> > > depthedge_matchids;
+		std::vector< std::vector< std::vector<double> > > depthedge_matchdists;
+
 
 		std::vector<int> sweepids;
 		std::vector<int> background_nr_datas;
@@ -79,13 +132,14 @@ namespace reglib
 //		std::vector< DistanceWeightFunction2 * > feature_func;
 
 		DistanceWeightFunction2PPR2 * func;
+		DistanceWeightFunction2PPR2 * kpfunc;
+		DistanceWeightFunction2PPR2 * depthdege_func;
 
-		MassRegistrationPPR(double startreg = 0.05, bool visualize = false);
-		~MassRegistrationPPR();
-		
-		void addModelData(Model * model, bool submodels = true);
+		MassRegistrationPPR2(double startreg = 0.05, bool visualize = false);
+		~MassRegistrationPPR2();
 
 		void clearData();
+		void addModelData(Model * model, bool submodels = true);
 		void addData(RGBDFrame* frame, ModelMask * mmask);
 		void addData(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud);
 
@@ -93,8 +147,13 @@ namespace reglib
 		void setData(std::vector<RGBDFrame*> frames_, std::vector<ModelMask *> mmasks);
 		void setData(std::vector< pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr > all_clouds);
 
+		void rematchKeyPoints(std::vector<Eigen::Matrix4d> poses, std::vector<Eigen::Matrix4d> prev_poses, bool first);
 		void rematch(std::vector<Eigen::Matrix4d> poses, std::vector<Eigen::Matrix4d> prev_poses, bool first);
 		Eigen::MatrixXd getAllResiduals(std::vector<Eigen::Matrix4d> poses);
+		Eigen::MatrixXd getAllKpResiduals(std::vector<Eigen::Matrix4d> poses);
+
+		//Eigen::MatrixXd getAllKPResiduals(std::vector<Eigen::Matrix4d> poses);
+
 		std::vector<Eigen::Matrix4d> optimize(std::vector<Eigen::Matrix4d> poses);
 	};
 

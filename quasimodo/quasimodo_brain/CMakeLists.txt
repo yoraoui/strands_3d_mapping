@@ -113,6 +113,11 @@ add_executable(			massregPCD src/massregPCD.cpp)
 add_dependencies(		massregPCD roscpp quasimodo_msgs_generate_messages_cpp)
 target_link_libraries(	massregPCD quasimodo_ModelDatabase quasimodo_ModelUpdater image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
+add_executable(			voPCD src/voPCD.cpp)
+add_dependencies(		voPCD roscpp quasimodo_msgs_generate_messages_cpp)
+target_link_libraries(	voPCD quasimodo_ModelDatabase quasimodo_ModelUpdater image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+
+
 add_executable(			velodyne2 src/velodyne2.cpp)
 add_dependencies(		velodyne2 roscpp quasimodo_msgs_generate_messages_cpp)
 target_link_libraries(	velodyne2 quasimodo_ModelDatabase quasimodo_ModelUpdater image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
@@ -120,6 +125,14 @@ target_link_libraries(	velodyne2 quasimodo_ModelDatabase quasimodo_ModelUpdater 
 add_executable(			MeshTest src/MeshTest.cpp)
 add_dependencies(		MeshTest roscpp quasimodo_msgs_generate_messages_cpp)
 target_link_libraries(	MeshTest quasimodo_ModelDatabase quasimodo_Mesher  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+
+add_executable(			test_align2 src/test_align2.cpp)
+add_dependencies(		test_align2 roscpp quasimodo_msgs_generate_messages_cpp)
+target_link_libraries(	test_align2 quasimodo_ModelDatabase quasimodo_Mesher  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+
+add_executable(			test_segment src/test_segment.cpp)
+add_dependencies(		test_segment roscpp quasimodo_msgs_generate_messages_cpp)
+target_link_libraries(	test_segment quasimodo_ModelDatabase quasimodo_Mesher  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
 #############
 ## Install ##

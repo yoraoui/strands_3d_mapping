@@ -228,6 +228,8 @@ void chatterCallback(const std_msgs::String::ConstPtr& msg)
             //            pose.position.z		= m(2,3);
 
 
+
+
             cv_bridge::CvImage rgbBridgeImage;
             rgbBridgeImage.image = rgbimage;
             rgbBridgeImage.encoding = "bgr8";
@@ -243,6 +245,10 @@ void chatterCallback(const std_msgs::String::ConstPtr& msg)
             ifsrv.request.frame.rgb			= *(rgbBridgeImage.toImageMsg());
             ifsrv.request.frame.depth		= *(depthBridgeImage.toImageMsg());
 
+			ifsrv.request.frame.camera.K[0] = 536.458000;//cams[i][j].fx();
+			ifsrv.request.frame.camera.K[4] = 537.422000;//cams[i][j].fy();
+			ifsrv.request.frame.camera.K[2] = 314.458000;//cams[i][j].cx();
+			ifsrv.request.frame.camera.K[5] = 242.038000;//cams[i][j].cy();
             if (index_frame_client.call(ifsrv)){//Add frame to model server
                 int frame_id = ifsrv.response.frame_id;
                 fadded.push_back(j);

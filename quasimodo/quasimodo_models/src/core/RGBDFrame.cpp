@@ -29,6 +29,17 @@
 
 #include <ctime>
 
+#include <pcl/console/print.h>
+#include <pcl/console/parse.h>
+#include <pcl/console/time.h>
+#include "organized_edge_detection.hpp"
+#include <pcl/features/integral_image_normal.h>
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl/visualization/cloud_viewer.h>
+#include <pcl/PCLPointCloud2.h>
+
 
 namespace reglib
 {
@@ -37,14 +48,14 @@ RGBDFrame::RGBDFrame(){
 	id = RGBDFrame_id_counter++;
 	capturetime = 0;
 	pose = Eigen::Matrix4d::Identity();
+	keyval = "";
 }
 
 bool updated = true;
 void on_trackbar( int, void* ){updated = true;}
 
 RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capturetime_, Eigen::Matrix4d pose_, bool compute_normals){
-
-	//printf("%s LINE:%i\n",__FILE__,__LINE__);
+	keyval = "";
 
     sweepid = -1;
 	id = RGBDFrame_id_counter++;
@@ -68,6 +79,11 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	const double ifx			= 1.0/camera->fx;
 	const double ify			= 1.0/camera->fy;
 
+	//
+//	printf("camera: cx %5.5f cy %5.5f",cx,cy);
+//	printf(": fx %5.5f fy %5.5f",camera->fx,camera->fy);
+//	printf(": ifx %5.5f ify %5.5f\n",ifx,ify);
+
 	connections.resize(1);
 	connections[0].resize(1);
 	connections[0][0] = 0;
@@ -87,7 +103,10 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 
 	depthedges.create(height,width,CV_8UC1);
 	unsigned char * depthedgesdata = (unsigned char *)depthedges.data;
-
+	for(int i = 0; i < width*height; i++){
+		depthedgesdata[i] = 0;
+	}
+/*
 	double t = 0.01;
     for(int w = 0; w < width; w++){
         for(int h = 0; h < height;h++){
@@ -151,22 +170,26 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 			}
 		}
 	}
-
+*/
 	//printf("%s LINE:%i\n",__FILE__,__LINE__);
 	if(compute_normals){
 		normals.create(height,width,CV_32FC3);
 		float * normalsdata = (float *)normals.data;
 
-		pcl::PointCloud<pcl::PointXYZ>::Ptr	cloud	(new pcl::PointCloud<pcl::PointXYZ>);
-		pcl::PointCloud<pcl::Normal>::Ptr	normals (new pcl::PointCloud<pcl::Normal>);
+		pcl::PointCloud<pcl::PointXYZRGBA>::Ptr	cloud	(new pcl::PointCloud<pcl::PointXYZRGBA>);
+		pcl::PointCloud<pcl::Normal>::Ptr	normals_cloud (new pcl::PointCloud<pcl::Normal>);
 		cloud->width	= width;
 		cloud->height	= height;
 		cloud->points.resize(width*height);
+		//cloud->dense = false;
 
         for(int w = 0; w < width; w++){
             for(int h = 0; h < height;h++){
 				int ind = h*width+w;
-				pcl::PointXYZ & p = cloud->points[ind];
+				pcl::PointXYZRGBA & p = cloud->points[ind];
+				p.b = rgbdata[3*ind+0];
+				p.g = rgbdata[3*ind+1];
+				p.r = rgbdata[3*ind+2];
 				double z = idepth*double(depthdata[ind]);
 				if(z > 0){
 					p.x = (double(w) - cx) * z * ifx;
@@ -181,7 +204,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 		}
 
 		//printf("%s LINE:%i\n",__FILE__,__LINE__);
-		pcl::IntegralImageNormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
+		pcl::IntegralImageNormalEstimation<pcl::PointXYZRGBA, pcl::Normal> ne;
 		ne.setInputCloud(cloud);
 
 		bool tune = false;
@@ -196,12 +219,17 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 		ne.setMaxDepthChangeFactor(0.001*double(MaxDepthChangeFactor));
 		ne.setNormalSmoothingSize(NormalSmoothingSize);
 		ne.setDepthDependentSmoothing (depth_dependent_smoothing);
-		ne.compute(*normals);
+		ne.compute(*normals_cloud);
 
         for(int w = 0; w < width; w++){
             for(int h = 0; h < height;h++){
 				int ind = h*width+w;
-				pcl::Normal		p2		= normals->points[ind];
+				pcl::PointXYZRGBA p = cloud->points[ind];
+				pcl::Normal		p2		= normals_cloud->points[ind];
+
+
+				//if(w % 20 == 0 && h % 20 == 0){printf("%i %i -> point(%f %f %f) normal(%f %f %f)\n",w,h,p.x,p.y,p.z,p2.normal_x,p2.normal_y,p2.normal_z);}
+
 				if(!isnan(p2.normal_x)){
 					normalsdata[3*ind+0]	= p2.normal_x;
 					normalsdata[3*ind+1]	= p2.normal_y;
@@ -213,6 +241,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 				}
 			}
 		}
+
 
 		//printf("%s LINE:%i\n",__FILE__,__LINE__);
 		if(tune){
@@ -237,11 +266,11 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 				ne.setMaxDepthChangeFactor(0.001*double(MaxDepthChangeFactor));
 				ne.setNormalSmoothingSize(NormalSmoothingSize);
 				ne.setDepthDependentSmoothing (depth_dependent_smoothing);
-				ne.compute(*normals);
+				ne.compute(*normals_cloud);
                 for(int w = 0; w < width; w++){
                     for(int h = 0; h < height;h++){
 						int ind = h*width+w;
-						pcl::Normal		p2		= normals->points[ind];
+						pcl::Normal		p2		= normals_cloud->points[ind];
 						if(!isnan(p2.normal_x)){
 							normalsdata[3*ind+0]	= p2.normal_x;
 							normalsdata[3*ind+1]	= p2.normal_y;
@@ -263,7 +292,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 						combidata[3*indc+0]	= rgbdata[3*ind+0];
 						combidata[3*indc+1]	= rgbdata[3*ind+1];
 						combidata[3*indc+2]	= rgbdata[3*ind+2];
-						pcl::Normal		p2		= normals->points[ind];
+						pcl::Normal		p2		= normals_cloud->points[ind];
 						if(!isnan(p2.normal_x)){
 							combidata[3*indn+0]	= 255.0*fabs(p2.normal_x);
 							combidata[3*indn+1]	= 255.0*fabs(p2.normal_y);
@@ -286,11 +315,63 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 			//}
 		}
 
-		//printf("%s LINE:%i\n",__FILE__,__LINE__);
-	}
-	//show(true);
+		//pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud2 = getPCLcloud();
+		pcl::OrganizedEdgeFromRGBNormals<pcl::PointXYZRGBA, pcl::Normal, pcl::Label> oed;
+		oed.setInputNormals (normals_cloud);
+		oed.setInputCloud (cloud);
+		oed.setDepthDisconThreshold (0.02); // 2cm
+//		oed.setHCCannyLowThreshold (0.4);
+//		oed.setHCCannyHighThreshold (1.1);
+		oed.setMaxSearchNeighbors (50);
+		pcl::PointCloud<pcl::Label> labels;
+		std::vector<pcl::PointIndices> label_indices;
+		oed.compute (labels, label_indices);
 
-	//printf("%s LINE:%i\n",__FILE__,__LINE__);
+//		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr occluding_edges (new pcl::PointCloud<pcl::PointXYZRGBNormal>),
+//				occluded_edges (new pcl::PointCloud<pcl::PointXYZRGBNormal>),
+//				boundary_edges (new pcl::PointCloud<pcl::PointXYZRGBNormal>),
+//				high_curvature_edges (new pcl::PointCloud<pcl::PointXYZRGBNormal>),
+//				rgb_edges (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+
+//		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud3 (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+//		pcl::copyPointCloud (*cloud2, label_indices[0].indices, *boundary_edges);
+//		pcl::copyPointCloud (*cloud2, label_indices[1].indices, *occluding_edges);
+//		pcl::copyPointCloud (*cloud2, label_indices[2].indices, *occluded_edges);
+//		pcl::copyPointCloud (*cloud2, label_indices[3].indices, *high_curvature_edges);
+//		pcl::copyPointCloud (*cloud2, label_indices[4].indices, *rgb_edges);
+
+//		cv::Mat out = rgb.clone();
+
+		for(unsigned int i = 0; i < label_indices[1].indices.size(); i++){
+			int ind = label_indices[1].indices[i];
+			depthedgesdata[ind] = 255;
+//			out.data[3*ind+0] =255;
+//			out.data[3*ind+1] =0;
+//			out.data[3*ind+2] =255;
+		}
+
+		for(unsigned int i = 0; i < label_indices[3].indices.size(); i++){
+			int ind = label_indices[3].indices[i];
+			depthedgesdata[ind] = 255;
+//			out.data[3*ind+0] =0;
+//			out.data[3*ind+1] =255;
+//			out.data[3*ind+2] =255;
+		}
+
+
+		for(unsigned int i = 0; i < label_indices[4].indices.size(); i++){
+			int ind = label_indices[4].indices[i];
+			//depthedgesdata[ind] = 255;
+//			out.data[3*ind+0] =0;
+//			out.data[3*ind+1] =255;
+//			out.data[3*ind+2] =0;
+		}
+
+//		cv::namedWindow( "edges", cv::WINDOW_AUTOSIZE );	cv::imshow( "edges", out );
+//		cv::waitKey(0);
+
+		//show(true);
+	}
 }
 
 RGBDFrame::~RGBDFrame(){}
@@ -322,16 +403,21 @@ pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr RGBDFrame::getPCLcloud(){
 		for(unsigned int h = 0; h < height;h++){
 			int ind = h*width+w;
 			double z = idepth*double(depthdata[ind]);
+
+			pcl::PointXYZRGB p;
+			p.b = rgbdata[3*ind+0];
+			p.g = rgbdata[3*ind+1];
+			p.r = rgbdata[3*ind+2];
 			if(z > 0){
-				pcl::PointXYZRGB p;
 				p.x = (double(w) - cx) * z * ifx;
 				p.y = (double(h) - cy) * z * ify;
 				p.z = z;
-				p.b = rgbdata[3*ind+0];
-				p.g = rgbdata[3*ind+1];
-				p.r = rgbdata[3*ind+2];
-				cloud->points[ind] = p;
+			}else{
+				p.x = NAN;
+				p.y = NAN;
+				p.z = NAN;
 			}
+			cloud->points[ind] = p;
 		}
 	}
 

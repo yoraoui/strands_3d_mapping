@@ -73,6 +73,15 @@ namespace reglib
 		MassRegistration();
 		~MassRegistration();
 
+		bool okVal(double v);
+		bool isValidPoint(pcl::PointXYZRGBNormal p);
+
+
+		virtual void clearData();
+		virtual void addData(RGBDFrame* frame, ModelMask * mmask);
+		virtual void addModelData(Model * model, bool submodels = true);
+		virtual void addData(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud);
+
 		virtual void setData(std::vector<RGBDFrame*> frames_, std::vector<ModelMask *> mmasks);
 		virtual void setData(std::vector< pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr > all_clouds);
 		void setVisualizationLvl(unsigned int lvl);
@@ -86,5 +95,6 @@ namespace reglib
 }
 
 #include "MassRegistrationPPR.h"
+#include "MassRegistrationPPR2.h"
 
 #endif // MassRegistration_H

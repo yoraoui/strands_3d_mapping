@@ -140,6 +140,7 @@ template <typename T> struct ArrayData3D {
 	double getTime();
 
 
+
 	struct PointCostFunctor {
 		double m1 [3];
 		double m2 [3];
@@ -230,7 +231,7 @@ template <typename T> struct ArrayData3D {
 								Eigen::Matrix<double, 3, Eigen::Dynamic> & Y,
 								Eigen::Matrix<double, 3, Eigen::Dynamic> & Yn,
 								Eigen::VectorXd & W);
-	bool isconverged(std::vector<Eigen::Matrix4d> before, std::vector<Eigen::Matrix4d> after, double stopvalr = 0.001, double stopvalt = 0.001);
+    bool isconverged(std::vector<Eigen::Matrix4d> before, std::vector<Eigen::Matrix4d> after, double stopvalr = 0.001, double stopvalt = 0.001, bool verbose = false);
 	void setFirstIdentity(std::vector<Eigen::Matrix4d> & v);
 }
 

@@ -162,7 +162,7 @@ namespace reglib{
 		Xn = transformation*Xn;
 	}
 
-	bool isconverged(std::vector<Eigen::Matrix4d> before, std::vector<Eigen::Matrix4d> after, double stopvalr, double stopvalt){
+    bool isconverged(std::vector<Eigen::Matrix4d> before, std::vector<Eigen::Matrix4d> after, double stopvalr, double stopvalt, bool verbose){
 		double change_trans = 0;
 		double change_rot = 0;
 		unsigned int nr_frames = after.size();
@@ -185,6 +185,10 @@ namespace reglib{
 
 		change_trans /= double(nr_frames*(nr_frames-1));
 		change_rot	 /= double(nr_frames*(nr_frames-1));
+
+        if(verbose){
+            printf("change_trans: %10.10f change_rot: %10.10f\n",change_trans,change_rot);
+        }
 
 		if(change_trans < stopvalt && change_rot < stopvalr){return true;}
 		else{return false;}

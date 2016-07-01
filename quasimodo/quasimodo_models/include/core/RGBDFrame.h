@@ -16,6 +16,10 @@
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <iostream>
+#include <opencv2/opencv.hpp>
+#include <opencv2/features2d/features2d.hpp>
+
 #include "Util.h"
 #include "Camera.h"
 
@@ -23,6 +27,7 @@ namespace reglib
 {
 	class RGBDFrame{
 		public:
+		std::string keyval;
 		Camera * camera;
 		unsigned long id;
 		double capturetime;

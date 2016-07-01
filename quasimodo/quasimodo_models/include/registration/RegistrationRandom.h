@@ -20,6 +20,8 @@ namespace reglib
 
 		RegistrationRandom();
 		~RegistrationRandom();
+
+		bool issame(FusionResults fr1, FusionResults fr2, int stepxsmall);
 		
 		FusionResults getTransform(Eigen::MatrixXd guess);
 	};

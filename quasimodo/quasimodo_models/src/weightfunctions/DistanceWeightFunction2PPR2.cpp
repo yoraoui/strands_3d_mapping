@@ -648,10 +648,12 @@ bool DistanceWeightFunction2PPR2::update(){
 		Gaussian3 g = Gaussian3(mulval,meanval,stdval);//getModel(stdval,blur_histogram,uniform_bias);
 
 		int iteration = 0;
-        for(int i = 0; i < 100; i++){
+        double regularization_before = regularization;
+        for(int i = 0; i < 500; i++){
 			iteration++;
 			regularization *= 0.5;
 			double change = histogram_size*regularization/maxd;
+            //printf("DistanceWeightFunction2PPR2::update() %i -> reg %f change %f\n",i,regularization,change);
 
 			if(change < 0.01*stdval){return true;}
 
@@ -664,7 +666,8 @@ bool DistanceWeightFunction2PPR2::update(){
 				new_sum_prob += std::min(maxp , g.getval(k)/hs) * new_histogram[k];
 			}
 
-			if(new_sum_prob < 0.99*old_sum_prob){return false;}
+            //printf("new_sum_prob %f old_sum_prob %f ratio: %f\n",new_sum_prob,old_sum_prob,new_sum_prob/old_sum_prob);
+			if(new_sum_prob < 0.99*old_sum_prob || regularization < regularization_before/double(target_length*5)){return false;}
 			g.stdval -= change;
 			g.update();
 		}

@@ -13,11 +13,19 @@
 #include "../registration/MassRegistration.h"
 #include "../mesher/Mesh.h"
 
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <iostream>
+#include <opencv2/opencv.hpp>
+#include <opencv2/features2d/features2d.hpp>
+
 
 #include <pcl/visualization/pcl_visualizer.h>
 
 namespace reglib
 {
+	using namespace std;
+	using namespace Eigen;
 	class UpdatedModels{
 		public:
 		std::vector< Model * > new_models;
@@ -36,6 +44,13 @@ namespace reglib
 		OcclusionScore(){score = 0;occlusions = 0;}
 		OcclusionScore(	double score_ ,double occlusions_){score = score_;occlusions = occlusions_;}
 		~OcclusionScore(){}
+
+		void add(OcclusionScore oc){
+			score += oc.score;
+			occlusions += oc.occlusions;
+		}
+
+		void print(){printf("score: %5.5f occlusions: %5.5f\n",score,occlusions);}
 	};
 
 	class ModelUpdater{
@@ -54,7 +69,30 @@ namespace reglib
 		virtual FusionResults registerModel(Model * model2, Eigen::Matrix4d guess = Eigen::Matrix4d::Identity(), double uncertanity = -1);
 		virtual void fuse(Model * model2, Eigen::Matrix4d guess = Eigen::Matrix4d::Identity(), double uncertanity = -1);
 		virtual UpdatedModels fuseData(FusionResults * f, Model * model1,Model * model2);
-		virtual void refine(double reg = 0.05,bool useFullMask = false);
+
+		virtual bool isRefinementNeeded();
+		virtual bool refineIfNeeded();
+
+		virtual void makeInitialSetup();
+
+		virtual double getCompareUtility(Matrix4d p, RGBDFrame* frame, ModelMask* mask, vector<Matrix4d> & cp, vector<RGBDFrame*> & cf, vector<ModelMask*> & cm);
+		virtual void getGoodCompareFrames(vector<Matrix4d> & cp, vector<RGBDFrame*> & cf, vector<ModelMask*> & cm);
+
+		virtual pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr getPCLnormalcloud(vector<superpoint> & points);
+		virtual void addSuperPoints(vector<superpoint> & spvec, Matrix4d cp, RGBDFrame* cf, ModelMask* cm, int type = 1, bool debugg = false);
+		virtual vector<superpoint> getSuperPoints(vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<ModelMask*> cm, int type = 1, bool debugg = false);
+
+
+		virtual OcclusionScore computeOcclusionScore(vector<superpoint> & spvec, Matrix4d cp, RGBDFrame* cf, ModelMask* cm, int step = 1,  bool debugg = false);
+		virtual OcclusionScore computeOcclusionScore(Model * mod, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<ModelMask*> cm, Matrix4d rp = Matrix4d::Identity(), int step = 1, bool debugg = false);
+		virtual OcclusionScore computeOcclusionScore(Model * model1, Model * model2, Matrix4d rp = Matrix4d::Identity(),int step = 1, bool debugg = false);
+		virtual vector<vector < OcclusionScore > > computeOcclusionScore(vector<Model *> models, vector<Matrix4d> rps, int step = 1, bool debugg = false);
+
+		virtual double computeOcclusionScoreCosts(vector<Model *> models);
+
+		virtual void addModelsToVector(vector<Model *> & models, vector<Matrix4d> & rps, Model * model, Matrix4d rp);
+
+		virtual void refine(double reg = 0.05,bool useFullMask = false, int visualization = 0);
 		virtual void show(bool stop = true);
 		virtual void pruneOcclusions();
 //		virtual OcclusionScore computeOcclusionScore(RGBDFrame * src, cv::Mat src_mask, ModelMask * src_modelmask, RGBDFrame * dst, cv::Mat dst_mask, ModelMask * dst_modelmask, Eigen::Matrix4d p, int step = 1, bool debugg = false);

@@ -12,6 +12,7 @@
 #include "quasimodo_msgs/index_frame.h"
 #include "quasimodo_msgs/fuse_models.h"
 #include "quasimodo_msgs/get_model.h"
+#include "quasimodo_msgs/recognize_model.h"
 #include "quasimodo_msgs/retrieval_query_result.h"
 #include "quasimodo_msgs/retrieval_query.h"
 #include "quasimodo_msgs/retrieval_result.h"
@@ -58,7 +59,9 @@ std::map<int , reglib::RGBDFrame *>		frames;
 
 std::map<int , reglib::Model *>			models;
 std::map<int , reglib::ModelUpdater *>	updaters;
-reglib::RegistrationRandom *				registration;
+
+std::set<std::string>					framekeys;
+reglib::RegistrationRandom *			registration;
 ModelDatabase * 						modeldatabase;
 
 std::string								savepath = ".";
@@ -75,11 +78,13 @@ ros::Publisher chatter_pub;
 
 ros::ServiceClient soma2add;
 
-double occlusion_penalty = 15;
-double massreg_timeout = 60;
+double occlusion_penalty = 10;
+double massreg_timeout = 120;
 
 bool run_search = false;
 double search_timeout = 30;
+
+int sweepid_counter = 0;
 
 bool myfunction (reglib::Model * i,reglib::Model * j) { return i->frames.size() > j->frames.size(); }
 
@@ -174,6 +179,7 @@ void retrievalCallback(const quasimodo_msgs::retrieval_query_result & qr){
 
 int savecounter = 0;
 void show_sorted(){
+	return;
 	if(!visualization){return;}
 	std::vector<reglib::Model *> results;
 	for(unsigned int i = 0; i < modeldatabase->models.size(); i++){results.push_back(modeldatabase->models[i]);}
@@ -216,17 +222,16 @@ void show_sorted(){
 	//viewer->spinOnce();
 }
 
-quasimodo_msgs::model getModelMSG(reglib::Model * model){
-	quasimodo_msgs::model msg;
-	msg.model_id = model->id;
-	msg.local_poses.resize(model->relativeposes.size());
-	msg.frames.resize(model->frames.size());
-	msg.masks.resize(model->modelmasks.size());
+void addToModelMSG(quasimodo_msgs::model & msg, reglib::Model * model, Eigen::Affine3d rp = Eigen::Affine3d::Identity()){
+	int startsize = msg.local_poses.size();
+	msg.local_poses.resize(startsize+model->relativeposes.size());
+	msg.frames.resize(startsize+model->frames.size());
+	msg.masks.resize(startsize+model->modelmasks.size());
 	for(unsigned int i = 0; i < model->relativeposes.size(); i++){
 		geometry_msgs::Pose		pose1;
-		tf::poseEigenToMsg (Eigen::Affine3d(model->relativeposes[i]), pose1);
+		tf::poseEigenToMsg (Eigen::Affine3d(model->relativeposes[i])*rp, pose1);
 		geometry_msgs::Pose		pose2;
-		tf::poseEigenToMsg (Eigen::Affine3d(model->frames[i]->pose), pose2);
+		tf::poseEigenToMsg (Eigen::Affine3d(model->frames[i]->pose)*rp, pose2);
 		cv_bridge::CvImage rgbBridgeImage;
 		rgbBridgeImage.image = model->frames[i]->rgb;
 		rgbBridgeImage.encoding = "bgr8";
@@ -236,15 +241,69 @@ quasimodo_msgs::model getModelMSG(reglib::Model * model){
 		cv_bridge::CvImage maskBridgeImage;
 		maskBridgeImage.image			= model->modelmasks[i]->getMask();
 		maskBridgeImage.encoding		= "mono8";
-		msg.local_poses[i]			= pose1;
-		msg.frames[i].capture_time	= ros::Time();
-		msg.frames[i].pose			= pose2;
-		msg.frames[i].frame_id		= model->frames[i]->id;
-		msg.frames[i].rgb			= *(rgbBridgeImage.toImageMsg());
-		msg.frames[i].depth			= *(depthBridgeImage.toImageMsg());
-		msg.masks[i]				= *(maskBridgeImage.toImageMsg());//getMask()
+		msg.local_poses[startsize+i]			= pose1;
+		msg.frames[startsize+i].capture_time	= ros::Time();
+		msg.frames[startsize+i].pose			= pose2;
+		msg.frames[startsize+i].frame_id		= model->frames[i]->id;
+		msg.frames[startsize+i].rgb			= *(rgbBridgeImage.toImageMsg());
+		msg.frames[startsize+i].depth			= *(depthBridgeImage.toImageMsg());
+		msg.masks[startsize+i]				= *(maskBridgeImage.toImageMsg());//getMask()
 	}
+	for(unsigned int i = 0; i < model->submodels_relativeposes.size(); i++){
+		addToModelMSG(msg,model->submodels[i],Eigen::Affine3d(model->submodels_relativeposes[i])*rp);
+	}
+}
+
+quasimodo_msgs::model getModelMSG(reglib::Model * model){
+	quasimodo_msgs::model msg;
+	msg.model_id = model->id;
+	addToModelMSG(msg,model);
+
+
 	return msg;
+}
+
+reglib::Model * getModelFromMSG(quasimodo_msgs::model msg){
+	reglib::Model * model = new reglib::Model();
+
+	for(unsigned int i = 0; i < msg.local_poses.size(); i++){
+		sensor_msgs::CameraInfo		camera			= msg.frames[i].camera;
+		ros::Time					capture_time	= msg.frames[i].capture_time;
+		geometry_msgs::Pose			pose			= msg.frames[i].pose;
+
+		cv_bridge::CvImagePtr			rgb_ptr;
+		try{							rgb_ptr = cv_bridge::toCvCopy(msg.frames[i].rgb, sensor_msgs::image_encodings::BGR8);}
+		catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
+		cv::Mat rgb = rgb_ptr->image;
+
+		cv_bridge::CvImagePtr			depth_ptr;
+		try{							depth_ptr = cv_bridge::toCvCopy(msg.frames[i].depth, sensor_msgs::image_encodings::MONO16);}
+		catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
+		cv::Mat depth = depth_ptr->image;
+
+		Eigen::Affine3d epose;
+		tf::poseMsgToEigen(pose, epose);
+
+		reglib::RGBDFrame * frame = new reglib::RGBDFrame(cameras[0],rgb, depth, double(capture_time.sec)+double(capture_time.nsec)/1000000000.0, epose.matrix());
+		model->frames.push_back(frame);
+
+		geometry_msgs::Pose	pose1 = msg.local_poses[i];
+		Eigen::Affine3d epose1;
+		tf::poseMsgToEigen(pose1, epose1);
+		model->relativeposes.push_back(epose1.matrix());
+
+		cv_bridge::CvImagePtr			mask_ptr;
+		try{							mask_ptr = cv_bridge::toCvCopy(msg.masks[i], sensor_msgs::image_encodings::MONO8);}
+		catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
+		cv::Mat mask = mask_ptr->image;
+
+		model->modelmasks.push_back(new reglib::ModelMask(mask));
+		model->modelmasks.back()->sweepid = sweepid_counter;
+	}
+	model->recomputeModelPoints();
+	sweepid_counter++;
+
+	return model;
 }
 
 std::vector<soma2_msgs::SOMA2Object> getSOMA2ObjectMSGs(reglib::Model * model){
@@ -360,6 +419,94 @@ void publishModel(reglib::Model * model){
 	//	 }
 }
 
+bool recognizeModel(quasimodo_msgs::recognize_model::Request  & req, quasimodo_msgs::recognize_model::Response & res){
+	if(modeldatabase->models.size() == 0){res.score = -1;return true;}
+	reglib::Model * model = getModelFromMSG(req.inputmodel);
+
+	double best = 0;
+	int best_ind = 0;
+	for(unsigned int i = 0; i < modeldatabase->models.size(); i++){
+		reglib::Model * model2 = modeldatabase->models[i];
+		reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
+		reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model2, reg);
+		mu->occlusion_penalty               = occlusion_penalty;
+		mu->massreg_timeout                 = massreg_timeout;
+		mu->viewer							= viewer;
+		reg->visualizationLvl				= 0;
+		reglib::FusionResults fr = mu->registerModel(model);
+
+		if(fr.score > 100){
+			fr.guess = fr.guess.inverse();
+
+			Eigen::Matrix4d pose = fr.guess;
+			std::vector<Eigen::Matrix4d>	current_poses;
+			std::vector<reglib::RGBDFrame*>			current_frames;
+			std::vector<reglib::ModelMask*>			current_modelmasks;
+
+			for(unsigned int i = 0; i < model->frames.size(); i++){
+				current_poses.push_back(				model->relativeposes[i]);
+				current_frames.push_back(				model->frames[i]);
+				current_modelmasks.push_back(			model->modelmasks[i]);
+			}
+
+			for(unsigned int i = 0; i < model2->frames.size(); i++){
+				current_poses.push_back(	pose	*	model2->relativeposes[i]);
+				current_frames.push_back(				model2->frames[i]);
+				current_modelmasks.push_back(			model2->modelmasks[i]);
+			}
+
+			std::vector<std::vector < reglib::OcclusionScore > > ocs = mu->getOcclusionScores(current_poses, current_frames,current_modelmasks,false);
+			std::vector<std::vector < float > > scores = mu->getScores(ocs);
+
+
+			unsigned int frames1 = model->frames.size();
+			unsigned int frames2 = model2->frames.size();
+			double sumscore1 = 0;
+			for(unsigned int i = 0; i < frames1; i++){
+				for(unsigned int j = 0; j < frames1; j++){
+					sumscore1 += scores[i][j];
+				}
+			}
+
+			double sumscore2 = 0;
+			for(unsigned int i = 0; i < frames2; i++){
+				for(unsigned int j = 0; j < frames2; j++){
+					sumscore2 += scores[i+frames1][j+frames1];
+				}
+			}
+
+			double sumscore = 0;
+			for(unsigned int i = 0; i < scores.size(); i++){
+				for(unsigned int j = 0; j < scores.size(); j++){
+					sumscore += scores[i][j];
+				}
+			}
+
+			double improvement = sumscore-sumscore1-sumscore2;
+			if(i == 0 || improvement > best){
+				best_ind = i;
+				best = improvement;
+			}
+		}
+
+		delete mu;
+		delete reg;
+	}
+
+	for(unsigned int i = 0; i < model->frames.size(); i++){
+		delete model->frames[i];
+		delete model->modelmasks[i];
+	}
+	delete model;
+
+	res.score = best;
+	res.outputmodel = getModelMSG(modeldatabase->models[best_ind]);
+	//int model_id			= req.model_id;
+	//reglib::Model * model	= models[model_id];
+	//res.model = getModelMSG(model);
+	return true;
+}
+
 bool getModel(quasimodo_msgs::get_model::Request  & req, quasimodo_msgs::get_model::Response & res){
 	int model_id			= req.model_id;
 	reglib::Model * model	= models[model_id];
@@ -368,7 +515,6 @@ bool getModel(quasimodo_msgs::get_model::Request  & req, quasimodo_msgs::get_mod
 }
 
 bool indexFrame(quasimodo_msgs::index_frame::Request  & req, quasimodo_msgs::index_frame::Response & res){
-	//printf("indexFrame\n");
 	sensor_msgs::CameraInfo		camera			= req.frame.camera;
 	ros::Time					capture_time	= req.frame.capture_time;
 	geometry_msgs::Pose			pose			= req.frame.pose;
@@ -386,9 +532,13 @@ bool indexFrame(quasimodo_msgs::index_frame::Request  & req, quasimodo_msgs::ind
 	Eigen::Affine3d epose;
 	tf::poseMsgToEigen(pose, epose);
 
-	//printf("%s LINE:%i\n",__FILE__,__LINE__);
-	reglib::RGBDFrame * frame = new reglib::RGBDFrame(cameras[0],rgb, depth, double(capture_time.sec)+double(capture_time.nsec)/1000000000.0, epose.matrix());
-	//printf("%s LINE:%i\n",__FILE__,__LINE__);
+    reglib::Camera * cam		= new reglib::Camera();//TODO:: ADD TO CAMERAS
+    cam->fx = camera.K[0];
+    cam->fy = camera.K[4];
+    cam->cx = camera.K[2];
+    cam->cy = camera.K[5];
+
+    reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, double(capture_time.sec)+double(capture_time.nsec)/1000000000.0, epose.matrix());
 	frames[frame->id] = frame;
 	res.frame_id = frame->id;
 	return true;
@@ -444,16 +594,16 @@ void call_from_thread(int i) {
 int current_model_update = 0;
 void addToDB(ModelDatabase * database, reglib::Model * model, bool add = true, bool deleteIfFail = false){
 	printf("addToDB %i %i\n",int(add),int(deleteIfFail));
-	if(add){
 
-		if(model->frames.size() > 2){
+	if(add){
+		if(model->submodels.size() > 2){
 			reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 			reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model, 0);
 			mu->occlusion_penalty               = occlusion_penalty;
 			mu->massreg_timeout                 = massreg_timeout;
 			mu->viewer							= viewer;
 			reg->visualizationLvl				= 0;
-			mu->refine(0.001,true);
+			mu->refine(0.001,false,0);
 			delete mu;
 			delete reg;
 		}
@@ -462,9 +612,11 @@ void addToDB(ModelDatabase * database, reglib::Model * model, bool add = true, b
 		model->last_changed = ++current_model_update;
 		//		show_sorted();
 	}
-
+show_sorted();
 	mod = model;
-	res = modeldatabase->search(model,150);
+	res = modeldatabase->search(model,3);
+
+	printf("results found: %i\n",res.size());
 	fr_res.resize(res.size());
 
 	if(res.size() == 0){
@@ -487,7 +639,7 @@ void addToDB(ModelDatabase * database, reglib::Model * model, bool add = true, b
 			reglib::Model * model2 = res[i];
 			reglib::FusionResults fr = fr_res[i];
 			if(fr.score > 100){
-				fr.guess = fr.guess.inverse();
+				//fr.guess = fr.guess.inverse();
 				fr2merge.push_back(fr);
 				models2merge.push_back(model2);
 				printf("%i could be registered\n",i);
@@ -523,20 +675,20 @@ void addToDB(ModelDatabase * database, reglib::Model * model, bool add = true, b
 			if(ud.deleted_models.size() > 0){changed = true; break;}
 		}
 	}else{
+		printf("TIME TO ITERATE THROUGH RESULTS\n");
 		for(unsigned int i = 0; i < res.size(); i++){
+			printf("TESTING %i\n",i);
 			reglib::Model * model2 = res[i];
 			reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 			reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model2, reg);
 			mu->occlusion_penalty               = occlusion_penalty;
 			mu->massreg_timeout                 = massreg_timeout;
 			mu->viewer							= viewer;
-			reg->visualizationLvl				= 0;
+			reg->visualizationLvl				= 2;
 			reglib::FusionResults fr = mu->registerModel(model);
 
 			if(fr.score > 100){
-				fr.guess = fr.guess.inverse();
-
-				reglib::UpdatedModels ud = mu->fuseData(&fr, model, model2);
+				reglib::UpdatedModels ud = mu->fuseData(&fr, model2, model);
 				printf("merge %i to %i\n",int(model->id),int(model2->id));
 				printf("new_models:     %i\n",int(ud.new_models.size()));
 				printf("updated_models: %i\n",int(ud.updated_models.size()));
@@ -549,11 +701,19 @@ void addToDB(ModelDatabase * database, reglib::Model * model, bool add = true, b
 					database->remove(ud.deleted_models[j]);
 					delete ud.deleted_models[j];
 				}
-				if(ud.deleted_models.size() > 0){changed = true; break;}
+				if(ud.deleted_models.size() > 0){
+					changed = true;
+					delete mu;
+					delete reg;
+					printf("DONE TESTING %i\n",i);
+					break;
+				}
 			}
 
 			delete mu;
 			delete reg;
+
+			printf("DONE TESTING %i\n",i);
 		}
 	}
 
@@ -586,8 +746,11 @@ void addToDB(ModelDatabase * database, reglib::Model * model, bool add = true, b
 	if(deleteIfFail){
 		if(!changed){
 			printf("didnt manage to integrate searchresult\n");
+
 			database->remove(model);
 			for(unsigned int i = 0; i < model->frames.size(); i++){
+				std::string key = model->frames[i]->keyval;
+				if(framekeys.count(key) != 0){framekeys.erase(key);}
 				delete model->frames[i];
 				delete model->modelmasks[i];
 			}
@@ -601,104 +764,164 @@ void addToDB(ModelDatabase * database, reglib::Model * model, bool add = true, b
 bool nextNew = true;
 reglib::Model * newmodel = 0;
 
-int sweepid_counter = 0;
 
 //std::vector<cv::Mat> newmasks;
 std::vector<cv::Mat> allmasks;
 
 int modaddcount = 0;
 bool modelFromFrame(quasimodo_msgs::model_from_frame::Request  & req, quasimodo_msgs::model_from_frame::Response & res){
-	printf("======================================\nmodelFromFrame\n======================================\n");
+	//printf("======================================\nmodelFromFrame\n======================================\n");
 	uint64 frame_id = req.frame_id;
 	uint64 isnewmodel = req.isnewmodel;
 
-	printf("%i and %i\n",int(frame_id),int(isnewmodel));
+	//printf("%i and %i\n",int(frame_id),int(isnewmodel));
+
+	printf("modelFromFrame %i and %i\n",int(frame_id),int(isnewmodel));
+
 	cv_bridge::CvImagePtr			mask_ptr;
 	try{							mask_ptr = cv_bridge::toCvCopy(req.mask, sensor_msgs::image_encodings::MONO8);}
 	catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());return false;}
 
 	cv::Mat mask					= mask_ptr->image;
 	allmasks.push_back(mask);
-	std::cout << frames[frame_id]->pose << std::endl << std::endl;
+	//std::cout << frames[frame_id]->pose << std::endl << std::endl;
 
-	cv::Mat fullmask;
-	fullmask.create(480,640,CV_8UC1);
-	unsigned char * maskdata = (unsigned char *)fullmask.data;
-	for(unsigned int j = 0; j < 640*480; j++){maskdata[j] = 255;}
 	if(newmodel == 0){
 		newmodel					= new reglib::Model(frames[frame_id],mask);
-		modeldatabase->add(newmodel);
-		//		newmodel->masks.back() = fullmask;
-		//		newmodel->recomputeModelPoints();
+		//modeldatabase->add(newmodel);
 	}else{
-		//		reglib::Model * inputmodel					= new reglib::Model(frames[frame_id],mask);
-		//		inputmodel->masks.back() = fullmask;
-		//		inputmodel->recomputeModelPoints();
-
-		//		reglib::RegistrationRefinement *	reg		= new reglib::RegistrationRefinement();
-		//		//RegistrationRefinement
-		//		reg->target_points							= 3000;
-		//		reglib::ModelUpdaterBasicFuse * mu			= new reglib::ModelUpdaterBasicFuse( inputmodel, reg);
-		//		mu->viewer									= viewer;
-		//		reg->visualizationLvl						= 4;
-		//		reglib::FusionResults fr = mu->registerModel(newmodel,(newmodel->frames.front()->pose.inverse() * frames[frame_id]->pose).inverse());
-		//		fr.guess = fr.guess.inverse();
-		//		delete inputmodel;
-		//		delete mu;
-		//		delete reg;
-
 		newmodel->frames.push_back(frames[frame_id]);
-		//newmodel->masks.push_back(mask);
 		newmodel->relativeposes.push_back(newmodel->frames.front()->pose.inverse() * frames[frame_id]->pose);
-		//newmodel->relativeposes.push_back(frames[frame_id]->pose);
-		//newmodel->relativeposes.push_back(newmodel->frames.front()->pose.inverse() * fr.guess);
 		newmodel->modelmasks.push_back(new reglib::ModelMask(mask));
 		newmodel->recomputeModelPoints();
-
 	}
 	newmodel->modelmasks.back()->sweepid = sweepid_counter;
-	//printf("LINE: %i\n",__LINE__);
-
-	//show_sorted();
 
 	res.model_id					= newmodel->id;
-
 	if(isnewmodel != 0){
-		//newmodel->masks = newmasks;
-		//newmasks.clear();
+		int current_model_update_before = current_model_update;
 		newmodel->recomputeModelPoints();
-		//show_sorted();
+
+
 		reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 		reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( newmodel, reg);
 		mu->occlusion_penalty               = occlusion_penalty;
 		mu->massreg_timeout                 = massreg_timeout;
 		mu->viewer							= viewer;
-		//		reg->visualizationLvl				= 0;
-		mu->refine(0.01,true);
-		mu->recomputeScores();
-		delete mu;
-		delete reg;
-		int current_model_update_before = current_model_update;
-		newmodel->recomputeModelPoints();
+
+newmodel->print();
+		mu->makeInitialSetup();
+newmodel->print();
+delete mu;
+delete reg;
+
+		reglib::Model * newmodelHolder = new reglib::Model();
+		newmodelHolder->submodels.push_back(newmodel);
+		newmodelHolder->submodels_relativeposes.push_back(Eigen::Matrix4d::Identity());
+		newmodelHolder->last_changed = ++current_model_update;
+		newmodelHolder->recomputeModelPoints();
+
+		modeldatabase->add(newmodelHolder);
+		addToDB(modeldatabase, newmodelHolder,false);
+		for(unsigned int i = 0; i < modeldatabase->models.size(); i++){modeldatabase->models[i]->showHistory(viewer);}
+		show_sorted();
+
+//exit(0);
+
+
+/*
+//SIMPLE TEST
+reglib::Model * testmodel = new reglib::Model();
+for(int i = 0; i < newmodel->frames.size();i++){
+	printf("%i / %i\n",i+1,newmodel->frames.size());
+	reglib::Model * tmp = new reglib::Model();
+	tmp->frames.push_back(newmodel->frames[i]);
+	tmp->modelmasks.push_back(newmodel->modelmasks[i]);
+	tmp->relativeposes.push_back(Eigen::Matrix4d::Identity());
+	tmp->recomputeModelPoints();
+
+	std::vector<Eigen::Matrix4d> cp;
+	std::vector<reglib::RGBDFrame*> cf;
+	std::vector<reglib::ModelMask*> cm;
+	for(unsigned int i = 0; i < tmp->relativeposes.size(); i++){
+		cp.push_back(tmp->relativeposes[i]);
+		cf.push_back(tmp->frames[i]);
+		cm.push_back(tmp->modelmasks[i]);
+	}
+	mu->getGoodCompareFrames(cp,cf,cm);
+	tmp->rep_relativeposes = cp;
+	tmp->rep_frames = cf;
+	tmp->rep_modelmasks = cm;
+
+//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud = tmp->getPCLnormalcloud(1,false);
+//	viewer->removeAllPointClouds();
+//	viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "cloud");
+//	viewer->spin();
+
+	testmodel->submodels.push_back(tmp);
+	testmodel->submodels_relativeposes.push_back(newmodel->relativeposes[i]);
+}
+
+testmodel->recomputeModelPoints();
+{
+	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud = testmodel->getPCLnormalcloud(1,false);
+	viewer->removeAllPointClouds();
+	viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "cloud");
+	viewer->spin();
+}
+
+std::vector<reglib::Model *> testmodels;
+std::vector<Eigen::Matrix4d> testrps;
+mu->addModelsToVector(testmodels,testrps,testmodel,Eigen::Matrix4d::Identity());
+
+printf("testmodels: %i\n",testmodels.size());
+std::vector<std::vector < reglib::OcclusionScore > > testocs = mu->computeOcclusionScore(testmodels,testrps);
+std::vector<std::vector < float > > scores = mu->getScores(testocs);
+std::vector<int> partition = mu->getPartition(scores,2,5,2);
+
+for(unsigned int i = 0; i < scores.size(); i++){
+	for(unsigned int j = 0; j < scores.size(); j++){
+		if(scores[i][j] > 0){printf(" ");}
+		printf("%5.5f ",0.0001*scores[i][j]);
+	}
+	printf("\n");
+}
+
+printf("partition");
+for(unsigned int i = 0; i < partition.size(); i++){printf("%i ", partition[i]);}
+printf("\n");
+*/
+
+//exit(0);
+/*
+vector<Model *> models;
+vector<Matrix4d> rps;
+
+//			models.push_back(model);
+//			models.push_back(model2);
+//			rps.push_back(Eigen::Matrix4d::Identity());
+//			rps.push_back(pose);
+
+addModelsToVector(models,rps,model,Eigen::Matrix4d::Identity());
+unsigned int nr_models1 = models.size();
+addModelsToVector(models,rps,model2,pose);
+vector<vector < OcclusionScore > > ocs = computeOcclusionScore(models,rps);
+*/
+/*
+
+		//newmodel->recomputeModelPoints();
+
+
 		newmodel->last_changed = ++current_model_update;
 		newmodel->print();
+//exit(0);
 		addToDB(modeldatabase, newmodel,false);
 		//if(modaddcount % 1 == 0){show_sorted();}
-		show_sorted();
+		//show_sorted();
 		publishDatabasePCD();
 		modaddcount++;
-		dumpDatabase(savepath);
-
-		//		cameras[0]->save("./camera0");
-		//		for(unsigned int m = 0; m < modeldatabase->models.size(); m++){
-		//			char buf [1024];
-		//			sprintf(buf,"./model%i",m);
-		//			char command [1024];
-		//			sprintf(command,"mkdir -p %s",buf);
-		//			system(command);
-		//			modeldatabase->models[m]->save(std::string(buf));
-		//		}
-		//exit(0);
+		//dumpDatabase(savepath);
+*/
 
 		for(unsigned int m = 0; run_search && m < modeldatabase->models.size(); m++){
 			printf("looking at: %i\n",int(modeldatabase->models[m]->last_changed));
@@ -720,7 +943,14 @@ bool modelFromFrame(quasimodo_msgs::model_from_frame::Request  & req, quasimodo_
 							int maxval = 0;
 							int maxind = 0;
 
+							int dilation_size = 10;
+							cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT,
+																		cv::Size( 2*dilation_size + 1, 2*dilation_size+1 ),
+																		cv::Point( dilation_size, dilation_size ) );
+
 							for(unsigned int j = 0; j < sresult.retrieved_images[i].images.size(); j++){
+								//framekeys
+
 								cv_bridge::CvImagePtr ret_image_ptr;
 								try {ret_image_ptr = cv_bridge::toCvCopy(sresult.retrieved_images[i].images[j], sensor_msgs::image_encodings::BGR8);}
 								catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
@@ -737,10 +967,12 @@ bool modelFromFrame(quasimodo_msgs::model_from_frame::Request  & req, quasimodo_
 								cv::Mat maskimage	= ret_mask_ptr->image;
 								cv::Mat depthimage	= ret_depth_ptr->image;
 
+								cv::Mat erosion_dst;
+								cv::erode( maskimage, erosion_dst, element );
 
 								unsigned short * depthdata = (unsigned short * )depthimage.data;
 								unsigned char * rgbdata = (unsigned char * )rgbimage.data;
-								unsigned char * maskdata = (unsigned char * )maskimage.data;
+								unsigned char * maskdata = (unsigned char * )erosion_dst.data;
 								int count = 0;
 								for(int pixel = 0; pixel < depthimage.rows*depthimage.cols;pixel++){
 									if(depthdata[pixel] > 0 && maskdata[pixel] > 0){
@@ -755,63 +987,81 @@ bool modelFromFrame(quasimodo_msgs::model_from_frame::Request  & req, quasimodo_
 
 							//for(unsigned int j = 0; j < 1 && j < sresult.retrieved_images[i].images.size(); j++){
 							if(maxval > 100){//Atleast some pixels has to be in the mask...
-								int j =  maxind;
+								std::string key = sresult.retrieved_image_paths[i].strings[maxind];
+								printf("searchresult key:%s\n",key.c_str());
+								if(framekeys.count(key) == 0){
 
-								cv_bridge::CvImagePtr ret_image_ptr;
-								try {ret_image_ptr = cv_bridge::toCvCopy(sresult.retrieved_images[i].images[j], sensor_msgs::image_encodings::BGR8);}
-								catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
+									int j = maxind;
 
-								cv_bridge::CvImagePtr ret_mask_ptr;
-								try {ret_mask_ptr = cv_bridge::toCvCopy(sresult.retrieved_masks[i].images[j], sensor_msgs::image_encodings::MONO8);}
-								catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
+									cv_bridge::CvImagePtr ret_image_ptr;
+									try {ret_image_ptr = cv_bridge::toCvCopy(sresult.retrieved_images[i].images[j], sensor_msgs::image_encodings::BGR8);}
+									catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
 
-								cv_bridge::CvImagePtr ret_depth_ptr;
-								try {ret_depth_ptr = cv_bridge::toCvCopy(sresult.retrieved_depths[i].images[j], sensor_msgs::image_encodings::MONO16);}
-								catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
+									cv_bridge::CvImagePtr ret_mask_ptr;
+									try {ret_mask_ptr = cv_bridge::toCvCopy(sresult.retrieved_masks[i].images[j], sensor_msgs::image_encodings::MONO8);}
+									catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
 
-								cv::Mat rgbimage	= ret_image_ptr->image;
-								cv::Mat maskimage	= ret_mask_ptr->image;
-								cv::Mat depthimage	= ret_depth_ptr->image;
-								for (int ii = 0; ii < depthimage.rows; ++ii) {
-									for (int jj = 0; jj < depthimage.cols; ++jj) {
-										depthimage.at<uint16_t>(ii, jj) *= 5;
+									cv_bridge::CvImagePtr ret_depth_ptr;
+									try {ret_depth_ptr = cv_bridge::toCvCopy(sresult.retrieved_depths[i].images[j], sensor_msgs::image_encodings::MONO16);}
+									catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
+
+									cv::Mat rgbimage	= ret_image_ptr->image;
+									cv::Mat maskimage	= ret_mask_ptr->image;
+									cv::Mat depthimage	= ret_depth_ptr->image;
+									for (int ii = 0; ii < depthimage.rows; ++ii) {
+										for (int jj = 0; jj < depthimage.cols; ++jj) {
+											depthimage.at<uint16_t>(ii, jj) *= 5;
+										}
 									}
-								}
 
-//								cv::Mat overlap	= rgbimage.clone();
-//								unsigned short * depthdata = (unsigned short * )depthimage.data;
-//								unsigned char * rgbdata = (unsigned char * )rgbimage.data;
-//								unsigned char * maskdata = (unsigned char * )maskimage.data;
-//								unsigned char * overlapdata = (unsigned char * )overlap.data;
-//								for(int pixel = 0; pixel < depthimage.rows*depthimage.cols;pixel++){
-//									if(depthdata[pixel] > 0 && maskdata[pixel] > 0){
-//										overlapdata[3*pixel+0] = rgbdata[3*pixel+0];
-//										overlapdata[3*pixel+1] = rgbdata[3*pixel+1];
-//										overlapdata[3*pixel+2] = rgbdata[3*pixel+2];
-//									}else{
-//										overlapdata[3*pixel+0] = 0;
-//										overlapdata[3*pixel+1] = 0;
-//										overlapdata[3*pixel+2] = 0;
-//									}
-//								}
-//								cv::namedWindow( "rgbimage", cv::WINDOW_AUTOSIZE );			cv::imshow( "rgbimage", rgbimage );
-//								cv::namedWindow( "maskimage", cv::WINDOW_AUTOSIZE );		cv::imshow( "maskimage", maskimage );
-//								cv::namedWindow( "depthimage", cv::WINDOW_AUTOSIZE );		cv::imshow( "depthimage", 100*depthimage );
-//								cv::namedWindow( "overlap", cv::WINDOW_AUTOSIZE );			cv::imshow( "overlap", overlap );
 
-								Eigen::Affine3d epose = Eigen::Affine3d::Identity();
-								reglib::RGBDFrame * frame = new reglib::RGBDFrame(cameras[0],rgbimage, depthimage, 0, epose.matrix());
-								reglib::Model * searchmodel = new reglib::Model(frame,maskimage);
-								bool res = searchmodel->testFrame(0);
+									cv::Mat erosion_dst;
+									cv::erode( maskimage, erosion_dst, element );
 
-//								if(cv::waitKey(0) != 'n'){
+									//								cv::Mat overlap	= rgbimage.clone();
+									//								unsigned short * depthdata = (unsigned short * )depthimage.data;
+									//								unsigned char * rgbdata = (unsigned char * )rgbimage.data;
+									//								unsigned char * maskdata = (unsigned char * )maskimage.data;
+									//								unsigned char * overlapdata = (unsigned char * )overlap.data;
+									//								for(int pixel = 0; pixel < depthimage.rows*depthimage.cols;pixel++){
+									//									if(depthdata[pixel] > 0 && maskdata[pixel] > 0){
+									//										overlapdata[3*pixel+0] = rgbdata[3*pixel+0];
+									//										overlapdata[3*pixel+1] = rgbdata[3*pixel+1];
+									//										overlapdata[3*pixel+2] = rgbdata[3*pixel+2];
+									//									}else{
+									//										overlapdata[3*pixel+0] = 0;
+									//										overlapdata[3*pixel+1] = 0;
+									//										overlapdata[3*pixel+2] = 0;
+									//									}
+									//								}
+									//								cv::namedWindow( "rgbimage", cv::WINDOW_AUTOSIZE );			cv::imshow( "rgbimage", rgbimage );
+									//								cv::namedWindow( "maskimage", cv::WINDOW_AUTOSIZE );		cv::imshow( "maskimage", maskimage );
+									//								cv::namedWindow( "depthimage", cv::WINDOW_AUTOSIZE );		cv::imshow( "depthimage", 100*depthimage );
+									//								cv::namedWindow( "overlap", cv::WINDOW_AUTOSIZE );			cv::imshow( "overlap", overlap );
 
+									Eigen::Affine3d epose = Eigen::Affine3d::Identity();
+									reglib::RGBDFrame * frame = new reglib::RGBDFrame(cameras[0],rgbimage, depthimage, 0, epose.matrix());
+									frame->keyval = key;
+									//reglib::Model * searchmodel = new reglib::Model(frame,maskimage);
+									reglib::Model * searchmodel = new reglib::Model(frame,erosion_dst);
+									bool res = searchmodel->testFrame(0);
+
+									reglib::Model * searchmodelHolder = new reglib::Model();
+									searchmodelHolder->submodels.push_back(searchmodel);
+									searchmodelHolder->submodels_relativeposes.push_back(Eigen::Matrix4d::Identity());
+									searchmodelHolder->last_changed = ++current_model_update;
+									searchmodelHolder->recomputeModelPoints();
+
+
+									//								if(cv::waitKey(0) != 'n'){
 									//Todo:: check new model is not flat or L shape
 
 									printf("--- trying to add serach results, if more then one addToDB: results added-----\n");
-									addToDB(modeldatabase, searchmodel,false,true);
+									//addToDB(modeldatabase, searchmodel,false,true);
+									addToDB(modeldatabase, searchmodelHolder,false,true);
 									show_sorted();
-//								}
+									//								}
+								}
 							}
 						}
 
@@ -824,6 +1074,7 @@ bool modelFromFrame(quasimodo_msgs::model_from_frame::Request  & req, quasimodo_
 			}
 			//exit(0);
 		}
+
 		newmodel = 0;
 		sweepid_counter++;
 	}
@@ -902,7 +1153,10 @@ int main(int argc, char **argv){
 	ros::ServiceServer service4 = n.advertiseService("get_model", getModel);
 	ROS_INFO("Ready to add use get_model.");
 
-	soma2add = n.serviceClient<soma_manager::SOMA2InsertObjs>(		"soma2/insert_objs");
+	ros::ServiceServer service5 = n.advertiseService("recognize_model", recognizeModel);
+	ROS_INFO("Ready to add use get_model.");
+
+	soma2add = n.serviceClient<soma_manager::SOMA2InsertObjs>("soma2/insert_objs");
 	ROS_INFO("Ready to add use soma2add.");
 
 	ros::Subscriber sub = n.subscribe("/retrieval_result", 1, retrievalCallback);
@@ -955,7 +1209,7 @@ int main(int argc, char **argv){
 	if(visualization){
 		viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("viewer"));
 		viewer->addCoordinateSystem(0.1);
-		viewer->setBackgroundColor(0.9,0.9,0.9);
+		viewer->setBackgroundColor(0.0,0.0,0.0);
 	}
 
 	ros::Duration(1.0).sleep();

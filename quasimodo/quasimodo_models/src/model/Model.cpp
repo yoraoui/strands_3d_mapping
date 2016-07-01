@@ -31,15 +31,276 @@ Model::Model(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d pose){
     recomputeModelPoints();
 }
 
-void Model::recomputeModelPoints(){
+void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* frame, ModelMask* modelmask){
+	bool * maskvec = modelmask->maskvec;
+	unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
+	unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
+	float		   * normalsdata	= (float			*)(frame->normals.data);
+
+	unsigned int frameid = frame->id;
+
+	Matrix4d ip = p.inverse();
+
+	float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
+	float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
+	float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
+
+	float im00 = ip(0,0); float im01 = ip(0,1); float im02 = ip(0,2); float im03 = ip(0,3);
+	float im10 = ip(1,0); float im11 = ip(1,1); float im12 = ip(1,2); float im13 = ip(1,3);
+	float im20 = ip(2,0); float im21 = ip(2,1); float im22 = ip(2,2); float im23 = ip(2,3);
+
+	Camera * camera				= frame->camera;
+	const unsigned int width	= camera->width;
+	const unsigned int height	= camera->height;
+
+	const unsigned int dst_width2	= camera->width  - 2;
+	const unsigned int dst_height2	= camera->height - 2;
+
+	const float idepth			= camera->idepth_scale;
+	const float cx				= camera->cx;
+	const float cy				= camera->cy;
+	const float fx				= camera->fx;
+	const float fy				= camera->fy;
+	const float ifx				= 1.0/camera->fx;
+	const float ify				= 1.0/camera->fy;
+
+	bool * isfused = new bool[width*height];
+	for(unsigned int i = 0; i < width*height; i++){isfused[i] = false;}
+
+
+	for(unsigned int ind = 0; ind < spvec.size();ind++){
+		superpoint & sp = spvec[ind];
+
+		float src_x = sp.point(0);
+		float src_y = sp.point(1);
+		float src_z = sp.point(2);
+
+		float src_nx = sp.normal(0);
+		float src_ny = sp.normal(1);
+		float src_nz = sp.normal(2);
+
+		float src_r = sp.feature(0);
+		float src_g = sp.feature(1);
+		float src_b = sp.feature(2);
+
+		double point_information = sp.point_information;
+		double feature_information = sp.feature_information;
+
+		float tx	= im00*src_x + im01*src_y + im02*src_z + im03;
+		float ty	= im10*src_x + im11*src_y + im12*src_z + im13;
+		float tz	= im20*src_x + im21*src_y + im22*src_z + im23;
+
+		float itz	= 1.0/tz;
+		float dst_w	= fx*tx*itz + cx;
+		float dst_h	= fy*ty*itz + cy;
+
+		if((dst_w > 0) && (dst_h > 0) && (dst_w < dst_width2) && (dst_h < dst_height2)){
+			unsigned int dst_ind = unsigned(dst_h+0.5) * width + unsigned(dst_w+0.5);
+
+			float dst_z = idepth*float(depthdata[dst_ind]);
+			float dst_nx = normalsdata[3*dst_ind+0];
+			if(!isfused[dst_ind] && dst_z > 0 && dst_nx != 2){
+				float dst_ny = normalsdata[3*dst_ind+1];
+				float dst_nz = normalsdata[3*dst_ind+2];
+
+				float dst_x = (float(dst_w) - cx) * dst_z * ifx;
+				float dst_y = (float(dst_h) - cy) * dst_z * ify;
+
+				double dst_noise = dst_z * dst_z;
+
+				double point_noise = 1.0/sqrt(point_information);
+
+				float tnx	= im00*src_nx + im01*src_ny + im02*src_nz;
+				float tny	= im10*src_nx + im11*src_ny + im12*src_nz;
+				float tnz	= im20*src_nx + im21*src_ny + im22*src_nz;
+
+				double d = fabs(tnx*(dst_x-tx) + tny*(dst_y-ty) + tnz*(dst_z-tz));
+
+				double compare_mul = sqrt(dst_noise*dst_noise + point_noise*point_noise);
+				d *= compare_mul;
+
+				double surface_angle = tnx*dst_nx+tny*dst_ny+tnz*dst_nz;
+
+				if(d < 0.01 && surface_angle > 0.5){//If close, according noises, and angle of the surfaces similar: FUSE
+					float px	= m00*dst_x + m01*dst_y + m02*dst_z + m03;
+					float py	= m10*dst_x + m11*dst_y + m12*dst_z + m13;
+					float pz	= m20*dst_x + m21*dst_y + m22*dst_z + m23;
+
+					float pnx	= m00*dst_nx + m01*dst_ny + m02*dst_nz;
+					float pny	= m10*dst_nx + m11*dst_ny + m12*dst_nz;
+					float pnz	= m20*dst_nx + m21*dst_ny + m22*dst_nz;
+
+					float pb = rgbdata[3*ind+0];
+					float pg = rgbdata[3*ind+1];
+					float pr = rgbdata[3*ind+2];
+
+					Vector3f	pxyz	(px	,py	,pz );
+					Vector3f	pnxyz	(pnx,pny,pnz);
+					Vector3f	prgb	(pr	,pg	,pb );
+					float		weight	= 1.0/(dst_noise*dst_noise);
+					superpoint sp2 = superpoint(pxyz,pnxyz,prgb, weight, weight, frameid);
+					sp.merge(sp2);
+					isfused[dst_ind] = true;
+				}
+			}
+		}
+	}
+
+	int nr_fused = 0;
+	int nr_mask = 0;
+	for(unsigned int w = 0; w < width; w++){
+		for(unsigned int h = 0; h < height;h++){
+			int ind = h*width+w;
+			nr_fused += isfused[ind];
+			nr_mask += maskvec[ind] > 0;
+		}
+	}
+
+	for(unsigned int w = 0; w < width; w++){
+		for(unsigned int h = 0; h < height;h++){
+			int ind = h*width+w;
+			if(!isfused[ind] && maskvec[ind]){
+				float z = idepth*float(depthdata[ind]);
+				float nx = normalsdata[3*ind+0];
+
+				if(z > 0 && nx != 2){
+					float ny = normalsdata[3*ind+1];
+					float nz = normalsdata[3*ind+2];
+
+					float x = (w - cx) * z * ifx;
+					float y = (h - cy) * z * ify;
+
+					double noise = z * z;
+
+					float px	= m00*x + m01*y + m02*z + m03;
+					float py	= m10*x + m11*y + m12*z + m13;
+					float pz	= m20*x + m21*y + m22*z + m23;
+					float pnx	= m00*nx + m01*ny + m02*nz;
+					float pny	= m10*nx + m11*ny + m12*nz;
+					float pnz	= m20*nx + m21*ny + m22*nz;
+
+					float pb = rgbdata[3*ind+0];
+					float pg = rgbdata[3*ind+1];
+					float pr = rgbdata[3*ind+2];
+
+					Vector3f	pxyz	(px	,py	,pz );
+					Vector3f	pnxyz	(pnx,pny,pnz);
+					Vector3f	prgb	(pr	,pg	,pb );
+					float		weight	= 1.0/(noise*noise);
+					spvec.push_back(superpoint(pxyz,pnxyz,prgb, weight, weight, frameid));
+				}
+			}
+		}
+	}
+
+	delete[] isfused;
+}
+
+void Model::showHistory(boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer){
+	//viewer->setBackgroundColor(0.01*(rand()%100),0.01*(rand()%100),0.01*(rand()%100));
+	for(unsigned int i = 0; i < submodels.size(); i++){
+
+
+		pcl::PointCloud<pcl::PointXYZRGB>::Ptr room_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+
+
+		for(unsigned int j = 0; j < submodels[i]->frames.size(); j++){
+			bool * maskvec					= submodels[i]->modelmasks[j]->maskvec;
+			unsigned char  * rgbdata		= (unsigned char	*)(submodels[i]->frames[j]->rgb.data);
+			unsigned short * depthdata		= (unsigned short	*)(submodels[i]->frames[j]->depth.data);
+			float		   * normalsdata	= (float			*)(submodels[i]->frames[j]->normals.data);
+
+			Camera * camera				= submodels[i]->frames[j]->camera;
+			const unsigned int width	= camera->width;
+			const unsigned int height	= camera->height;
+			const float idepth			= camera->idepth_scale;
+			const float cx				= camera->cx;
+			const float cy				= camera->cy;
+			const float ifx				= 1.0/camera->fx;
+			const float ify				= 1.0/camera->fy;
+
+			Eigen::Matrix4d p = submodels[i]->relativeposes[j];
+
+			float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
+			float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
+			float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
+
+			for(unsigned int w = 0; w < width; w++){
+				for(unsigned int h = 0; h < height;h++){
+					int ind = h*width+w;
+					if(!maskvec[ind]){
+						float z = idepth*float(depthdata[ind]);
+						float nx = normalsdata[3*ind+0];
+
+						if(z > 0 && nx != 2){
+							float ny = normalsdata[3*ind+1];
+							float nz = normalsdata[3*ind+2];
+
+							float x = (w - cx) * z * ifx;
+							float y = (h - cy) * z * ify;
+
+							pcl::PointXYZRGB po;
+							po.x	= m00*x + m01*y + m02*z + m03;
+							po.y	= m10*x + m11*y + m12*z + m13;
+							po.z	= m20*x + m21*y + m22*z + m23;
+//							float pnx	= m00*nx + m01*ny + m02*nz;
+//							float pny	= m10*nx + m11*ny + m12*nz;
+//							float pnz	= m20*nx + m21*ny + m22*nz;
+
+							po.b = rgbdata[3*ind+0];
+							po.g = rgbdata[3*ind+1];
+							po.r = rgbdata[3*ind+2];
+
+
+							room_cloud->points.push_back(po);
+						}
+					}
+				}
+			}
+		}
+
+		viewer->removeAllPointClouds();
+		viewer->addPointCloud<pcl::PointXYZRGB> (room_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(room_cloud), "room_cloud");
+
+		pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = submodels[i]->getPCLcloud(1, true);
+		for(unsigned int j = 0; j < cloud->points.size(); j++){
+			cloud->points[j].r = 255;
+			cloud->points[j].g = 0;
+			cloud->points[j].b = 0;
+		}
+		viewer->addPointCloud<pcl::PointXYZRGB> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cloud), "submodel");
+
+		pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud2 = getPCLcloud(1, true);
+
+		pcl::PointCloud<pcl::PointXYZRGB>::Ptr tcloud (new pcl::PointCloud<pcl::PointXYZRGB> ());
+		pcl::transformPointCloud (*cloud2, *tcloud, Eigen::Affine3d(submodels_relativeposes[i]).inverse());
+		viewer->addPointCloud<pcl::PointXYZRGB> (tcloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(tcloud), "model");
+		viewer->spin();
+
+	}
+}
+
+void Model::addAllSuperPoints(std::vector<superpoint> & spvec, Eigen::Matrix4d pose){
+	for(unsigned int i = 0; i < frames.size(); i++){
+		addSuperPoints(spvec, pose*relativeposes[i], frames[i], modelmasks[i]);
+	}
+
+	for(unsigned int i = 0; i < submodels.size(); i++){
+		submodels[i]->addAllSuperPoints(spvec, pose*submodels_relativeposes[i]);
+	}
+}
+
+void Model::recomputeModelPoints(Eigen::Matrix4d pose){
 //	for(unsigned int i = 0; i < frames.size(); i++){
 //		bool res = testFrame(i);
 //	}
 
     points.clear();
-    for(unsigned int i = 0; i < frames.size(); i++){
-        addPointsToModel(frames[i],modelmasks[i],relativeposes[i]);
-    }
+	addAllSuperPoints(points,pose);
+
+//	vector<superpoint> spvec;
+//	addAllSuperPoints(spvec,pose);
+//	points = spvec;
 }
 
 void Model::addPointsToModel(RGBDFrame * frame, ModelMask * modelmask, Eigen::Matrix4d p){
@@ -193,6 +454,12 @@ void Model::merge(Model * model, Eigen::Matrix4d p){
         frames.push_back(model->frames[i]);
         modelmasks.push_back(model->modelmasks[i]);
     }
+
+	for(unsigned int i = 0; i < model->submodels.size(); i++){
+		submodels_relativeposes.push_back(p * model->submodels_relativeposes[i]);
+		submodels.push_back(model->submodels[i]);
+	}
+
     recomputeModelPoints();
 }
 
@@ -270,6 +537,25 @@ pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr Model::getPCLnormalcloud(int step, 
 
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr Model::getPCLcloud(int step, bool color){
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
+	for(unsigned int i = 0; i < points.size(); i+=step){
+		superpoint & sp = points[i];
+		pcl::PointXYZRGB p;
+		p.x = sp.point(0);
+		p.y = sp.point(1);
+		p.z = sp.point(2);
+
+		if(color){
+			p.b =   0;
+			p.g = 255;
+			p.r =   0;
+		}else{
+			p.r = sp.feature(0);
+			p.g = sp.feature(1);
+			p.b = sp.feature(2);
+		}
+		cloud_ptr->points.push_back(p);
+	}
+	return cloud_ptr;
     //	if(color){
     //		for(unsigned int i = 0; i < points.size(); i+=step){
     //			superpoint & sp = points[i];
@@ -289,6 +575,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Model::getPCLcloud(int step, bool color){
     //			cloud_ptr->points.push_back(p);
     //		}
     //	}else{
+/*
     std::map<int,int> mymapR;
     std::map<int,int> mymapG;
     std::map<int,int> mymapB;
@@ -368,6 +655,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Model::getPCLcloud(int step, bool color){
     }
     //}
     return cloud_ptr;
+*/
 }
 
 void Model::save(std::string path){

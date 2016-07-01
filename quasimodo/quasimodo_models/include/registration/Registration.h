@@ -44,6 +44,7 @@ namespace reglib
 
 		Eigen::MatrixXd guess;
 		double score;
+		double stop;
 		bool timeout;
 
 		std::vector< Eigen::MatrixXd > candidates;

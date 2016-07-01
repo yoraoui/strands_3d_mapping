@@ -29,12 +29,12 @@ RegistrationRefinement::RegistrationRefinement(){
     allow_regularization = true;
     maxtime = 9999999;
 
-	func = new DistanceWeightFunction2PPR2();
-	func->startreg			= 0.1;
-	func->debugg_print		= false;
+//	func = new DistanceWeightFunction2PPR2();
+//	func->startreg			= 0.1;
+//	func->debugg_print		= false;
 }
 RegistrationRefinement::~RegistrationRefinement(){
-	if(func != 0){delete func; func = 0;}
+	//if(func != 0){delete func; func = 0;}
 	if(arraypoints != 0){delete arraypoints; arraypoints = 0;}
 	if(trees3d != 0){delete trees3d; trees3d = 0;}
 	if(a3d != 0){delete a3d; a3d = 0;}
@@ -47,7 +47,7 @@ void RegistrationRefinement::setDst(CloudData * dst_){
 	Y.resize(Eigen::NoChange,d_nr_data/stepy);
 	N.resize(Eigen::NoChange,d_nr_data/stepy);
 	ycols = Y.cols();
-	total_dweight.resize(ycols);
+
 
 	int count = 0;
 	for(unsigned int i = 0; i < d_nr_data/stepy; i++){
@@ -84,9 +84,16 @@ void RegistrationRefinement::setDst(CloudData * dst_){
 
 FusionResults RegistrationRefinement::getTransform(Eigen::MatrixXd guess){
 
-//	DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
-//	func->startreg			= 0.1;
-//	func->debugg_print		= false;
+	std::vector<double> total_dweight;
+	total_dweight.resize(ycols);
+
+	DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
+	if(allow_regularization){
+		func->startreg			= 0.1;
+	}else{
+		func->startreg			= 0.0;
+	}
+	func->debugg_print		= false;
 
 
 	unsigned int s_nr_data = src->data.cols();
@@ -142,6 +149,8 @@ FusionResults RegistrationRefinement::getTransform(Eigen::MatrixXd guess){
 	double score = 0;
 	stop = 99999;
 
+	//if(visualizationLvl >= 2){show(X,Y);}
+
 	double start = getTime();
 
 bool timestopped = false;
@@ -151,7 +160,7 @@ bool timestopped = false;
 		for(int rematching=0; rematching < 100; ++rematching) {
 			if( (getTime()-start) > maxtime ){timestopped = true; break;}
 
-#pragma omp parallel for
+//#pragma omp parallel for
 			for(unsigned int i=0; i< xcols; ++i) {
 				std::vector<size_t>   ret_indexes(1);
 				std::vector<double> out_dists_sqr(1);
@@ -164,7 +173,7 @@ bool timestopped = false;
 			}
 
 			/// Find closest point
-#pragma omp parallel for
+//#pragma omp parallel for
 			for(unsigned int i=0; i< xcols; ++i) {
 				int id = matchid[i];
 				Qn.col(i) = N.col(id);
@@ -202,7 +211,7 @@ bool timestopped = false;
 				for(int rematching2=0; rematching2 < 3; ++rematching2) {
 					if( (getTime()-start) > maxtime ){timestopped = true; break;}
 					if(rematching2 != 0){
-#pragma omp parallel for
+//#pragma omp parallel for
 						for(unsigned int i=0; i< xcols; ++i) {
 							std::vector<size_t>   ret_indexes(1);
 							std::vector<double> out_dists_sqr(1);
@@ -215,7 +224,7 @@ bool timestopped = false;
 						}
 
 						/// Find closest point
-#pragma omp parallel for
+//#pragma omp parallel for
 						for(unsigned int i=0; i< xcols; ++i) {
 							int id = matchid[i];
 							Qn.col(i) = N.col(id);
@@ -286,7 +295,9 @@ bool timestopped = false;
 						}
 
 						stop = 100*func->getConvergenceThreshold();
-						score = Wold.sum()/(pow(func->getNoise(),2)*float(xcols));
+						//score = Wold.sum()/(pow(func->getNoise(),2)*float(xcols));
+						score = Wold.sum()/(func->getNoise()*float(xcols));
+
 
 						double stop1 = (X-Xo1).colwise().norm().mean();
 						Xo1 = X;
@@ -310,7 +321,7 @@ bool timestopped = false;
 		if(fabs(1.0 - noise_after/noise_before) < 0.01){break;}
 	}
 
-    if(visualizationLvl >= 2){show(X,Y);}
+	if(visualizationLvl >= 2){printf("xcols: %i stepx: %i stop: %f noise: %f\n",xcols,stepx,stop,func->getNoise()); show(X,Y);}
 
 	pcl::TransformationFromCorrespondences tfc;
 	tfc.reset();
@@ -322,8 +333,12 @@ bool timestopped = false;
 	//delete func;
 	//func = 0;
 
-    FusionResults fr = FusionResults(guess,stop);
+
+	if(func != 0){delete func; func = 0;}
+
+	FusionResults fr = FusionResults(guess,score);
 	fr.timeout = timestopped;
+	fr.stop = stop;
 	return fr;
 
 }
