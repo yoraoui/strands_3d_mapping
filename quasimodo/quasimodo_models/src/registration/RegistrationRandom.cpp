@@ -65,6 +65,10 @@ bool RegistrationRandom::issame(FusionResults fr1, FusionResults fr2, int stepxs
 }
 
 FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
+	//refinement->visualizationLvl = visualizationLvl;
+//	refinement->viewer = viewer;
+//	refinement->visualizationLvl = 2;
+
 
 	unsigned int s_nr_data = src->data.cols();//std::min(int(src->data.cols()),int(500000));
 	unsigned int d_nr_data = dst->data.cols();
@@ -162,13 +166,13 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 	std::vector<FusionResults> fr_X;
 	fr_X.resize(nr_r);
 
-	#pragma omp parallel for num_threads(8)
+	//#pragma omp parallel for num_threads(8)
 	for(unsigned int r = 0; r < nr_r; r++){
 		double start = getTime();
 
 		double meantime = 999999999999;
 		if(sumtimeOK != 0){meantime = sumtimeSum/double(sumtimeOK+1.0);}
-        refinement->maxtime = std::min(0.5,3*meantime);
+		refinement->maxtime = std::min(0.5,3*meantime);
 
 		Eigen::Affine3d randomrot = Eigen::Affine3d::Identity();
 		randomrot =	Eigen::AngleAxisd(rxs[r], Eigen::Vector3d::UnitX()) *
@@ -180,7 +184,7 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 		FusionResults fr = refinement->getTransform(current_guess.matrix());
 		//fr_X[r] = refinement->getTransform(current_guess.matrix());
 
-		#pragma omp critical
+		//#pragma omp critical
 		{
 			fr_X[r] = fr;
 
@@ -255,14 +259,15 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 	}
 
 
-//	refinement->visualizationLvl = 2;
-//	refinement->target_points = 30000;
-//	for(unsigned int ax = 0; ax < fr_X.size() && ax < 30; ax++){
-//		printf("%i -> %f\n",ax,fr_X[ax].score);
-//		refinement->getTransform(fr_X[ax].guess);
-//	}
+	refinement->visualizationLvl = 2;
+	refinement->target_points = 1000;
+	for(unsigned int ax = 0; ax < fr_X.size() && ax < 50; ax++){
+		printf("%i -> %f\n",ax,fr_X[ax].score);
+		refinement->getTransform(fr_X[ax].guess);
+	}
+	refinement->visualizationLvl = 0;
 
-//	refinement->visualizationLvl = 0;
+
 	refinement->target_points = tpbef;
 	return fr;
 }

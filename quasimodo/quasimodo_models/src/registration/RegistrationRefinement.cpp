@@ -151,6 +151,8 @@ FusionResults RegistrationRefinement::getTransform(Eigen::MatrixXd guess){
 
 	//if(visualizationLvl >= 2){show(X,Y);}
 
+	//printf("X: %i %i Y: %i %i\n",X.cols(), X.rows(),Y.cols(), Y.rows());
+
 	double start = getTime();
 
 bool timestopped = false;
@@ -294,11 +296,17 @@ bool timestopped = false;
 							default:  			{printf("type not set\n"); } break;
 						}
 
-						stop = 100*func->getConvergenceThreshold();
+
+
+
+						stop = 0.1*func->getNoise();//100*func->getConvergenceThreshold();
 						//score = Wold.sum()/(pow(func->getNoise(),2)*float(xcols));
 						score = Wold.sum()/(func->getNoise()*float(xcols));
 
 
+//						printf("xcols: %i stepx: %i stop: %f noise: %f\n",xcols,stepx,stop,func->getNoise());
+//	printf("X: %i %i Y: %i %i\n",X.cols(), X.rows(),Y.cols(), Y.rows());
+//						show(X,Y);
 						double stop1 = (X-Xo1).colwise().norm().mean();
 						Xo1 = X;
 						if(stop1 < stop) break;
@@ -320,6 +328,8 @@ bool timestopped = false;
 		double noise_after = func->getNoise();
 		if(fabs(1.0 - noise_after/noise_before) < 0.01){break;}
 	}
+
+	//printf("xcols: %i stepx: %i stop: %f noise: %f\n",xcols,stepx,stop,func->getNoise());
 
 	if(visualizationLvl >= 2){printf("xcols: %i stepx: %i stop: %f noise: %f\n",xcols,stepx,stop,func->getNoise()); show(X,Y);}
 

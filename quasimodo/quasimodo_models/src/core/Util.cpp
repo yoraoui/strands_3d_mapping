@@ -151,8 +151,12 @@ namespace reglib{
 		ATA.coeffRef (33) = ATA.coeff (23);
 		ATA.coeffRef (34) = ATA.coeff (29);
 
+		for(int k = 0; k < 6; k++){
+			ATA(k,k) += 1;
+		}
 		// Solve A*x = b
 		Vector6d x = static_cast<Vector6d> (ATA.inverse () * ATb);
+		//Vector6d x = static_cast<Vector6d> (ATA.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(ATb));
 		Eigen::Affine3d transformation = Eigen::Affine3d(constructTransformationMatrix(x(0,0),x(1,0),x(2,0),x(3,0),x(4,0),x(5,0)));
 
 		X = transformation*X;

@@ -147,7 +147,7 @@ void publish_history(std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> history
 		sensor_msgs::PointCloud2 input;
 		pcl::toROSMsg (*history[i],input);//, *transformed_cloud);
 		input.header.frame_id = "/db_frame";
-		database_pcd_pub.publish(input);
+		model_history_pub.publish(input);
 	}
 }
 
@@ -868,11 +868,10 @@ vector<vector < OcclusionScore > > ocs = computeOcclusionScore(models,rps);
 							int maxval = 0;
 							int maxind = 0;
 
-							int dilation_size = 10;
+							int dilation_size = 0;
 							cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT,
 																		cv::Size( 2*dilation_size + 1, 2*dilation_size+1 ),
 																		cv::Point( dilation_size, dilation_size ) );
-
 							for(unsigned int j = 0; j < sresult.retrieved_images[i].images.size(); j++){
 								//framekeys
 
@@ -967,6 +966,129 @@ vector<vector < OcclusionScore > > ocs = computeOcclusionScore(models,rps);
 									Eigen::Affine3d epose = Eigen::Affine3d::Identity();
 									reglib::RGBDFrame * frame = new reglib::RGBDFrame(cameras[0],rgbimage, depthimage, 0, epose.matrix());
 									frame->keyval = key;
+
+//									cv::namedWindow( "maskimage", cv::WINDOW_AUTOSIZE );			cv::imshow( "maskimage", maskimage );
+//									frame->show(true);
+									//reglib::Model * searchmodel = new reglib::Model(frame,maskimage);
+									reglib::Model * searchmodel = new reglib::Model(frame,erosion_dst);
+									bool res = searchmodel->testFrame(0);
+
+									reglib::Model * searchmodelHolder = new reglib::Model();
+									searchmodelHolder->submodels.push_back(searchmodel);
+									searchmodelHolder->submodels_relativeposes.push_back(Eigen::Matrix4d::Identity());
+									searchmodelHolder->last_changed = ++current_model_update;
+									searchmodelHolder->recomputeModelPoints();
+
+									//searchmodelHolder->showHistory(viewer);
+
+
+									//								if(cv::waitKey(0) != 'n'){
+									//Todo:: check new model is not flat or L shape
+
+									printf("--- trying to add serach results, if more then one addToDB: results added-----\n");
+									//addToDB(modeldatabase, searchmodel,false,true);
+									addToDB(modeldatabase, searchmodelHolder,false,true);
+									show_sorted();
+								}
+							}
+
+
+/*
+							for(unsigned int j = 0; j < sresult.retrieved_images[i].images.size(); j++){
+								//framekeys
+
+								cv_bridge::CvImagePtr ret_image_ptr;
+								try {ret_image_ptr = cv_bridge::toCvCopy(sresult.retrieved_images[i].images[j], sensor_msgs::image_encodings::BGR8);}
+								catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
+
+								cv_bridge::CvImagePtr ret_mask_ptr;
+								try {ret_mask_ptr = cv_bridge::toCvCopy(sresult.retrieved_masks[i].images[j], sensor_msgs::image_encodings::MONO8);}
+								catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
+
+								cv_bridge::CvImagePtr ret_depth_ptr;
+								try {ret_depth_ptr = cv_bridge::toCvCopy(sresult.retrieved_depths[i].images[j], sensor_msgs::image_encodings::MONO16);}
+								catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
+
+								cv::Mat rgbimage	= ret_image_ptr->image;
+								cv::Mat maskimage	= ret_mask_ptr->image;
+								cv::Mat depthimage	= ret_depth_ptr->image;
+
+								cv::Mat erosion_dst;
+								cv::erode( maskimage, erosion_dst, element );
+
+								unsigned short * depthdata = (unsigned short * )depthimage.data;
+								unsigned char * rgbdata = (unsigned char * )rgbimage.data;
+								unsigned char * maskdata = (unsigned char * )erosion_dst.data;
+								int count = 0;
+								for(int pixel = 0; pixel < depthimage.rows*depthimage.cols;pixel++){
+									if(depthdata[pixel] > 0 && maskdata[pixel] > 0){
+										count++;
+									}
+								}
+								if(count > maxval){
+									maxval = count;
+									maxind = j;
+								}
+							}
+
+							//for(unsigned int j = 0; j < 1 && j < sresult.retrieved_images[i].images.size(); j++){
+							if(maxval > 100){//Atleast some pixels has to be in the mask...
+								std::string key = sresult.retrieved_image_paths[i].strings[maxind];
+								printf("searchresult key:%s\n",key.c_str());
+								if(framekeys.count(key) == 0){
+
+									int j = maxind;
+
+									cv_bridge::CvImagePtr ret_image_ptr;
+									try {ret_image_ptr = cv_bridge::toCvCopy(sresult.retrieved_images[i].images[j], sensor_msgs::image_encodings::BGR8);}
+									catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
+
+									cv_bridge::CvImagePtr ret_mask_ptr;
+									try {ret_mask_ptr = cv_bridge::toCvCopy(sresult.retrieved_masks[i].images[j], sensor_msgs::image_encodings::MONO8);}
+									catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
+
+									cv_bridge::CvImagePtr ret_depth_ptr;
+									try {ret_depth_ptr = cv_bridge::toCvCopy(sresult.retrieved_depths[i].images[j], sensor_msgs::image_encodings::MONO16);}
+									catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
+
+									cv::Mat rgbimage	= ret_image_ptr->image;
+									cv::Mat maskimage	= ret_mask_ptr->image;
+									cv::Mat depthimage	= ret_depth_ptr->image;
+									for (int ii = 0; ii < depthimage.rows; ++ii) {
+										for (int jj = 0; jj < depthimage.cols; ++jj) {
+											depthimage.at<uint16_t>(ii, jj) *= 5;
+										}
+									}
+
+
+									cv::Mat erosion_dst;
+									cv::erode( maskimage, erosion_dst, element );
+
+									//								cv::Mat overlap	= rgbimage.clone();
+									//								unsigned short * depthdata = (unsigned short * )depthimage.data;
+									//								unsigned char * rgbdata = (unsigned char * )rgbimage.data;
+									//								unsigned char * maskdata = (unsigned char * )maskimage.data;
+									//								unsigned char * overlapdata = (unsigned char * )overlap.data;
+									//								for(int pixel = 0; pixel < depthimage.rows*depthimage.cols;pixel++){
+									//									if(depthdata[pixel] > 0 && maskdata[pixel] > 0){
+									//										overlapdata[3*pixel+0] = rgbdata[3*pixel+0];
+									//										overlapdata[3*pixel+1] = rgbdata[3*pixel+1];
+									//										overlapdata[3*pixel+2] = rgbdata[3*pixel+2];
+									//									}else{
+									//										overlapdata[3*pixel+0] = 0;
+									//										overlapdata[3*pixel+1] = 0;
+									//										overlapdata[3*pixel+2] = 0;
+									//									}
+									//								}
+									//								cv::namedWindow( "rgbimage", cv::WINDOW_AUTOSIZE );			cv::imshow( "rgbimage", rgbimage );
+									//								cv::namedWindow( "maskimage", cv::WINDOW_AUTOSIZE );		cv::imshow( "maskimage", maskimage );
+									//								cv::namedWindow( "depthimage", cv::WINDOW_AUTOSIZE );		cv::imshow( "depthimage", 100*depthimage );
+									//								cv::namedWindow( "overlap", cv::WINDOW_AUTOSIZE );			cv::imshow( "overlap", overlap );
+
+									Eigen::Affine3d epose = Eigen::Affine3d::Identity();
+									reglib::RGBDFrame * frame = new reglib::RGBDFrame(cameras[0],rgbimage, depthimage, 0, epose.matrix());
+									frame->keyval = key;
+									frame->show(true);
 									//reglib::Model * searchmodel = new reglib::Model(frame,maskimage);
 									reglib::Model * searchmodel = new reglib::Model(frame,erosion_dst);
 									bool res = searchmodel->testFrame(0);
@@ -987,7 +1109,9 @@ vector<vector < OcclusionScore > > ocs = computeOcclusionScore(models,rps);
 									show_sorted();
 									//								}
 								}
+
 							}
+							*/
 						}
 
 						break;
