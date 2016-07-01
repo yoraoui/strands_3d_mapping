@@ -73,6 +73,7 @@ ros::Publisher models_deleted_pub;
 
 ros::Publisher model_pcd_pub;
 ros::Publisher database_pcd_pub;
+ros::Publisher model_history_pub;
 ros::Publisher chatter_pub;
 
 ros::ServiceClient soma2add;
@@ -138,6 +139,16 @@ void publishDatabasePCD(bool original_colors = false){
 	pcl::toROSMsg (*conccloud,input);//, *transformed_cloud);
 	input.header.frame_id = "/db_frame";
 	database_pcd_pub.publish(input);
+}
+
+void publish_history(std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> history){
+
+	for(unsigned int i = 0; i < history.size(); i++){
+		sensor_msgs::PointCloud2 input;
+		pcl::toROSMsg (*history[i],input);//, *transformed_cloud);
+		input.header.frame_id = "/db_frame";
+		database_pcd_pub.publish(input);
+	}
 }
 
 void publishObject(int id){
@@ -735,7 +746,9 @@ delete reg;
 
 		modeldatabase->add(newmodelHolder);
 		addToDB(modeldatabase, newmodelHolder,false);
-		//for(unsigned int i = 0; i < modeldatabase->models.size(); i++){modeldatabase->models[i]->showHistory(viewer);}
+		for(unsigned int i = 0; i < modeldatabase->models.size(); i++){
+			publish_history(modeldatabase->models[i]->getHistory());
+		}
 		show_sorted();
 
 //exit(0);
@@ -1072,6 +1085,7 @@ int main(int argc, char **argv){
 	ROS_INFO("Ready to add recieve search results.");
 
 	database_pcd_pub  = n.advertise<sensor_msgs::PointCloud2>("modelserver/databasepcd", 1000);
+	model_history_pub  = n.advertise<sensor_msgs::PointCloud2>("modelserver/model_history", 1000);
 
 	int inputstate = -1;
 	for(int i = 1; i < argc;i++){
