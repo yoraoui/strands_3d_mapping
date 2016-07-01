@@ -100,6 +100,8 @@ class superpoint{
 
 		void showHistory(boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer);
 
+		std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> getHistory();
+
 		void addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* frame, ModelMask* modelmask);
 		void addAllSuperPoints(vector<superpoint> & spvec, Eigen::Matrix4d pose);
 		void recomputeModelPoints(Eigen::Matrix4d pose = Eigen::Matrix4d::Identity());

@@ -276,8 +276,87 @@ void Model::showHistory(boost::shared_ptr<pcl::visualization::PCLVisualizer> vie
 		pcl::transformPointCloud (*cloud2, *tcloud, Eigen::Affine3d(submodels_relativeposes[i]).inverse());
 		viewer->addPointCloud<pcl::PointXYZRGB> (tcloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(tcloud), "model");
 		viewer->spin();
-
 	}
+}
+
+std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> Model::getHistory(){
+std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> ret;
+	for(unsigned int i = 0; i < submodels.size(); i++){
+		pcl::PointCloud<pcl::PointXYZRGB>::Ptr room_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+		for(unsigned int j = 0; j < submodels[i]->frames.size(); j++){
+			bool * maskvec					= submodels[i]->modelmasks[j]->maskvec;
+			unsigned char  * rgbdata		= (unsigned char	*)(submodels[i]->frames[j]->rgb.data);
+			unsigned short * depthdata		= (unsigned short	*)(submodels[i]->frames[j]->depth.data);
+			float		   * normalsdata	= (float			*)(submodels[i]->frames[j]->normals.data);
+
+			Camera * camera				= submodels[i]->frames[j]->camera;
+			const unsigned int width	= camera->width;
+			const unsigned int height	= camera->height;
+			const float idepth			= camera->idepth_scale;
+			const float cx				= camera->cx;
+			const float cy				= camera->cy;
+			const float ifx				= 1.0/camera->fx;
+			const float ify				= 1.0/camera->fy;
+
+			Eigen::Matrix4d p = submodels[i]->relativeposes[j];
+
+			float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
+			float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
+			float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
+
+			for(unsigned int w = 0; w < width; w++){
+				for(unsigned int h = 0; h < height;h++){
+					int ind = h*width+w;
+					if(!maskvec[ind]){
+						float z = idepth*float(depthdata[ind]);
+						float nx = normalsdata[3*ind+0];
+
+						if(z > 0 && nx != 2){
+							float ny = normalsdata[3*ind+1];
+							float nz = normalsdata[3*ind+2];
+
+							float x = (w - cx) * z * ifx;
+							float y = (h - cy) * z * ify;
+
+							pcl::PointXYZRGB po;
+							po.x	= m00*x + m01*y + m02*z + m03;
+							po.y	= m10*x + m11*y + m12*z + m13;
+							po.z	= m20*x + m21*y + m22*z + m23;
+//							float pnx	= m00*nx + m01*ny + m02*nz;
+//							float pny	= m10*nx + m11*ny + m12*nz;
+//							float pnz	= m20*nx + m21*ny + m22*nz;
+
+							po.b = rgbdata[3*ind+0];
+							po.g = rgbdata[3*ind+1];
+							po.r = rgbdata[3*ind+2];
+
+
+							room_cloud->points.push_back(po);
+						}
+					}
+				}
+			}
+		}
+
+
+		pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = submodels[i]->getPCLcloud(1, true);
+		for(unsigned int j = 0; j < cloud->points.size(); j++){
+			cloud->points[j].r = 255;
+			cloud->points[j].g = 0;
+			cloud->points[j].b = 0;
+		}
+
+		pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud2 = getPCLcloud(1, true);
+
+		pcl::PointCloud<pcl::PointXYZRGB>::Ptr tcloud (new pcl::PointCloud<pcl::PointXYZRGB> ());
+		pcl::transformPointCloud (*cloud2, *tcloud, Eigen::Affine3d(submodels_relativeposes[i]).inverse());
+
+
+		*room_cloud += *cloud;
+		*room_cloud += *tcloud;
+		ret.push_back(room_cloud);
+	}
+	return ret;
 }
 
 void Model::addAllSuperPoints(std::vector<superpoint> & spvec, Eigen::Matrix4d pose){

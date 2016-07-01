@@ -1065,9 +1065,6 @@ int main(int argc, char **argv){
 	ros::ServiceServer service4 = n.advertiseService("get_model", getModel);
 	ROS_INFO("Ready to add use get_model.");
 
-	ros::ServiceServer service5 = n.advertiseService("recognize_model", recognizeModel);
-	ROS_INFO("Ready to add use get_model.");
-
 	soma2add = n.serviceClient<soma_manager::SOMA2InsertObjs>("soma2/insert_objs");
 	ROS_INFO("Ready to add use soma2add.");
 
