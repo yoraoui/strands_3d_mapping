@@ -12,7 +12,6 @@
 #include "quasimodo_msgs/index_frame.h"
 #include "quasimodo_msgs/fuse_models.h"
 #include "quasimodo_msgs/get_model.h"
-#include "quasimodo_msgs/recognize_model.h"
 #include "quasimodo_msgs/retrieval_query_result.h"
 #include "quasimodo_msgs/retrieval_query.h"
 #include "quasimodo_msgs/retrieval_result.h"
@@ -419,93 +418,6 @@ void publishModel(reglib::Model * model){
 	//	 }
 }
 
-bool recognizeModel(quasimodo_msgs::recognize_model::Request  & req, quasimodo_msgs::recognize_model::Response & res){
-	if(modeldatabase->models.size() == 0){res.score = -1;return true;}
-	reglib::Model * model = getModelFromMSG(req.inputmodel);
-
-	double best = 0;
-	int best_ind = 0;
-	for(unsigned int i = 0; i < modeldatabase->models.size(); i++){
-		reglib::Model * model2 = modeldatabase->models[i];
-		reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
-		reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model2, reg);
-		mu->occlusion_penalty               = occlusion_penalty;
-		mu->massreg_timeout                 = massreg_timeout;
-		mu->viewer							= viewer;
-		reg->visualizationLvl				= 0;
-		reglib::FusionResults fr = mu->registerModel(model);
-
-		if(fr.score > 100){
-			fr.guess = fr.guess.inverse();
-
-			Eigen::Matrix4d pose = fr.guess;
-			std::vector<Eigen::Matrix4d>	current_poses;
-			std::vector<reglib::RGBDFrame*>			current_frames;
-			std::vector<reglib::ModelMask*>			current_modelmasks;
-
-			for(unsigned int i = 0; i < model->frames.size(); i++){
-				current_poses.push_back(				model->relativeposes[i]);
-				current_frames.push_back(				model->frames[i]);
-				current_modelmasks.push_back(			model->modelmasks[i]);
-			}
-
-			for(unsigned int i = 0; i < model2->frames.size(); i++){
-				current_poses.push_back(	pose	*	model2->relativeposes[i]);
-				current_frames.push_back(				model2->frames[i]);
-				current_modelmasks.push_back(			model2->modelmasks[i]);
-			}
-
-			std::vector<std::vector < reglib::OcclusionScore > > ocs = mu->getOcclusionScores(current_poses, current_frames,current_modelmasks,false);
-			std::vector<std::vector < float > > scores = mu->getScores(ocs);
-
-
-			unsigned int frames1 = model->frames.size();
-			unsigned int frames2 = model2->frames.size();
-			double sumscore1 = 0;
-			for(unsigned int i = 0; i < frames1; i++){
-				for(unsigned int j = 0; j < frames1; j++){
-					sumscore1 += scores[i][j];
-				}
-			}
-
-			double sumscore2 = 0;
-			for(unsigned int i = 0; i < frames2; i++){
-				for(unsigned int j = 0; j < frames2; j++){
-					sumscore2 += scores[i+frames1][j+frames1];
-				}
-			}
-
-			double sumscore = 0;
-			for(unsigned int i = 0; i < scores.size(); i++){
-				for(unsigned int j = 0; j < scores.size(); j++){
-					sumscore += scores[i][j];
-				}
-			}
-
-			double improvement = sumscore-sumscore1-sumscore2;
-			if(i == 0 || improvement > best){
-				best_ind = i;
-				best = improvement;
-			}
-		}
-
-		delete mu;
-		delete reg;
-	}
-
-	for(unsigned int i = 0; i < model->frames.size(); i++){
-		delete model->frames[i];
-		delete model->modelmasks[i];
-	}
-	delete model;
-
-	res.score = best;
-	res.outputmodel = getModelMSG(modeldatabase->models[best_ind]);
-	//int model_id			= req.model_id;
-	//reglib::Model * model	= models[model_id];
-	//res.model = getModelMSG(model);
-	return true;
-}
 
 bool getModel(quasimodo_msgs::get_model::Request  & req, quasimodo_msgs::get_model::Response & res){
 	int model_id			= req.model_id;
@@ -823,7 +735,7 @@ delete reg;
 
 		modeldatabase->add(newmodelHolder);
 		addToDB(modeldatabase, newmodelHolder,false);
-		for(unsigned int i = 0; i < modeldatabase->models.size(); i++){modeldatabase->models[i]->showHistory(viewer);}
+		//for(unsigned int i = 0; i < modeldatabase->models.size(); i++){modeldatabase->models[i]->showHistory(viewer);}
 		show_sorted();
 
 //exit(0);
