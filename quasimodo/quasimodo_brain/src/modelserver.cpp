@@ -607,7 +607,7 @@ show_sorted();
 			mu->occlusion_penalty               = occlusion_penalty;
 			mu->massreg_timeout                 = massreg_timeout;
 			mu->viewer							= viewer;
-			reg->visualizationLvl				= 2;
+			reg->visualizationLvl				= 0;
 			reglib::FusionResults fr = mu->registerModel(model);
 
 			if(fr.score > 100){

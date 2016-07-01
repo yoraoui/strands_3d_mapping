@@ -255,14 +255,14 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 	}
 
 
-	refinement->visualizationLvl = 2;
-	refinement->target_points = 30000;
-	for(unsigned int ax = 0; ax < fr_X.size() && ax < 30; ax++){
-		printf("%i -> %f\n",ax,fr_X[ax].score);
-		refinement->getTransform(fr_X[ax].guess);
-	}
+//	refinement->visualizationLvl = 2;
+//	refinement->target_points = 30000;
+//	for(unsigned int ax = 0; ax < fr_X.size() && ax < 30; ax++){
+//		printf("%i -> %f\n",ax,fr_X[ax].score);
+//		refinement->getTransform(fr_X[ax].guess);
+//	}
 
-	refinement->visualizationLvl = 0;
+//	refinement->visualizationLvl = 0;
 	refinement->target_points = tpbef;
 	return fr;
 }
