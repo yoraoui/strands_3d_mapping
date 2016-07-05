@@ -50,7 +50,7 @@ class superpoint{
 
 		point	= weight*p.point_information*p.point		+ point_information*point;
 		normal	= weight*p.point_information*p.normal		+ point_information*normal;
-		feature = weight*p.feature_information*p.feature	+ feature_information*feature;
+        //feature = weight*p.feature_information*p.feature	+ feature_information*feature;
 
 
 		normal.normalize();
@@ -58,8 +58,8 @@ class superpoint{
 		point /= newpweight;
 		point_information = newpweight;
 
-		feature /= newfweight;
-		feature_information = newfweight;
+        //feature /= newfweight;
+        //feature_information = newfweight;
 
 		last_update_frame_id = std::max(p.last_update_frame_id,last_update_frame_id);
 	}

@@ -346,7 +346,7 @@ pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr getNC(pcl::PointCloud<pcl::PointXYZ
 	return ret;
 }
 
-int nr_vAdditionalViews = 4;
+int nr_vAdditionalViews = 4000;
 
 void load(std::string sweep_xml){
 
@@ -370,7 +370,7 @@ void load(std::string sweep_xml){
     for (auto object : objects){
         if (!object.objectScanIndices.size()){continue;}
 
-		nr_vAdditionalViews = 1 + rand()%5;
+        //nr_vAdditionalViews = 1 + rand()%5;
 
         std::vector<cv::Mat> viewrgbs;
         std::vector<cv::Mat> viewdepths;

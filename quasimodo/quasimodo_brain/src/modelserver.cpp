@@ -74,6 +74,8 @@ ros::Publisher models_deleted_pub;
 ros::Publisher model_pcd_pub;
 ros::Publisher database_pcd_pub;
 ros::Publisher model_history_pub;
+ros::Publisher model_places_pub;
+ros::Publisher model_last_pub;
 ros::Publisher chatter_pub;
 
 ros::ServiceClient soma2add;
@@ -149,6 +151,25 @@ void publish_history(std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> history
 		input.header.frame_id = "/db_frame";
 		model_history_pub.publish(input);
 	}
+}
+
+void publish_places(reglib::Model * mod){
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = mod->getPCLcloud(1,true);
+    for(unsigned int i = 0; i < mod->submodels.size(); i++){
+        Eigen::Matrix4d pose = mod->submodels[i]->frames.front()->pose * mod->submodels_relativeposes[i].inverse();
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZRGB> ());
+        pcl::transformPointCloud (*cloud, *transformed_cloud, pose);
+
+
+        sensor_msgs::PointCloud2 input;
+        pcl::toROSMsg (*transformed_cloud,input);//, *transformed_cloud);
+        input.header.frame_id = "/map";
+        model_places_pub.publish(input);
+    }
+/*
+    for(unsigned int i = 0; i < history.size(); i++){
+    }
+    */
 }
 
 void publishObject(int id){
@@ -722,6 +743,7 @@ bool modelFromFrame(quasimodo_msgs::model_from_frame::Request  & req, quasimodo_
 
 	res.model_id					= newmodel->id;
 	if(isnewmodel != 0){
+        reglib::RGBDFrame * frontframe = newmodel->frames.front();
 		int current_model_update_before = current_model_update;
 		newmodel->recomputeModelPoints();
 
@@ -745,10 +767,14 @@ delete reg;
 		newmodelHolder->recomputeModelPoints();
 
 		modeldatabase->add(newmodelHolder);
-		addToDB(modeldatabase, newmodelHolder,false);
-		for(unsigned int i = 0; i < modeldatabase->models.size(); i++){
-			publish_history(modeldatabase->models[i]->getHistory());
-		}
+        addToDB(modeldatabase, newmodelHolder,false);
+        for(unsigned int i = 0; i < modeldatabase->models.size(); i++){
+            publish_history(modeldatabase->models[i]->getHistory());
+        }
+        /*
+        for(unsigned int i = 0; i < modeldatabase->models.size(); i++){
+            publish_history(modeldatabase->models[i]->getHistory());
+        }*/
 		show_sorted();
 
 //exit(0);
@@ -958,17 +984,17 @@ vector<vector < OcclusionScore > > ocs = computeOcclusionScore(models,rps);
 									//										overlapdata[3*pixel+2] = 0;
 									//									}
 									//								}
-									//								cv::namedWindow( "rgbimage", cv::WINDOW_AUTOSIZE );			cv::imshow( "rgbimage", rgbimage );
-									//								cv::namedWindow( "maskimage", cv::WINDOW_AUTOSIZE );		cv::imshow( "maskimage", maskimage );
-									//								cv::namedWindow( "depthimage", cv::WINDOW_AUTOSIZE );		cv::imshow( "depthimage", 100*depthimage );
-									//								cv::namedWindow( "overlap", cv::WINDOW_AUTOSIZE );			cv::imshow( "overlap", overlap );
+//																	cv::namedWindow( "rgbimage", cv::WINDOW_AUTOSIZE );			cv::imshow( "rgbimage", rgbimage );
+//																	cv::namedWindow( "maskimage", cv::WINDOW_AUTOSIZE );		cv::imshow( "maskimage", maskimage );
+//																	cv::namedWindow( "depthimage", cv::WINDOW_AUTOSIZE );		cv::imshow( "depthimage", 100*depthimage );
+//																	cv::namedWindow( "overlap", cv::WINDOW_AUTOSIZE );			cv::imshow( "overlap", overlap );
 
 									Eigen::Affine3d epose = Eigen::Affine3d::Identity();
 									reglib::RGBDFrame * frame = new reglib::RGBDFrame(cameras[0],rgbimage, depthimage, 0, epose.matrix());
 									frame->keyval = key;
 
-//									cv::namedWindow( "maskimage", cv::WINDOW_AUTOSIZE );			cv::imshow( "maskimage", maskimage );
-//									frame->show(true);
+//                                    cv::namedWindow( "maskimage", cv::WINDOW_AUTOSIZE );			cv::imshow( "maskimage", maskimage );
+//                                    frame->show(true);
 									//reglib::Model * searchmodel = new reglib::Model(frame,maskimage);
 									reglib::Model * searchmodel = new reglib::Model(frame,erosion_dst);
 									bool res = searchmodel->testFrame(0);
@@ -1124,6 +1150,24 @@ vector<vector < OcclusionScore > > ocs = computeOcclusionScore(models,rps);
 			//exit(0);
 		}
 
+        for(unsigned int i = 0; i < modeldatabase->models.size(); i++){
+            for(unsigned int j = 0; j < modeldatabase->models[i]->submodels.size(); j++){
+                if( modeldatabase->models[i]->submodels[j]->frames.front() == frontframe){
+                    Eigen::Matrix4d pose = frontframe->pose * modeldatabase->models[i]->submodels_relativeposes[j].inverse();
+
+                    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = modeldatabase->models[i]->submodels[j]->getPCLcloud(1,true);
+                    pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZRGB> ());
+                    pcl::transformPointCloud (*cloud, *transformed_cloud, pose);
+
+
+                    sensor_msgs::PointCloud2 input;
+                    pcl::toROSMsg (*transformed_cloud,input);//, *transformed_cloud);
+                    input.header.frame_id = "/map";
+                    model_last_pub.publish(input);
+                }
+            }
+        }
+
 		newmodel = 0;
 		sweepid_counter++;
 	}
@@ -1208,8 +1252,10 @@ int main(int argc, char **argv){
 	ros::Subscriber sub = n.subscribe("/retrieval_result", 1, retrievalCallback);
 	ROS_INFO("Ready to add recieve search results.");
 
-	database_pcd_pub  = n.advertise<sensor_msgs::PointCloud2>("modelserver/databasepcd", 1000);
-	model_history_pub  = n.advertise<sensor_msgs::PointCloud2>("modelserver/model_history", 1000);
+    database_pcd_pub    = n.advertise<sensor_msgs::PointCloud2>("modelserver/databasepcd", 1000);
+    model_history_pub   = n.advertise<sensor_msgs::PointCloud2>("modelserver/model_history", 1000);
+    model_last_pub      = n.advertise<sensor_msgs::PointCloud2>("modelserver/last", 1000);
+    model_places_pub    = n.advertise<sensor_msgs::PointCloud2>("modelserver/model_places", 1000);
 
 	int inputstate = -1;
 	for(int i = 1; i < argc;i++){

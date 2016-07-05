@@ -639,7 +639,7 @@ void ModelUpdater::makeInitialSetup(){
 	MassRegistrationPPR2 * massreg = new MassRegistrationPPR2(0.05);
 	massreg->timeout = 4*massreg_timeout;
 	massreg->viewer = viewer;
-	massreg->visualizationLvl = 0;//1;
+    massreg->visualizationLvl = 1;//1;
 	massreg->maskstep = std::max(1,int(0.5+0.2*double(model->frames.size())));
 	massreg->nomaskstep = std::max(5,int(0.5+1.0*double(model->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
 	massreg->nomask = true;
@@ -1216,6 +1216,57 @@ void ModelUpdater::recomputeScores(){
 	}
 }
 
+void ModelUpdater::computeOcclusionAreas(vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<ModelMask*> cm){
+
+    //double ** weights_old = new double*[];
+    std::vector<double **> weights_old;
+    double ** wo = new double*[cf.size()];
+    for(unsigned int i = 0; i < cf.size(); i++){
+        unsigned int nr_pixels = cf[i]->camera->width * cf[i]->camera->height;
+        wo[i] = new double[nr_pixels];
+        for(unsigned int j = 0; j < nr_pixels; j++){
+            wo[i][j] = 1;
+        }
+    }
+
+    weights_old.push_back(wo);
+
+    double ** overlaps = new double*[cf.size()];
+    double ** total = new double*[cf.size()];
+    for(unsigned int i = 0; i < cf.size(); i++){
+        unsigned int nr_pixels = cf[i]->camera->width * cf[i]->camera->height;
+        overlaps[i] = new double[nr_pixels];
+        total[i] = new double[nr_pixels];
+        for(unsigned int j = 0; j < nr_pixels; j++){
+            overlaps[i][j] = 1;
+            total[i][j] = 1;
+        }
+    }
+
+
+
+
+
+    for(unsigned int iter = 0; iter < 5; iter++){
+
+        for(unsigned int i = 0; i < cf.size(); i++){
+            for(unsigned int j = 0; j < cf.size(); j++){
+                //weightedocclusioncounts
+            }
+        }
+
+        wo = new double*[cf.size()];
+        for(unsigned int i = 0; i < cf.size(); i++){
+            unsigned int nr_pixels = cf[i]->camera->width * cf[i]->camera->height;
+            wo[i] = new double[nr_pixels];
+            for(unsigned int j = 0; j < nr_pixels; j++){
+                wo[i][j] = 1;
+            }
+        }
+        weights_old.push_back(wo);
+    }
+}
+
 OcclusionScore ModelUpdater::computeOcclusionScore(RGBDFrame * src, ModelMask * src_modelmask, RGBDFrame * dst, ModelMask * dst_modelmask, Eigen::Matrix4d p, int step, bool debugg){
 	OcclusionScore oc;
 
@@ -1460,7 +1511,7 @@ OcclusionScore ModelUpdater::computeOcclusionScore(RGBDFrame * src, ModelMask * 
 
 	DistanceWeightFunction2 * func = new DistanceWeightFunction2();
 	func->f = THRESHOLD;
-	func->p = 0.005;
+    func->p = 0.01;
 
 	Eigen::MatrixXd X = Eigen::MatrixXd::Zero(1,residuals.size());
     for(unsigned int i = 0; i < residuals.size(); i++){X(0,i) = residuals[i];}

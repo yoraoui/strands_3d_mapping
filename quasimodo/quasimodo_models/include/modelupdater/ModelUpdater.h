@@ -82,6 +82,9 @@ namespace reglib
 		virtual void addSuperPoints(vector<superpoint> & spvec, Matrix4d cp, RGBDFrame* cf, ModelMask* cm, int type = 1, bool debugg = false);
 		virtual vector<superpoint> getSuperPoints(vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<ModelMask*> cm, int type = 1, bool debugg = false);
 
+        virtual void computeOcclusionAreas(vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<ModelMask*> cm);
+
+
 
 		virtual OcclusionScore computeOcclusionScore(vector<superpoint> & spvec, Matrix4d cp, RGBDFrame* cf, ModelMask* cm, int step = 1,  bool debugg = false);
 		virtual OcclusionScore computeOcclusionScore(Model * mod, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<ModelMask*> cm, Matrix4d rp = Matrix4d::Identity(), int step = 1, bool debugg = false);

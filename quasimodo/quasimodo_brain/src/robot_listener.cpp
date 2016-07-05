@@ -99,6 +99,8 @@ std::vector< std::vector<cv::Mat> > masks;
 std::vector< std::vector<tf::StampedTransform > >tfs;
 std::vector< std::vector<Eigen::Matrix4f> > initposes;
 
+ros::Publisher metaroom_pub;
+
 std::vector<Eigen::Matrix4f> getRegisteredViewPoses(const std::string& poses_file, const int& no_transforms){
     std::vector<Eigen::Matrix4f> toRet;
     ifstream in(poses_file);
@@ -127,11 +129,23 @@ void chatterCallback(const std_msgs::String::ConstPtr& msg)
 
     ROS_INFO("I heard: [%s]", msg->data.c_str());
 
+    std::string str = msg->data.c_str();
+
     ObjectData object = semantic_map_load_utilties::loadDynamicObjectFromSingleSweep<PointType>(msg->data.c_str());
 
     printf("number of inds: %i",int(object.objectScanIndices.size()));
     printf("AVs: %i\n",int(object.vAdditionalViews.size()));
     if (!object.vAdditionalViews.size()){return;}
+
+    std::cout << "Splitting: " << str << '\n';
+    std::size_t found = str.find_last_of("/\\");
+    std::cout << " path: " << str.substr(0,found) << '\n';
+    std::cout << " file: " << str.substr(found+1) << '\n';
+
+    //SimpleXMLParser<PointType> parser;
+    //SimpleXMLParser<PointType>::RoomData roomData  = parser.loadRoomFromXML(str.substr(0,found)+"/room.xml");
+
+    //roomData.completeRoomCloud();
 
 
 

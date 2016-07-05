@@ -161,7 +161,7 @@ UpdatedModels ModelUpdaterBasicFuse::fuseData(FusionResults * f, Model * model1,
 	int step = 0.5 + expectedCost/(10.0*11509168.5);// ~10 sec predicted max time
 	step = std::max(1,step);
 
-	vector<vector < OcclusionScore > > ocs = computeOcclusionScore(models,rps,step,false);
+    vector<vector < OcclusionScore > > ocs = computeOcclusionScore(models,rps,step,false);
 	std::vector<std::vector < float > > scores = getScores(ocs);
 	std::vector<int> partition = getPartition(scores,2,5,2);
 
