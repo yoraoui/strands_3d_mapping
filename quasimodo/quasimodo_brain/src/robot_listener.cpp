@@ -155,7 +155,7 @@ void chatterCallback(const std_msgs::String::ConstPtr& msg)
     std::vector<tf::StampedTransform > viewtfs;
     std::vector<Eigen::Matrix4f> viewposes;
 
-    int step = std::max(1,int(0.5+double(object.vAdditionalViews.size())/10.0));
+    int step = 1;//std::max(1,int(0.5+double(object.vAdditionalViews.size())/10.0));
 	printf("step: %i\n",step);
 
     for (unsigned int i=0; i < 2000 && i<object.vAdditionalViews.size(); i+=step){
@@ -198,7 +198,8 @@ void chatterCallback(const std_msgs::String::ConstPtr& msg)
         viewrgbs.push_back(rgb);
         viewdepths.push_back(depth);
         viewmasks.push_back(mask);
-        viewtfs.push_back(object.vAdditionalViewsTransformsRegistered[i]);
+        //viewtfs.push_back(object.vAdditionalViewsTransformsRegistered[i]);
+        viewtfs.push_back(object.vAdditionalViewsTransforms[i]);
 
 //		cv::namedWindow("rgbimage",	cv::WINDOW_AUTOSIZE);
 //		cv::imshow(		"rgbimage",	rgb);
@@ -230,9 +231,9 @@ void chatterCallback(const std_msgs::String::ConstPtr& msg)
 
             geometry_msgs::Pose		pose;
             pose.orientation		= tfmsg.rotation;
-            pose.position.x		= tfmsg.translation.x;
-            pose.position.y		= tfmsg.translation.y;
-            pose.position.z		= tfmsg.translation.z;
+            pose.position.x         = tfmsg.translation.x;
+            pose.position.y         = tfmsg.translation.y;
+            pose.position.z         = tfmsg.translation.z;
             //            pose.orientation.x	= q.x();
             //            pose.orientation.y	= q.y();
             //            pose.orientation.z	= q.z();

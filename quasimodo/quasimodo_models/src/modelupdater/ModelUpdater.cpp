@@ -323,7 +323,7 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 
 	DistanceWeightFunction2 * func = new DistanceWeightFunction2();
 	func->f = THRESHOLD;
-	func->p = 0.01;
+    func->p = 0.03;
 
 	Eigen::MatrixXd X = Eigen::MatrixXd::Zero(1,residuals.size());
 	for(unsigned int i = 0; i < residuals.size(); i++){X(0,i) = residuals[i];}
@@ -639,7 +639,7 @@ void ModelUpdater::makeInitialSetup(){
 	MassRegistrationPPR2 * massreg = new MassRegistrationPPR2(0.05);
 	massreg->timeout = 4*massreg_timeout;
 	massreg->viewer = viewer;
-    massreg->visualizationLvl = 1;//1;
+    massreg->visualizationLvl = 0;//1;
 	massreg->maskstep = std::max(1,int(0.5+0.2*double(model->frames.size())));
 	massreg->nomaskstep = std::max(5,int(0.5+1.0*double(model->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
 	massreg->nomask = true;
@@ -1216,6 +1216,182 @@ void ModelUpdater::recomputeScores(){
 	}
 }
 
+void ModelUpdater::getAreaWeights(Matrix4d p, RGBDFrame* frame1, double * weights1, double * overlaps1, double * total1, RGBDFrame* frame2, double * weights2, double * overlaps2, double * total2){
+/*
+    unsigned char  * src_maskdata		= (unsigned char	*)(mask->mask.data);
+    unsigned char  * src_rgbdata		= (unsigned char	*)(frame->rgb.data);
+    unsigned short * src_depthdata		= (unsigned short	*)(frame->depth.data);
+    float		   * src_normalsdata	= (float			*)(frame->normals.data);
+
+    Camera * src_camera				= frame->camera;
+    const unsigned int src_width	= src_camera->width;
+    const unsigned int src_height	= src_camera->height;
+    const float src_idepth			= src_camera->idepth_scale;
+    const float src_cx				= src_camera->cx;
+    const float src_cy				= src_camera->cy;
+    const float src_ifx				= 1.0/src_camera->fx;
+    const float src_ify				= 1.0/src_camera->fy;
+
+    std::vector<float> test_x;
+    std::vector<float> test_y;
+    std::vector<float> test_z;
+    std::vector<float> test_nx;
+    std::vector<float> test_ny;
+    std::vector<float> test_nz;
+
+    std::vector<int> & testw = mask->testw;
+    std::vector<int> & testh = mask->testh;
+
+    for(unsigned int ind = 0; ind < testw.size();ind++){
+        unsigned int src_w = testw[ind];
+        unsigned int src_h = testh[ind];
+
+        int src_ind = src_h*src_width+src_w;
+        if(src_maskdata[src_ind] == 255){
+            float src_z = src_idepth*float(src_depthdata[src_ind]);
+            float src_nx = src_normalsdata[3*src_ind+0];
+            if(src_z > 0 && src_nx != 2){
+                float src_ny = src_normalsdata[3*src_ind+1];
+                float src_nz = src_normalsdata[3*src_ind+2];
+
+                float src_x = (float(src_w) - src_cx) * src_z * src_ifx;
+                float src_y = (float(src_h) - src_cy) * src_z * src_ify;
+
+                test_x.push_back(src_x);
+                test_y.push_back(src_y);
+                test_z.push_back(src_z);
+                test_nx.push_back(src_nx);
+                test_ny.push_back(src_ny);
+                test_nz.push_back(src_nz);
+            }
+        }
+    }
+
+    bool debugg = false;
+    unsigned int nrdata_start = test_x.size();
+
+    for(unsigned int c = 0; c < cp.size();c++){
+        RGBDFrame* dst = cf[c];
+        if(dst == frame){continue;}
+        ModelMask* dst_modelmask = cm[c];
+        unsigned char  * dst_maskdata		= (unsigned char	*)(dst_modelmask->mask.data);
+        unsigned char  * dst_rgbdata		= (unsigned char	*)(dst->rgb.data);
+        unsigned short * dst_depthdata		= (unsigned short	*)(dst->depth.data);
+        float		   * dst_normalsdata	= (float			*)(dst->normals.data);
+
+        Matrix4d rp = cp[c].inverse()*p;
+
+        float m00 = rp(0,0); float m01 = rp(0,1); float m02 = rp(0,2); float m03 = rp(0,3);
+        float m10 = rp(1,0); float m11 = rp(1,1); float m12 = rp(1,2); float m13 = rp(1,3);
+        float m20 = rp(2,0); float m21 = rp(2,1); float m22 = rp(2,2); float m23 = rp(2,3);
+
+        Camera * dst_camera				= dst->camera;
+        const unsigned int dst_width	= dst_camera->width;
+        const unsigned int dst_height	= dst_camera->height;
+        const float dst_idepth			= dst_camera->idepth_scale;
+        const float dst_cx				= dst_camera->cx;
+        const float dst_cy				= dst_camera->cy;
+        const float dst_fx				= dst_camera->fx;
+        const float dst_fy				= dst_camera->fy;
+        const float dst_ifx				= 1.0/dst_camera->fx;
+        const float dst_ify				= 1.0/dst_camera->fy;
+        const unsigned int dst_width2	= dst_camera->width  - 2;
+        const unsigned int dst_height2	= dst_camera->height - 2;
+pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+if(debugg){
+        viewer->removeAllPointClouds();
+
+        pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud2 = dst->getPCLcloud();
+        viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud2, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud2), "cloud2");
+}
+
+        for(unsigned int ind = 0; ind < test_x.size();ind++){
+            float src_nx = test_nx[ind];
+            float src_ny = test_ny[ind];
+            float src_nz = test_nz[ind];
+
+            float src_x = test_x[ind];
+            float src_y = test_y[ind];
+            float src_z = test_z[ind];
+
+            float tx	= m00*src_x + m01*src_y + m02*src_z + m03;
+            float ty	= m10*src_x + m11*src_y + m12*src_z + m13;
+            float tz	= m20*src_x + m21*src_y + m22*src_z + m23;
+            float itz	= 1.0/tz;
+            float dst_w	= dst_fx*tx*itz + dst_cx;
+            float dst_h	= dst_fy*ty*itz + dst_cy;
+
+            pcl::PointXYZRGBNormal point;
+            if(debugg){
+                point.x = tx;
+                point.y = ty;
+                point.z = tz;
+                point.r = 255;
+                point.g = 0;
+                point.b = 0;
+            }
+
+
+            if((dst_w > 0) && (dst_h > 0) && (dst_w < dst_width2) && (dst_h < dst_height2)){
+                unsigned int dst_ind = unsigned(dst_h+0.5) * dst_width + unsigned(dst_w+0.5);
+
+                float dst_z = dst_idepth*float(dst_depthdata[dst_ind]);
+                float dst_nx = dst_normalsdata[3*dst_ind+0];
+                if(dst_z > 0 && dst_nx != 2){
+                    float dst_ny = dst_normalsdata[3*dst_ind+1];
+                    float dst_nz = dst_normalsdata[3*dst_ind+2];
+
+                    float dst_x = (float(dst_w) - dst_cx) * dst_z * dst_ifx;
+                    float dst_y = (float(dst_h) - dst_cy) * dst_z * dst_ify;
+
+                    double dst_noise = dst_z * dst_z;
+                    double point_noise = src_z * src_z;
+
+                    float tnx	= m00*src_nx + m01*src_ny + m02*src_nz;
+                    float tny	= m10*src_nx + m11*src_ny + m12*src_nz;
+                    float tnz	= m20*src_nx + m21*src_ny + m22*src_nz;
+
+                    double d = fabs(tnx*(dst_x-tx) + tny*(dst_y-ty) + tnz*(dst_z-tz));
+
+                    double compare_mul = sqrt(dst_noise*dst_noise + point_noise*point_noise);
+                    d *= compare_mul;
+
+                    double surface_angle = tnx*dst_nx+tny*dst_ny+tnz*dst_nz;
+
+                    if(d < 0.01 && surface_angle > 0.5){//If close, according noises, and angle of the surfaces similar: FUSE
+                    //if(d < 0.01){//If close, according noises, and angle of the surfaces similar: FUSE
+                        test_nx[ind] = test_nx.back(); test_nx.pop_back();
+                        test_ny[ind] = test_ny.back(); test_ny.pop_back();
+                        test_nz[ind] = test_nz.back(); test_nz.pop_back();
+                        test_x[ind] = test_x.back(); test_x.pop_back();
+                        test_y[ind] = test_y.back(); test_y.pop_back();
+                        test_z[ind] = test_z.back(); test_z.pop_back();
+                        ind--;
+if(debugg){
+                        point.r = 0;
+                        point.g = 255;
+                        point.b = 0;
+}
+                    }
+                }
+            }
+if(debugg){
+            cloud->points.push_back(point);
+}
+        }
+
+if(debugg){
+        viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "cloud");
+        viewer->spin();
+        viewer->removeAllPointClouds();
+        viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "cloud");
+        viewer->spin();
+}
+    }
+    return double(test_x.size())/double(nrdata_start);
+*/
+}
+
 void ModelUpdater::computeOcclusionAreas(vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<ModelMask*> cm){
 
     //double ** weights_old = new double*[];
@@ -1511,7 +1687,7 @@ OcclusionScore ModelUpdater::computeOcclusionScore(RGBDFrame * src, ModelMask * 
 
 	DistanceWeightFunction2 * func = new DistanceWeightFunction2();
 	func->f = THRESHOLD;
-    func->p = 0.01;
+    func->p = 0.03;
 
 	Eigen::MatrixXd X = Eigen::MatrixXd::Zero(1,residuals.size());
     for(unsigned int i = 0; i < residuals.size(); i++){X(0,i) = residuals[i];}

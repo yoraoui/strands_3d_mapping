@@ -82,6 +82,8 @@ namespace reglib
 		virtual void addSuperPoints(vector<superpoint> & spvec, Matrix4d cp, RGBDFrame* cf, ModelMask* cm, int type = 1, bool debugg = false);
 		virtual vector<superpoint> getSuperPoints(vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<ModelMask*> cm, int type = 1, bool debugg = false);
 
+        virtual void getAreaWeights(Matrix4d p, RGBDFrame* frame1, double * weights1, double * overlaps1, double * total1, RGBDFrame* frame2, double * weights2, double * overlaps2, double * total2);
+
         virtual void computeOcclusionAreas(vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<ModelMask*> cm);
 
 
