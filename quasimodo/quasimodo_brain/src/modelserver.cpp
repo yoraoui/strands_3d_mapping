@@ -114,7 +114,7 @@ void publishDatabasePCD(bool original_colors = false){
 
 	float maxx = 0;
 	for(unsigned int i = 0; i < results.size(); i++){
-		pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = results[i]->getPCLcloud(1, original_colors);
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = results[i]->getPCLcloud(1, false);
 		float meanx = 0;
 		float meany = 0;
 		float meanz = 0;
@@ -159,7 +159,7 @@ void publish_history(std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> history
 }
 
 void publish_places(reglib::Model * mod){
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = mod->getPCLcloud(1,true);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = mod->getPCLcloud(1,false);
     for(unsigned int i = 0; i < mod->submodels.size(); i++){
         Eigen::Matrix4d pose = mod->submodels[i]->frames.front()->pose * mod->submodels_relativeposes[i].inverse();
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZRGB> ());
@@ -223,7 +223,7 @@ void show_sorted(){
 	viewer->removeAllPointClouds();
 	float maxx = 0;
 	for(unsigned int i = 0; i < results.size(); i++){
-		pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = results[i]->getPCLcloud(1, false);
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = results[i]->getPCLcloud(1, false);
 		float meanx = 0;
 		float meany = 0;
 		float meanz = 0;
