@@ -61,6 +61,10 @@ namespace reglib
 		Model * model;
 		Mesh * mesher;
 
+        int show_init_lvl;//init show
+        int show_refine_lvl;//refine show
+        bool show_scoring;//fuse scoring show
+
 		ModelUpdater();
 		ModelUpdater(Model * model_);
 		~ModelUpdater();

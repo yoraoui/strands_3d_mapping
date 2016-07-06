@@ -156,9 +156,19 @@ ModelUpdater::ModelUpdater(){
 	occlusion_penalty = 10;
     massreg_timeout = 60;
     model = 0;
+    show_init_lvl = 0;//init show
+    show_refine_lvl = 0;//refine show
+    show_scoring = false;//fuse scoring show
 }
 
-ModelUpdater::ModelUpdater(Model * model_){	model = model_;}
+ModelUpdater::ModelUpdater(Model * model_){
+    occlusion_penalty = 10;
+    massreg_timeout = 60;
+    show_init_lvl = 0;//init show
+    show_refine_lvl = 0;//refine show
+    show_scoring = false;//fuse scoring show
+    model = model_;
+}
 ModelUpdater::~ModelUpdater(){}
 
 FusionResults ModelUpdater::registerModel(Model * model2, Eigen::Matrix4d guess, double uncertanity){return FusionResults();}
@@ -323,7 +333,7 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 
 	DistanceWeightFunction2 * func = new DistanceWeightFunction2();
 	func->f = THRESHOLD;
-    func->p = 0.03;
+    func->p = 0.05;
 
 	Eigen::MatrixXd X = Eigen::MatrixXd::Zero(1,residuals.size());
 	for(unsigned int i = 0; i < residuals.size(); i++){X(0,i) = residuals[i];}
@@ -636,11 +646,15 @@ void ModelUpdater::makeInitialSetup(){
 ////        cv::waitKey(0);
 //	}
 
+//    show_refine     = false;//refine show
+//    show_reg        = false;//registration show
+//    show_scoring    = false;//fuse scoring sho
 	MassRegistrationPPR2 * massreg = new MassRegistrationPPR2(0.05);
 	massreg->timeout = 4*massreg_timeout;
 	massreg->viewer = viewer;
-    massreg->visualizationLvl = 0;//1;
-	massreg->maskstep = std::max(1,int(0.5+0.2*double(model->frames.size())));
+    massreg->visualizationLvl = show_init_lvl;
+
+    massreg->maskstep = std::max(1,int(0.5+0.3*double(model->frames.size())));
 	massreg->nomaskstep = std::max(5,int(0.5+1.0*double(model->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
 	massreg->nomask = true;
 	massreg->stopval = 0.0001;
@@ -658,6 +672,20 @@ void ModelUpdater::makeInitialSetup(){
     model->relativeposes.clear();// = mfr.poses;
     model->relativeposes.insert( model->relativeposes.end(), mfr.poses.begin()+model->submodels.size(), mfr.poses.end());
 
+    vector<vector < OcclusionScore > > ocs = getOcclusionScores(model->relativeposes, model->frames, model->modelmasks, false, 1);
+    std::vector<std::vector < float > > scores = getScores(ocs);
+    std::vector<int> partition = getPartition(scores,2,5,2);
+
+    for(unsigned int i = 0; i < scores.size(); i++){
+        for(unsigned int j = 0; j < scores.size(); j++){
+            if(scores[i][j] >= 0){printf(" ");}
+            printf("%5.5f ",0.00001*scores[i][j]);
+        }
+        printf("\n");
+    }
+    printf("partition "); for(unsigned int i = 0; i < partition.size(); i++){printf("%i ", partition[i]);} printf("\n");
+
+
 	model->points = getSuperPoints(model->relativeposes,model->frames,model->modelmasks,1,false);
 
 	vector<Matrix4d> cp;
@@ -673,6 +701,21 @@ void ModelUpdater::makeInitialSetup(){
 	model->rep_relativeposes = cp;
 	model->rep_frames = cf;
 	model->rep_modelmasks = cm;
+
+//    vector<vector < OcclusionScore > > ocs2 = computeOcclusionScore(model->submodels,mfr.poses,1,false);
+//	std::vector<std::vector < float > > scores2 = getScores(ocs2);
+
+//	double sumscore_aft = 0;
+//    for(unsigned int i = 0; i < scores2.size(); i++){
+//        for(unsigned int j = 0; j < scores2.size(); j++){
+//			sumscore_aft += scores2[i][j];
+//		}
+//	}
+
+//	printf("bef %f after %f\n",sumscore_bef,sumscore_aft);
+//	if(sumscore_aft >= sumscore_bef){
+//		model->submodels_relativeposes = mfr.poses;
+//	}
 }
 
 void ModelUpdater::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* frame, ModelMask* modelmask, int type, bool debugg){
@@ -1687,7 +1730,7 @@ OcclusionScore ModelUpdater::computeOcclusionScore(RGBDFrame * src, ModelMask * 
 
 	DistanceWeightFunction2 * func = new DistanceWeightFunction2();
 	func->f = THRESHOLD;
-    func->p = 0.03;
+    func->p = 0.05;
 
 	Eigen::MatrixXd X = Eigen::MatrixXd::Zero(1,residuals.size());
     for(unsigned int i = 0; i < residuals.size(); i++){X(0,i) = residuals[i];}
@@ -2169,7 +2212,7 @@ vector<vector < OcclusionScore > > ModelUpdater::getOcclusionScores(std::vector<
 	scores.resize(occlusionScores.size());
     for(unsigned int i = 0; i < occlusionScores.size(); i++){scores[i].resize(occlusionScores.size());}
 
-	bool lock = true;
+    bool lock = false;
     for(unsigned int i = 0; i < current_frames.size(); i++){
 		scores[i][i] = 0;
         for(unsigned int j = i+1; j < current_frames.size(); j++){

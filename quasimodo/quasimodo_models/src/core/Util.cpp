@@ -97,6 +97,7 @@ namespace reglib{
 			const double & nx = Xn(0,i);
 			const double & ny = Xn(1,i);
 			const double & nz = Xn(2,i);
+
 			const double & weight = W(i);
 
 			double a = nz*sy - ny*sz;

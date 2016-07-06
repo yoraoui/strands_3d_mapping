@@ -51,6 +51,11 @@
 #include <iostream>
 
 bool visualization = false;
+bool show_db = false;//Full database show
+int show_init_lvl = 0;//init show
+int show_refine_lvl = 0;//refine show
+int show_reg_lvl = 0;//registration show
+bool show_scoring = false;//fuse scoring show
 
 
 std::map<int , reglib::Camera *>		cameras;
@@ -210,7 +215,7 @@ void retrievalCallback(const quasimodo_msgs::retrieval_query_result & qr){
 
 int savecounter = 0;
 void show_sorted(){
-	return;
+    if(!show_db){return;}
 	if(!visualization){return;}
 	std::vector<reglib::Model *> results;
 	for(unsigned int i = 0; i < modeldatabase->models.size(); i++){results.push_back(modeldatabase->models[i]);}
@@ -519,6 +524,7 @@ std::vector<reglib::FusionResults > fr_res;
 void call_from_thread(int i) {
 	reglib::Model * model2 = res[i];
 
+
 	printf("testreg %i to %i\n",int(mod->id),int(model2->id));
 	reglib::RegistrationRandom *	reg		= new reglib::RegistrationRandom();
 	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model2, reg);
@@ -527,6 +533,7 @@ void call_from_thread(int i) {
 	mu->viewer							= viewer;
 	reg->visualizationLvl				= 0;
 
+
 	reglib::FusionResults fr = mu->registerModel(mod);
 	fr_res[i] = fr;
 
@@ -534,6 +541,9 @@ void call_from_thread(int i) {
 	delete reg;
 }
 
+/*
+bool show_db = false;//Full database show
+*/
 
 int current_model_update = 0;
 void addToDB(ModelDatabase * database, reglib::Model * model, bool add = true, bool deleteIfFail = false){
@@ -547,6 +557,9 @@ void addToDB(ModelDatabase * database, reglib::Model * model, bool add = true, b
 			mu->massreg_timeout                 = massreg_timeout;
 			mu->viewer							= viewer;
 			reg->visualizationLvl				= 0;
+            mu->show_init_lvl = show_init_lvl;//init show
+            mu->show_refine_lvl = show_refine_lvl;//refine show
+            mu->show_scoring = show_scoring;//fuse scoring show
 			mu->refine(0.001,false,0);
 			delete mu;
 			delete reg;
@@ -628,7 +641,12 @@ show_sorted();
 			mu->occlusion_penalty               = occlusion_penalty;
 			mu->massreg_timeout                 = massreg_timeout;
 			mu->viewer							= viewer;
-			reg->visualizationLvl				= 0;
+
+            mu->show_init_lvl = show_init_lvl;//init show
+            mu->show_refine_lvl = show_refine_lvl;//refine show
+            mu->show_scoring = show_scoring;//fuse scoring show
+            reg->visualizationLvl				= show_reg_lvl;
+
 			reglib::FusionResults fr = mu->registerModel(model);
 
 			if(fr.score > 100){
@@ -753,6 +771,11 @@ bool modelFromFrame(quasimodo_msgs::model_from_frame::Request  & req, quasimodo_
 		mu->occlusion_penalty               = occlusion_penalty;
 		mu->massreg_timeout                 = massreg_timeout;
 		mu->viewer							= viewer;
+
+        mu->show_init_lvl = show_init_lvl;//init show
+        mu->show_refine_lvl = show_refine_lvl;//refine show
+        mu->show_scoring = show_scoring;//fuse scoring show
+        reg->visualizationLvl				= show_reg_lvl;
 
 newmodel->print();
 		mu->makeInitialSetup();
@@ -1273,8 +1296,13 @@ int main(int argc, char **argv){
 		else if(std::string(argv[i]).compare("-occlusion_penalty") == 0){printf("occlusion_penalty input state\n");inputstate = 4;}
 		else if(std::string(argv[i]).compare("-massreg_timeout") == 0){printf("massreg_timeout input state\n");inputstate = 5;}
 		else if(std::string(argv[i]).compare("-search") == 0){printf("pointcloud search input state\n");run_search = true; inputstate = 6;}
-		else if(std::string(argv[i]).compare("-v") == 0){	printf("visualization turned on\n");	visualization = true;}
-		else if(inputstate == 1){
+        else if(std::string(argv[i]).compare("-v") == 0){           printf("visualization turned on\n");                visualization = true;}
+        else if(std::string(argv[i]).compare("-v_init") == 0){      printf("visualization of init turned on\n");        visualization = true; inputstate = 8;}
+        else if(std::string(argv[i]).compare("-v_refine") == 0 || std::string(argv[i]).compare("-v_ref") == 0){	printf("visualization refinement turned on\n");     visualization = true; inputstate = 9;}
+        else if(std::string(argv[i]).compare("-v_register") == 0 || std::string(argv[i]).compare("-v_reg") == 0){	printf("visualization registration turned on\n");	visualization = true; inputstate = 10;}
+        else if(std::string(argv[i]).compare("-v_scoring") == 0 || std::string(argv[i]).compare("-v_score") == 0 || std::string(argv[i]).compare("-v_sco") == 0){	printf("visualization scoring turned on\n");        visualization = true; show_scoring = true;}
+        else if(std::string(argv[i]).compare("-v_db") == 0){        printf("visualization db turned on\n");             visualization = true; show_db = true;}
+        else if(inputstate == 1){
 			reglib::Camera * cam = reglib::Camera::load(std::string(argv[i]));
 			delete cameras[0];
 			cameras[0] = cam;
@@ -1291,12 +1319,18 @@ int main(int argc, char **argv){
 			occlusion_penalty = atof(argv[i]); printf("occlusion_penalty set to %f\n",occlusion_penalty);
 		}else if(inputstate == 5){
 			massreg_timeout = atof(argv[i]); printf("massreg_timeout set to %f\n",massreg_timeout);
-		}else if(inputstate == 6){
-			search_timeout = atof(argv[i]); printf("search_timeout set to %f\n",search_timeout);
-			if(search_timeout == 0){
-				run_search = false;
-			}
-		}
+        }else if(inputstate == 6){
+            search_timeout = atof(argv[i]); printf("search_timeout set to %f\n",search_timeout);
+            if(search_timeout == 0){
+                run_search = false;
+            }
+        }else if(inputstate == 8){
+            show_init_lvl = atoi(argv[i]);
+        }else if(inputstate == 9){
+            show_refine_lvl = atoi(argv[i]);
+        }else if(inputstate == 10){
+            show_reg_lvl = atoi(argv[i]);
+        }
 	}
 
 	if(visualization){

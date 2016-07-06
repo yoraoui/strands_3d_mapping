@@ -14,11 +14,19 @@ namespace reglib
 ModelUpdaterBasicFuse::ModelUpdaterBasicFuse(Registration * registration_){
 	registration = registration_;
 	model = new reglib::Model();
+
+    show_init_lvl = 0;//init show
+    show_refine_lvl = 0;//refine show
+    show_scoring = false;//fuse scoring show
 }
 
 ModelUpdaterBasicFuse::ModelUpdaterBasicFuse(Model * model_, Registration * registration_){
 	registration = registration_;
 	model = model_;
+
+    show_init_lvl = 0;//init show
+    show_refine_lvl = 0;//refine show
+    show_scoring = false;//fuse scoring show
 }
 
 ModelUpdaterBasicFuse::~ModelUpdaterBasicFuse(){}
@@ -161,7 +169,7 @@ UpdatedModels ModelUpdaterBasicFuse::fuseData(FusionResults * f, Model * model1,
 	int step = 0.5 + expectedCost/(10.0*11509168.5);// ~10 sec predicted max time
 	step = std::max(1,step);
 
-    vector<vector < OcclusionScore > > ocs = computeOcclusionScore(models,rps,step,true);
+    vector<vector < OcclusionScore > > ocs = computeOcclusionScore(models,rps,step,show_scoring);
 	std::vector<std::vector < float > > scores = getScores(ocs);
 	std::vector<int> partition = getPartition(scores,2,5,2);
 

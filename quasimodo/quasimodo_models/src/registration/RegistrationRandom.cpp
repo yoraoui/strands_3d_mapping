@@ -210,11 +210,12 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 
 	int tpbef = refinement->target_points;
 
-
-	for(int tp = 500; tp <= 1000; tp *= 2){
+    int mul = 1;
+    for(int tp = 500; tp <= 16000; tp *= 2){
+        std::sort (fr_X.begin(), fr_X.end(), compareFusionResults);
 		refinement->target_points = tp;
 
-		unsigned int nr_X = fr_X.size();
+        unsigned int nr_X = fr_X.size()/mul;
 		#pragma omp parallel for num_threads(8)
 		for(unsigned int ax = 0; ax < nr_X; ax++){
 			fr_X[ax] = refinement->getTransform(fr_X[ax].guess);
@@ -229,6 +230,7 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 				}
 			}
 		}
+        mul *= 2;
 	}
 
 //	for(int tp = 500; tp <= 1000; tp *= 2){
@@ -260,13 +262,15 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 	}
 
 
-//    refinement->visualizationLvl = 2;
-//    refinement->target_points = 1000;
-//    for(unsigned int ax = 0; ax < fr_X.size() && ax < 15; ax++){
-//        printf("%i -> %f\n",ax,fr_X[ax].score);
-//        refinement->getTransform(fr_X[ax].guess);
-//    }
-//    refinement->visualizationLvl = 0;
+    if(visualizationLvl > 0){
+        refinement->visualizationLvl = 2;
+        refinement->target_points = 10000;
+        for(unsigned int ax = 0; ax < fr_X.size() && ax < 5; ax++){
+            printf("%i -> %f\n",ax,fr_X[ax].score);
+            refinement->getTransform(fr_X[ax].guess);
+        }
+        refinement->visualizationLvl = 0;
+      }
 
 
 	refinement->target_points = tpbef;
