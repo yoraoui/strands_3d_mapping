@@ -453,7 +453,8 @@ pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr RGBDFrame::getPCLcloud(){
 	return cloud_ptr;
 }
 
-void RGBDFrame::savePCD(std::string path){
+void RGBDFrame::savePCD(std::string path, Eigen::Matrix4d pose){
+    printf("saving pcd: %s\n",path.c_str());
     unsigned char * rgbdata = (unsigned char *)rgb.data;
     unsigned short * depthdata = (unsigned short *)depth.data;
 
@@ -483,6 +484,9 @@ void RGBDFrame::savePCD(std::string path){
             }
         }
     }
+
+    //Mat4f2RotTrans(const Eigen::Matrix4f &tf, Eigen::Quaternionf &q, Eigen::Vector4f &trans)
+    Mat4f2RotTrans(pose.cast<float>(),cloud->sensor_orientation_,cloud->sensor_origin_);
     int success = pcl::io::savePCDFileBinaryCompressed(path,*cloud);
 }
 

@@ -651,7 +651,7 @@ bool DistanceWeightFunction2PPR2::update(){
         double regularization_before = regularization;
         for(int i = 0; i < 500; i++){
 			iteration++;
-			regularization *= 0.5;
+            regularization *= 0.5;
 			double change = histogram_size*regularization/maxd;
             //printf("DistanceWeightFunction2PPR2::update() %i -> reg %f change %f\n",i,regularization,change);
 

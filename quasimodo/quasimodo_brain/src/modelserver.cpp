@@ -144,7 +144,7 @@ void publishDatabasePCD(bool original_colors = false){
 
 	sensor_msgs::PointCloud2 input;
 	pcl::toROSMsg (*conccloud,input);//, *transformed_cloud);
-	input.header.frame_id = "/db_frame";
+    input.header.frame_id = "/map";
 	database_pcd_pub.publish(input);
 }
 
@@ -153,7 +153,7 @@ void publish_history(std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> history
 	for(unsigned int i = 0; i < history.size(); i++){
 		sensor_msgs::PointCloud2 input;
 		pcl::toROSMsg (*history[i],input);//, *transformed_cloud);
-		input.header.frame_id = "/db_frame";
+        input.header.frame_id = "/map";
 		model_history_pub.publish(input);
 	}
 }
@@ -182,6 +182,27 @@ void publishObject(int id){
 }
 
 void dumpDatabase(std::string path = "."){
+
+    char command [1024];
+    sprintf(command,"rm -r -f %s/database_tmp",path.c_str());
+    printf("%s\n",command);
+    int r = system(command);
+
+    sprintf(command,"mkdir %s/database_tmp",path.c_str());
+    printf("%s\n",command);
+    r = system(command);
+
+    for(unsigned int m = 0; m < modeldatabase->models.size(); m++){
+        char buf [1024];
+        sprintf(buf,"%s/database_tmp/model_%08i",path.c_str(),m);
+        sprintf(command,"mkdir -p %s",buf);
+        r = system(command);
+
+
+        modeldatabase->models[m]->save(std::string(buf));
+    }
+
+    /*
 	char command [1024];
 	sprintf(command,"rm -r -f %s/quasimodo_model*",path.c_str());
 	printf("%s\n",command);
@@ -203,6 +224,7 @@ void dumpDatabase(std::string path = "."){
 
 		modeldatabase->models[m]->save(std::string(buf));
 	}
+    */
 }
 
 void retrievalCallback(const quasimodo_msgs::retrieval_query_result & qr){
@@ -799,6 +821,8 @@ delete reg;
             publish_history(modeldatabase->models[i]->getHistory());
         }*/
 		show_sorted();
+        publishDatabasePCD();
+        dumpDatabase(savepath);
 
 //exit(0);
 

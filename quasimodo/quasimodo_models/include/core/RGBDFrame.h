@@ -50,7 +50,7 @@ namespace reglib
 
 		void show(bool stop = false);
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr getPCLcloud();
-        void savePCD(std::string path = "cloud.pcd");
+        void savePCD(std::string path = "cloud.pcd", Eigen::Matrix4d pose = Eigen::Matrix4d::Identity());
 
         void save(std::string path = "");
 		static RGBDFrame * load(Camera * cam, std::string path);

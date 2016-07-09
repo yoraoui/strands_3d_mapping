@@ -284,6 +284,31 @@ bool timestopped = false;
 
 						W = W.array()*rangeW.array()*rangeW.array();
 
+                        if(visualizationLvl >= 3){
+                            //printf("start show\n");
+                            unsigned int s_nr_data = X.cols();
+                            unsigned int d_nr_data = Y.cols();
+                            //printf("nr datas: %i %i\n",s_nr_data,d_nr_data);
+
+
+                        viewer->removeAllPointClouds();
+                            pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr scloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+                            pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dcloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+
+                            scloud->points.clear();
+                            dcloud->points.clear();
+                            for(unsigned int i = 0; i < s_nr_data; i++){pcl::PointXYZRGBNormal p;p.x = X(0,i);p.y = X(1,i);p.z = X(2,i);p.b = 0;p.g = 255;p.r = 0;scloud->points.push_back(p);}
+                            for(unsigned int i = 0; i < d_nr_data; i++){pcl::PointXYZRGBNormal p;p.x = Y(0,i);p.y = Y(1,i);p.z = Y(2,i);p.b = 0;p.g = 0;p.r = 255;dcloud->points.push_back(p);}
+                            viewer->addPointCloud<pcl::PointXYZRGBNormal> (scloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(scloud), "scloud");
+                            viewer->addPointCloud<pcl::PointXYZRGBNormal> (dcloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dcloud), "dcloud");
+                            viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "scloud");
+                            viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "dcloud");
+                            //printf("pre\n");
+                            viewer->spin();
+                            //printf("post\n");
+                            viewer->removeAllPointClouds();
+                        }
+
 						switch(type) {
 							case PointToPoint:	{
 								pcl::TransformationFromCorrespondences tfc1;

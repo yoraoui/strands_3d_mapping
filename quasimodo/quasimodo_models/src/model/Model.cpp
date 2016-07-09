@@ -1,5 +1,6 @@
 #include "model/Model.h"
 #include <map>
+#include <sys/stat.h>
 
 namespace reglib
 {
@@ -721,7 +722,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Model::getPCLcloud(int step, bool color){
                             p.b = rgbdata[3*ind+0];
                             p.g = rgbdata[3*ind+1];
                             p.r = rgbdata[3*ind+2];
-                        }else{
+                        }else{#include <sys/stat.h>
                             p.b = pb;
                             p.g = pg;
                             p.r = pr;
@@ -738,14 +739,15 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Model::getPCLcloud(int step, bool color){
 }
 
 void Model::save(std::string path){
-    unsigned long buffersize = (1+1+16*frames.size()+1+frames.size()*frames.size()+1*frames.size())*sizeof(double);
+    /*
+    unsigned long buffersize = (1+1+16*frames.size());//+1+frames.size()*frames.size()+1*frames.size())*sizeof(double);
     char* buffer = new char[buffersize];
     double * buffer_double = (double *)buffer;
     unsigned long * buffer_long = (unsigned long *)buffer;
 
     int counter = 0;
     buffer_long[counter++] = frames.size();
-    buffer_double[counter++] = score;
+    //buffer_double[counter++] = score;
     for(unsigned int f = 0; f < frames.size(); f++){
         Eigen::Matrix4d pose = relativeposes[f];
         for(int i = 0; i < 4; i++){
@@ -772,11 +774,73 @@ void Model::save(std::string path){
     outfile.write (buffer,buffersize);
     outfile.close();
     delete[] buffer;
+*/
+    char buf [1024];
+    struct stat sb;
 
+    if (stat(path.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode)){
+        sprintf(buf,"rm -r %s",path.c_str());
+        system(buf);
+    }
+
+    sprintf(buf,"mkdir %s",path.c_str());
+    system(buf);
 
     ofstream posesfile;
-    posesfile.open (path+"/poses.txt");
+    posesfile.open (path+"/relativeposes.txt");
+    for(unsigned int f = 0; f < frames.size(); f++){
+        posesfile << relativeposes[f] << endl <<endl;
 
+
+        sprintf(buf,"%s/frame_%08i",path.c_str(),f);
+        frames[f]->save(std::string(buf));
+
+        sprintf(buf,"%s/frame_%08i.pcd",path.c_str(),f);
+        frames[f]->savePCD(std::string(buf),relativeposes[f]);
+
+        sprintf(buf,"%s/modelmask_%08i.png",path.c_str(),f);
+        cv::imwrite( buf, modelmasks[f]->getMask() );
+    }
+    posesfile.close();
+
+
+    ofstream submodels_posesfile;
+    submodels_posesfile.open (path+"/submodels_relativeposes.txt");
+    for(unsigned int i = 0; i < submodels.size(); i++){
+        submodels_posesfile << submodels_relativeposes[i] << endl <<endl;
+        sprintf(buf,"%s/submodel%08i",path.c_str(),i);
+        submodels[i]->save(std::string(buf));
+    }
+    submodels_posesfile.close();
+    /*
+    for(unsigned int f = 0; f < frames.size(); f++){
+        char buf [1024];
+
+        sprintf(buf,"%s/views/cloud_%08i.pcd",path.c_str(),f);
+        frames[f]->savePCD(std::string(buf));
+
+        sprintf(buf,"%s/views/pose_%08i.txt",path.c_str(),f);
+        ofstream posefile;
+        posefile.open (buf);
+
+        Eigen::Matrix4f eigen_tr(relativeposes[f].cast<float>());
+        Eigen::IOFormat CommaInitFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, " ", " ", "", "", "", "");
+        posefile << eigen_tr.format(CommaInitFmt)<<endl;
+        posefile.close();
+
+        bool * maskvec = modelmasks[f]->maskvec;
+        sprintf(buf,"%s/views/object_indices_%08i.txt",path.c_str(),f);
+        ofstream indfile;
+        indfile.open (buf);
+        for(int i = 0; i < 640*480; i++){
+            if(maskvec[i]){indfile << i << std::endl;}
+        }
+        indfile.close();
+        //object_indices_00000030.txt
+
+    }
+    */
+/*
     ofstream raresfile;
     raresfile.open (path+"/raresposes.txt");
     Eigen::Matrix4f eigen_tr(Eigen::Matrix4f::Identity() );
@@ -828,6 +892,7 @@ void Model::save(std::string path){
         //object_indices_00000030.txt
 
     }
+    */
 }
 
 Model * Model::load(Camera * cam, std::string path){

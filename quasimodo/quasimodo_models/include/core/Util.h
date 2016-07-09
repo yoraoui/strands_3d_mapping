@@ -33,6 +33,55 @@ using ceres::Solve;
 namespace reglib
 {
 
+
+/**
+ * @brief Returns homogenous 4x4 transformation matrix for given rotation (quaternion) and translation components
+ * @param q rotation represented as quaternion
+ * @param trans homogenous translation
+ * @return tf 4x4 homogeneous transformation matrix
+ *
+ */
+inline Eigen::Matrix4f
+RotTrans2Mat4f(const Eigen::Quaternionf &q, const Eigen::Vector4f &trans)
+{
+    Eigen::Matrix4f tf = Eigen::Matrix4f::Identity();;
+    tf.block<3,3>(0,0) = q.toRotationMatrix();
+    tf.block<4,1>(0,3) = trans;
+    tf(3,3) = 1.f;
+    return tf;
+}
+
+
+/**
+ * @brief Returns homogenous 4x4 transformation matrix for given rotation (quaternion) and translation components
+ * @param q rotation represented as quaternion
+ * @param trans translation
+ * @return tf 4x4 homogeneous transformation matrix
+ *
+ */
+inline Eigen::Matrix4f
+RotTrans2Mat4f(const Eigen::Quaternionf &q, const Eigen::Vector3f &trans)
+{
+    Eigen::Matrix4f tf = Eigen::Matrix4f::Identity();
+    tf.block<3,3>(0,0) = q.toRotationMatrix();
+    tf.block<3,1>(0,3) = trans;
+    return tf;
+}
+
+/**
+ * @brief Returns rotation (quaternion) and translation components from a homogenous 4x4 transformation matrix
+ * @param tf 4x4 homogeneous transformation matrix
+ * @param q rotation represented as quaternion
+ * @param trans homogenous translation
+ */
+inline void
+Mat4f2RotTrans(const Eigen::Matrix4f &tf, Eigen::Quaternionf &q, Eigen::Vector4f &trans)
+{
+    Eigen::Matrix3f rotation = tf.block<3,3>(0,0);
+    q = rotation;
+    trans = tf.block<4,1>(0,3);
+}
+
 //namespace nanoflann {
 //	/// KD-tree adaptor for working with data directly stored in an Eigen Matrix, without duplicating the data storage.
 //	/// This code is adapted from the KDTreeEigenMatrixAdaptor class of nanoflann.hpp
@@ -274,6 +323,8 @@ struct PointCloud
 	template <class BBOX>
 	bool kdtree_get_bbox(BBOX& /* bb */) const { return false; }
 };
+
+
 }
 
 typedef nanoflann::KDTreeSingleIndexAdaptor< nanoflann::L2_Simple_Adaptor<double, reglib::ArrayData3D<double> > , reglib::ArrayData3D<double>,3> Tree3d;

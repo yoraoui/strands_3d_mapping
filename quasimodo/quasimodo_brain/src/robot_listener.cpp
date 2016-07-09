@@ -260,10 +260,15 @@ void chatterCallback(const std_msgs::String::ConstPtr& msg)
             ifsrv.request.frame.rgb			= *(rgbBridgeImage.toImageMsg());
             ifsrv.request.frame.depth		= *(depthBridgeImage.toImageMsg());
 
-			ifsrv.request.frame.camera.K[0] = 536.458000;//cams[i][j].fx();
-			ifsrv.request.frame.camera.K[4] = 537.422000;//cams[i][j].fy();
-			ifsrv.request.frame.camera.K[2] = 314.458000;//cams[i][j].cx();
-			ifsrv.request.frame.camera.K[5] = 242.038000;//cams[i][j].cy();
+//			ifsrv.request.frame.camera.K[0] = 536.458000;//cams[i][j].fx();
+//			ifsrv.request.frame.camera.K[4] = 537.422000;//cams[i][j].fy();
+//			ifsrv.request.frame.camera.K[2] = 314.458000;//cams[i][j].cx();
+//			ifsrv.request.frame.camera.K[5] = 242.038000;//cams[i][j].cy();
+//533.796,0,314.863,0,0,533.113,241.271,0,0,0,1,0,
+            ifsrv.request.frame.camera.K[0] = 533.796;
+            ifsrv.request.frame.camera.K[4] = 533.113;
+            ifsrv.request.frame.camera.K[2] = 314.863;
+            ifsrv.request.frame.camera.K[5] = 241.271;
             if (index_frame_client.call(ifsrv)){//Add frame to model server
                 int frame_id = ifsrv.response.frame_id;
                 fadded.push_back(j);
@@ -472,7 +477,7 @@ void chatterCallback2(const std_msgs::String::ConstPtr& msg)
 }
 
 int main(int argc, char** argv){
-    ros::init(argc, argv, "use_rares_client");
+    ros::init(argc, argv, "robot_listener");
     ros::NodeHandle n;
 
     std::string listentopic = "/some/stupid/topic";

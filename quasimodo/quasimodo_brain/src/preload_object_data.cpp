@@ -141,7 +141,8 @@ void chatterCallback(const std_msgs::String::ConstPtr& msg)
 {
 	ROS_INFO("I heard: [%s]", msg->data.c_str());
 
-	for(unsigned int i = 1; i < rgbs.size(); i++){
+    for(unsigned int i = 0; i < rgbs.size(); i++){
+        printf("feeding system...\n");
 		std::vector<int> fid;
 		std::vector<int> fadded;
 		for(unsigned int j = 0; j < rgbs[i].size(); j++){
@@ -473,7 +474,7 @@ void load(std::string sweep_xml){
 
             cv::Mat fullmask;
             fullmask.create(480,640,CV_8UC1);
-            unsigned char * maskdata = (unsigned char *)fullmask.data;
+            unsigned char *take maskdata = (unsigned char *)fullmask.data;
             for(int j = 0; j < 480*640; j++){maskdata[j] = 0;}
 
 
@@ -602,19 +603,19 @@ int main(int argc, char** argv){
 		}
 	}
 
-	for(unsigned int i = 0; i < rgbs.size(); i++){
-		int ind = rand()%rgbs.size();
-		std::iter_swap(rgbs.begin()+i,rgbs.begin()+ind);
-		std::iter_swap(depths.begin()+i,depths.begin()+ind);
-		std::iter_swap(masks.begin()+i,masks.begin()+ind);
-		std::iter_swap(tfs.begin()+i,tfs.begin()+ind);
-		std::iter_swap(initposes.begin()+i,initposes.begin()+ind);
-	}
+//	for(unsigned int i = 0; i < rgbs.size(); i++){
+//		int ind = rand()%rgbs.size();
+//		std::iter_swap(rgbs.begin()+i,rgbs.begin()+ind);
+//		std::iter_swap(depths.begin()+i,depths.begin()+ind);
+//		std::iter_swap(masks.begin()+i,masks.begin()+ind);
+//		std::iter_swap(tfs.begin()+i,tfs.begin()+ind);
+//		std::iter_swap(initposes.begin()+i,initposes.begin()+ind);
+//	}
 
 	model_from_frame_client	= n.serviceClient<quasimodo_msgs::model_from_frame>("model_from_frame");
 	fuse_models_client		= n.serviceClient<quasimodo_msgs::fuse_models>(		"fuse_models");
 	get_model_client		= n.serviceClient<quasimodo_msgs::get_model>(		"get_model");
 	index_frame_client		= n.serviceClient<quasimodo_msgs::index_frame>(		"index_frame");
-
+printf("ready to give data\n");
 	ros::spin();
 }
