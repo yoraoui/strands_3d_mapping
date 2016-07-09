@@ -714,6 +714,9 @@ printf("getSuperPoints done\n");
 	}
     //getGoodCompareFrames(cp,cf,cm);
 
+
+    computeOcclusionAreas(cp, cf,cm);
+
 	model->rep_relativeposes = cp;
 	model->rep_frames = cf;
 	model->rep_modelmasks = cm;
