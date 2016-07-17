@@ -16,6 +16,13 @@
 #include "opencv2/features2d/features2d.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
+
+
+namespace gc
+{
+#include "graphcuts/graph.cpp"
+#include "graphcuts/maxflow.cpp"
+}
 //#include "opencv2/nonfree/nonfree.hpp"
 
 typedef boost::property<boost::edge_weight_t, float> edge_weight_property;
@@ -702,6 +709,7 @@ void ModelUpdater::makeInitialSetup(){
     printf("partition "); for(unsigned int i = 0; i < partition.size(); i++){printf("%i ", partition[i]);} printf("\n");
 
 
+
 	model->points = getSuperPoints(model->relativeposes,model->frames,model->modelmasks,1,false);
 printf("getSuperPoints done\n");
 	vector<Matrix4d> cp;
@@ -714,9 +722,8 @@ printf("getSuperPoints done\n");
 	}
     //getGoodCompareFrames(cp,cf,cm);
 
-
-    computeOcclusionAreas(cp, cf,cm);
-
+computeOcclusionAreas(cp,cf,cm);
+exit(0);
 	model->rep_relativeposes = cp;
 	model->rep_frames = cf;
 	model->rep_modelmasks = cm;
@@ -1280,7 +1287,7 @@ void ModelUpdater::recomputeScores(){
 }
 
 void ModelUpdater::getAreaWeights(Matrix4d p, RGBDFrame* frame1, double * weights1, double * overlaps1, double * total1, RGBDFrame* frame2, double * weights2, double * overlaps2, double * total2){
-    unsigned char  * src_rgbdata		= (unsigned char	*)(frame1->rgb.data);
+	unsigned char  * src_rgbdata		= (unsigned char	*)(frame1->rgb.data);
     unsigned short * src_depthdata		= (unsigned short	*)(frame1->depth.data);
     float		   * src_normalsdata	= (float			*)(frame1->normals.data);
 
@@ -1315,7 +1322,7 @@ void ModelUpdater::getAreaWeights(Matrix4d p, RGBDFrame* frame1, double * weight
     float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
     float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
 
-    bool debugg = false;
+	bool debugg = false;
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr src_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dst_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
     if(debugg){
@@ -1367,9 +1374,9 @@ void ModelUpdater::getAreaWeights(Matrix4d p, RGBDFrame* frame1, double * weight
                     point.x = dst_x;
                     point.y = dst_y;
                     point.z = dst_z;
-                    point.r = 255;
+					point.r = 0;
                     point.g = 0;
-                    point.b = 0;
+					point.b = 255;
                     dst_cloud->points[dst_ind] = point;
                 }
             }
@@ -1396,17 +1403,6 @@ void ModelUpdater::getAreaWeights(Matrix4d p, RGBDFrame* frame1, double * weight
                 float dst_w	= dst_fx*tx*itz + dst_cx;
                 float dst_h	= dst_fy*ty*itz + dst_cy;
 
-//                pcl::PointXYZRGBNormal point;
-//                if(debugg){
-//                    point.x = tx;
-//                    point.y = ty;
-//                    point.z = tz;
-//                    point.r = 255;
-//                    point.g = 0;
-//                    point.b = 0;
-//                }
-
-
                 if((dst_w > 0) && (dst_h > 0) && (dst_w < dst_width2) && (dst_h < dst_height2)){
                     unsigned int dst_ind = unsigned(dst_h+0.5) * dst_width + unsigned(dst_w+0.5);
 
@@ -1426,28 +1422,34 @@ void ModelUpdater::getAreaWeights(Matrix4d p, RGBDFrame* frame1, double * weight
                         float tny	= m10*src_nx + m11*src_ny + m12*src_nz;
                         float tnz	= m20*src_nx + m21*src_ny + m22*src_nz;
 
-                        double d = fabs(tnx*(dst_x-tx) + tny*(dst_y-ty) + tnz*(dst_z-tz));
+						double d = (tnx*(dst_x-tx) + tny*(dst_y-ty) + tnz*(dst_z-tz)) / (src_z*src_z + dst_z*dst_z);
+						//double compare_mul = 1/sqrt(dst_noise*dst_noise + point_noise*point_noise);
+						//d *= src_z;//compare_mul;
+						//double surface_angle = tnx*dst_nx+tny*dst_ny+tnz*dst_nz;
 
-                        double compare_mul = sqrt(dst_noise*dst_noise + point_noise*point_noise);
-                        d *= compare_mul;
+						if(fabs(d) < 0.01){//If close, according noises, and angle of the surfaces similar: FUSE
+							overlaps1[src_ind] += weights2[dst_ind];
+							overlaps2[dst_ind] += weights1[src_ind];
 
-                        double surface_angle = tnx*dst_nx+tny*dst_ny+tnz*dst_nz;
-
-                        if(d < 0.01 && surface_angle > 0.5){//If close, according noises, and angle of the surfaces similar: FUSE
-                        //if(d < 0.01){//If close, according noises, and angle of the surfaces similar: FUSE
-//                            test_nx[ind] = test_nx.back(); test_nx.pop_back();
-//                            test_ny[ind] = test_ny.back(); test_ny.pop_back();
-//                            test_nz[ind] = test_nz.back(); test_nz.pop_back();
-//                            test_x[ind] = test_x.back(); test_x.pop_back();
-//                            test_y[ind] = test_y.back(); test_y.pop_back();
-//                            test_z[ind] = test_z.back(); test_z.pop_back();
-//                            ind--;
-//    if(debugg){
-//                            point.r = 0;
-//                            point.g = 255;
-//                            point.b = 0;
-//    }
-                        }
+							total1[src_ind] += weights2[dst_ind];
+							total2[dst_ind] += weights1[src_ind];
+							if(debugg){
+								dst_cloud->points[dst_ind].r = 0;
+								dst_cloud->points[dst_ind].g = 255;
+								dst_cloud->points[dst_ind].b = 0;
+								src_cloud->points[src_ind].r = 0;
+								src_cloud->points[src_ind].g = 255;
+								src_cloud->points[src_ind].b = 0;
+							}
+						}else if(tz < dst_z){
+							total1[src_ind] += weights2[dst_ind];
+							total2[dst_ind] += weights1[src_ind];
+							if(debugg){
+								src_cloud->points[src_ind].r = 255;
+								src_cloud->points[src_ind].g = 0;
+								src_cloud->points[src_ind].b = 255;
+							}
+						}
                     }
                 }
             }
@@ -1456,10 +1458,32 @@ void ModelUpdater::getAreaWeights(Matrix4d p, RGBDFrame* frame1, double * weight
 
     if(debugg){
         viewer->removeAllPointClouds();
-        viewer->addPointCloud<pcl::PointXYZRGBNormal> (src_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(src_cloud), "cloud");
-        viewer->addPointCloud<pcl::PointXYZRGBNormal> (dst_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dst_cloud), "cloud");
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (src_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(src_cloud), "scloud");
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (dst_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dst_cloud), "dcloud");
         viewer->spin();
     }
+}
+
+double interpolate( double val, double y0, double x0, double y1, double x1 ) {
+	return (val-x0)*(y1-y0)/(x1-x0) + y0;
+}
+
+double base( double val ) {
+	if ( val <= -0.75 ) return 0;
+	else if ( val <= -0.25 ) return interpolate( val, 0.0, -0.75, 1.0, -0.25 );
+	else if ( val <= 0.25 ) return 1.0;
+	else if ( val <= 0.75 ) return interpolate( val, 1.0, 0.25, 0.0, 0.75 );
+	else return 0.0;
+}
+
+double red( double gray ) {
+	return base( gray - 0.5 );
+}
+double green( double gray ) {
+	return base( gray );
+}
+double blue( double gray ) {
+	return base( gray + 0.5 );
 }
 
 cv::Mat getImageFromArray(unsigned int width, unsigned int height, double * arr){
@@ -1467,9 +1491,28 @@ cv::Mat getImageFromArray(unsigned int width, unsigned int height, double * arr)
     for(unsigned int i = 0; i < width*height; i++){
         maxval = std::max(maxval,arr[i]);
     }
+	maxval = 1;
+
     cv::Mat m;
     m.create(height,width,CV_8UC3);
     unsigned char * data = m.data;
+	for(unsigned int i = 0; i < width*height; i++){
+		double d = arr[i]/maxval;
+		if(d < 0){
+			data[3*i+0] = 255.0;//blue(d);
+			data[3*i+1] = 0;//green(d);
+			data[3*i+2] = 255.0;//red(d);
+		}else{
+			data[3*i+0] = 255.0*d;//blue(d);
+			data[3*i+1] = 255.0*d;//green(d);
+			data[3*i+2] = 255.0*d;//red(d);
+		}
+	}
+
+	cv::namedWindow( "getImageFromArray", cv::WINDOW_AUTOSIZE );
+	cv::imshow( "getImageFromArray",m);
+	cv::waitKey(0);
+
     return m;
 }
 
@@ -1486,7 +1529,7 @@ void ModelUpdater::computeOcclusionAreas(vector<Matrix4d> cp, vector<RGBDFrame*>
         }
     }
 
-    weights_old.push_back(wo);
+	weights_old.push_back(wo);
 
     double ** overlaps = new double*[cf.size()];
     double ** total = new double*[cf.size()];
@@ -1494,21 +1537,29 @@ void ModelUpdater::computeOcclusionAreas(vector<Matrix4d> cp, vector<RGBDFrame*>
         unsigned int nr_pixels = cf[i]->camera->width * cf[i]->camera->height;
         overlaps[i] = new double[nr_pixels];
         total[i] = new double[nr_pixels];
-        for(unsigned int j = 0; j < nr_pixels; j++){
-            overlaps[i][j] = 0;
-            total[i][j] = 0;
-        }
     }
 
 
 
 
 
-    for(unsigned int iter = 0; iter < 5; iter++){
 
+
+	for(unsigned int iter = 0; iter < 10; iter++){
+		for(unsigned int i = 0; i < cf.size(); i++){
+			unsigned int nr_pixels = cf[i]->camera->width * cf[i]->camera->height;
+			for(unsigned int j = 0; j < nr_pixels; j++){
+				overlaps[i][j] = 0;
+				total[i][j] = 0;
+			}
+		}
+printf("iter %i\n",iter);
         for(unsigned int i = 0; i < cf.size(); i++){
             for(unsigned int j = 0; j < cf.size(); j++){
-                //weightedocclusioncounts
+				if(i == j){continue;}
+				//weightedocclusioncounts
+				Eigen::Matrix4d p = cp[i].inverse() * cp[j];
+				getAreaWeights(p.inverse(), cf[i], wo[i], overlaps[i], total[i], cf[j], wo[j], overlaps[j], total[j]);
             }
         }
 
@@ -1517,26 +1568,1058 @@ void ModelUpdater::computeOcclusionAreas(vector<Matrix4d> cp, vector<RGBDFrame*>
             unsigned int nr_pixels = cf[i]->camera->width * cf[i]->camera->height;
             wo[i] = new double[nr_pixels];
             for(unsigned int j = 0; j < nr_pixels; j++){
-                if(total[i][j] == 0){
-                    wo[i][j] = 0.0;
+				if(total[i][j] < 0.00001){
+					wo[i][j] = 0.0;
                 }else{
-                    wo[i][j] = overlaps[i][j]/total[i][j];
+					double fails	= occlusion_penalty*(total[i][j]-overlaps[i][j]);
+					double others	= overlaps[i][j];
+					wo[i][j] = others/(fails+others);//overlaps[i][j]/total[i][j];
+					//wo[i][j] = wo[i][j]*0.9 + weights_old.back()[i][j]*0.9;
                 }
             }
-
-            double sum = 0;
-            for(unsigned int j = 0; j < nr_pixels; j++){
-                sum += wo[i][j];
-            }
-            sum /= double(nr_pixels);
-            for(unsigned int j = 0; j < nr_pixels; j++){
-                if(total[i][j] == 0){
-                    wo[i][j] = sum;
-                }
-            }
+//if(iter % 5 == 0){getImageFromArray(cf[i]->camera->width, cf[i]->camera->height, wo[i]);}
+//			printf("%i / %i \n",i+1,cf.size());
+//			cv::namedWindow( "depthedges", cv::WINDOW_AUTOSIZE );
+//			cv::imshow( "depthedges", getImageFromArray(cf[i]->camera->width, cf[i]->camera->height, wo[i]) );
+//			cv::waitKey(0);
         }
         weights_old.push_back(wo);
     }
+
+	for(unsigned int i = 0; i < cf.size(); i++){
+		unsigned int nr_pixels = cf[i]->camera->width * cf[i]->camera->height;
+		double sum = 0;
+		for(unsigned int j = 0; j < nr_pixels; j++){
+			sum += wo[i][j];
+		}
+		sum /= double(nr_pixels);
+		for(unsigned int j = 0; j < nr_pixels; j++){
+			if(total[i][j] == 0){
+				wo[i][j] = sum;
+			}
+		}
+	}
+	for(unsigned int i = 0; i < cf.size(); i++){
+		for(unsigned int j = 0; j < weights_old.size(); j++){
+			getImageFromArray(cf[i]->camera->width, cf[i]->camera->height, weights_old[j][i]);
+		}
+	}
+}
+
+
+void ModelUpdater::getDynamicWeights(Matrix4d p, RGBDFrame* frame1, double * overlaps, double * occlusions, RGBDFrame* frame2, cv::Mat mask){
+	unsigned char  * src_rgbdata		= (unsigned char	*)(frame1->rgb.data);
+	unsigned short * src_depthdata		= (unsigned short	*)(frame1->depth.data);
+	float		   * src_normalsdata	= (float			*)(frame1->normals.data);
+
+	Camera * src_camera				= frame1->camera;
+	const unsigned int src_width	= src_camera->width;
+	const unsigned int src_height	= src_camera->height;
+	const float src_idepth			= src_camera->idepth_scale;
+	const float src_cx				= src_camera->cx;
+	const float src_cy				= src_camera->cy;
+	const float src_ifx				= 1.0/src_camera->fx;
+	const float src_ify				= 1.0/src_camera->fy;
+
+	unsigned char  * dst_rgbdata		= (unsigned char	*)(frame2->rgb.data);
+	unsigned short * dst_depthdata		= (unsigned short	*)(frame2->depth.data);
+	float		   * dst_normalsdata	= (float			*)(frame2->normals.data);
+    unsigned char  * dst_maskdata       = (unsigned char	*)(mask.data);
+
+	Camera * dst_camera				= frame2->camera;
+	const unsigned int dst_width	= dst_camera->width;
+	const unsigned int dst_height	= dst_camera->height;
+	const float dst_idepth			= dst_camera->idepth_scale;
+	const float dst_cx				= dst_camera->cx;
+	const float dst_cy				= dst_camera->cy;
+	const float dst_ifx				= 1.0/dst_camera->fx;
+	const float dst_ify				= 1.0/dst_camera->fy;
+	const float dst_fx				= dst_camera->fx;
+	const float dst_fy				= dst_camera->fy;
+
+	const unsigned int dst_width2	= dst_camera->width  - 2;
+	const unsigned int dst_height2	= dst_camera->height - 2;
+
+	float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
+	float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
+	float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
+
+	bool debugg = false;
+	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr src_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dst_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+	if(debugg){
+
+		src_cloud->points.resize(src_width*src_height);
+		for(unsigned int src_w = 0; src_w < src_width;src_w++){
+			for(unsigned int src_h = 0; src_h < src_height;src_h++){
+				int src_ind = src_h*src_width+src_w;
+				float src_z = src_idepth*float(src_depthdata[src_ind]);
+				float src_nx = src_normalsdata[3*src_ind+0];
+				if(src_z > 0 && src_nx != 2){
+					float src_ny = src_normalsdata[3*src_ind+1];
+					float src_nz = src_normalsdata[3*src_ind+2];
+
+					float src_x = (float(src_w) - src_cx) * src_z * src_ifx;
+					float src_y = (float(src_h) - src_cy) * src_z * src_ify;
+
+
+					float tx	= m00*src_x + m01*src_y + m02*src_z + m03;
+					float ty	= m10*src_x + m11*src_y + m12*src_z + m13;
+					float tz	= m20*src_x + m21*src_y + m22*src_z + m23;
+
+					pcl::PointXYZRGBNormal point;
+					point.x = tx;
+					point.y = ty;
+					point.z = tz;
+					point.r = 255;
+					point.g = 0;
+					point.b = 0;
+					src_cloud->points[src_ind] = point;
+				}
+			}
+		}
+
+		dst_cloud->points.resize(dst_width*dst_height);
+		for(unsigned int dst_w = 0; dst_w < dst_width;dst_w++){
+			for(unsigned int dst_h = 0; dst_h < dst_height;dst_h++){
+				int dst_ind = dst_h*dst_width+dst_w;
+				float dst_z = dst_idepth*float(dst_depthdata[dst_ind]);
+				float dst_nx = dst_normalsdata[3*dst_ind+0];
+				if(dst_z > 0 && dst_nx != 2){
+					float dst_ny = dst_normalsdata[3*dst_ind+1];
+					float dst_nz = dst_normalsdata[3*dst_ind+2];
+
+					float dst_x = (float(dst_w) - dst_cx) * dst_z * dst_ifx;
+					float dst_y = (float(dst_h) - dst_cy) * dst_z * dst_ify;
+
+					pcl::PointXYZRGBNormal point;
+					point.x = dst_x;
+					point.y = dst_y;
+					point.z = dst_z;
+					point.r = 0;
+					point.g = 0;
+					point.b = 255;
+					dst_cloud->points[dst_ind] = point;
+				}
+			}
+		}
+	}
+
+	for(unsigned int src_w = 0; src_w < src_width;src_w++){
+		for(unsigned int src_h = 0; src_h < src_height;src_h++){
+			int src_ind = src_h*src_width+src_w;
+			float src_z = src_idepth*float(src_depthdata[src_ind]);
+			float src_nx = src_normalsdata[3*src_ind+0];
+			if(src_z > 0 && src_nx != 2){
+				float src_ny = src_normalsdata[3*src_ind+1];
+				float src_nz = src_normalsdata[3*src_ind+2];
+
+				float src_x = (float(src_w) - src_cx) * src_z * src_ifx;
+				float src_y = (float(src_h) - src_cy) * src_z * src_ify;
+
+
+				float tx	= m00*src_x + m01*src_y + m02*src_z + m03;
+				float ty	= m10*src_x + m11*src_y + m12*src_z + m13;
+				float tz	= m20*src_x + m21*src_y + m22*src_z + m23;
+				float itz	= 1.0/tz;
+				float dst_w	= dst_fx*tx*itz + dst_cx;
+				float dst_h	= dst_fy*ty*itz + dst_cy;
+
+				if((dst_w > 0) && (dst_h > 0) && (dst_w < dst_width2) && (dst_h < dst_height2)){
+					unsigned int dst_ind = unsigned(dst_h+0.5) * dst_width + unsigned(dst_w+0.5);
+
+					float dst_z = dst_idepth*float(dst_depthdata[dst_ind]);
+					float dst_nx = dst_normalsdata[3*dst_ind+0];
+					if(dst_z > 0 && dst_nx != 2){
+						float dst_ny = dst_normalsdata[3*dst_ind+1];
+						float dst_nz = dst_normalsdata[3*dst_ind+2];
+
+						float dst_x = (float(dst_w) - dst_cx) * dst_z * dst_ifx;
+						float dst_y = (float(dst_h) - dst_cy) * dst_z * dst_ify;
+
+						double dst_noise = dst_z * dst_z;
+						double point_noise = src_z * src_z;
+
+						float tnx	= m00*src_nx + m01*src_ny + m02*src_nz;
+						float tny	= m10*src_nx + m11*src_ny + m12*src_nz;
+						float tnz	= m20*src_nx + m21*src_ny + m22*src_nz;
+
+						double d = (tnx*(dst_x-tx) + tny*(dst_y-ty) + tnz*(dst_z-tz)) / (src_z*src_z + dst_z*dst_z);
+						//double compare_mul = 1/sqrt(dst_noise*dst_noise + point_noise*point_noise);
+						//d *= src_z;//compare_mul;
+						double surface_angle = tnx*dst_nx+tny*dst_ny+tnz*dst_nz;
+
+						if(fabs(d) < 0.01){//If close, according noises, and angle of the surfaces similar: FUSE
+                            if(surface_angle > 0.8 && dst_maskdata[dst_ind] > 0){
+								overlaps[src_ind]++;
+								if(debugg){
+									dst_cloud->points[dst_ind].r = 0;
+									dst_cloud->points[dst_ind].g = 255;
+									dst_cloud->points[dst_ind].b = 0;
+									src_cloud->points[src_ind].r = 0;
+									src_cloud->points[src_ind].g = 255;
+									src_cloud->points[src_ind].b = 0;
+								}
+							}
+						}else if(tz < dst_z){
+							occlusions[src_ind]++;
+							if(debugg){
+								src_cloud->points[src_ind].r = 255;
+								src_cloud->points[src_ind].g = 0;
+								src_cloud->points[src_ind].b = 255;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if(debugg){
+		viewer->removeAllPointClouds();
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (src_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(src_cloud), "scloud");
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (dst_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dst_cloud), "dcloud");
+		viewer->spin();
+	}
+}
+
+std::string type2str(int type) {
+  string r;
+
+  uchar depth = type & CV_MAT_DEPTH_MASK;
+  uchar chans = 1 + (type >> CV_CN_SHIFT);
+
+  switch ( depth ) {
+	case CV_8U:  r = "8U"; break;
+	case CV_8S:  r = "8S"; break;
+	case CV_16U: r = "16U"; break;
+	case CV_16S: r = "16S"; break;
+	case CV_32S: r = "32S"; break;
+	case CV_32F: r = "32F"; break;
+	case CV_64F: r = "64F"; break;
+	default:     r = "User"; break;
+  }
+
+  r += "C";
+  r += (chans+'0');
+
+  return r;
+}
+
+/**
+ * Code for thinning a binary image using Zhang-Suen algorithm.
+ *
+ * Author:  Nash (nash [at] opencv-code [dot] com)
+ * Website: http://opencv-code.com
+ */
+#include <opencv2/opencv.hpp>
+
+/**
+ * Perform one thinning iteration.
+ * Normally you wouldn't call this function directly from your code.
+ *
+ * Parameters:
+ * 		im    Binary image with range = [0,1]
+ * 		iter  0=even, 1=odd
+ */
+void thinningIteration(cv::Mat& img, int iter)
+{
+	CV_Assert(img.channels() == 1);
+	CV_Assert(img.depth() != sizeof(uchar));
+	CV_Assert(img.rows > 3 && img.cols > 3);
+
+	cv::Mat marker = cv::Mat::zeros(img.size(), CV_8UC1);
+
+	int nRows = img.rows;
+	int nCols = img.cols;
+
+	if (img.isContinuous()) {
+		nCols *= nRows;
+		nRows = 1;
+	}
+
+	int x, y;
+	uchar *pAbove;
+	uchar *pCurr;
+	uchar *pBelow;
+	uchar *nw, *no, *ne;    // north (pAbove)
+	uchar *we, *me, *ea;
+	uchar *sw, *so, *se;    // south (pBelow)
+
+	uchar *pDst;
+
+	// initialize row pointers
+	pAbove = NULL;
+	pCurr  = img.ptr<uchar>(0);
+	pBelow = img.ptr<uchar>(1);
+
+	for (y = 1; y < img.rows-1; ++y) {
+		// shift the rows up by one
+		pAbove = pCurr;
+		pCurr  = pBelow;
+		pBelow = img.ptr<uchar>(y+1);
+
+		pDst = marker.ptr<uchar>(y);
+
+		// initialize col pointers
+		no = &(pAbove[0]);
+		ne = &(pAbove[1]);
+		me = &(pCurr[0]);
+		ea = &(pCurr[1]);
+		so = &(pBelow[0]);
+		se = &(pBelow[1]);
+
+		for (x = 1; x < img.cols-1; ++x) {
+			// shift col pointers left by one (scan left to right)
+			nw = no;
+			no = ne;
+			ne = &(pAbove[x+1]);
+			we = me;
+			me = ea;
+			ea = &(pCurr[x+1]);
+			sw = so;
+			so = se;
+			se = &(pBelow[x+1]);
+
+			int A  = (*no == 0 && *ne == 1) + (*ne == 0 && *ea == 1) +
+					 (*ea == 0 && *se == 1) + (*se == 0 && *so == 1) +
+					 (*so == 0 && *sw == 1) + (*sw == 0 && *we == 1) +
+					 (*we == 0 && *nw == 1) + (*nw == 0 && *no == 1);
+			int B  = *no + *ne + *ea + *se + *so + *sw + *we + *nw;
+			int m1 = iter == 0 ? (*no * *ea * *so) : (*no * *ea * *we);
+			int m2 = iter == 0 ? (*ea * *so * *we) : (*no * *so * *we);
+
+			if (A == 1 && (B >= 2 && B <= 6) && m1 == 0 && m2 == 0)
+				pDst[x] = 1;
+		}
+	}
+
+	img &= ~marker;
+}
+
+/**
+ * Function for thinning the given binary image
+ *
+ * Parameters:
+ * 		src  The source image, binary with range = [0,255]
+ * 		dst  The destination image
+ */
+void thinning(const cv::Mat& src, cv::Mat& dst)
+{
+	dst = src.clone();
+	dst /= 255;         // convert to binary image
+
+	cv::Mat prev = cv::Mat::zeros(dst.size(), CV_8UC1);
+	cv::Mat diff;
+
+	do {
+		thinningIteration(dst, 0);
+		thinningIteration(dst, 1);
+		cv::absdiff(dst, prev, diff);
+		dst.copyTo(prev);
+	}
+	while (cv::countNonZero(diff) > 0);
+
+	dst *= 255;
+}
+
+void compute_thin_edges(std::vector< std::vector<double> > probs,reglib::RGBDFrame * frame, int blursize = 5, double threshold = 0.5){
+	unsigned int width = frame->rgb.cols;
+	unsigned int height = frame->rgb.rows;
+
+	std::vector<double> totprob;	totprob.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){totprob[i] = 0.5;}
+	std::vector<double> totnprob;	totnprob.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){totnprob[i] = 0.5;}
+	for(unsigned int p = 0; p < probs.size()-2; p++){
+		for(unsigned int i = 0; i < width*height;i++){
+			totprob[i]	*=		probs[p][i];
+			totnprob[i]	*= 1.0-	probs[p][i];
+		}
+	}
+
+	cv::Mat joint_prob;
+	joint_prob.create(height,width,CV_8UC1);
+	unsigned char * jointdata_prob = (unsigned char *)(joint_prob.data);
+	for(unsigned int i = 0; i < width*height;i++){
+		jointdata_prob[i] = 255.0*((totprob[i]/(totprob[i]+totnprob[i])) < threshold);
+	}
+
+	cv::imshow( "rgb", frame->rgb );
+	cv::imshow( "joint_prob", joint_prob );
+	cv::waitKey(50);
+
+	int dilation_size = 1;
+	cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size( 2*dilation_size + 1, 2*dilation_size+1 ), cv::Point( dilation_size, dilation_size ) );
+	cv::dilate( joint_prob, joint_prob, element );
+	cv::imshow( "dilate", joint_prob );
+	cv::waitKey(50);
+
+	thinning(joint_prob, joint_prob);
+	cv::imshow( "skeleton", joint_prob );
+	cv::waitKey(0);
+}
+
+std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int blursize = 5){
+	cv::Mat src						= frame->rgb.clone();
+	unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
+	float		   * normalsdata	= (float			*)(frame->normals.data);
+	const float idepth				= frame->camera->idepth_scale;
+
+	cv::GaussianBlur( src, src, cv::Size(blursize,blursize), 0, 0, cv::BORDER_DEFAULT );
+
+	unsigned char * srcdata = (unsigned char *)src.data;
+	unsigned int width = src.cols;
+	unsigned int height = src.rows;
+	unsigned int nr_pixels = width*height;
+	unsigned int nr_rgbedges = (width-2)*height + width*(height-2) + 2*(width-2)*(height-2);
+
+	std::vector< std::vector<double> > probs;
+	bool cross = false;
+	unsigned int chans = 3;
+	for(unsigned int c = 0; c < chans;c++){
+		std::vector<double> Xvec;
+		int dir;
+		for(unsigned int w = 1; w < width-1;w++){
+			for(unsigned int h = 1; h < height-1;h++){
+				int ind = h*width+w;
+				dir		= 1;
+				//Xvec.push_back(0.5*fabs(2*srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c] - srcdata[chans*(ind+dir)+c]));
+				Xvec.push_back(fabs(srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c]));
+
+				dir		= width;
+				//Xvec.push_back(0.5*fabs(2*srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c] - srcdata[chans*(ind+dir)+c]));
+				Xvec.push_back(fabs(srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c]));
+/*
+				dir		= 1+width;
+				//Xvec.push_back(0.5*fabs(2*srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c] - srcdata[chans*(ind+dir)+c]));
+				Xvec.push_back(fabs(srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c]));
+
+				dir		= 1-width;
+				//Xvec.push_back(0.5*fabs(2*srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c] - srcdata[chans*(ind+dir)+c]));
+				Xvec.push_back(fabs(srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c]));
+				*/
+			}
+		}
+
+		Eigen::MatrixXd X = Eigen::MatrixXd::Zero(1,Xvec.size());
+		for(unsigned int i = 0; i < Xvec.size();i++){X(0,i) = Xvec[i];}
+
+		double stdval = 0;
+		for(unsigned int i = 0; i < Xvec.size();i++){stdval += X(0,i)*X(0,i);}
+		stdval = sqrt(stdval/double(Xvec.size()));
+
+		DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
+		func->zeromean				= true;
+		func->maxp					= 0.99;
+		func->startreg				= 0.0;
+		func->debugg_print			= false;
+		func->bidir					= true;
+		func->maxd					= 256.0;
+		func->histogram_size		= 256;
+		func->fixed_histogram_size	= true;
+		func->startmaxd				= func->maxd;
+		func->starthistogram_size	= func->histogram_size;
+		func->blurval				= 0.005;
+		func->stdval2				= stdval;
+		func->maxnoise				= stdval;
+		func->reset();
+		func->computeModel(X);
+		printf("noise: %5.5f\n",func->getNoise());
+
+		std::vector<double> dx;  dx.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dx[i] = 0.5;}
+		std::vector<double> dy;	 dy.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dy[i] = 0.5;}
+		std::vector<double> dxy; dxy.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dxy[i] = 0.5;}
+		std::vector<double> dyx; dyx.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dyx[i] = 0.5;}
+		for(unsigned int w = 1; w < width;w++){
+			for(unsigned int h = 1; h < height-1;h++){
+				int ind = h*width+w;
+//				dir		= 1;
+//				dx[ind] = func->getProb(0.5*fabs(2*srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c] - srcdata[chans*(ind+dir)+c]));
+
+//				dir		= width;
+//				dy[ind] = func->getProb(0.5*fabs(2*srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c] - srcdata[chans*(ind+dir)+c]));
+
+//				dir		= 1+width;
+//				dxy[ind] = func->getProb(0.5*fabs(2*srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c] - srcdata[chans*(ind+dir)+c]));
+
+//				dir		= 1-width;
+//				dyx[ind] = func->getProb(0.5*fabs(2*srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c] - srcdata[chans*(ind+dir)+c]));
+
+				dir		= 1;
+				dx[ind] = func->getProb(fabs(srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c]));
+
+				dir		= width;
+				dy[ind] = func->getProb(fabs(srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c]));
+
+				dir		= 1+width;
+				dxy[ind] = func->getProb(fabs(srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c]));
+
+				dir		= 1-width;
+				dyx[ind] = func->getProb(fabs(srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c]));
+			}
+		}
+		delete func;
+
+		probs.push_back(dx);
+		probs.push_back(dy);
+//		probs.push_back(dxy);
+//		probs.push_back(dyx);
+	}
+/*
+	std::vector< std::vector<double> > probs2;
+	for(unsigned int c = 0; c < 3;c++){
+		std::vector<double> Xvec;
+		for(unsigned int w = 10; w < width;w++){
+			for(unsigned int h = 10; h < height-1;h++){
+				int ind = h*width+w;
+				if(fabs(normalsdata[3*ind]) > 1 && fabs(normalsdata[3*(ind-10)]) > 1 && fabs(normalsdata[3*(ind-10*width)]) > 1){continue;}
+				Xvec.push_back(fabs(normalsdata[3*ind+c] - normalsdata[3*(ind-10*1)+c]));
+				Xvec.push_back(fabs(normalsdata[3*ind+c] - normalsdata[3*(ind-10*width)+c]));
+			}
+		}
+
+		Eigen::MatrixXd X = Eigen::MatrixXd::Zero(1,Xvec.size());
+		for(unsigned int i = 0; i < Xvec.size();i++){X(0,i) = Xvec[i];}
+
+		double stdval = 0;
+		for(unsigned int i = 0; i < Xvec.size();i++){stdval += X(0,i)*X(0,i);}
+		stdval = sqrt(stdval/double(Xvec.size()));
+
+		DistanceWeightFunction2PPR2 * funcZ = new DistanceWeightFunction2PPR2();
+		funcZ->zeromean				= true;
+		funcZ->startreg				= 0.025;
+		funcZ->debugg_print			= true;
+		funcZ->bidir				= true;
+		funcZ->maxd					= 1.00;
+		funcZ->histogram_size		= 1000;
+		funcZ->fixed_histogram_size	= true;
+		funcZ->startmaxd			= funcZ->maxd;
+		funcZ->starthistogram_size	= funcZ->histogram_size;
+		funcZ->blurval				= 0.5;
+		funcZ->stdval2				= stdval;
+		funcZ->maxnoise				= stdval;
+		funcZ->reset();
+		funcZ->computeModel(X);
+		printf("noise: %5.5f\n",funcZ->getNoise());
+
+		std::vector<double> dx;  dx.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dx[i] = 0.5;}
+		std::vector<double> dy;	 dy.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dy[i] = 0.5;}
+		for(unsigned int w = 10; w < width;w++){
+			for(unsigned int h = 10; h < height-1;h++){
+				int ind = h*width+w;
+				if(fabs(normalsdata[3*ind]) > 1 && fabs(normalsdata[3*(ind-10*1)]) > 1 && fabs(normalsdata[3*(ind-10*width)]) > 1){continue;}
+				dx[ind] = funcZ->getProb(fabs(normalsdata[3*ind+c] - normalsdata[3*(ind-10*1)+c]));
+				dy[ind] = funcZ->getProb(fabs(normalsdata[3*ind+c] - normalsdata[3*(ind-10*width)+c]));
+			}
+		}
+		delete funcZ;
+
+		probs2.push_back(dx);
+		probs2.push_back(dy);
+	}
+
+	std::vector<double> totprob2;	totprob2.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){totprob2[i] = 0.5;}
+	std::vector<double> totnprob2;	totnprob2.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){totnprob2[i] = 0.5;}
+	for(unsigned int p = 0; p < probs2.size(); p++){
+		for(unsigned int i = 0; i < width*height;i++){
+			totprob2[i]	*=		probs2[p][i];
+			totnprob2[i]	*= 1.0-	probs2[p][i];
+		}
+
+		cv::Mat joint_prob;
+		joint_prob.create(height,width,CV_8UC3);
+		unsigned char * jointdata_prob = (unsigned char *)(joint_prob.data);
+		for(unsigned int i = 0; i < width*height;i++){
+			jointdata_prob[3*i+0] = 255.0*totprob2[i]/(totprob2[i]+totnprob2[i]);
+			jointdata_prob[3*i+1] = 255.0*totprob2[i]/(totprob2[i]+totnprob2[i]);
+			jointdata_prob[3*i+2] = 255.0*totprob2[i]/(totprob2[i]+totnprob2[i]);
+		}
+		cv::imshow( "rgb", src );
+		cv::imshow( "joint_prob", joint_prob );
+		cv::waitKey(0);
+	}
+
+//		cv::Mat joint_prob;
+//		joint_prob.create(height,width,CV_8UC3);
+//		unsigned char * jointdata_prob = (unsigned char *)(joint_prob.data);
+//		for(unsigned int i = 0; i < width*height;i++){
+//			jointdata_prob[3*i+0] = 255.0*totprob[i]/(totprob[i]+totnprob[i]);
+//			jointdata_prob[3*i+1] = 255.0*totprob[i]/(totprob[i]+totnprob[i]);
+//			jointdata_prob[3*i+2] = 255.0*totprob[i]/(totprob[i]+totnprob[i]);
+//		}
+
+//		cv::imshow( "rgb", src );
+//		cv::imshow( "joint_prob", joint_prob );
+//		cv::waitKey(0);
+
+*/
+
+
+
+	{
+		std::vector<double> Xvec;
+		for(unsigned int w = 1; w < width-1;w++){
+			for(unsigned int h = 1; h < height-1;h++){
+				int ind = h*width+w;
+				float z = idepth*float(depthdata[ind]);
+
+				if(w > 1){
+					int dir = -1;
+					int other2 = ind+2*dir;
+					int other = ind+dir;
+
+					float z3 = idepth*float(depthdata[other2]);
+					float z2 = idepth*float(depthdata[other]);
+					z2 = 2*z2-z3;
+
+					if(z2 > 0 || z > 0){Xvec.push_back((z-z2)/(z*z+z2*z2));}
+				}
+
+				if(h > 1){
+					int dir = -width;
+					int other2 = ind+2*dir;
+					int other = ind+dir;
+
+					float z3 = idepth*float(depthdata[other2]);
+					float z2 = idepth*float(depthdata[other]);
+					z2 = 2*z2-z3;
+
+					if(z2 > 0 || z > 0){Xvec.push_back((z-z2)/(z*z+z2*z2));}
+				}
+			}
+		}
+
+		Eigen::MatrixXd X = Eigen::MatrixXd::Zero(1,Xvec.size());
+		for(unsigned int i = 0; i < Xvec.size();i++){X(0,i) = Xvec[i];}
+
+		double stdval = 0;
+		for(unsigned int i = 0; i < Xvec.size();i++){stdval += X(0,i)*X(0,i);}
+		stdval = sqrt(stdval/double(Xvec.size()));
+
+		DistanceWeightFunction2PPR2 * funcZ = new DistanceWeightFunction2PPR2();
+		funcZ->zeromean				= true;
+		funcZ->startreg				= 0.002;
+		funcZ->debugg_print			= false;
+		funcZ->bidir				= true;
+		funcZ->maxp					= 0.999999;
+		funcZ->maxd					= 0.1;
+		funcZ->histogram_size		= 100;
+		funcZ->fixed_histogram_size	= true;
+		funcZ->startmaxd			= funcZ->maxd;
+		funcZ->starthistogram_size	= funcZ->histogram_size;
+		funcZ->blurval				= 0.5;
+		funcZ->stdval2				= stdval;
+		funcZ->maxnoise				= stdval;
+		funcZ->reset();
+		funcZ->computeModel(X);
+
+		for(unsigned int w = 1; w < width-1;w++){
+			for(unsigned int h = 1; h < height-1;h++){
+				int ind = h*width+w;
+				float z = idepth*float(depthdata[ind]);
+
+				if(w > 1){
+					int dir = -1;
+					int other2 = ind+2*dir;
+					int other = ind+dir;
+
+					float z3 = idepth*float(depthdata[other2]);
+					float z2 = idepth*float(depthdata[other]);
+					z2 = 2*z2-z3;
+
+					if(z2 > 0 || z > 0){Xvec.push_back((z-z2)/(z*z+z2*z2));}
+				}
+
+				if(h > 1){
+					int dir = -width;
+					int other2 = ind+2*dir;
+					int other = ind+dir;
+
+					float z3 = idepth*float(depthdata[other2]);
+					float z2 = idepth*float(depthdata[other]);
+					z2 = 2*z2-z3;
+
+					if(z2 > 0 || z > 0){Xvec.push_back((z-z2)/(z*z+z2*z2));}
+				}
+			}
+		}
+
+		std::vector<double> dx;  dx.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dx[i] = 0.5;}
+		std::vector<double> dy;	 dy.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dy[i] = 0.5;}
+
+		for(unsigned int w = 1; w < width;w++){
+			for(unsigned int h = 1; h < height-1;h++){
+				int ind = h*width+w;
+				float z = idepth*float(depthdata[ind]);
+
+				if(w > 1){
+					int dir = -1;
+					int other2 = ind+2*dir;
+					int other = ind+dir;
+
+					float z3 = idepth*float(depthdata[other2]);
+					float z2 = idepth*float(depthdata[other]);
+					if(z3 > 0){z2 = 2*z2-z3;}
+
+					if(z2 > 0 || z > 0){dx[ind] = funcZ->getProb((z-z2)/(z*z+z2*z2));}
+				}
+
+				if(h > 1){
+					int dir = -width;
+					int other2 = ind+2*dir;
+					int other = ind+dir;
+
+					float z3 = idepth*float(depthdata[other2]);
+					float z2 = idepth*float(depthdata[other]);
+					if(z3 > 0){z2 = 2*z2-z3;}
+
+					if(z2 > 0 || z > 0){dy[ind] = funcZ->getProb((z-z2)/(z*z+z2*z2));}
+				}
+			}
+		}
+
+		delete funcZ;
+		probs.push_back(dx);
+		probs.push_back(dy);
+	}
+
+//	std::vector<double> totprob;	totprob.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){totprob[i] = 0.5;}
+//	std::vector<double> totnprob;	totnprob.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){totnprob[i] = 0.5;}
+//	for(unsigned int p = 0; p < probs.size(); p++){
+//		for(unsigned int i = 0; i < width*height;i++){
+//			totprob[i]	*=		probs[p][i];
+//			totnprob[i]	*= 1.0-	probs[p][i];
+//		}
+//	}
+
+//	cv::Mat joint_prob;
+//	joint_prob.create(height,width,CV_8UC3);
+//	unsigned char * jointdata_prob = (unsigned char *)(joint_prob.data);
+//	for(unsigned int i = 0; i < width*height;i++){
+//		jointdata_prob[3*i+0] = 255.0*totprob[i]/(totprob[i]+totnprob[i]);
+//		jointdata_prob[3*i+1] = 255.0*totprob[i]/(totprob[i]+totnprob[i]);
+//		jointdata_prob[3*i+2] = 255.0*totprob[i]/(totprob[i]+totnprob[i]);
+//	}
+
+//	cv::imshow( "rgb", src );
+//	cv::imshow( "joint_prob", joint_prob );
+//	cv::waitKey(0);
+
+	return probs;
+}
+
+std::vector<cv::Mat> ModelUpdater::computeDynamicObject(reglib::Model * bg, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<cv::Mat> oldmasks){
+    std::vector<cv::Mat> newmasks;
+	for(unsigned int i = 0; i < cf.size(); i++){
+
+        unsigned char  * rgbdata		= (unsigned char	*)(cf[i]->rgb.data);
+        unsigned short * depthdata		= (unsigned short	*)(cf[i]->depth.data);
+        float		   * normalsdata	= (float			*)(cf[i]->normals.data);
+
+
+        Camera * camera				= cf[i]->camera;
+        const unsigned int width	= camera->width;
+        const unsigned int height	= camera->height;
+        const float idepth			= camera->idepth_scale;
+        const float cx				= camera->cx;
+        const float cy				= camera->cy;
+        const float ifx				= 1.0/camera->fx;
+        const float ify				= 1.0/camera->fy;
+
+		unsigned int nr_pixels = cf[i]->camera->width * cf[i]->camera->height;
+		double * overlaps	= new double[nr_pixels];
+		double * occlusions		= new double[nr_pixels];
+		for(unsigned int j = 0; j < nr_pixels; j++){
+			overlaps[j] = 0;
+			occlusions[j] = 0;
+		}
+
+		for(unsigned int j = 0; j < cf.size(); j++){
+            if(i == j){continue;}
+			Eigen::Matrix4d p = cp[i].inverse() * cp[j];
+            getDynamicWeights(p.inverse(), cf[i], overlaps, occlusions, cf[j],oldmasks[j]);
+		}
+		std::vector< std::vector<double> > probs = getImageProbs(cf[i],5);
+
+		printf("starting partition\n");
+		double start_part = getTime();
+        int nr_data = width*height;
+        gc::Graph<double,double,double> *g = new gc::Graph<double,double,double>( nr_data, width*(height-1) + (width-1)*height);
+
+		double maxprob = 0.7;
+		for(unsigned int j = 0; j < nr_data;j++){
+			g -> add_node();
+            if(depthdata[j] == 0){
+				g -> add_tweights(j,0,0);
+				continue;
+			}
+
+			double p_fg = 0.499;
+
+			if(occlusions[j] >= 1){	p_fg = maxprob;}
+			else if(overlaps[j] >= 1){	p_fg = 0.4;}
+
+			p_fg = std::max(1-maxprob,std::min(maxprob,p_fg));
+
+			double p_bg = 1-p_fg;
+			double weightFG = -log(p_fg);
+			double weightBG = -log(p_bg);
+			g -> add_tweights( j, weightFG, weightBG );
+		}
+
+		double maxprob_same = 0.999999999;
+        for(unsigned int w = 0; w < width;w++){
+            for(unsigned int h = 0; h < height;h++){
+                int ind = h*width+w;
+
+				double ax = 0.5;
+				double bx = 0.5;
+				for(int p = 0; p < probs.size(); p+=2){
+                    double pr = probs[p][ind];
+					ax *= pr;
+					bx *= 1.0-pr;
+				}
+				double px = ax/(ax+bx);
+
+				double ay = 0.5;
+				double by = 0.5;
+				for(int p = 1; p < probs.size(); p+=2){
+                    double pr = probs[p][ind];
+					ay *= pr;
+					by *= 1.0-pr;
+				}
+				double py = ay/(ay+by);
+
+                if(w > 0){
+                    int other = ind-1;
+                    double p_same = std::max(probs[probs.size()-2][ind],std::min(px,maxprob_same));
+					double not_p_same = 1-p_same;
+					double weight = -log(not_p_same);
+                    if(w % 10 == 0 && h % 10 == 0){printf("%i %i -> P:%10.10f -> weight: %10.10f\n",w,h,p_same,weight);}
+                    g -> add_edge( ind, other, weight, weight );
+				}
+
+                if(h > 0){
+                    int other = ind-width;
+                    double p_same = std::max(probs[probs.size()-1][ind],std::min(py,maxprob_same));
+					double not_p_same = 1-p_same;
+					double weight = -log(not_p_same);
+                    g -> add_edge( ind, other, weight, weight );
+				}
+			}
+		}
+
+		int flow = g -> maxflow();
+		printf("flow: %i\n",flow);
+
+
+		double end_part = getTime();
+		printf("part time: %10.10fs\n",end_part-start_part);
+
+        cv::Mat internalmask;
+
+        internalmask.create(height,width,CV_8UC1);
+        unsigned char * internaldata = (unsigned char *)(internalmask.data);
+        for(unsigned int i = 0; i < width*height;i++){
+            internaldata[i] = 255.0*(g->what_segment(i) == gc::Graph<double,double,double>::SOURCE);
+        }
+
+        cv::imshow( "rgb", cf[i]->rgb );
+        cv::imshow( "internalmask", internalmask );
+        cv::waitKey(0);
+
+        newmasks.push_back(internalmask);
+        //Time to compute external masks...
+
+        bool debugg1 = false;
+		if(debugg1){
+            pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+            cloud->points.resize(width*height);
+            for(unsigned int w = 0; w < width;w++){
+                for(unsigned int h = 0; h < height;h++){
+                    int ind = h*width+w;
+                    float z = idepth*float(depthdata[ind]);
+                    if(z > 0){
+                        float x = (float(w) - cx) * z * ifx;
+                        float y = (float(h) - cy) * z * ify;
+
+						pcl::PointXYZRGBNormal point;
+                        point.x = x;
+                        point.y = y;
+                        point.z = z;
+                        if (g->what_segment(ind) == gc::Graph<double,double,double>::SOURCE){
+							point.r = 0;
+							point.g = 255;
+							point.b = 0;
+						}else{
+							point.r = 255;
+							point.g = 0;
+							point.b = 0;
+						}
+                        cloud->points[ind] = point;
+					}
+				}
+			}
+
+			viewer->removeAllPointClouds();
+            viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "scloud");
+			viewer->spin();
+		}
+		delete g;
+
+        bool debugg2 = false;
+		if(debugg2){
+            pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+            cloud->points.resize(width*height);
+            for(unsigned int w = 0; w < width;w++){
+                for(unsigned int h = 0; h < height;h++){
+                    int ind = h*width+w;
+                    float z = idepth*float(depthdata[ind]);
+                    float nx = normalsdata[3*ind+0];
+                    if(z > 0 && nx != 2){
+                        float ny = normalsdata[3*ind+1];
+                        float nz = normalsdata[3*ind+2];
+
+                        float x = (float(w) - cx) * z * ifx;
+                        float y = (float(h) - cy) * z * ify;
+
+
+						pcl::PointXYZRGBNormal point;
+                        point.x = x;
+                        point.y = y;
+                        point.z = z;
+						point.r = 0;
+						point.g = 255;
+						point.b = 255;
+
+                        if(overlaps[ind] >= 1){
+							point.r = 0;
+							point.g = 255;
+							point.b = 0;
+						}
+                        if(occlusions[ind] >= 1){
+							point.r = 255;
+							point.g = 0;
+							point.b = 0;
+						}
+                        cloud->points[ind] = point;
+					}
+				}
+			}
+
+			viewer->removeAllPointClouds();
+            viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "scloud");
+			viewer->spin();
+		}
+
+		bool debugg3 = false;
+		if(debugg3){
+            pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+            cloud->points.resize(width*height);
+            for(unsigned int w = 0; w < width;w++){
+                for(unsigned int h = 0; h < height;h++){
+                    int ind = h*width+w;
+                    float z = idepth*float(depthdata[ind]);
+                    if(z > 0){
+
+                        float x = (float(w) - cx) * z * ifx;
+                        float y = (float(h) - cy) * z * ify;
+
+						double ax = 0.5;
+						double bx = 0.5;
+						for(int p = 0; p < probs.size()-2; p+=2){
+                            double pr = probs[p][ind];
+							ax *= pr;
+							bx *= 1.0-pr;
+						}
+						double px = ax/(ax+bx);
+
+						double ay = 0.5;
+						double by = 0.5;
+						for(int p = 1; p < probs.size()-1; p+=2){
+                            double pr = probs[p][ind];
+							ay *= pr;
+							by *= 1.0-pr;
+						}
+						double py = ay/(ay+by);
+
+						double p_same_color = std::max(0.25,						std::min(px,maxprob_same));
+                        double p_same_depth = std::min(probs[probs.size()-2][ind],	maxprob_same);
+						double not_p_same_color = 1-p_same_color;
+						double not_p_same_depth = 1-p_same_depth;
+						double not_p_same = std::min(not_p_same_color,not_p_same_depth);
+
+//						double ptest = (ax*ay)/(ax*ay+bx*by);
+
+						pcl::PointXYZRGBNormal point;
+                        point.x = x;
+                        point.y = y;
+                        point.z = z;
+                        point.r = 255*not_p_same_color;//(1.0-probs[0][ind]);
+                        point.g = 255*not_p_same_color;//*(1.0-probs[1][ind]);
+						point.b = 255*not_p_same_color;
+                        cloud->points[ind] = point;
+					}
+				}
+			}
+
+			viewer->removeAllPointClouds();
+            viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "scloud");
+			viewer->spin();
+
+            for(unsigned int w = 0; w < width;w++){
+                for(unsigned int h = 0; h < height;h++){
+                    int ind = h*width+w;
+                    float z = idepth*float(depthdata[ind]);
+                    if(z > 0){
+
+                        float x = (float(w) - cx) * z * ifx;
+                        float y = (float(h) - cy) * z * ify;
+
+						double ax = 0.5;
+						double bx = 0.5;
+						for(int p = 0; p < probs.size()-2; p+=2){
+                            double pr = probs[p][ind];
+							ax *= pr;
+							bx *= 1.0-pr;
+						}
+						double px = ax/(ax+bx);
+
+						double ay = 0.5;
+						double by = 0.5;
+						for(int p = 1; p < probs.size()-1; p+=2){
+                            double pr = probs[p][ind];
+							ay *= pr;
+							by *= 1.0-pr;
+						}
+						double py = ay/(ay+by);
+
+						double p_same_color = std::max(0.25,								std::min(py,maxprob_same));
+                        double p_same_depth = std::min(probs[probs.size()-1][ind],	maxprob_same);
+						double not_p_same_color = 1-p_same_color;
+						double not_p_same_depth = 1-p_same_depth;
+						double not_p_same = std::min(not_p_same_color,not_p_same_depth);
+
+
+						pcl::PointXYZRGBNormal point;
+                        point.x = x;
+                        point.y = y;
+                        point.z = z;
+                        point.r = 255*not_p_same_color;//(1.0-probs[0][ind]);
+                        point.g = 255*not_p_same_color;//*(1.0-probs[1][ind]);
+						point.b = 255*not_p_same_color;
+                        cloud->points[ind] = point;
+					}
+				}
+			}
+
+			viewer->removeAllPointClouds();
+            viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "scloud");
+			viewer->spin();
+		}
+
+		delete[] overlaps;
+		delete[] occlusions;
+	}
 }
 
 OcclusionScore ModelUpdater::computeOcclusionScore(RGBDFrame * src, ModelMask * src_modelmask, RGBDFrame * dst, ModelMask * dst_modelmask, Eigen::Matrix4d p, int step, bool debugg){

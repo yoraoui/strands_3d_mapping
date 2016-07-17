@@ -165,16 +165,11 @@ void publish_places(reglib::Model * mod){
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZRGB> ());
         pcl::transformPointCloud (*cloud, *transformed_cloud, pose);
 
-
         sensor_msgs::PointCloud2 input;
         pcl::toROSMsg (*transformed_cloud,input);//, *transformed_cloud);
         input.header.frame_id = "/map";
         model_places_pub.publish(input);
     }
-/*
-    for(unsigned int i = 0; i < history.size(); i++){
-    }
-    */
 }
 
 void publishObject(int id){

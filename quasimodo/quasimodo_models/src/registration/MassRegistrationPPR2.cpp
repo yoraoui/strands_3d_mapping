@@ -104,6 +104,209 @@ MassRegistrationPPR2::~MassRegistrationPPR2(){
 	delete[] kp_rangeW_arr;
 }
 
+void MassRegistrationPPR2::addModel(Model * model){
+
+    double total_load_time_start = getTime();
+//    frames.push_back(frame);
+//    mmasks.push_back(mmask);
+/*
+    nr_matches.push_back(	0);
+    matchids.push_back(		std::vector< std::vector<int> >() );
+    matchdists.push_back(	std::vector< std::vector<double> >() );
+    nr_datas.push_back(		0);
+
+    points.push_back(				Eigen::Matrix<double, 3, Eigen::Dynamic>());
+    colors.push_back(				Eigen::Matrix<double, 3, Eigen::Dynamic>());
+    normals.push_back(				Eigen::Matrix<double, 3, Eigen::Dynamic>());
+    transformed_points.push_back(	Eigen::Matrix<double, 3, Eigen::Dynamic>());
+    transformed_normals.push_back(	Eigen::Matrix<double, 3, Eigen::Dynamic>());
+
+    informations.push_back(			Eigen::VectorXd());
+
+    nr_arraypoints.push_back(0);
+    arraypoints.push_back(0);
+    arraynormals.push_back(0);
+    arraycolors.push_back(0);
+    arrayinformations.push_back(0);
+    trees3d.push_back(0);
+    a3dv.push_back(0);
+
+    depthedge_nr_arraypoints.push_back(0);
+    depthedge_arraypoints.push_back(0);
+    depthedge_arrayinformations.push_back(0);
+    depthedge_trees3d.push_back(0);
+    depthedge_a3dv.push_back(0);
+
+
+    is_ok.push_back(false);
+
+    unsigned int i = points.size()-1;
+
+    bool * maskvec					= mmask->maskvec;
+    unsigned char *  edgedata		= (unsigned char *)(frame->depthedges.data);
+    unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
+    unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
+    float		   * normalsdata	= (float			*)(frame->normals.data);
+
+    Camera * camera				= frame->camera;
+    const unsigned int width	= camera->width;
+    const unsigned int height	= camera->height;
+    const float idepth			= camera->idepth_scale;
+    const float cx				= camera->cx;
+    const float cy				= camera->cy;
+    const float ifx				= 1.0/camera->fx;
+    const float ify				= 1.0/camera->fy;
+
+    int count = 0;
+    for(unsigned int w = 0; w < width; w+=maskstep){
+        for(unsigned int h = 0; h < height; h+=maskstep){
+            int ind = h*width+w;
+            if(((w % maskstep == 0) && (h % maskstep == 0) && maskvec[ind]) || ( (w % nomaskstep == 0) && (h % nomaskstep == 0) && nomask)){
+                float z = idepth*float(depthdata[ind]);
+                float xn = normalsdata[3*ind+0];
+                if(z > 0.2 && xn != 2){count++;}
+            }
+        }
+    }
+
+
+    if(count < 10){
+        is_ok[i] = false;
+        return;
+    }else{
+        is_ok[i] = true;
+    }
+
+//    printf("%i is ok %i\n",i,is_ok[i]);
+
+    nr_datas[i] = count;
+    points[i].resize(Eigen::NoChange,count);
+    colors[i].resize(Eigen::NoChange,count);
+    normals[i].resize(Eigen::NoChange,count);
+    transformed_points[i].resize(Eigen::NoChange,count);
+    transformed_normals[i].resize(Eigen::NoChange,count);
+
+    double * ap = new double[3*count];
+    double * an = new double[3*count];
+    double * ac = new double[3*count];
+    double * ai = new double[3*count];
+    nr_arraypoints[i] = count;
+    arraypoints[i] = ap;
+    arraynormals[i] = an;
+    arraycolors[i] = ac;
+    arrayinformations[i] = ai;
+
+    Eigen::Matrix<double, 3, Eigen::Dynamic> & X	= points[i];
+    Eigen::Matrix<double, 3, Eigen::Dynamic> & C	= colors[i];
+    Eigen::Matrix<double, 3, Eigen::Dynamic> & Xn	= normals[i];
+    Eigen::Matrix<double, 3, Eigen::Dynamic> & tX	= transformed_points[i];
+    Eigen::Matrix<double, 3, Eigen::Dynamic> & tXn	= transformed_normals[i];
+    Eigen::VectorXd information (count);
+
+    int c = 0;
+    for(unsigned int w = 0; w < width; w+=maskstep){
+        for(unsigned int h = 0; h < height;h+=maskstep){
+            if(c == count){continue;}
+            int ind = h*width+w;
+            //if(maskvec[ind] || nomask){
+            if(((w % maskstep == 0) && (h % maskstep == 0) && maskvec[ind]) || ( (w % nomaskstep == 0) && (h % nomaskstep == 0) && nomask)){
+                float z = idepth*float(depthdata[ind]);
+                float xn = normalsdata[3*ind+0];
+
+                if(z > 0.2 && xn != 2){
+                    float yn = normalsdata[3*ind+1];
+                    float zn = normalsdata[3*ind+2];
+
+                    float x = (w - cx) * z * ifx;
+                    float y = (h - cy) * z * ify;
+
+                    ap[3*c+0] =x;
+                    ap[3*c+1] =y;
+                    ap[3*c+2] =z;
+
+                    an[3*c+0] =xn;
+                    an[3*c+1] =yn;
+                    an[3*c+2] =zn;
+
+                    ac[3*c+0] =rgbdata[3*ind+2];
+                    ac[3*c+1] =rgbdata[3*ind+1];
+                    ac[3*c+2] =rgbdata[3*ind+0];
+
+                    ai[c] = pow(fabs(z),-2);//1.0/(z*z);
+
+                    X(0,c)	= x;
+                    X(1,c)	= y;
+                    X(2,c)	= z;
+                    Xn(0,c)	= xn;
+                    Xn(1,c)	= yn;
+                    Xn(2,c)	= zn;
+
+                    information(c) = ai[c];//1.0/(z*z);
+                    C(0,c) = rgbdata[3*ind+0];
+                    C(1,c) = rgbdata[3*ind+1];
+                    C(2,c) = rgbdata[3*ind+2];
+                    c++;
+                }
+            }
+        }
+    }
+    informations[i] = information;
+
+    ArrayData3D<double> * a3d = new ArrayData3D<double>;
+    a3d->data	= ap;
+    a3d->rows	= count;
+    a3dv[i]		= a3d;
+    trees3d[i]	= new Tree3d(3, *a3d, nanoflann::KDTreeSingleIndexAdaptorParams(10));
+    trees3d[i]->buildIndex();
+
+
+    int depthedge_count = 0;
+    for(unsigned int w = 0; w < width; w++){
+        for(unsigned int h = 0; h < height; h++){
+            int ind = h*width+w;
+            if(maskvec[ind] && edgedata[ind] == 255){
+                float z = idepth*float(depthdata[ind]);
+                if(z > 0.2){depthedge_count++;}
+            }
+        }
+    }
+
+    if(depthedge_count < 10){
+        double * depthedge_ap = new double[3*depthedge_count];
+        double * depthedge_ai = new double[3*depthedge_count];
+        depthedge_nr_arraypoints[i] = depthedge_count;
+        depthedge_arraypoints[i] = depthedge_ap;
+        depthedge_arrayinformations[i] = depthedge_ai;
+
+        c = 0;
+        for(unsigned int w = 0; w < width; w++){
+            for(unsigned int h = 0; h < height; h++){
+                if(c == depthedge_count){continue;}
+                int ind = h*width+w;
+                if(maskvec[ind] && edgedata[ind] == 255){
+                    float z = idepth*float(depthdata[ind]);
+                    if(z > 0.2){
+                        depthedge_ap[3*c+0] = (w - cx) * z * ifx;
+                        depthedge_ap[3*c+1] = (h - cy) * z * ify;;
+                        depthedge_ap[3*c+2] = z;
+                        depthedge_ai[c] = pow(fabs(z),-2);//1.0/(z*z);
+                        c++;
+                    }
+                }
+            }
+        }
+
+        ArrayData3D<double> * depthedge_a3d = new ArrayData3D<double>;
+        depthedge_a3d->data					= depthedge_ap;
+        depthedge_a3d->rows					= depthedge_count;
+        depthedge_a3dv[i]					= depthedge_a3d;
+        depthedge_trees3d[i]				= new Tree3d(3, *depthedge_a3d, nanoflann::KDTreeSingleIndexAdaptorParams(10));
+        depthedge_trees3d[i]->buildIndex();
+    }
+*/
+    printf("total load time:          %5.5f\n",getTime()-total_load_time_start);
+}
+
 void MassRegistrationPPR2::addModelData(Model * model_, bool submodels){
 	model = model_;
 	printf("addModelData\n");

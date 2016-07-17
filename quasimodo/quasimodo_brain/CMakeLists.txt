@@ -85,7 +85,17 @@ catkin_package(
 
 include_directories(${catkin_INCLUDE_DIRS})
 
-add_library(quasimodo_ModelDatabase src/ModelDatabase/ModelDatabase.cpp src/ModelDatabase/ModelDatabaseBasic.cpp  src/ModelDatabase/ModelDatabaseRGBHistogram.cpp)# src/ModelDatabase/ModelDatabaseRetrieval.cpp)
+
+add_library(quasimodo_brain_util src/Util/Util.cpp)
+target_link_libraries(quasimodo_brain_util
+					  #${retrieval_libraries}
+					  #${benchmark_libraries}
+					  ${OpenCV_LIBS}
+					  ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES}
+					  ${PCL_LIBRARIES}
+					  ${catkin_LIBRARIES})
+
+add_library(quasimodo_ModelDatabase src/ModelDatabase/ModelDatabase.cpp src/ModelDatabase/ModelDatabaseBasic.cpp  src/ModelDatabase/ModelDatabaseRGBHistogram.cpp)
 target_link_libraries(quasimodo_ModelDatabase
 					  #${retrieval_libraries}
 					  #${benchmark_libraries}
@@ -132,7 +142,11 @@ target_link_libraries(	test_align2 quasimodo_ModelDatabase quasimodo_Mesher  ima
 
 add_executable(			test_segment src/test_segment.cpp)
 add_dependencies(		test_segment roscpp quasimodo_msgs_generate_messages_cpp)
-target_link_libraries(	test_segment quasimodo_ModelDatabase quasimodo_Mesher  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(	test_segment quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+
+add_executable(			segmentationserver src/segmentationserver.cpp)
+add_dependencies(		segmentationserver roscpp quasimodo_msgs_generate_messages_cpp)
+target_link_libraries(	segmentationserver quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
 #############
 ## Install ##

@@ -139,6 +139,7 @@ namespace reglib
 		~MassRegistrationPPR2();
 
 		void clearData();
+        void addModel(Model * model);
 		void addModelData(Model * model, bool submodels = true);
 		void addData(RGBDFrame* frame, ModelMask * mmask);
 		void addData(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud);

@@ -242,6 +242,24 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 			}
 		}
 
+//		cv::Mat curvature;
+//		curvature.create(height,width,CV_8UC3);
+//		unsigned char * curvaturedata = (unsigned char *)curvature.data;
+//		for(int w = 0; w < width; w++){
+//			for(int h = 0; h < height;h++){
+//				int ind = h*width+w;
+//				pcl::Normal		p2		= normals_cloud->points[ind];
+//				//if(w % 5 == 0 && h % 5 == 0){printf("%i %i -> curvature %f\n",w,h,p2.curvature);}
+//				curvaturedata[3*ind+0]	= 255.0*p2.curvature;
+//				curvaturedata[3*ind+1]	= 255.0*p2.curvature;
+//				curvaturedata[3*ind+2]	= 255.0*p2.curvature;
+//			}
+//		}
+//		cv::namedWindow( "curvature", cv::WINDOW_AUTOSIZE );
+//		cv::imshow( "curvature", curvature );
+//		cv::waitKey(0);
+
+
 
 		//printf("%s LINE:%i\n",__FILE__,__LINE__);
 		if(tune){

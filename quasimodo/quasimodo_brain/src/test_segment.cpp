@@ -31,6 +31,7 @@
 #include "quasimodo_msgs/index_frame.h"
 #include "quasimodo_msgs/fuse_models.h"
 #include "quasimodo_msgs/get_model.h"
+#include "quasimodo_msgs/segment_model.h"
 
 #include "ros/ros.h"
 #include <quasimodo_msgs/query_cloud.h>
@@ -57,6 +58,8 @@
 
 #include "modelupdater/ModelUpdater.h"
 #include "core/RGBDFrame.h"
+#include "Util/Util.h"
+
 
 
 using namespace std;
@@ -326,15 +329,57 @@ reglib::Model * load2(std::string sweep_xml){
 	SimpleXMLParser<PointType>::RoomData roomData  = parser.loadRoomFromXML(sweep_folder+"/room.xml");
 
 	reglib::Camera * cam		= new reglib::Camera();//TODO:: ADD TO CAMERAS
-	cam->fx = 536.458000;
-	cam->fy = 537.422000;
-	cam->cx = 314.458000;
-	cam->cy = 242.038000;
+//	cam->fx = 536.458000;
+//	cam->fy = 537.422000;
+//	cam->cx = 314.458000;
+//	cam->cy = 242.038000;
+
+	cam->fx = 532.158936;
+	cam->fy = 533.819214;
+	cam->cx = 310.514310;
+	cam->cy = 236.842039;
+
+/*
+	projection
+	532.158936 0.000000 310.514310 0.000000
+	0.000000 533.819214 236.842039 0.000000
+	0.000000 0.000000 1.000000 0.000000
+*/
+
+/*
+	[image]
+
+	width
+	640
+
+	height
+	480
+
+	[narrow_stereo]
+
+	camera matrix
+	534.192642 0.000000 311.485658
+	0.000000 533.870030 237.668175
+	0.000000 0.000000 1.000000
+
+	distortion
+	0.030388 -0.100645 -0.000995 -0.000366 0.000000
+
+	rectification
+	1.000000 0.000000 0.000000
+	0.000000 1.000000 0.000000
+	0.000000 0.000000 1.000000
+
+	projection
+	532.158936 0.000000 310.514310 0.000000
+	0.000000 533.819214 236.842039 0.000000
+	0.000000 0.000000 1.000000 0.000000
+*/
 
 	cv::Mat fullmask;
 	fullmask.create(480,640,CV_8UC1);
 	unsigned char * maskdata = (unsigned char *)fullmask.data;
-	for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
+	for(int j = 0; j < 480*640; j++){maskdata[j] = 0;}
 
 	reglib::Model * sweepmodel = 0;
 	std::vector<reglib::RGBDFrame * > current_room_frames;
@@ -396,11 +441,12 @@ reglib::Model * load2(std::string sweep_xml){
 	viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "sample cloud");
 	viewer->spin();
 */
-	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cn = sweepmodel->getPCLnormalcloud(1, false);
-	viewer->removeAllPointClouds();
-	viewer->addPointCloud<pcl::PointXYZRGBNormal> (cn, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cn), "sample cloud");
-	viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "sample cloud");
-	viewer->spin();
+
+//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cn = sweepmodel->getPCLnormalcloud(1, false);
+//	viewer->removeAllPointClouds();
+//	viewer->addPointCloud<pcl::PointXYZRGBNormal> (cn, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cn), "sample cloud");
+//	viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "sample cloud");
+//	viewer->spin();
 
 	return sweepmodel;
 }
@@ -640,24 +686,148 @@ void load(std::string sweep_xml){
 
 int main(int argc, char** argv){
 
-	ros::init(argc, argv, "use_rares_client");
+	ros::init(argc, argv, "test_segment");
 	ros::NodeHandle n;
-	ros::Subscriber sub = n.subscribe("modelserver", 1000, chatterCallback);
+//	ros::Subscriber sub = n.subscribe("modelserver", 1000, chatterCallback);
 
 	viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
 	viewer->setBackgroundColor (0.5, 0, 0.5);
 	viewer->addCoordinateSystem (1.0);
 	viewer->initCameraParameters ();
 
-	ros::NodeHandle pn("~");
+	ros::ServiceClient segmentation_client = n.serviceClient<quasimodo_msgs::segment_model>("segment_model");
+
 	for(int ar = 1; ar < argc; ar++){
 		string overall_folder = std::string(argv[ar]);
-
 		vector<string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<PointType>(overall_folder);
+		printf("sweep_xmls\n");
 		for (auto sweep_xml : sweep_xmls) {
+			printf("sweep_xml: %s\n",sweep_xml.c_str());
 			load2(sweep_xml);
 		}
 	}
 
+	for(unsigned int i = 0; i < models.size(); i++){
+		quasimodo_msgs::segment_model sm;
+		sm.request.models.push_back(quasimodo_brain::getModelMSG(models[i]));
+		if (segmentation_client.call(sm)){//Build model from frame
+			//int model_id = mff.response.model_id;
+			printf("segmented: %i\n",i);
+		}else{ROS_ERROR("Failed to call service segment_model");}
+	}
+
+
+//	mff.request.mask		= *(maskBridgeImage.toImageMsg());
+//	mff.request.isnewmodel	= (j == (fadded.size()-1));
+//	mff.request.frame_id	= fid[j];
+
+//	if (model_from_frame_client.call(mff)){//Build model from frame
+//		int model_id = mff.response.model_id;
+//		if(model_id > 0){
+//			ROS_INFO("model_id%i", model_id );
+//		}
+//	}else{ROS_ERROR("Failed to call service index_frame");}
+exit(0);
+/*
+	ros::NodeHandle pn("~");
+
+
+	for(unsigned int i = 0; i < models.size(); i++){
+		printf("%i -> %i\n",i,models[i]->frames.size());
+
+		vector<Eigen::Matrix4d> cp;
+		vector<reglib::RGBDFrame*> cf;
+		vector<reglib::ModelMask*> mm;
+
+		vector<Eigen::Matrix4d> cp_front;
+		vector<reglib::RGBDFrame*> cf_front;
+		vector<reglib::ModelMask*> mm_front;
+		for(int j = 0; j <= i; j++){
+			cp_front.push_back(models.front()->relativeposes.front().inverse() * models[j]->relativeposes.front());
+			cf_front.push_back(models[j]->frames.front());
+			mm_front.push_back(models[j]->modelmasks.front());
+		}
+
+		if(i > 0){
+			reglib::MassRegistrationPPR2 * massreg = new reglib::MassRegistrationPPR2(0.05);
+			massreg->timeout = 1200;
+			massreg->viewer = viewer;
+			massreg->visualizationLvl = 0;
+
+			massreg->maskstep = 5;//std::max(1,int(0.4*double(models[i]->frames.size())));
+			massreg->nomaskstep = 5;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
+			massreg->nomask = true;
+			massreg->stopval = 0.0005;
+
+			//		massreg->setData(models[i]->frames,models[i]->modelmasks);
+			//		reglib::MassFusionResults mfr = massreg->getTransforms(models[i]->relativeposes);
+
+			massreg->setData(cf_front,mm_front);
+
+
+			reglib::MassFusionResults mfr_front = massreg->getTransforms(cp_front);
+
+			for(int j = i; j >= 0; j--){
+				Eigen::Matrix4d change = mfr_front.poses[j] * cp_front[j].inverse();
+				for(unsigned int k = 0; k < models[j]->relativeposes.size(); k++){
+					cp.push_back(change * models.front()->relativeposes.front().inverse() * models[j]->relativeposes[k]);
+					cf.push_back(models[j]->frames[k]);
+					mm.push_back(models[j]->modelmasks[k]);
+				}
+			}
+		}else{
+			for(int j = i; j >= 0; j--){
+				Eigen::Matrix4d change = Eigen::Matrix4d::Identity();//mfr_front.poses[j] * cp_front[j].inverse();
+				for(unsigned int k = 0; k < models[j]->relativeposes.size(); k++){
+					cp.push_back(change * models.front()->relativeposes.front().inverse() * models[j]->relativeposes[k]);
+					cf.push_back(models[j]->frames[k]);
+					mm.push_back(models[j]->modelmasks[k]);
+				}
+			}
+		}
+
+
+
+
+		reglib::MassRegistrationPPR2 * massreg2 = new reglib::MassRegistrationPPR2(0.0);
+		massreg2->timeout = 1200;
+		massreg2->viewer = viewer;
+		massreg2->visualizationLvl = 1;
+
+		massreg2->maskstep = 10;//std::max(1,int(0.4*double(models[i]->frames.size())));
+		massreg2->nomaskstep = 10;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
+		massreg2->nomask = true;
+		massreg2->stopval = 0.0005;
+
+		massreg2->setData(cf,mm);
+		reglib::MassFusionResults mfr2 = massreg2->getTransforms(cp);
+		cp = mfr2.poses;
+
+		//massreg->setData(models[i]->frames,models[i]->modelmasks);
+		//reglib::MassFusionResults mfr = massreg->getTransforms(models[i]->relativeposes);
+
+//		massreg->setData(cf,mm);
+//		reglib::MassFusionResults mfr = massreg->getTransforms(cp);
+//		cp = mfr.poses;
+
+
+
+		reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
+		reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( models[i], reg);
+		mu->occlusion_penalty               = 15;
+		mu->massreg_timeout                 = 60*4;
+		mu->viewer							= viewer;
+
+		vector<cv::Mat> mats;
+		mu->computeDynamicObject(cp,cf,mats);//models[i]->relativeposes, models[i]->frames, mats );
+
+//		models[i]->print();
+//		mu->show_init_lvl = 2;
+//		mu->makeInitialSetup();
+//		models[i]->print();
+
+		//delete mu;
+	}
+*/
 	ros::spin();
 }

@@ -64,6 +64,7 @@ add_service_files(
   query_cloud.srv
   simple_query_cloud.srv
   visualize_query.srv
+  segment_model.srv
 )
 
 ## Generate actions in the 'action' folder
