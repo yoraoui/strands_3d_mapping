@@ -1607,7 +1607,7 @@ printf("iter %i\n",iter);
 }
 
 
-void ModelUpdater::getDynamicWeights(Matrix4d p, RGBDFrame* frame1, double * overlaps, double * occlusions, RGBDFrame* frame2, cv::Mat mask){
+void ModelUpdater::getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, double * overlaps, double * occlusions, RGBDFrame* frame2, cv::Mat mask){
 	unsigned char  * src_rgbdata		= (unsigned char	*)(frame1->rgb.data);
 	unsigned short * src_depthdata		= (unsigned short	*)(frame1->depth.data);
 	float		   * src_normalsdata	= (float			*)(frame1->normals.data);
@@ -2064,96 +2064,6 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 //		probs.push_back(dxy);
 //		probs.push_back(dyx);
 	}
-/*
-	std::vector< std::vector<double> > probs2;
-	for(unsigned int c = 0; c < 3;c++){
-		std::vector<double> Xvec;
-		for(unsigned int w = 10; w < width;w++){
-			for(unsigned int h = 10; h < height-1;h++){
-				int ind = h*width+w;
-				if(fabs(normalsdata[3*ind]) > 1 && fabs(normalsdata[3*(ind-10)]) > 1 && fabs(normalsdata[3*(ind-10*width)]) > 1){continue;}
-				Xvec.push_back(fabs(normalsdata[3*ind+c] - normalsdata[3*(ind-10*1)+c]));
-				Xvec.push_back(fabs(normalsdata[3*ind+c] - normalsdata[3*(ind-10*width)+c]));
-			}
-		}
-
-		Eigen::MatrixXd X = Eigen::MatrixXd::Zero(1,Xvec.size());
-		for(unsigned int i = 0; i < Xvec.size();i++){X(0,i) = Xvec[i];}
-
-		double stdval = 0;
-		for(unsigned int i = 0; i < Xvec.size();i++){stdval += X(0,i)*X(0,i);}
-		stdval = sqrt(stdval/double(Xvec.size()));
-
-		DistanceWeightFunction2PPR2 * funcZ = new DistanceWeightFunction2PPR2();
-		funcZ->zeromean				= true;
-		funcZ->startreg				= 0.025;
-		funcZ->debugg_print			= true;
-		funcZ->bidir				= true;
-		funcZ->maxd					= 1.00;
-		funcZ->histogram_size		= 1000;
-		funcZ->fixed_histogram_size	= true;
-		funcZ->startmaxd			= funcZ->maxd;
-		funcZ->starthistogram_size	= funcZ->histogram_size;
-		funcZ->blurval				= 0.5;
-		funcZ->stdval2				= stdval;
-		funcZ->maxnoise				= stdval;
-		funcZ->reset();
-		funcZ->computeModel(X);
-		printf("noise: %5.5f\n",funcZ->getNoise());
-
-		std::vector<double> dx;  dx.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dx[i] = 0.5;}
-		std::vector<double> dy;	 dy.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dy[i] = 0.5;}
-		for(unsigned int w = 10; w < width;w++){
-			for(unsigned int h = 10; h < height-1;h++){
-				int ind = h*width+w;
-				if(fabs(normalsdata[3*ind]) > 1 && fabs(normalsdata[3*(ind-10*1)]) > 1 && fabs(normalsdata[3*(ind-10*width)]) > 1){continue;}
-				dx[ind] = funcZ->getProb(fabs(normalsdata[3*ind+c] - normalsdata[3*(ind-10*1)+c]));
-				dy[ind] = funcZ->getProb(fabs(normalsdata[3*ind+c] - normalsdata[3*(ind-10*width)+c]));
-			}
-		}
-		delete funcZ;
-
-		probs2.push_back(dx);
-		probs2.push_back(dy);
-	}
-
-	std::vector<double> totprob2;	totprob2.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){totprob2[i] = 0.5;}
-	std::vector<double> totnprob2;	totnprob2.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){totnprob2[i] = 0.5;}
-	for(unsigned int p = 0; p < probs2.size(); p++){
-		for(unsigned int i = 0; i < width*height;i++){
-			totprob2[i]	*=		probs2[p][i];
-			totnprob2[i]	*= 1.0-	probs2[p][i];
-		}
-
-		cv::Mat joint_prob;
-		joint_prob.create(height,width,CV_8UC3);
-		unsigned char * jointdata_prob = (unsigned char *)(joint_prob.data);
-		for(unsigned int i = 0; i < width*height;i++){
-			jointdata_prob[3*i+0] = 255.0*totprob2[i]/(totprob2[i]+totnprob2[i]);
-			jointdata_prob[3*i+1] = 255.0*totprob2[i]/(totprob2[i]+totnprob2[i]);
-			jointdata_prob[3*i+2] = 255.0*totprob2[i]/(totprob2[i]+totnprob2[i]);
-		}
-		cv::imshow( "rgb", src );
-		cv::imshow( "joint_prob", joint_prob );
-		cv::waitKey(0);
-	}
-
-//		cv::Mat joint_prob;
-//		joint_prob.create(height,width,CV_8UC3);
-//		unsigned char * jointdata_prob = (unsigned char *)(joint_prob.data);
-//		for(unsigned int i = 0; i < width*height;i++){
-//			jointdata_prob[3*i+0] = 255.0*totprob[i]/(totprob[i]+totnprob[i]);
-//			jointdata_prob[3*i+1] = 255.0*totprob[i]/(totprob[i]+totnprob[i]);
-//			jointdata_prob[3*i+2] = 255.0*totprob[i]/(totprob[i]+totnprob[i]);
-//		}
-
-//		cv::imshow( "rgb", src );
-//		cv::imshow( "joint_prob", joint_prob );
-//		cv::waitKey(0);
-
-*/
-
-
 
 	{
 		std::vector<double> Xvec;
@@ -2307,7 +2217,7 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 	return probs;
 }
 
-std::vector<cv::Mat> ModelUpdater::computeDynamicObject(reglib::Model * bg, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<cv::Mat> oldmasks){
+std::vector<cv::Mat> ModelUpdater::computeDynamicObject(reglib::Model * bg,  Eigen::Matrix4d bgpose, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<cv::Mat> oldmasks){
     std::vector<cv::Mat> newmasks;
 	for(unsigned int i = 0; i < cf.size(); i++){
 

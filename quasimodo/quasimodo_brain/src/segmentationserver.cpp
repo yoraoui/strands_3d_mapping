@@ -125,7 +125,7 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
         for(unsigned int i = 0; i < cf[i]->camera->height*cf[i]->camera->width;i++){maskdata[i] = 255;}
         masks.push_back(mask);
     }
-    std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(0,cp,cf,masks);//Determine self occlusions
+    std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(bg,cp,cf,masks);//Determine self occlusions
     std::vector<cv::Mat> dynamic_masks = mu->computeDynamicObject(bg,cp,cf,internal_masks);//Determine occlusion of background occlusions
     //add new frames to background
     //Compute minimum required frames to capture background

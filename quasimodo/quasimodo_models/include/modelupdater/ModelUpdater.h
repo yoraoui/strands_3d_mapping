@@ -90,8 +90,8 @@ namespace reglib
 
         virtual void computeOcclusionAreas(vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<ModelMask*> cm);
 
-        virtual void getDynamicWeights(Matrix4d p, RGBDFrame* frame1, double * overlaps, double * totalocclusions, RGBDFrame* frame2, cv::Mat mask);
-        virtual std::vector<cv::Mat> computeDynamicObject(reglib::Model * bg, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<cv::Mat> masks );
+        virtual void getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, double * overlaps, double * totalocclusions, RGBDFrame* frame2, cv::Mat mask);
+        virtual std::vector<cv::Mat> computeDynamicObject(reglib::Model * bg, Eigen::Matrix4d bgpose, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<cv::Mat> masks );
 
 		virtual OcclusionScore computeOcclusionScore(vector<superpoint> & spvec, Matrix4d cp, RGBDFrame* cf, ModelMask* cm, int step = 1,  bool debugg = false);
 		virtual OcclusionScore computeOcclusionScore(Model * mod, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<ModelMask*> cm, Matrix4d rp = Matrix4d::Identity(), int step = 1, bool debugg = false);
