@@ -329,11 +329,6 @@ reglib::Model * load2(std::string sweep_xml){
 	SimpleXMLParser<PointType>::RoomData roomData  = parser.loadRoomFromXML(sweep_folder+"/room.xml");
 
 	reglib::Camera * cam		= new reglib::Camera();//TODO:: ADD TO CAMERAS
-//	cam->fx = 536.458000;
-//	cam->fy = 537.422000;
-//	cam->cx = 314.458000;
-//	cam->cy = 242.038000;
-
 	cam->fx = 532.158936;
 	cam->fy = 533.819214;
 	cam->cx = 310.514310;
@@ -379,7 +374,7 @@ reglib::Model * load2(std::string sweep_xml){
 	cv::Mat fullmask;
 	fullmask.create(480,640,CV_8UC1);
 	unsigned char * maskdata = (unsigned char *)fullmask.data;
-	for(int j = 0; j < 480*640; j++){maskdata[j] = 0;}
+	for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
 
 	reglib::Model * sweepmodel = 0;
 	std::vector<reglib::RGBDFrame * > current_room_frames;
@@ -707,9 +702,27 @@ int main(int argc, char** argv){
 		}
 	}
 
-	for(unsigned int i = 0; i < models.size(); i++){
+	for(unsigned int i = 1; i < models.size(); i++){
 		quasimodo_msgs::segment_model sm;
 		sm.request.models.push_back(quasimodo_brain::getModelMSG(models[i]));
+		if(i > 0){
+
+//			reglib::MassRegistrationPPR2 * massreg2 = new reglib::MassRegistrationPPR2(0.0);
+//			massreg2->timeout = 1200;
+//			massreg2->viewer = viewer;
+//			massreg2->visualizationLvl = 0;
+
+//			massreg2->maskstep = 10;//std::max(1,int(0.4*double(models[i]->frames.size())));
+//			massreg2->nomaskstep = 10;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
+//			massreg2->nomask = true;
+//			massreg2->stopval = 0.0005;
+
+//			massreg2->setData(models[i-1]->frames,models[i-1]->modelmasks);
+//			reglib::MassFusionResults mfr2 = massreg2->getTransforms(models[i-1]->relativeposes);
+//			models[i-1]->relativeposes = mfr2.poses;
+
+			sm.request.backgroundmodel = quasimodo_brain::getModelMSG(models[i-1]);
+		}
 		if (segmentation_client.call(sm)){//Build model from frame
 			//int model_id = mff.response.model_id;
 			printf("segmented: %i\n",i);
