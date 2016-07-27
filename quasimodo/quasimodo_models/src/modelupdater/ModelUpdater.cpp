@@ -1607,7 +1607,7 @@ printf("iter %i\n",iter);
 }
 
 
-void ModelUpdater::getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, double * overlaps, double * occlusions, RGBDFrame* frame2, cv::Mat mask){
+void ModelUpdater::getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, double * overlaps, double * occlusions, RGBDFrame* frame2, cv::Mat mask, double debugg){
 	unsigned char  * src_rgbdata		= (unsigned char	*)(frame1->rgb.data);
 	unsigned short * src_depthdata		= (unsigned short	*)(frame1->depth.data);
 	float		   * src_normalsdata	= (float			*)(frame1->normals.data);
@@ -1644,7 +1644,7 @@ void ModelUpdater::getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, d
 	float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
 	float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
 
-    bool debugg = true;
+    //bool debugg = true;
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr src_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dst_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 	if(debugg){
@@ -2408,7 +2408,7 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 
 */
 
-vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Mat> bgmm, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<Mat> mm, vector<Matrix4d> poses, vector<RGBDFrame*> frames, vector<Mat> masks){
+vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Mat> bgmm, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<Mat> mm, vector<Matrix4d> poses, vector<RGBDFrame*> frames, vector<Mat> masks, bool debugg){
     std::vector<cv::Mat> newmasks;
 
     for(unsigned int i = 0; i < frames.size(); i++){
@@ -2431,7 +2431,7 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
         for(unsigned int j = 0; j < bgcp.size(); j++){
             if(frames[i] == bgcf[j]){continue;}
             Eigen::Matrix4d p = poses[i].inverse() * bgcp[j];
-            getDynamicWeights(false,p.inverse(), frames[i], overlaps, occlusions, bgcf[j],bgmm[j]);
+            getDynamicWeights(false,p.inverse(), frames[i], overlaps, occlusions, bgcf[j],bgmm[j],debugg);
         }
 
         for(unsigned int j = 0; j < nr_pixels; j++){
@@ -2441,7 +2441,7 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
         for(unsigned int j = 0; j < cp.size(); j++){
             if(frames[i] == cf[j]){continue;}
             Eigen::Matrix4d p = poses[i].inverse() * cp[j];
-            getDynamicWeights(false,p.inverse(), frames[i], overlaps, occlusions, cf[j],mm[j]);
+            getDynamicWeights(false,p.inverse(), frames[i], overlaps, occlusions, cf[j],mm[j],debugg);
         }
         std::vector< std::vector<double> > probs = getImageProbs(cf[i],5);
 

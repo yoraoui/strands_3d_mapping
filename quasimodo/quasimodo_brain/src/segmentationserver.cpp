@@ -168,7 +168,7 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
     reglib::MassRegistrationPPR2 * massreg2 = new reglib::MassRegistrationPPR2(0.05);
 	massreg2->timeout = 1200;
 	massreg2->viewer = viewer;
-    massreg2->visualizationLvl = 1;
+    massreg2->visualizationLvl = 0;
 
 	massreg2->maskstep = 10;//std::max(1,int(0.4*double(models[i]->frames.size())));
 	massreg2->nomaskstep = 10;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
@@ -208,6 +208,7 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
     vector<reglib::RGBDFrame*> bgcf;
     vector<cv::Mat> bgmask;
 
+    printf("time to go!\n");
     //std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,cp,cf,masks,cp,cf,masks);//Determine self occlusions
 
     for(unsigned int k = 0; k < bg->relativeposes.size(); k++){
@@ -215,7 +216,7 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
         bgcf.push_back(bg->frames[k]);
         bgmask.push_back(bg->modelmasks[k]->getMask());
     }
-    std::vector<cv::Mat> external_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,bgcp,bgcf,bgmask,cp,cf,masks);//Determine self occlusions
+    std::vector<cv::Mat> external_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,bgcp,bgcf,bgmask,cp,cf,masks,true);//Determine self occlusions
 /*
     for(unsigned int i = 0; i < cf.size(); i++){
         cv::Mat mask;
