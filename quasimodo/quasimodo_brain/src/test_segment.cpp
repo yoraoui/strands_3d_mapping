@@ -702,25 +702,34 @@ int main(int argc, char** argv){
 		}
 	}
 
+	//Not needed if metaroom well calibrated
+	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
+	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( models.front(), reg);
+	mu->occlusion_penalty               = 15;
+	mu->massreg_timeout                 = 60*4;
+	mu->viewer							= viewer;
+
+	reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.0);
+	bgmassreg->timeout = 1200;
+	bgmassreg->viewer = viewer;
+	bgmassreg->visualizationLvl = 0;
+	bgmassreg->maskstep = 10;
+	bgmassreg->nomaskstep = 10;
+	bgmassreg->nomask = true;
+	bgmassreg->stopval = 0.0005;
+	bgmassreg->setData(models.front()->frames,models.front()->modelmasks);
+	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(models.front()->relativeposes);
+
+	for(int j = 0; j < models.size(); j++){
+		models[j]->relativeposes	= bgmfr.poses;
+		models[j]->points			= mu->getSuperPoints(models[j]->relativeposes,models[j]->frames,models[j]->modelmasks,1,false);
+	}
+
+
 	for(unsigned int i = 1; i < models.size(); i++){
 		quasimodo_msgs::segment_model sm;
 		sm.request.models.push_back(quasimodo_brain::getModelMSG(models[i]));
 		if(i > 0){
-
-//			reglib::MassRegistrationPPR2 * massreg2 = new reglib::MassRegistrationPPR2(0.0);
-//			massreg2->timeout = 1200;
-//			massreg2->viewer = viewer;
-//			massreg2->visualizationLvl = 0;
-
-//			massreg2->maskstep = 10;//std::max(1,int(0.4*double(models[i]->frames.size())));
-//			massreg2->nomaskstep = 10;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
-//			massreg2->nomask = true;
-//			massreg2->stopval = 0.0005;
-
-//			massreg2->setData(models[i-1]->frames,models[i-1]->modelmasks);
-//			reglib::MassFusionResults mfr2 = massreg2->getTransforms(models[i-1]->relativeposes);
-//			models[i-1]->relativeposes = mfr2.poses;
-
 			sm.request.backgroundmodel = quasimodo_brain::getModelMSG(models[i-1]);
 		}
 		if (segmentation_client.call(sm)){//Build model from frame

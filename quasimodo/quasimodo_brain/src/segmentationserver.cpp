@@ -27,6 +27,7 @@ using namespace std;
 bool visualization = false;
 boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 
+//Assume internally correctly registered...
 
 //Strategy:
 //Register frames to background+other frames in the same model DONE
@@ -44,28 +45,76 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 		models.push_back(quasimodo_brain::getModelFromMSG(req.models[i]));
 	}
 
+	reglib::Model * bg = quasimodo_brain::getModelFromMSG(req.backgroundmodel);
+
+	reglib::MassRegistrationPPR2 * massregmod = new reglib::MassRegistrationPPR2(0.05);
+	massregmod->timeout = 1200;
+	massregmod->viewer = viewer;
+	massregmod->visualizationLvl = 0;
+	massregmod->maskstep = 10;//std::max(1,int(0.4*double(models[i]->frames.size())));
+	massregmod->nomaskstep = 10;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
+	massregmod->nomask = true;
+	massregmod->stopval = 0.0005;
+
+/*
+	bg->relativeposes = bgmfr.poses;
+	bg->points = mu->getSuperPoints(bg->relativeposes,bg->frames,bg->modelmasks,1,false);
+	for(int j = 0; j < models.size(); j++){
+		models[j]->relativeposes = bgmfr.poses;
+		models[j]->points = mu->getSuperPoints(models[j]->relativeposes,models[j]->frames,models[j]->modelmasks,1,false);
+	}
+*/
 	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( models.front(), reg);
 	mu->occlusion_penalty               = 15;
 	mu->massreg_timeout                 = 60*4;
 	mu->viewer							= viewer;
 
-	reglib::Model * bg = quasimodo_brain::getModelFromMSG(req.backgroundmodel);
 
-	reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.0);
-	bgmassreg->timeout = 1200;
-	bgmassreg->viewer = viewer;
-	bgmassreg->visualizationLvl = 0;
-	bgmassreg->maskstep = 10;//std::max(1,int(0.4*double(models[i]->frames.size())));
-	bgmassreg->nomaskstep = 10;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
-	bgmassreg->nomask = true;
-	bgmassreg->stopval = 0.0005;
-	bgmassreg->setData(bg->frames,bg->modelmasks);
-	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(bg->relativeposes);
-	bg->relativeposes = bgmfr.poses;
+	if(models.size() > 0 && bg->frames.size() > 0){
+		vector<Eigen::Matrix4d> cpmod;
+
+		bg->points = mu->getSuperPoints(bg->relativeposes,bg->frames,bg->modelmasks,1,false);
+		cpmod.push_back(Eigen::Matrix4d::Identity());//,models.front()->relativeposes.front().inverse() * bg->relativeposes.front());
+		massregmod->addModel(bg);
+
+		for(int j = 0; j < models.size(); j++){
+			models[j]->points			= mu->getSuperPoints(models[j]->relativeposes,models[j]->frames,models[j]->modelmasks,1,false);
+			cpmod.push_back(bg->relativeposes.front().inverse() * models[j]->relativeposes.front());
+			massregmod->addModel(models[j]);
+		}
+
+		reglib::MassFusionResults mfrmod = massregmod->getTransforms(cpmod);
+
+		for(int j = 0; j < models.size(); j++){
+			Eigen::Matrix4d change = mfrmod.poses[j+1] * cpmod[j+1].inverse();
+			std::cout << change << std::endl << std::endl << std::endl;
+//			for(unsigned int k = 0; k < models[j]->relativeposes.size(); k++){
+//                cp.push_back(change * models.front()->relativeposes.front().inverse() * models[j]->relativeposes[k]);
+//			}
+		}
+	}else if(models.size() > 1){
+		vector<Eigen::Matrix4d> cpmod;
+
+		for(int j = 0; j < models.size(); j++){
+			models[j]->points	= mu->getSuperPoints(models[j]->relativeposes,models[j]->frames,models[j]->modelmasks,1,false);
+			cpmod.push_back(models.front()->relativeposes.front().inverse() * models[j]->relativeposes.front());
+			massregmod->addModel(models[j]);
+		}
+
+		reglib::MassFusionResults mfrmod = massregmod->getTransforms(cpmod);
+		for(int j = 0; j < models.size(); j++){
+			Eigen::Matrix4d change = mfrmod.poses[j] * cpmod[j].inverse();
+			std::cout << change << std::endl << std::endl << std::endl;
+//			for(unsigned int k = 0; k < models[j]->relativeposes.size(); k++){
+//                cp.push_back(change * models.front()->relativeposes.front().inverse() * models[j]->relativeposes[k]);
+//			}
+		}
+	}
 
 
-	bg->points = mu->getSuperPoints(bg->relativeposes,bg->frames,bg->modelmasks,1,false);
+
+exit(0);
 //	printf("frames: %i\n",bg->frames.size());
 //	for(int i = 0; i < bg->frames.size(); i++){
 //		cv::imshow("modelmask", bg->modelmasks[i]->getMask());
@@ -168,7 +217,7 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
     reglib::MassRegistrationPPR2 * massreg2 = new reglib::MassRegistrationPPR2(0.05);
 	massreg2->timeout = 1200;
 	massreg2->viewer = viewer;
-    massreg2->visualizationLvl = 0;
+	massreg2->visualizationLvl = 1;
 
 	massreg2->maskstep = 10;//std::max(1,int(0.4*double(models[i]->frames.size())));
 	massreg2->nomaskstep = 10;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
@@ -185,7 +234,28 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 
 	reglib::MassFusionResults mfr2 = massreg2->getTransforms(cp);
 	cp = mfr2.poses;
+/*
+	reglib::MassRegistrationPPR2 * massreg3 = new reglib::MassRegistrationPPR2(0.00);
+	massreg3->timeout = 1200;
+	massreg3->viewer = viewer;
+	massreg3->visualizationLvl = 1;
 
+	massreg3->maskstep = 5;//std::max(1,int(0.4*double(models[i]->frames.size())));
+	massreg3->nomaskstep = 5;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
+	massreg3->nomask = true;
+	massreg3->stopval = 0.0005;
+
+	massreg3->setData(cf,mm);
+
+	if(bg->frames.size() > 0){
+		massreg3->addModel(bg);
+		cp.push_back(Eigen::Matrix4d::Identity());
+		printf("---->added background model\n");
+	}
+
+	reglib::MassFusionResults mfr3 = massreg2->getTransforms(cp);
+	cp = mfr3.poses;
+*/
 	Eigen::Matrix4d relative_to_bg = Eigen::Matrix4d::Identity();
 	if(bg->frames.size() > 0){
 		relative_to_bg = cp.front().inverse()*cp.back();
@@ -209,10 +279,10 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
     vector<cv::Mat> bgmask;
 
     printf("time to go!\n");
-    //std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,cp,cf,masks,cp,cf,masks);//Determine self occlusions
+	//std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,cp,cf,masks,cp,cf,masks,true);//Determine self occlusions
 
     for(unsigned int k = 0; k < bg->relativeposes.size(); k++){
-        bgcp.push_back(bg->relativeposes[k]);
+		bgcp.push_back(relative_to_bg*bg->relativeposes[k]);
         bgcf.push_back(bg->frames[k]);
         bgmask.push_back(bg->modelmasks[k]->getMask());
     }
