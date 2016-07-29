@@ -712,7 +712,9 @@ int main(int argc, char** argv){
 	reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.0);
 	bgmassreg->timeout = 1200;
 	bgmassreg->viewer = viewer;
-	bgmassreg->visualizationLvl = 0;
+	bgmassreg->use_surface = true;
+	bgmassreg->use_depthedge = true;
+	bgmassreg->visualizationLvl = 1;
 	bgmassreg->maskstep = 10;
 	bgmassreg->nomaskstep = 10;
 	bgmassreg->nomask = true;
@@ -720,10 +722,17 @@ int main(int argc, char** argv){
 	bgmassreg->setData(models.front()->frames,models.front()->modelmasks);
 	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(models.front()->relativeposes);
 
+
+
 	for(int j = 0; j < models.size(); j++){
 		models[j]->relativeposes	= bgmfr.poses;
 		models[j]->points			= mu->getSuperPoints(models[j]->relativeposes,models[j]->frames,models[j]->modelmasks,1,false);
 	}
+
+//	for(int i = 0; i < models.front()->relativeposes.size(); i++){
+//		models.front()->frames[i]->camera->print();
+//		std::cout << models.front()->relativeposes[i] << std::endl << std::endl;
+//	}
 
 
 	for(unsigned int i = 1; i < models.size(); i++){
@@ -749,7 +758,6 @@ int main(int argc, char** argv){
 //			ROS_INFO("model_id%i", model_id );
 //		}
 //	}else{ROS_ERROR("Failed to call service index_frame");}
-exit(0);
 /*
 	ros::NodeHandle pn("~");
 

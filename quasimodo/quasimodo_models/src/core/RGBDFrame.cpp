@@ -368,24 +368,25 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 //			out.data[3*ind+2] =255;
 		}
 
-		for(unsigned int i = 0; i < label_indices[3].indices.size(); i++){
-			int ind = label_indices[3].indices[i];
-			depthedgesdata[ind] = 255;
+//		for(unsigned int i = 0; i < label_indices[3].indices.size(); i++){
+//			int ind = label_indices[3].indices[i];
+//			depthedgesdata[ind] = 255;
 //			out.data[3*ind+0] =0;
 //			out.data[3*ind+1] =255;
 //			out.data[3*ind+2] =255;
-		}
+//		}
 
 
 		for(unsigned int i = 0; i < label_indices[4].indices.size(); i++){
 			int ind = label_indices[4].indices[i];
-			//depthedgesdata[ind] = 255;
+			depthedgesdata[ind] = 255;
 //			out.data[3*ind+0] =0;
 //			out.data[3*ind+1] =255;
 //			out.data[3*ind+2] =0;
 		}
 
-//		cv::namedWindow( "edges", cv::WINDOW_AUTOSIZE );	cv::imshow( "edges", out );
+//		cv::namedWindow( "edges", cv::WINDOW_AUTOSIZE );
+//		cv::imshow( "edges", out );
 //		cv::waitKey(0);
 
 		//show(true);

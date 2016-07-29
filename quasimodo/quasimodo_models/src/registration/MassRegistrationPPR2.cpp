@@ -37,7 +37,7 @@ MassRegistrationPPR2::MassRegistrationPPR2(double startreg, bool visualize){
 	depthedge_dwf->update_size		= true;
 	depthedge_dwf->startreg			= startreg;
 	depthedge_dwf->debugg_print		= false;
-	depthdege_func					= depthedge_dwf;
+	depthedge_func					= depthedge_dwf;
 
 	fast_opt				= true;
 
@@ -90,6 +90,7 @@ MassRegistrationPPR2::~MassRegistrationPPR2(){
 
 	delete func;
 	delete kpfunc;
+	delete depthedge_func;
 
 	delete[] Qp_arr;
 	delete[] Qn_arr;
@@ -129,6 +130,10 @@ void MassRegistrationPPR2::addModel(Model * model){
     arrayinformations.push_back(0);
     trees3d.push_back(0);
     a3dv.push_back(0);
+
+	depthedge_nr_matches.push_back(	0);
+	depthedge_matchids.push_back(		std::vector< std::vector<int> >() );
+	depthedge_matchdists.push_back(	std::vector< std::vector<double> >() );
 
     depthedge_nr_arraypoints.push_back(0);
     depthedge_arraypoints.push_back(0);
@@ -565,76 +570,35 @@ void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vect
 		for(unsigned int i = 0; i < nr_frames; i++){
 			if(!is_ok[i]){continue;}
 			nr_matches[i] = 0;
+			for(unsigned int j = 0; j < nr_frames; j++){
+				if(!is_ok[j]){continue;}
+				if(i == j){continue;}
+				Eigen::Affine3d rp = Eigen::Affine3d(poses[j].inverse()*poses[i]);
+				if(!first){
+					Eigen::Affine3d prev_rp = Eigen::Affine3d(prev_poses[j].inverse()*prev_poses[i]);
 
-			if(use_depthedge){
+					Eigen::Affine3d diff = prev_rp.inverse()*rp;
 
-			}
-			if(use_surface){
-				for(unsigned int j = 0; j < nr_frames; j++){
-					if(!is_ok[j]){continue;}
-					if(i == j){continue;}
-					Eigen::Affine3d rp = Eigen::Affine3d(poses[j].inverse()*poses[i]);
-					if(!first){
-						Eigen::Affine3d prev_rp = Eigen::Affine3d(prev_poses[j].inverse()*prev_poses[i]);
-
-						Eigen::Affine3d diff = prev_rp.inverse()*rp;
-
-						double change_trans = 0;
-						double change_rot = 0;
-						double dt = 0;
-						for(unsigned int k = 0; k < 3; k++){
-							dt += diff(k,3)*diff(k,3);
-							for(unsigned int l = 0; l < 3; l++){
-								if(k == l){ change_rot += fabs(1-diff(k,l));}
-								else{		change_rot += fabs(diff(k,l));}
-							}
+					double change_trans = 0;
+					double change_rot = 0;
+					double dt = 0;
+					for(unsigned int k = 0; k < 3; k++){
+						dt += diff(k,3)*diff(k,3);
+						for(unsigned int l = 0; l < 3; l++){
+							if(k == l){ change_rot += fabs(1-diff(k,l));}
+							else{		change_rot += fabs(diff(k,l));}
 						}
-						change_trans += sqrt(dt);
-
-						//if(change_trans < 1*stopval && change_rot < 1*stopval){ignores++;continue;}
 					}
+					change_trans += sqrt(dt);
 
-					//prev_poses[j] = poses[j];
+					//if(change_trans < 1*stopval && change_rot < 1*stopval){ignores++;continue;}
+				}
+
+				if(use_depthedge){
+					matchframes(rp, depthedge_nr_arraypoints[i], depthedge_arraypoints[i], depthedge_matchids[i][j], depthedge_matchdists[i][j],depthedge_trees3d[j],	new_good_rematches,new_total_rematches);
+				}
+				if(use_surface){
 					matchframes(rp, nr_arraypoints[i], arraypoints[i], matchids[i][j], matchdists[i][j],trees3d[j],	new_good_rematches,new_total_rematches);
-/*
-					const double & m00 = rp(0,0); const double & m01 = rp(0,1); const double & m02 = rp(0,2); const double & m03 = rp(0,3);
-					const double & m10 = rp(1,0); const double & m11 = rp(1,1); const double & m12 = rp(1,2); const double & m13 = rp(1,3);
-					const double & m20 = rp(2,0); const double & m21 = rp(2,1); const double & m22 = rp(2,2); const double & m23 = rp(2,3);
-
-					const unsigned int nr_ap = nr_arraypoints[i];
-					double * ap = arraypoints[i];
-
-					std::vector<int> & matchid = matchids[i][j];
-					std::vector<double> & matchdist = matchdists[i][j];
-					matchid.resize(nr_ap);
-					matchdist.resize(nr_ap);
-					Tree3d * t3d = trees3d[j];
-
-#pragma omp parallel for num_threads(8)
-					for(unsigned int k = 0; k < nr_ap; ++k) {
-						int prev = matchid[k];
-						double qp [3];
-						const double & src_x = ap[3*k+0];
-						const double & src_y = ap[3*k+1];
-						const double & src_z = ap[3*k+2];
-
-						qp[0] = m00*src_x + m01*src_y + m02*src_z + m03;
-						qp[1] = m10*src_x + m11*src_y + m12*src_z + m13;
-						qp[2] = m20*src_x + m21*src_y + m22*src_z + m23;
-
-						size_t ret_index; double out_dist_sqr;
-						nanoflann::KNNResultSet<double> resultSet(1);
-						resultSet.init(&ret_index, &out_dist_sqr );
-						t3d->findNeighbors(resultSet, qp, nanoflann::SearchParams(10));
-
-						int current = ret_index;
-						new_good_rematches += prev != current;
-						new_total_rematches++;
-						matchid[k] = current;
-						matchdist[k] = out_dist_sqr;
-					}
-					nr_matches[i] += matchid.size();
-					*/
 				}
 			}
 		}
@@ -833,8 +797,8 @@ Eigen::MatrixXd MassRegistrationPPR2::getAllResiduals(std::vector<Eigen::Matrix4
 
 						const double & info_j = aij[kj];
 
-                        float tx = m00*src_x + m01*src_y + m02*src_z + m03;//        const unsigned int src_nr_ap = kp_nr_arraypoints[i];
-                        //        if(src_nr_ap == 0){continue;}
+						float tx = m00*src_x + m01*src_y + m02*src_z + m03;//        const unsigned int src_nr_ap = kp_nr_arraypoints[i];
+						//        if(src_nr_ap == 0){continue;}
 						float ty = m10*src_x + m11*src_y + m12*src_z + m13;
 						float tz = m20*src_x + m21*src_y + m22*src_z + m23;
 
@@ -906,6 +870,77 @@ Eigen::MatrixXd MassRegistrationPPR2::getAllResiduals(std::vector<Eigen::Matrix4
 				for(unsigned int k=0; k < matchesi; ++k) {residuals.col(k) *= rangeW(k);}
 				all_residuals.block(0,count,residuals.rows(),residuals.cols()) = residuals;
 				count += residuals.cols();
+			}
+		}
+	}
+	return all_residuals;
+}
+
+Eigen::MatrixXd MassRegistrationPPR2::depthedge_getAllResiduals(std::vector<Eigen::Matrix4d> poses){
+	unsigned int nr_frames = poses.size();
+	Eigen::MatrixXd all_residuals;
+
+	int total_matches = 0;
+	for(unsigned int i = 0; i < nr_frames; i++){
+		if(!is_ok[i]){continue;}
+		for(unsigned int j = 0; j < nr_frames; j++){
+			if(!is_ok[j]){continue;}
+			total_matches += depthedge_matchids[i][j].size();
+		}
+	}
+
+
+	all_residuals = Eigen::Matrix3Xd::Zero(3,total_matches);
+
+
+	int count = 0;
+	for(unsigned int i = 0; i < nr_frames; i++){
+		if(!is_ok[i]){continue;}
+
+		double * api = depthedge_arraypoints[i];
+		double * aii = depthedge_arrayinformations[i];
+		const unsigned int nr_api = depthedge_nr_arraypoints[i];
+		for(unsigned int j = 0; j < nr_frames; j++){
+			if(!is_ok[j]){continue;}
+			if(i == j){continue;}
+
+			double * apj = depthedge_arraypoints[j];
+			double * aij = depthedge_arrayinformations[j];
+			const unsigned int nr_apj = depthedge_nr_arraypoints[j];
+
+			std::vector<int> & matchidi = depthedge_matchids[i][j];
+			unsigned int matchesi = matchidi.size();
+
+			Eigen::Affine3d rp = Eigen::Affine3d(poses[j].inverse()*poses[i]);
+			const double & m00 = rp(0,0); const double & m01 = rp(0,1); const double & m02 = rp(0,2); const double & m03 = rp(0,3);
+			const double & m10 = rp(1,0); const double & m11 = rp(1,1); const double & m12 = rp(1,2); const double & m13 = rp(1,3);
+			const double & m20 = rp(2,0); const double & m21 = rp(2,1); const double & m22 = rp(2,2); const double & m23 = rp(2,3);
+
+
+			for(unsigned int ki = 0; ki < nr_api; ++ki) {
+				int kj = matchidi[ki];
+				if( kj < 0 ){continue;}
+				const double & src_x = api[3*ki+0];
+				const double & src_y = api[3*ki+1];
+				const double & src_z = api[3*ki+2];
+
+				const double & info_i = aii[ki];
+
+				const double & dst_x = apj[3*kj+0];
+				const double & dst_y = apj[3*kj+1];
+				const double & dst_z = apj[3*kj+2];
+
+				const double & info_j = aij[kj];
+
+				float tx = m00*src_x + m01*src_y + m02*src_z + m03;
+				float ty = m10*src_x + m11*src_y + m12*src_z + m13;
+				float tz = m20*src_x + m21*src_y + m22*src_z + m23;
+
+				const double rw = 1.0/(1.0/info_i+1.0/info_j);
+				all_residuals(0,count) = (tx-dst_x)*rw;
+				all_residuals(1,count) = (ty-dst_y)*rw;
+				all_residuals(2,count) = (tz-dst_z)*rw;
+				count++;
 			}
 		}
 	}
@@ -1014,11 +1049,7 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 	frames.push_back(frame);
 	mmasks.push_back(mmask);
 
-    nr_matches.push_back(	0);
-    matchids.push_back(		std::vector< std::vector<int> >() );
-    matchdists.push_back(	std::vector< std::vector<double> >() );
 	nr_datas.push_back(		0);
-
 	points.push_back(				Eigen::Matrix<double, 3, Eigen::Dynamic>());
 	colors.push_back(				Eigen::Matrix<double, 3, Eigen::Dynamic>());
 	normals.push_back(				Eigen::Matrix<double, 3, Eigen::Dynamic>());
@@ -1027,6 +1058,10 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 
 	informations.push_back(			Eigen::VectorXd());
 
+    nr_matches.push_back(	0);
+    matchids.push_back(		std::vector< std::vector<int> >() );
+    matchdists.push_back(	std::vector< std::vector<double> >() );
+
 	nr_arraypoints.push_back(0);
 	arraypoints.push_back(0);
 	arraynormals.push_back(0);
@@ -1034,6 +1069,10 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 	arrayinformations.push_back(0);
 	trees3d.push_back(0);
 	a3dv.push_back(0);
+
+	depthedge_nr_matches.push_back(	0);
+	depthedge_matchids.push_back(		std::vector< std::vector<int> >() );
+	depthedge_matchdists.push_back(	std::vector< std::vector<double> >() );
 
 	depthedge_nr_arraypoints.push_back(0);
 	depthedge_arraypoints.push_back(0);
@@ -1165,8 +1204,8 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 
 
 	int depthedge_count = 0;
-	for(unsigned int w = 0; w < width; w++){
-		for(unsigned int h = 0; h < height; h++){
+	for(unsigned int w = 0; w < width; w+=2){
+		for(unsigned int h = 0; h < height; h+=2){
 			int ind = h*width+w;
 			if(maskvec[ind] && edgedata[ind] == 255){
 				float z = idepth*float(depthdata[ind]);
@@ -1175,7 +1214,8 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 		}
 	}
 
-	if(depthedge_count < 10){
+	printf("depthedge_count: %i\n",depthedge_count);
+	if(depthedge_count > 10){
 		double * depthedge_ap = new double[3*depthedge_count];
 		double * depthedge_ai = new double[3*depthedge_count];
 		depthedge_nr_arraypoints[i] = depthedge_count;
@@ -1183,8 +1223,8 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 		depthedge_arrayinformations[i] = depthedge_ai;
 
 		c = 0;
-		for(unsigned int w = 0; w < width; w++){
-			for(unsigned int h = 0; h < height; h++){
+		for(unsigned int w = 0; w < width; w+=1){
+			for(unsigned int h = 0; h < height; h+=1){
 				if(c == depthedge_count){continue;}
 				int ind = h*width+w;
 				if(maskvec[ind] && edgedata[ind] == 255){
@@ -1208,7 +1248,7 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 		depthedge_trees3d[i]->buildIndex();
 	}
 
-	//printf("total load time:          %5.5f\n",getTime()-total_load_time_start);
+	printf("total load time:          %5.5f\n",getTime()-total_load_time_start);
 }
 
 void MassRegistrationPPR2::addData(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud){
@@ -1340,9 +1380,10 @@ void MassRegistrationPPR2::addData(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr 
 	a3dv[i]		= a3d;
 	trees3d[i]	= new Tree3d(3, *a3d, nanoflann::KDTreeSingleIndexAdaptorParams(10));
 	trees3d[i]->buildIndex();
-	if(visualizationLvl > 0){
-		printf("total load time:          %5.5f\n",getTime()-total_load_time_start);
-	}
+//	if(visualizationLvl > 0){
+//		printf("total load time:          %5.5f\n",getTime()-total_load_time_start);
+//	}
+	printf("total load time:          %5.5f\n",getTime()-total_load_time_start);
 }
 
 std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::Matrix4d> poses){
@@ -1375,6 +1416,11 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 //				double * kp_aii					= kp_arrayinformations[i];
 //				const unsigned int kp_nr_api	= kp_nr_arraypoints[i];
 
+				unsigned int depthedge_count			= 0;
+				double * depthedge_api					= depthedge_arraypoints[i];
+				double * depthedge_aii					= depthedge_arrayinformations[i];
+				const unsigned int depthedge_nr_api		= depthedge_nr_arraypoints[i];
+
 				Eigen::Affine3d rpi = Eigen::Affine3d(poses[i]);
 				const double & mi00 = rpi(0,0); const double & mi01 = rpi(0,1); const double & mi02 = rpi(0,2); const double & mi03 = rpi(0,3);
 				const double & mi10 = rpi(1,0); const double & mi11 = rpi(1,1); const double & mi12 = rpi(1,2); const double & mi13 = rpi(1,3);
@@ -1390,6 +1436,10 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 					double * aij					= arrayinformations[j];
 					const unsigned int nr_apj		= nr_arraypoints[j];
 
+					double * depthedge_apj					= depthedge_arraypoints[j];
+					double * depthedge_aij					= depthedge_arrayinformations[j];
+					const unsigned int depthedge_nr_apj		= depthedge_nr_arraypoints[j];
+
 //					double * kp_apj					= kp_arraypoints[j];
 //					double * kp_anj					= kp_arraynormals[j];
 //					double * kp_aij					= kp_arrayinformations[j];
@@ -1400,51 +1450,92 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 					const double & mj10 = rpj(1,0); const double & mj11 = rpj(1,1); const double & mj12 = rpj(1,2); const double & mj13 = rpj(1,3);
 					const double & mj20 = rpj(2,0); const double & mj21 = rpj(2,1); const double & mj22 = rpj(2,2); const double & mj23 = rpj(2,3);
 
-					std::vector<int> & matchidj = matchids[j][i];
-					unsigned int matchesj = matchidj.size();
-					std::vector<int> & matchidi = matchids[i][j];
-					unsigned int matchesi = matchidi.size();
+					if(use_surface){
+						std::vector<int> & matchidj = matchids[j][i];
+						unsigned int matchesj = matchidj.size();
+						std::vector<int> & matchidi = matchids[i][j];
+						unsigned int matchesi = matchidi.size();
 
 
-                    std::vector<double> & matchdistj = matchdists[j][i];
-                    std::vector<double> & matchdisti = matchdists[i][j];
+						std::vector<double> & matchdistj = matchdists[j][i];
+						std::vector<double> & matchdisti = matchdists[i][j];
 
-                    for(unsigned int ki = 0; true && ki < matchesi; ki++){
-						int kj = matchidi[ki];
-						if( kj == -1 ){continue;}
-						if( kj >=  matchesj){continue;}
-						if(!onetoone || matchidj[kj] == ki){
-							Xp_arr[3*count+0] = api[3*ki+0];
-							Xp_arr[3*count+1] = api[3*ki+1];
-							Xp_arr[3*count+2] = api[3*ki+2];
+						for(unsigned int ki = 0; true && ki < matchesi; ki++){
+							int kj = matchidi[ki];
+							if( kj == -1 ){continue;}
+							if( kj >=  matchesj){continue;}
+							if(!onetoone || matchidj[kj] == ki){
+								Xp_arr[3*count+0] = api[3*ki+0];
+								Xp_arr[3*count+1] = api[3*ki+1];
+								Xp_arr[3*count+2] = api[3*ki+2];
 
-							Xn_arr[3*count+0] = ani[3*ki+0];
-							Xn_arr[3*count+1] = ani[3*ki+1];
-							Xn_arr[3*count+2] = ani[3*ki+2];
+								Xn_arr[3*count+0] = ani[3*ki+0];
+								Xn_arr[3*count+1] = ani[3*ki+1];
+								Xn_arr[3*count+2] = ani[3*ki+2];
 
-							const double & info_i = aii[ki];
+								const double & info_i = aii[ki];
 
-							const double & dst_x = apj[3*kj+0];
-							const double & dst_y = apj[3*kj+1];
-							const double & dst_z = apj[3*kj+2];
+								const double & dst_x = apj[3*kj+0];
+								const double & dst_y = apj[3*kj+1];
+								const double & dst_z = apj[3*kj+2];
 
-							const double & dst_nx = anj[3*kj+0];
-							const double & dst_ny = anj[3*kj+1];
-							const double & dst_nz = anj[3*kj+2];
+								const double & dst_nx = anj[3*kj+0];
+								const double & dst_ny = anj[3*kj+1];
+								const double & dst_nz = anj[3*kj+2];
 
-							const double & info_j = aij[kj];
+								const double & info_j = aij[kj];
 
-							Qp_arr[3*count+0] = mj00*dst_x + mj01*dst_y + mj02*dst_z + mj03;
-							Qp_arr[3*count+1] = mj10*dst_x + mj11*dst_y + mj12*dst_z + mj13;
-							Qp_arr[3*count+2] = mj20*dst_x + mj21*dst_y + mj22*dst_z + mj23;
+								Qp_arr[3*count+0] = mj00*dst_x + mj01*dst_y + mj02*dst_z + mj03;
+								Qp_arr[3*count+1] = mj10*dst_x + mj11*dst_y + mj12*dst_z + mj13;
+								Qp_arr[3*count+2] = mj20*dst_x + mj21*dst_y + mj22*dst_z + mj23;
 
-							Qn_arr[3*count+0] = mj00*dst_nx + mj01*dst_ny + mj02*dst_nz;
-							Qn_arr[3*count+1] = mj10*dst_nx + mj11*dst_ny + mj12*dst_nz;
-							Qn_arr[3*count+2] = mj20*dst_nx + mj21*dst_ny + mj22*dst_nz;
+								Qn_arr[3*count+0] = mj00*dst_nx + mj01*dst_ny + mj02*dst_nz;
+								Qn_arr[3*count+1] = mj10*dst_nx + mj11*dst_ny + mj12*dst_nz;
+								Qn_arr[3*count+2] = mj20*dst_nx + mj21*dst_ny + mj22*dst_nz;
 
-							rangeW_arr[count] = 1.0/(1.0/info_i+1.0/info_j);
+								rangeW_arr[count] = 1.0/(1.0/info_i+1.0/info_j);
 
-							count++;
+								count++;
+							}
+						}
+					}
+
+
+					if(use_depthedge){
+						std::vector<int> & matchidj = depthedge_matchids[j][i];
+						unsigned int matchesj = matchidj.size();
+						std::vector<int> & matchidi = depthedge_matchids[i][j];
+						unsigned int matchesi = matchidi.size();
+
+
+						std::vector<double> & matchdistj = depthedge_matchdists[j][i];
+						std::vector<double> & matchdisti = depthedge_matchdists[i][j];
+
+						for(unsigned int ki = 0; true && ki < matchesi; ki++){
+							int kj = matchidi[ki];
+							if( kj == -1 ){continue;}
+							if( kj >=  matchesj){continue;}
+							if(!onetoone || matchidj[kj] == ki){
+								depthedge_Xp_arr[3*depthedge_count+0] = depthedge_api[3*ki+0];
+								depthedge_Xp_arr[3*depthedge_count+1] = depthedge_api[3*ki+1];
+								depthedge_Xp_arr[3*depthedge_count+2] = depthedge_api[3*ki+2];
+
+								const double & info_i = depthedge_aii[ki];
+
+								const double & dst_x = depthedge_apj[3*kj+0];
+								const double & dst_y = depthedge_apj[3*kj+1];
+								const double & dst_z = depthedge_apj[3*kj+2];
+
+								const double & info_j = depthedge_aij[kj];
+
+								depthedge_Qp_arr[3*depthedge_count+0] = mj00*dst_x + mj01*dst_y + mj02*dst_z + mj03;
+								depthedge_Qp_arr[3*depthedge_count+1] = mj10*dst_x + mj11*dst_y + mj12*dst_z + mj13;
+								depthedge_Qp_arr[3*depthedge_count+2] = mj20*dst_x + mj21*dst_y + mj22*dst_z + mj23;
+
+								depthedge_rangeW_arr[depthedge_count] = 1.0/(1.0/info_i+1.0/info_j);
+
+								depthedge_count++;
+							}
 						}
 					}
 /*
@@ -1489,7 +1580,9 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
                     }
 */
 				}
-				if(count == 0 && kp_count == 0){break;}
+
+				//printf("count %i depthedge_count %i\n",count,depthedge_count);
+				if(count == 0 && kp_count == 0 && depthedge_count == 0){break;}
 
 				typedef Eigen::Matrix<double, 6, 1> Vector6d;
 				typedef Eigen::Matrix<double, 6, 6> Matrix6d;
@@ -1518,105 +1611,221 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 					double planeInfo = 1.0/(planeNoise*planeNoise);
 
 
+					double depthedge_Noise = depthedge_func->getNoise();
+					double depthedge_kpInfo = 1.0/(depthedge_Noise*depthedge_Noise);
+
 					double kpNoise = kpfunc->getNoise();
 					double kpInfo = 1.0/(kpNoise*kpNoise);
 
-                    for(unsigned int co = 0; co < count; co++){
-						const double & src_x = Xp_arr[3*co+0];
-						const double & src_y = Xp_arr[3*co+1];
-						const double & src_z = Xp_arr[3*co+2];
-						const double & src_nx = Xn_arr[3*co+0];
-						const double & src_ny = Xn_arr[3*co+1];
-						const double & src_nz = Xn_arr[3*co+2];
+					if(use_surface){
+						for(unsigned int co = 0; co < count; co++){
+							const double & src_x = Xp_arr[3*co+0];
+							const double & src_y = Xp_arr[3*co+1];
+							const double & src_z = Xp_arr[3*co+2];
+							const double & src_nx = Xn_arr[3*co+0];
+							const double & src_ny = Xn_arr[3*co+1];
+							const double & src_nz = Xn_arr[3*co+2];
 
-						const double & dx = Qp_arr[3*co+0];
-						const double & dy = Qp_arr[3*co+1];
-						const double & dz = Qp_arr[3*co+2];
-						const double & dnx = Qn_arr[3*co+0];
-						const double & dny = Qn_arr[3*co+1];
-						const double & dnz = Qn_arr[3*co+2];
+							const double & dx = Qp_arr[3*co+0];
+							const double & dy = Qp_arr[3*co+1];
+							const double & dz = Qp_arr[3*co+2];
+							const double & dnx = Qn_arr[3*co+0];
+							const double & dny = Qn_arr[3*co+1];
+							const double & dnz = Qn_arr[3*co+2];
 
-						const double & rw = rangeW_arr[co];
+							const double & rw = rangeW_arr[co];
 
-						const double & sx = m00*src_x + m01*src_y + m02*src_z + m03;
-						const double & sy = m10*src_x + m11*src_y + m12*src_z + m13;
-						const double & sz = m20*src_x + m21*src_y + m22*src_z + m23;
+							const double & sx = m00*src_x + m01*src_y + m02*src_z + m03;
+							const double & sy = m10*src_x + m11*src_y + m12*src_z + m13;
+							const double & sz = m20*src_x + m21*src_y + m22*src_z + m23;
 
-						const double & nx = m00*src_nx + m01*src_ny + m02*src_nz;
-						const double & ny = m10*src_nx + m11*src_ny + m12*src_nz;
-						const double & nz = m20*src_nx + m21*src_ny + m22*src_nz;
+							const double & nx = m00*src_nx + m01*src_ny + m02*src_nz;
+							const double & ny = m10*src_nx + m11*src_ny + m12*src_nz;
+							const double & nz = m20*src_nx + m21*src_ny + m22*src_nz;
 
-						const double & angle = nx*dnx+ny*dny+nz*dnz;
-						//printf("%f\n",angle);
-						//if(angle < 0){exit(0);continue;}
+							const double & angle = nx*dnx+ny*dny+nz*dnz;
+							//printf("%f\n",angle);
+							//if(angle < 0){exit(0);continue;}
 
-						if(angle < 0){continue;}
+							if(angle < 0){continue;}
 
-						double di = rw*(nx*(sx-dx) + ny*(sy-dy) + nz*(sz-dz));
-						//double weight = angle*angle*angle*angle*func->getProb(di)*rw*rw;
-						double prob = func->getProb(di);
-						double weight = planeInfo*prob*rw*rw;
+							double di = rw*(nx*(sx-dx) + ny*(sy-dy) + nz*(sz-dz));
+							//double weight = angle*angle*angle*angle*func->getProb(di)*rw*rw;
+							double prob = func->getProb(di);
+							double weight = planeInfo*prob*rw*rw;
 
-						if(visualizationLvl == 5 && i == 0){
-							pcl::PointXYZRGBNormal p;
-							p.x = sx;
-							p.y = sy;
-							p.z = sz;
-							p.b = 0;
-							p.g = 255;
-							p.r = 0;
-							scloud->points.push_back(p);
+							if(false && visualizationLvl == 5){
+								pcl::PointXYZRGBNormal p;
+								p.x = sx;
+								p.y = sy;
+								p.z = sz;
+								p.b = 0;
+								p.g = 255;
+								p.r = 0;
+								scloud->points.push_back(p);
 
-							pcl::PointXYZRGBNormal p1;
-							p1.x = dx;
-							p1.y = dy;
-							p1.z = dz;
-							p1.b = 255.0*prob;
-							p1.g = 255.0*prob;
-							p1.r = 255.0*prob;
-							dcloud->points.push_back(p1);
+								pcl::PointXYZRGBNormal p1;
+								p1.x = dx;
+								p1.y = dy;
+								p1.z = dz;
+								p1.b = 255.0*prob;
+								p1.g = 255.0*prob;
+								p1.r = 255.0*prob;
+								dcloud->points.push_back(p1);
+							}
+
+							const double & a = nz*sy - ny*sz;
+							const double & b = nx*sz - nz*sx;
+							const double & c = ny*sx - nx*sy;
+
+							ATA.coeffRef (0) += weight * a * a;
+							ATA.coeffRef (1) += weight * a * b;
+							ATA.coeffRef (2) += weight * a * c;
+							ATA.coeffRef (3) += weight * a * nx;
+							ATA.coeffRef (4) += weight * a * ny;
+							ATA.coeffRef (5) += weight * a * nz;
+							ATA.coeffRef (7) += weight * b * b;
+							ATA.coeffRef (8) += weight * b * c;
+							ATA.coeffRef (9) += weight * b * nx;
+							ATA.coeffRef (10) += weight * b * ny;
+							ATA.coeffRef (11) += weight * b * nz;
+							ATA.coeffRef (14) += weight * c * c;
+							ATA.coeffRef (15) += weight * c * nx;
+							ATA.coeffRef (16) += weight * c * ny;
+							ATA.coeffRef (17) += weight * c * nz;
+							ATA.coeffRef (21) += weight * nx * nx;
+							ATA.coeffRef (22) += weight * nx * ny;
+							ATA.coeffRef (23) += weight * nx * nz;
+							ATA.coeffRef (28) += weight * ny * ny;
+							ATA.coeffRef (29) += weight * ny * nz;
+							ATA.coeffRef (35) += weight * nz * nz;
+
+							const double & d = weight * (nx*dx + ny*dy + nz*dz - nx*sx - ny*sy - nz*sz);
+
+							ATb.coeffRef (0) += a * d;
+							ATb.coeffRef (1) += b * d;
+							ATb.coeffRef (2) += c * d;
+							ATb.coeffRef (3) += nx * d;
+							ATb.coeffRef (4) += ny * d;
+							ATb.coeffRef (5) += nz * d;
 						}
-
-						const double & a = nz*sy - ny*sz;
-						const double & b = nx*sz - nz*sx;
-						const double & c = ny*sx - nx*sy;
-
-						ATA.coeffRef (0) += weight * a * a;
-						ATA.coeffRef (1) += weight * a * b;
-						ATA.coeffRef (2) += weight * a * c;
-						ATA.coeffRef (3) += weight * a * nx;
-						ATA.coeffRef (4) += weight * a * ny;
-						ATA.coeffRef (5) += weight * a * nz;
-						ATA.coeffRef (7) += weight * b * b;
-						ATA.coeffRef (8) += weight * b * c;
-						ATA.coeffRef (9) += weight * b * nx;
-						ATA.coeffRef (10) += weight * b * ny;
-						ATA.coeffRef (11) += weight * b * nz;
-						ATA.coeffRef (14) += weight * c * c;
-						ATA.coeffRef (15) += weight * c * nx;
-						ATA.coeffRef (16) += weight * c * ny;
-						ATA.coeffRef (17) += weight * c * nz;
-						ATA.coeffRef (21) += weight * nx * nx;
-						ATA.coeffRef (22) += weight * nx * ny;
-						ATA.coeffRef (23) += weight * nx * nz;
-						ATA.coeffRef (28) += weight * ny * ny;
-						ATA.coeffRef (29) += weight * ny * nz;
-						ATA.coeffRef (35) += weight * nz * nz;
-
-						const double & d = weight * (nx*dx + ny*dy + nz*dz - nx*sx - ny*sy - nz*sz);
-
-						ATb.coeffRef (0) += a * d;
-						ATb.coeffRef (1) += b * d;
-						ATb.coeffRef (2) += c * d;
-						ATb.coeffRef (3) += nx * d;
-						ATb.coeffRef (4) += ny * d;
-						ATb.coeffRef (5) += nz * d;
 					}
 
 					double wsum = 0;
 					double wsx = 0;
 					double wsy = 0;
 					double wsz = 0;
+//printf("%s::%i\n",__FUNCTION__,__LINE__);
+					if(use_depthedge){
+//printf("%s::%i\n",__FUNCTION__,__LINE__);
+						for(unsigned int co = 0; co < depthedge_count; co++){
+//							printf("%s::%i\n",__FUNCTION__,__LINE__);
+							const double & src_x = depthedge_Xp_arr[3*co+0];
+							const double & src_y = depthedge_Xp_arr[3*co+1];
+							const double & src_z = depthedge_Xp_arr[3*co+2];
+
+							const double & dx = depthedge_Qp_arr[3*co+0];
+							const double & dy = depthedge_Qp_arr[3*co+1];
+							const double & dz = depthedge_Qp_arr[3*co+2];
+
+							const double & rw = depthedge_rangeW_arr[co];
+
+							const double & sx = m00*src_x + m01*src_y + m02*src_z + m03;
+							const double & sy = m10*src_x + m11*src_y + m12*src_z + m13;
+							const double & sz = m20*src_x + m21*src_y + m22*src_z + m23;
+
+
+							const double diffX = dx-sx;
+							const double diffY = dy-sy;
+							const double diffZ = dz-sz;
+
+							double probX = depthedge_func->getProb(rw*diffX);
+							double probY = depthedge_func->getProb(rw*diffY);
+							double probZ = depthedge_func->getProb(rw*diffZ);
+							double prob = probX*probY*probZ/(probX*probY*probZ + (1-probX)*(1-probY)*(1-probZ));
+
+//printf("%5.5i -> %5.5f %5.5f %5.5f -> %5.5f %5.5f %5.5f , %5.5f %5.5f %5.5f -> prob: %5.5f\n",co,src_x,src_y,src_z,sx,sy,sz,dx,dy,dz,prob);
+
+							if(prob < 0.000001){continue;}
+
+//							if(visualizationLvl == 5){
+//								pcl::PointXYZRGBNormal p;
+//								p.x = sx;
+//								p.y = sy;
+//								p.z = sz;
+//								p.b = 0;
+//								p.g = 255;
+//								p.r = 0;
+
+//								pcl::PointXYZRGBNormal p1;
+//								p1.x = dx;
+//								p1.y = dy;
+//								p1.z = dz;
+//								p1.b = 255.0;
+//								p1.g = 0;
+//								p1.r = 0;
+//								dcloud->points.push_back(p1);
+
+////								char buf [1024];
+////								sprintf(buf,"line%i",scloud->points.size());
+////								viewer->addLine<pcl::PointXYZRGBNormal>(p,p1,1.0-prob,prob,0,buf);
+//							}
+
+							if(visualizationLvl == 5){
+
+//								printf("%5.5i -> %5.5f %5.5f %5.5f , %5.5f %5.5f %5.5f \n",co,sx,sy,sz,dx,dy,dz);
+
+								pcl::PointXYZRGBNormal p;
+								p.x = sx;
+								p.y = sy;
+								p.z = sz;
+								p.b = 0;
+								p.g = 255;
+								p.r = 0;
+								scloud->points.push_back(p);
+
+								pcl::PointXYZRGBNormal p1;
+								p1.x = dx;
+								p1.y = dy;
+								p1.z = dz;
+								p1.b = 255.0*prob;
+								p1.g = 255.0*prob;
+								p1.r = 255.0*prob;
+								dcloud->points.push_back(p1);
+							}
+
+							//double weight = kpInfo*prob*rw*rw;
+
+							double weight = depthedge_kpInfo*prob*rw*rw;
+							wsum += weight;
+
+							wsx += weight * sx;
+							wsy += weight * sy;
+							wsz += weight * sz;
+
+							double wsxsx = weight * sx*sx;
+							double wsysy = weight * sy*sy;
+							double wszsz = weight * sz*sz;
+
+							ATA.coeffRef (0)  += wsysy + wszsz;//a0 * a0;
+							ATA.coeffRef (1)  -= weight * sx*sy;//a0 * a1;
+							ATA.coeffRef (2)  -= weight * sz*sx;//a0 * a2;
+
+
+							ATA.coeffRef (7)  += wsxsx + wszsz;//a1 * a1;
+							ATA.coeffRef (8)  -= weight * sy*sz;//a1 * a2;
+
+							ATA.coeffRef (14) += wsxsx + wsysy;//a2 * a2;
+
+							ATb.coeffRef (0) += weight * (sy*diffZ -sz*diffY);//a0 * b;
+							ATb.coeffRef (1) += weight * (-sx*diffZ + sz*diffX);//a1 * b;
+							ATb.coeffRef (2) += weight * (sx*diffY -sy*diffX);//a2 * b;
+							ATb.coeffRef (3) += weight * diffX;//a3 * b;
+							ATb.coeffRef (4) += weight * diffY;//a4 * b;
+							ATb.coeffRef (5) += weight * diffZ;//a5 * b;
+						}
+					}
+
 					for(unsigned int co = 0; co < kp_count; co++){
 						const double & src_x = kp_Xp_arr[3*co+0];
 						const double & src_y = kp_Xp_arr[3*co+1];
@@ -1662,7 +1871,7 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 
                         if(prob < 0.000001){continue;}
 
-						if(visualizationLvl == 5 && i == 0){
+						if(visualizationLvl == 5){
 							pcl::PointXYZRGBNormal p;
 							p.x = sx;
 							p.y = sy;
@@ -1786,7 +1995,8 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 					}
 					change_t = sqrt(change_t);
 
-					if(visualizationLvl == 5 && i == 0){
+					if(visualizationLvl == 5){
+						printf("change_t: %10.10f change_r: %10.10f stopval: %10.10f\n",change_t,change_r,stopval);
 						viewer->removeAllPointClouds();
 						viewer->addPointCloud<pcl::PointXYZRGBNormal> (scloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(scloud), "scloud");
 						//viewer->addPointCloudNormals<pcl::PointXYZRGBNormal>(scloud,1,0.2,"scloudn");
@@ -2567,6 +2777,42 @@ if(false){
 
 }
 
+void MassRegistrationPPR2::showEdges(std::vector<Eigen::Matrix4d> poses){
+	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+	for(unsigned int i = 0; i < poses.size(); i++){
+		Eigen::Matrix4d p = poses[i];
+		float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
+		float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
+		float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
+
+		int r,g,b;
+		r = 256*(1+(rand()%4))/4 - 1;//255*((xi+1) & 1);
+		g = 256*(1+(rand()%4))/4 - 1;//255*((xi+1) & 1);
+		b = 256*(1+(rand()%4))/4 - 1;//255*(xi & 1);
+
+		for(unsigned int c = 0; c < depthedge_nr_arraypoints[i]; c++){
+			pcl::PointXYZRGBNormal p;
+
+			float x = depthedge_arraypoints.at(i)[3*c+0];
+			float y = depthedge_arraypoints.at(i)[3*c+1];
+			float z = depthedge_arraypoints.at(i)[3*c+2];
+
+
+			p.x		= m00*x + m01*y + m02*z + m03;
+			p.y		= m10*x + m11*y + m12*z + m13;
+			p.z		= m20*x + m21*y + m22*z + m23;
+			p.b		= r;
+			p.g		= g;
+			p.r		= b;
+			cloud->points.push_back(p);
+		}
+	}
+
+	viewer->removeAllPointClouds();
+	viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "cloud");
+	viewer->spin();
+}
+
 MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4d> poses){
 	if(visualizationLvl > 0){printf("start MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4d> poses)\n");}
 
@@ -2582,7 +2828,14 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 		nr_frames = 3;
 	}
 
+	matchscores.resize(nr_frames);
+
 	for(unsigned int i = 0; i < nr_frames; i++){
+		matchscores[i].resize(nr_frames);
+		for(unsigned int j = 0; j < nr_frames; j++){
+			matchscores[i][j] = 0;
+		}
+
 		Eigen::Matrix4d p = poses[i];
 		float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
 		float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
@@ -2590,8 +2843,11 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 
 		if(!is_ok[i]){continue;}
 
-        matchids[i].resize(nr_frames);
-        matchdists[i].resize(nr_frames);
+		matchids[i].resize(nr_frames);
+		matchdists[i].resize(nr_frames);
+
+		depthedge_matchids[i].resize(nr_frames);
+		depthedge_matchdists[i].resize(nr_frames);
 
 		Eigen::Matrix<double, 3, Eigen::Dynamic> & X	= points[i];
 		Eigen::Matrix<double, 3, Eigen::Dynamic> & Xn	= normals[i];
@@ -2618,14 +2874,18 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 
 	func->reset();
 	kpfunc->reset();
+	depthedge_func->reset();
 
 	int imgcount = 0;
 	char buf [1024];
-	if(visualizationLvl > 0){
-		std::vector<Eigen::MatrixXd> Xv;
-		for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
-		sprintf(buf,"image%5.5i.png",imgcount++);
-		show(Xv,false,std::string(buf),imgcount);
+	if(visualizationLvl == 1){
+		if(use_depthedge){showEdges(poses);}
+		if(use_surface){
+			std::vector<Eigen::MatrixXd> Xv;
+			for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
+			sprintf(buf,"image%5.5i.png",imgcount++);
+			show(Xv,false,std::string(buf),imgcount);
+		}
 	}
 
 	rematch_time = 0;
@@ -2646,10 +2906,29 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 
     for(int funcupdate=0; funcupdate < 100; ++funcupdate) {
 		if(getTime()-total_time_start > timeout){break;}
-		if(visualizationLvl == 2){std::vector<Eigen::MatrixXd> Xv;for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}sprintf(buf,"image%5.5i.png",imgcount++);show(Xv,false,std::string(buf),imgcount);}
+		//if(visualizationLvl == 2){if(use_depthedge){showEdges(poses);}std::vector<Eigen::MatrixXd> Xv;for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}sprintf(buf,"image%5.5i.png",imgcount++);show(Xv,false,std::string(buf),imgcount); showEdges(poses);}
+		if(visualizationLvl == 2){
+			if(use_depthedge){showEdges(poses);}
+			if(use_surface){
+				std::vector<Eigen::MatrixXd> Xv;
+				for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
+				sprintf(buf,"image%5.5i.png",imgcount++);
+				show(Xv,false,std::string(buf),imgcount);
+			}
+		}
 
         for(int rematching=0; rematching < 10; ++rematching) {
-			if(visualizationLvl == 3){std::vector<Eigen::MatrixXd> Xv;for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}sprintf(buf,"image%5.5i.png",imgcount++);show(Xv,false,std::string(buf),imgcount);}
+			//if(visualizationLvl == 3){if(use_depthedge){showEdges(poses);}std::vector<Eigen::MatrixXd> Xv;for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}sprintf(buf,"image%5.5i.png",imgcount++);show(Xv,false,std::string(buf),imgcount);}
+			if(visualizationLvl == 3){
+				if(use_depthedge){showEdges(poses);}
+				if(use_surface){
+					std::vector<Eigen::MatrixXd> Xv;
+					for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
+					sprintf(buf,"image%5.5i.png",imgcount++);
+					show(Xv,false,std::string(buf),imgcount);
+				}
+			}
+
 			std::vector<Eigen::Matrix4d> poses1 = poses;
 
 			double rematch_time_start = getTime();
@@ -2668,19 +2947,48 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 					printf("computeModel:        %5.5f\n",computeModel_time);
 					printf("opt_time:            %5.5f\n",opt_time);
 				}
-				if(visualizationLvl == 4){std::vector<Eigen::MatrixXd> Xv;for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}sprintf(buf,"image%5.5i.png",imgcount++);show(Xv,false,std::string(buf),imgcount);}
+				//if(visualizationLvl == 4){if(use_depthedge){showEdges(poses);}std::vector<Eigen::MatrixXd> Xv;for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}sprintf(buf,"image%5.5i.png",imgcount++);show(Xv,false,std::string(buf),imgcount);}
+				if(visualizationLvl == 4){
+					if(use_depthedge){showEdges(poses);}
+					if(use_surface){
+						std::vector<Eigen::MatrixXd> Xv;
+						for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
+						sprintf(buf,"image%5.5i.png",imgcount++);
+						show(Xv,false,std::string(buf),imgcount);
+					}
+				}
+
 				std::vector<Eigen::Matrix4d> poses2b = poses;
 
 				double residuals_time_start = getTime();
-                Eigen::MatrixXd all_residuals = getAllResiduals(poses);
+				Eigen::MatrixXd all_residuals;
+
+				if(use_surface){
+					all_residuals = getAllResiduals(poses);
+				}
+
+				Eigen::MatrixXd depthedge_all_residuals;
+				if(use_depthedge){
+					depthedge_all_residuals = depthedge_getAllResiduals(poses);
+				}
 
 //				Eigen::MatrixXd all_KPresiduals = getAllKpResiduals(poses);
 				residuals_time += getTime()-residuals_time_start;
 
 				double computeModel_time_start = getTime();
-                func->computeModel(all_residuals);
+
+				if(use_surface){
+					func->computeModel(all_residuals);
+				}
+
+				if(use_depthedge){
+					depthedge_func->computeModel(depthedge_all_residuals);
+				}
+
+				printf("surface reg: %5.5f noise: %5.5f\n",func->regularization,func->noiseval);
+				printf("edge:   reg: %5.5f noise: %5.5f\n",depthedge_func->regularization,depthedge_func->noiseval);
 //				kpfunc->computeModel(all_KPresiduals);
-                stopval = func->getNoise()*0.1;
+				//stopval = func->getNoise()*0.1;
 //                printf("reg: %f noise:%f stopval: %f\n",func->regularization,func->noiseval,stopval);
 
 //                double stopval1 = func->getNoise()*0.1;
@@ -2704,9 +3012,14 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 		}
 
 		double noise_before = func->getNoise();
-        func->update();
+		func->update();
 		double noise_after = func->getNoise();
-        double ratio = noise_after/noise_before;
+		double ratio = noise_after/noise_before;
+
+		double depthedge_noise_before = depthedge_func->getNoise();
+		depthedge_func->update();
+		double depthedge_noise_after = depthedge_func->getNoise();
+		double depthedge_ratio = depthedge_noise_after/depthedge_noise_before;
 
 		double kpnoise_before = kpfunc->getNoise();
 		kpfunc->update();
@@ -2736,6 +3049,8 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 //	printf("solve_equation_time: %5.5f\n",solve_equation_time);
 
 	if(visualizationLvl > 0){
+		showEdges(poses);
+
 		std::vector<Eigen::MatrixXd> Xv;
 		for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
 		sprintf(buf,"image%5.5i.png",imgcount++);

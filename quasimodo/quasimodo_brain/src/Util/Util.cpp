@@ -79,9 +79,15 @@ void addToModelMSG(quasimodo_msgs::model & msg, reglib::Model * model, Eigen::Af
 		msg.frames[startsize+i].capture_time	= ros::Time();
 		msg.frames[startsize+i].pose			= pose2;
 		msg.frames[startsize+i].frame_id		= model->frames[i]->id;
-		msg.frames[startsize+i].rgb			= *(rgbBridgeImage.toImageMsg());
+		msg.frames[startsize+i].rgb				= *(rgbBridgeImage.toImageMsg());
 		msg.frames[startsize+i].depth			= *(depthBridgeImage.toImageMsg());
-		msg.masks[startsize+i]				= *(maskBridgeImage.toImageMsg());//getMask()
+		msg.masks[startsize+i]					= *(maskBridgeImage.toImageMsg());//getMask()
+
+		msg.frames[startsize+i].camera.K[0] = model->frames[i]->camera->fx;
+		msg.frames[startsize+i].camera.K[4] = model->frames[i]->camera->fy;
+		msg.frames[startsize+i].camera.K[2] = model->frames[i]->camera->cx;
+		msg.frames[startsize+i].camera.K[5] = model->frames[i]->camera->cy;
+
 	}
 	for(unsigned int i = 0; i < model->submodels_relativeposes.size(); i++){
 		addToModelMSG(msg,model->submodels[i],Eigen::Affine3d(model->submodels_relativeposes[i])*rp);

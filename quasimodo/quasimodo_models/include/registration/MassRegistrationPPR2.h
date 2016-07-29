@@ -48,27 +48,13 @@ namespace reglib
 		double total_time_start;
 
 		const unsigned int maxcount = 1000000;
-		double * Qp_arr;
-		double * Qn_arr;
-		double * Xp_arr;
-		double * Xn_arr;
-		double * rangeW_arr;
-
-		double * kp_Qp_arr;
-		double * kp_Qn_arr;
-		double * kp_Xp_arr;
-		double * kp_Xn_arr;
-		double * kp_rangeW_arr;
-
-		double * depthedge_Qp_arr;
-		double * depthedge_Xp_arr;
-		double * depthedge_rangeW_arr;
 
 		Model * model;
 
 		std::vector<int> nr_datas;
 
 		std::vector< bool > is_ok;
+
 		std::vector< Eigen::Matrix<double, 3, Eigen::Dynamic> > points;
 		std::vector< Eigen::Matrix<double, 3, Eigen::Dynamic> > colors;
 		std::vector< Eigen::Matrix<double, 3, Eigen::Dynamic> > normals;
@@ -76,30 +62,42 @@ namespace reglib
 		std::vector< Eigen::Matrix<double, 3, Eigen::Dynamic> > transformed_normals;
 		std::vector< Eigen::VectorXd > informations;
 
+
+
 		std::vector< int >				kp_nr_arraypoints;
 		std::vector< double * >			kp_arraypoints;
 		std::vector< double * >			kp_arraynormals;
 		std::vector< double * >			kp_arrayinformations;
 		std::vector< uint64_t * >		kp_arraydescriptors;
 		std::vector< std::vector< std::vector< TestMatch > > > kp_matches;
-
+		double * kp_Qp_arr;
+		double * kp_Qn_arr;
+		double * kp_Xp_arr;
+		double * kp_Xn_arr;
+		double * kp_rangeW_arr;
+		DistanceWeightFunction2PPR2 * kpfunc;
 		//std::vector< std::vector< std::vector<int> > > matchids;
 
-		bool use_surface;
 		std::vector< int >      frameid;
 
+		bool use_surface;
 		std::vector< int >		nr_arraypoints;
 		std::vector< double * > arraypoints;
 		std::vector< double * > arraynormals;
 		std::vector< double * > arraycolors;
 		std::vector< double * > arrayinformations;
-
 		std::vector< Tree3d * > trees3d;
 		std::vector< ArrayData3D<double> * > a3dv;
-
 		std::vector<int> nr_matches;
 		std::vector< std::vector< std::vector<int> > > matchids;
         std::vector< std::vector< std::vector<double> > > matchdists;
+		double * Qp_arr;
+		double * Qn_arr;
+		double * Xp_arr;
+		double * Xn_arr;
+		double * rangeW_arr;
+		DistanceWeightFunction2PPR2 * func;
+		std::vector< std::vector< double > > matchscores;
 
 
 		bool use_depthedge;
@@ -108,11 +106,13 @@ namespace reglib
 		std::vector< double * > depthedge_arrayinformations;
 		std::vector< Tree3d * > depthedge_trees3d;
 		std::vector< ArrayData3D<double> * > depthedge_a3dv;
-
 		std::vector<int> depthedge_nr_matches;
 		std::vector< std::vector< std::vector<int> > > depthedge_matchids;
 		std::vector< std::vector< std::vector<double> > > depthedge_matchdists;
-
+		double * depthedge_Qp_arr;
+		double * depthedge_Xp_arr;
+		double * depthedge_rangeW_arr;
+		DistanceWeightFunction2PPR2 * depthedge_func;
 
 		std::vector<int> sweepids;
 		std::vector<int> background_nr_datas;
@@ -131,9 +131,8 @@ namespace reglib
 //		std::vector<int> feature_end;//Dimension of data a specific feature ends, if the feature is RGB this should be 5
 //		std::vector< DistanceWeightFunction2 * > feature_func;
 
-		DistanceWeightFunction2PPR2 * func;
-		DistanceWeightFunction2PPR2 * kpfunc;
-		DistanceWeightFunction2PPR2 * depthdege_func;
+
+
 
 		MassRegistrationPPR2(double startreg = 0.05, bool visualize = false);
 		~MassRegistrationPPR2();
@@ -151,7 +150,11 @@ namespace reglib
 		void rematchKeyPoints(std::vector<Eigen::Matrix4d> poses, std::vector<Eigen::Matrix4d> prev_poses, bool first);
 		void rematch(std::vector<Eigen::Matrix4d> poses, std::vector<Eigen::Matrix4d> prev_poses, bool first);
 		Eigen::MatrixXd getAllResiduals(std::vector<Eigen::Matrix4d> poses);
+		Eigen::MatrixXd depthedge_getAllResiduals(std::vector<Eigen::Matrix4d> poses);
 		Eigen::MatrixXd getAllKpResiduals(std::vector<Eigen::Matrix4d> poses);
+
+
+		void showEdges(std::vector<Eigen::Matrix4d> poses);
 
 		//Eigen::MatrixXd getAllKPResiduals(std::vector<Eigen::Matrix4d> poses);
 

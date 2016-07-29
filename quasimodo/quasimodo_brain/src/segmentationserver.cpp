@@ -45,16 +45,32 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 		models.push_back(quasimodo_brain::getModelFromMSG(req.models[i]));
 	}
 
+//	reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.0);
+//	bgmassreg->timeout = 1200;
+//	bgmassreg->viewer = viewer;
+//	bgmassreg->visualizationLvl = 1;
+//	bgmassreg->maskstep = 10;
+//	bgmassreg->nomaskstep = 10;
+//	bgmassreg->nomask = true;
+//	bgmassreg->stopval = 0.0005;
+//	bgmassreg->setData(models.front()->frames,models.front()->modelmasks);
+//	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(models.front()->relativeposes);
+
+//	for(int i = 0; i < models.front()->relativeposes.size(); i++){
+//		models.front()->frames[i]->camera->print();
+//		std::cout << models.front()->relativeposes[i] << std::endl << std::endl;
+//	}
+
 	reglib::Model * bg = quasimodo_brain::getModelFromMSG(req.backgroundmodel);
 
-	reglib::MassRegistrationPPR2 * massregmod = new reglib::MassRegistrationPPR2(0.05);
+	reglib::MassRegistrationPPR2 * massregmod = new reglib::MassRegistrationPPR2(0.25);
 	massregmod->timeout = 1200;
 	massregmod->viewer = viewer;
 	massregmod->visualizationLvl = 0;
 	massregmod->maskstep = 10;//std::max(1,int(0.4*double(models[i]->frames.size())));
 	massregmod->nomaskstep = 10;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
 	massregmod->nomask = true;
-	massregmod->stopval = 0.0005;
+	massregmod->stopval = 0.0001;
 
 /*
 	bg->relativeposes = bgmfr.poses;
@@ -88,10 +104,9 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 
 		for(int j = 0; j < models.size(); j++){
 			Eigen::Matrix4d change = mfrmod.poses[j+1] * cpmod[j+1].inverse();
-			std::cout << change << std::endl << std::endl << std::endl;
-//			for(unsigned int k = 0; k < models[j]->relativeposes.size(); k++){
-//                cp.push_back(change * models.front()->relativeposes.front().inverse() * models[j]->relativeposes[k]);
-//			}
+			for(unsigned int k = 0; k < models[j]->relativeposes.size(); k++){
+				models[j]->relativeposes[k] = change*models[j]->relativeposes[k];
+			}
 		}
 	}else if(models.size() > 1){
 		vector<Eigen::Matrix4d> cpmod;
@@ -105,14 +120,93 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 		reglib::MassFusionResults mfrmod = massregmod->getTransforms(cpmod);
 		for(int j = 0; j < models.size(); j++){
 			Eigen::Matrix4d change = mfrmod.poses[j] * cpmod[j].inverse();
-			std::cout << change << std::endl << std::endl << std::endl;
-//			for(unsigned int k = 0; k < models[j]->relativeposes.size(); k++){
-//                cp.push_back(change * models.front()->relativeposes.front().inverse() * models[j]->relativeposes[k]);
-//			}
+			for(unsigned int k = 0; k < models[j]->relativeposes.size(); k++){
+				models[j]->relativeposes[k] = change*models[j]->relativeposes[k];
+			}
 		}
 	}
 
+	vector<Eigen::Matrix4d> bgcp;
+	vector<reglib::RGBDFrame*> bgcf;
+	vector<cv::Mat> bgmask;
 
+	for(unsigned int k = 0; k < bg->relativeposes.size(); k++){
+		bgcp.push_back(bg->relativeposes[k]);
+		bgcf.push_back(bg->frames[k]);
+		bgmask.push_back(bg->modelmasks[k]->getMask());
+	}
+
+
+	std::vector< std::vector< cv::Mat > > internal;
+	std::vector< std::vector< cv::Mat > > external;
+	std::vector< std::vector< cv::Mat > > dynamic;
+
+	for(int j = 0; j < models.size(); j++){
+		reglib::Model * model = models[j];
+
+		vector<cv::Mat> masks;
+		for(unsigned int i = 0; i < model->frames.size(); i++){
+			reglib::RGBDFrame * frame = model->frames[i];
+			reglib::Camera * cam = frame->camera;
+			cv::Mat mask;
+			mask.create(cam->height,cam->width,CV_8UC1);
+			unsigned char * maskdata = (unsigned char *)(mask.data);
+			for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 255;}
+			masks.push_back(mask);
+		}
+
+		std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,model->relativeposes,model->frames,masks,false);//Determine self occlusions
+		std::vector<cv::Mat> external_masks = mu->computeDynamicObject(model->relativeposes,model->frames,masks,bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,true);//Determine external occlusions
+		std::vector<cv::Mat> dynamic_masks;
+		for(unsigned int i = 0; i < model->frames.size(); i++){
+			reglib::RGBDFrame * frame = model->frames[i];
+			reglib::Camera * cam = frame->camera;
+			cv::Mat mask;
+			mask.create(cam->height,cam->width,CV_8UC1);
+			unsigned char * maskdata = (unsigned char *)(mask.data);
+			for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 255;}
+
+			unsigned char * internalmaskdata = (unsigned char *)(internal_masks[i].data);
+			unsigned char * externalmaskdata = (unsigned char *)(external_masks[i].data);
+			for(unsigned int k = 0; k < cam->height * cam->width;k++){
+				if(externalmaskdata[k] == 0 && internalmaskdata[k] != 0 ){
+					maskdata[k] = 255;
+				}else{
+					maskdata[k] = 0;
+				}
+			}
+
+			dynamic_masks.push_back(mask);
+
+			cv::imshow( "rgb", frame->rgb );
+			cv::imshow( "internal_masks",	internal_masks[i] );
+			cv::imshow( "externalmask",		external_masks[i] );
+			cv::imshow( "dynamic_mask",		dynamic_masks[i] );
+			cv::waitKey(0);
+		}
+
+		internal.push_back(internal_masks);
+		external.push_back(external_masks);
+		dynamic.push_back(dynamic_masks);
+	}
+
+//	vector<Eigen::Matrix4d> updated_bgcp;
+//	vector<reglib::RGBDFrame*> updated_bgcf;
+//	vector<cv::Mat> updated_bgmask;
+
+
+
+/*
+
+
+	printf("time to go!\n");
+	//std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,cp,cf,masks,cp,cf,masks,true);//Determine self occlusions
+
+
+	std::vector<cv::Mat> external_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,bgcp,bgcf,bgmask,cp,cf,masks,true);//Determine self occlusions
+*/
+
+/*
 
 exit(0);
 //	printf("frames: %i\n",bg->frames.size());
@@ -234,28 +328,7 @@ exit(0);
 
 	reglib::MassFusionResults mfr2 = massreg2->getTransforms(cp);
 	cp = mfr2.poses;
-/*
-	reglib::MassRegistrationPPR2 * massreg3 = new reglib::MassRegistrationPPR2(0.00);
-	massreg3->timeout = 1200;
-	massreg3->viewer = viewer;
-	massreg3->visualizationLvl = 1;
 
-	massreg3->maskstep = 5;//std::max(1,int(0.4*double(models[i]->frames.size())));
-	massreg3->nomaskstep = 5;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
-	massreg3->nomask = true;
-	massreg3->stopval = 0.0005;
-
-	massreg3->setData(cf,mm);
-
-	if(bg->frames.size() > 0){
-		massreg3->addModel(bg);
-		cp.push_back(Eigen::Matrix4d::Identity());
-		printf("---->added background model\n");
-	}
-
-	reglib::MassFusionResults mfr3 = massreg2->getTransforms(cp);
-	cp = mfr3.poses;
-*/
 	Eigen::Matrix4d relative_to_bg = Eigen::Matrix4d::Identity();
 	if(bg->frames.size() > 0){
 		relative_to_bg = cp.front().inverse()*cp.back();
@@ -287,6 +360,7 @@ exit(0);
         bgmask.push_back(bg->modelmasks[k]->getMask());
     }
     std::vector<cv::Mat> external_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,bgcp,bgcf,bgmask,cp,cf,masks,true);//Determine self occlusions
+*/
 /*
     for(unsigned int i = 0; i < cf.size(); i++){
         cv::Mat mask;

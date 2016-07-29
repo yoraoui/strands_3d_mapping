@@ -58,7 +58,9 @@ void Camera::save(std::string path){
 	delete[] buffer;
 }
 
-void Camera::print(){}
+void Camera::print(){
+	printf("Camera fx: %5.5f fy: %5.5f cx: %5.5f cy: %5.5f\n",fx,fy,cx,cy);
+}
 
 Camera * Camera::load(std::string path){
 	Camera * cam = new Camera();

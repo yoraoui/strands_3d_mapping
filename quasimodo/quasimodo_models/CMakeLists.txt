@@ -52,6 +52,7 @@ include_directories(/usr/local/include/)
 FIND_PACKAGE(Ceres REQUIRED)
 INCLUDE_DIRECTORIES(${CERES_INCLUDE_DIRS})
 
+add_subdirectory (densecrf)
 
 add_library(quasimodo_weightlib src/weightfunctions/DistanceWeightFunction2.cpp src/weightfunctions/DistanceWeightFunction2PPR.cpp src/weightfunctions/DistanceWeightFunction2PPR2.cpp)
 target_link_libraries(quasimodo_weightlib ceres glog ${catkin_LIBRARIES})
@@ -75,7 +76,7 @@ add_library(quasimodo_Mesher src/mesher/Mesh.cpp)
 target_link_libraries(quasimodo_Mesher quasimodo_model ${catkin_LIBRARIES})
 
 add_library(quasimodo_ModelUpdater src/modelupdater/ModelUpdater.cpp src/modelupdater/ModelUpdaterBasic.cpp src/modelupdater/ModelUpdaterBasicFuse.cpp)
-target_link_libraries(quasimodo_ModelUpdater quasimodo_Mesher quasimodo_model quasimodo_reglib quasimodo_massreglib ${catkin_LIBRARIES})
+target_link_libraries(quasimodo_ModelUpdater densecrf quasimodo_Mesher quasimodo_model quasimodo_reglib quasimodo_massreglib ${catkin_LIBRARIES})
 
 
 

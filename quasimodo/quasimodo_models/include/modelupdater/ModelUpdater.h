@@ -22,6 +22,8 @@
 
 #include <pcl/visualization/pcl_visualizer.h>
 
+//#include "../../densecrf/include/densecrf.h"
+
 namespace reglib
 {
     using namespace std;
