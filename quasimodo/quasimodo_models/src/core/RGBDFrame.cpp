@@ -362,7 +362,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 
 		for(unsigned int i = 0; i < label_indices[1].indices.size(); i++){
 			int ind = label_indices[1].indices[i];
-			depthedgesdata[ind] = 255;
+            depthedgesdata[ind] = 1;
 //			out.data[3*ind+0] =255;
 //			out.data[3*ind+1] =0;
 //			out.data[3*ind+2] =255;
@@ -391,6 +391,21 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 
 		//show(true);
 	}
+
+//    show(true);
+//    cv::Mat rgbclone = rgb.clone();
+//    for(int w = 0; w < width; w++){
+//        for(int h = 0; h < height;h++){
+//            int ind = h*width+w;
+//            if(depthedgesdata[ind] == 255){
+//                cv::circle(rgbclone, cv::Point(w,h), 3, cv::Scalar(0,255,0));
+//                cv::imshow( "rgbclone", rgbclone );
+//                cv::waitKey(0);
+//            }
+//        }
+//    }
+
+
 }
 
 RGBDFrame::~RGBDFrame(){}

@@ -329,7 +329,7 @@ reglib::Model * load2(std::string sweep_xml){
 	SimpleXMLParser<PointType>::RoomData roomData  = parser.loadRoomFromXML(sweep_folder+"/room.xml");
 
 	reglib::Camera * cam		= new reglib::Camera();//TODO:: ADD TO CAMERAS
-	cam->fx = 532.158936;
+    cam->fx = 532.158936;
 	cam->fy = 533.819214;
 	cam->cx = 310.514310;
 	cam->cy = 236.842039;
@@ -709,11 +709,11 @@ int main(int argc, char** argv){
 	mu->massreg_timeout                 = 60*4;
 	mu->viewer							= viewer;
 
-	reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.0);
+    reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.01);
 	bgmassreg->timeout = 1200;
 	bgmassreg->viewer = viewer;
 	bgmassreg->use_surface = true;
-	bgmassreg->use_depthedge = true;
+    bgmassreg->use_depthedge = false;
 	bgmassreg->visualizationLvl = 1;
 	bgmassreg->maskstep = 10;
 	bgmassreg->nomaskstep = 10;
