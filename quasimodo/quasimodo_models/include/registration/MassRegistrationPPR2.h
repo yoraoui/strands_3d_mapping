@@ -101,10 +101,10 @@ namespace reglib
 
 
 		bool use_depthedge;
-        int depthedge_nr_neighbours;
+		//int depthedge_nr_neighbours;
         std::vector< int >		depthedge_nr_arraypoints;
         std::vector< double * > depthedge_arraypoints;
-        std::vector< int * >    depthedge_neighbours;
+		//std::vector< int * >    depthedge_neighbours;
 		std::vector< double * > depthedge_arrayinformations;
 		std::vector< Tree3d * > depthedge_trees3d;
 		std::vector< ArrayData3D<double> * > depthedge_a3dv;

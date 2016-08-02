@@ -171,12 +171,14 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 		}
 	}
 */
+
+
 	//printf("%s LINE:%i\n",__FILE__,__LINE__);
 	if(compute_normals){
 		normals.create(height,width,CV_32FC3);
 		float * normalsdata = (float *)normals.data;
 
-		pcl::PointCloud<pcl::PointXYZRGBA>::Ptr	cloud	(new pcl::PointCloud<pcl::PointXYZRGBA>);
+	pcl::PointCloud<pcl::PointXYZRGBA>::Ptr	cloud	(new pcl::PointCloud<pcl::PointXYZRGBA>);
 		pcl::PointCloud<pcl::Normal>::Ptr	normals_cloud (new pcl::PointCloud<pcl::Normal>);
 		cloud->width	= width;
 		cloud->height	= height;
@@ -392,19 +394,184 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 		//show(true);
 	}
 
-//    show(true);
-//    cv::Mat rgbclone = rgb.clone();
-//    for(int w = 0; w < width; w++){
-//        for(int h = 0; h < height;h++){
-//            int ind = h*width+w;
-//            if(depthedgesdata[ind] == 255){
-//                cv::circle(rgbclone, cv::Point(w,h), 3, cv::Scalar(0,255,0));
-//                cv::imshow( "rgbclone", rgbclone );
-//                cv::waitKey(0);
-//            }
-//        }
-//    }
+	show(false);
 
+	int * last = new int[width*height];
+	for(int i = 0; i < width*height; i++){last[i] = 0;}
+	int current = 1;
+
+	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
+	viewer->setBackgroundColor (0, 0, 0);
+	viewer->addCoordinateSystem (1.0);
+	viewer->initCameraParameters ();
+
+	for(int w = 0; w < width; w+=3){
+		for(int h = 0; h < height;h+=3){
+			int ind = h*width+w;
+			if(depthedgesdata[ind] == 255 && depthdata[ind] != 0){
+				double xx = 0.001;
+				double xy = 0;
+				double xz = 0;
+				double yy = xx;
+				double yz = 0;
+				double zz = xx;
+				double sum = 0.001;
+
+				double z = idepth*double(depthdata[ind]);
+				double x = (double(w) - cx) * z * ifx;
+				double y = (double(h) - cy) * z * ify;
+
+//				for(int ww = 0; ww < width; ww++){
+//					for(int hh = 0; hh < height;hh++){
+//						int ind = hh*width+ww;
+//						pcl::PointXYZRGBA & p = cloud->points[ind];
+//						p.b = 0;
+//						p.g = 255;
+//						p.r = 0;
+//					}
+//				}
+
+
+
+
+				std::vector<int> todolistw;
+				todolistw.push_back(w);
+				std::vector<int> todolisth;
+				todolisth.push_back(h);
+				current++;
+				last[ind] = current;
+
+				cv::Mat rgbclone = rgb.clone();
+				unsigned char * rgbclonedata = (unsigned char *)rgbclone.data;
+
+
+				cv::circle(rgbclone, cv::Point(w,h), 3, cv::Scalar(0,255,0));
+				cv::imshow( "rgbclone", rgbclone );
+
+				int tmp;
+				for(int go = 0; go < 20 && go < todolistw.size(); go++){
+					int cw = todolistw[go];
+					int ch = todolisth[go];
+					int ind = ch*width+cw;
+
+
+					double z2 = idepth*double(depthdata[ind]);
+					if(z2 > 0){
+						double x2 = (double(cw) - cx) * z2 * ifx;
+						double y2 = (double(ch) - cy) * z2 * ify;
+
+						double dx = x-x2;
+						double dy = y-y2;
+						double dz = z-z2;
+
+						xx += dx*dx;
+						xy += dx*dy;
+						xz += dx*dz;
+
+						yy += dy*dy;
+						yz += dy*dz;
+
+						zz += dz*dz;
+						sum++;
+					}
+
+					//double z = idepth*double(depthdata[ind]);
+					rgbclonedata[3*ind+0] = 0;
+					rgbclonedata[3*ind+1] = 0;
+					rgbclonedata[3*ind+2] = 255;
+
+//					cloud->points[ind].r = 255;
+//					cloud->points[ind].g = 0;
+//					cloud->points[ind].b = 0;
+
+					int startw	= std::max(int(0),cw-1);
+					int stopw	= std::min(int(width-1),cw+1);
+
+					int starth	= std::max(int(0),ch-1);
+					int stoph	= std::min(int(height-1),ch+1);
+
+					for(int tw = startw; tw <= stopw; tw++){
+						for(int th = starth; th <= stoph; th++){
+							int ind2 = th*width+tw;
+							if(depthedgesdata[ind2] == 255 && last[ind2] != current){
+								todolistw.push_back(tw);
+								todolisth.push_back(th);
+								last[ind2] = current;
+							}
+						}
+					}
+
+				}
+
+				//cv::circle(rgbclone, cv::Point(w,h), 3, cv::Scalar(0,255,0));
+
+
+				cv::imshow( "rgbclone", rgbclone );
+				cv::waitKey(0);
+
+
+				pcl::PointCloud<pcl::PointXYZRGBA>::Ptr	cloud2	(new pcl::PointCloud<pcl::PointXYZRGBA>);
+				cloud2->width	= width;
+				cloud2->height	= height;
+				cloud2->points.resize(width*height);
+					//cloud->dense = false;
+
+				unsigned short *	depthdata	= (unsigned short *)depth.data;
+				unsigned char *		rgbdata		= (unsigned char *)rgb.data;
+				for(int w3 = 0; w3 < width; w3++){
+					for(int h3 = 0; h3 < height;h3++){
+						int ind3 = h3*width+w3;
+						pcl::PointXYZRGBA & p = cloud2->points[ind3];
+						p.b = rgbdata[3*ind3+0];//255;
+						p.g = rgbdata[3*ind3+1];//255;
+						p.r = rgbdata[3*ind3+2];//255;
+						double z3 = 1;//idepth*double(depthdata[ind3]);
+
+						if(w3%30 == 0 && h3%30 == 0){printf("%i %i -> %f\n",w3,h3,z3);}
+						if(z3 > 0){
+							p.x = (double(w3) - cx) * z3 * ifx;
+							p.y = (double(h3) - cy) * z3 * ify;
+							p.z = z3;
+						}else{
+							p.x = NAN;
+							p.y = NAN;
+							p.z = NAN;
+						}
+					}
+				}
+
+				for(int go = 0; go < todolistw.size(); go++){
+					int cw = todolistw[go];
+					int ch = todolisth[go];
+					int ind3 = ch*width+cw;
+
+					pcl::PointXYZRGBA & p = cloud2->points[ind3];
+					p.b = 0;
+					p.g = 0;
+					p.r = 255;
+				}
+
+				viewer->removeAllPointClouds();
+				viewer->addPointCloud<pcl::PointXYZRGBA> (cloud2, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBA>(cloud2), "cloud");
+				viewer->spin();
+
+				for(int w3 = 0; w3 < width; w3++){
+					for(int h3 = 0; h3 < height;h3++){
+						int ind3 = h3*width+w3;
+						pcl::PointXYZRGBA & p = cloud2->points[ind3];
+
+						double z3 = 1;//idepth*double(depthdata[ind3]);
+						p.b = rgbdata[3*ind3+0];//255;
+						p.g = rgbdata[3*ind3+1];//255;
+						p.r = rgbdata[3*ind3+2];//255;
+					}
+				}
+				viewer->removeAllPointClouds();
+				viewer->addPointCloud<pcl::PointXYZRGBA> (cloud2, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBA>(cloud2), "cloud");
+				viewer->spin();
+			}
+		}
+	}
 
 }
 

@@ -78,7 +78,7 @@ MassRegistrationPPR2::MassRegistrationPPR2(double startreg, bool visualize){
 	depthedge_Xp_arr = new double[3*maxcount+0];
 	depthedge_rangeW_arr = new double[maxcount+0];
 
-    depthedge_nr_neighbours = 4;
+	//depthedge_nr_neighbours = 10;
 }
 MassRegistrationPPR2::~MassRegistrationPPR2(){
 
@@ -571,7 +571,7 @@ double matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, int nr_a
     return good/(good+bad+0.001);
 }
 
-double update_matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, int nr_ap, double * ap, std::vector<int> & matchid, std::vector<double> & matchdist, double * apj, int nr_dn, int * dn, double & new_good_rematches, double & new_total_rematches){
+double update_matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, int nr_ap, double * ap, std::vector<int> & matchid, std::vector<double> & matchdist, double * apj, int nr_dn, int * dn, Tree3d * t3d, double & new_good_rematches, double & new_total_rematches){
     const double & m00 = rp(0,0); const double & m01 = rp(0,1); const double & m02 = rp(0,2); const double & m03 = rp(0,3);
     const double & m10 = rp(1,0); const double & m11 = rp(1,1); const double & m12 = rp(1,2); const double & m13 = rp(1,3);
     const double & m20 = rp(2,0); const double & m21 = rp(2,1); const double & m22 = rp(2,2); const double & m23 = rp(2,3);
@@ -585,8 +585,6 @@ double update_matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, i
 
     #pragma omp parallel for num_threads(8)
     for(unsigned int k = 0; k < nr_ap; ++k) {
-        int prev = matchid[k];
-        double qp [3];
         const double & src_x = ap[3*k+0];
         const double & src_y = ap[3*k+1];
         const double & src_z = ap[3*k+2];
@@ -594,18 +592,53 @@ double update_matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, i
         const double & sx = m00*src_x + m01*src_y + m02*src_z + m03;
         const double & sy = m10*src_x + m11*src_y + m12*src_z + m13;
         const double & sz = m20*src_x + m21*src_y + m22*src_z + m23;
-        for(unsigned int m = 0; m < nr_dn; ++m) {
-            int id = dn[nr_dn*k+m];
-            const double & dx =apj[3*id+0]-sx;
-            const double & dy =apj[3*id+1]-sy;
-            const double & dz =apj[3*id+2]-sz;
-            const double sqr_dist = dx*dx+dy*dy+dz*dz;
-        }
 
-//        size_t ret_index; double out_dist_sqr;
-//        nanoflann::KNNResultSet<double> resultSet(1);
-//        resultSet.init(&ret_index, &out_dist_sqr );
-//        t3d->findNeighbors(resultSet, qp, nanoflann::SearchParams(10));
+		int prev = matchid[k];
+		const double & dx1 =apj[3*prev+0]-sx;
+		const double & dy1 =apj[3*prev+1]-sy;
+		const double & dz1 =apj[3*prev+2]-sz;
+
+		double before = dx1*dx1+dy1*dy1+dz1*dz1;;
+		double mindist = before;
+
+		printf("point %4.4i before: %5.5f -> ",k,before);
+		while(true){
+			int next = prev;
+			for(unsigned int m = 0; m < nr_dn; ++m) {
+				int id = dn[nr_dn*prev+m];
+				const double & dx =apj[3*id+0]-sx;
+				const double & dy =apj[3*id+1]-sy;
+				const double & dz =apj[3*id+2]-sz;
+				const double sqr_dist = dx*dx+dy*dy+dz*dz;
+				if(sqr_dist < mindist){
+					mindist = sqr_dist;
+					next = id;
+				}
+			}
+			printf("%5.5f ",mindist);
+			if(next == prev){break;}
+			prev = next;
+		}
+
+		double qp [3];
+		qp[0] = sx;
+		qp[1] = sy;
+		qp[2] = sz;
+		size_t ret_index; double out_dist_sqr;
+		nanoflann::KNNResultSet<double> resultSet(1);
+		resultSet.init(&ret_index, &out_dist_sqr );
+		t3d->findNeighbors(resultSet, qp, nanoflann::SearchParams(10));
+
+		const double & dx2 =apj[3*ret_index+0]-sx;
+		const double & dy2 =apj[3*ret_index+1]-sy;
+		const double & dz2 =apj[3*ret_index+2]-sz;
+
+		double gt = dx2*dx2+dy2*dy2+dz2*dz2;
+
+		//printf("point %4.4i before: %5.5f after: %5.5f gt: %5.5f\n",k,before,mindist,out_dist_sqr);
+		printf(" gt: %5.5f gt: %5.5f\n",out_dist_sqr,gt);
+
+
 
 //        if(out_dist_sqr < threshold){
 //            good++;
@@ -620,7 +653,7 @@ double update_matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, i
 //        matchdist[k] = out_dist_sqr;
     }
 
-    return good/(good+bad+0.001);
+	return 1;
 }
 
 void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vector<Eigen::Matrix4d> prev_poses, bool first){
@@ -673,6 +706,10 @@ void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vect
 
                 double ratiosum = 0;
 				if(use_depthedge){
+//					if(rand()%100 == 0){
+//						update_matchframes(depthedge_func,rp,depthedge_nr_arraypoints[i],depthedge_arraypoints[i],depthedge_matchids[i][j],depthedge_matchdists[i][j],depthedge_arraypoints[j],depthedge_nr_neighbours, depthedge_neighbours[j],depthedge_trees3d[j], new_good_rematches,new_total_rematches);
+//						exit(0);
+//					}
                     ratiosum += matchframes(depthedge_func,rp, depthedge_nr_arraypoints[i], depthedge_arraypoints[i], depthedge_matchids[i][j], depthedge_matchdists[i][j],depthedge_trees3d[j],	new_good_rematches,new_total_rematches);
                 }
 				if(use_surface){
@@ -1161,7 +1198,7 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 	depthedge_matchids.push_back(		std::vector< std::vector<int> >() );
 	depthedge_matchdists.push_back(	std::vector< std::vector<double> >() );
 
-    depthedge_neighbours.push_back(0);
+	//depthedge_neighbours.push_back(0);
 	depthedge_nr_arraypoints.push_back(0);
 	depthedge_arraypoints.push_back(0);
 	depthedge_arrayinformations.push_back(0);
@@ -1306,8 +1343,8 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 	if(depthedge_count > 10){
 		double * depthedge_ap = new double[3*depthedge_count];
 		double * depthedge_ai = new double[3*depthedge_count];
-        int * dn = new int[depthedge_nr_neighbours*depthedge_count];
-        depthedge_neighbours[i] = dn;
+		//int * dn = new int[depthedge_nr_neighbours*depthedge_count];
+		//depthedge_neighbours[i] = dn;
 		depthedge_nr_arraypoints[i] = depthedge_count;
 		depthedge_arraypoints[i] = depthedge_ap;
 		depthedge_arrayinformations[i] = depthedge_ai;
@@ -1339,18 +1376,18 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
         Tree3d * t3d                        = depthedge_trees3d[i];
 
 
-        const int nrdn = depthedge_nr_neighbours+1;
-        #pragma omp parallel for num_threads(8)
-        for(int c = 0; c < depthedge_count; c++){
-            size_t ret_index[nrdn];
-            double out_dist_sqr[nrdn];
-            nanoflann::KNNResultSet<double> resultSet(nrdn);
-            resultSet.init(ret_index, out_dist_sqr );
-            t3d->findNeighbors(resultSet, depthedge_ap+3*c, nanoflann::SearchParams(10));
-            for(int k = 0; k < depthedge_nr_neighbours; k++){
-                dn[depthedge_nr_neighbours*c + k] = ret_index[k+1];
-            }
-        }
+//        const int nrdn = depthedge_nr_neighbours+1;
+//        #pragma omp parallel for num_threads(8)
+//        for(int c = 0; c < depthedge_count; c++){
+//            size_t ret_index[nrdn];
+//            double out_dist_sqr[nrdn];
+//            nanoflann::KNNResultSet<double> resultSet(nrdn);
+//            resultSet.init(ret_index, out_dist_sqr );
+//            t3d->findNeighbors(resultSet, depthedge_ap+3*c, nanoflann::SearchParams(10));
+//            for(int k = 0; k < depthedge_nr_neighbours; k++){
+//                dn[depthedge_nr_neighbours*c + k] = ret_index[k+1];
+//            }
+//        }
 	}
 
 	printf("total load time:          %5.5f\n",getTime()-total_load_time_start);

@@ -713,7 +713,7 @@ int main(int argc, char** argv){
 	bgmassreg->timeout = 1200;
 	bgmassreg->viewer = viewer;
 	bgmassreg->use_surface = true;
-    bgmassreg->use_depthedge = false;
+	bgmassreg->use_depthedge = true;
 	bgmassreg->visualizationLvl = 1;
 	bgmassreg->maskstep = 10;
 	bgmassreg->nomaskstep = 10;
