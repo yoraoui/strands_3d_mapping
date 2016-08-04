@@ -381,7 +381,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 
 		for(unsigned int i = 0; i < label_indices[4].indices.size(); i++){
 			int ind = label_indices[4].indices[i];
-			depthedgesdata[ind] = 255;
+            depthedgesdata[ind] = 255;
 //			out.data[3*ind+0] =0;
 //			out.data[3*ind+1] =255;
 //			out.data[3*ind+2] =0;
@@ -408,7 +408,9 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	for(int w = 0; w < width; w+=3){
 		for(int h = 0; h < height;h+=3){
 			int ind = h*width+w;
-			if(depthedgesdata[ind] == 255 && depthdata[ind] != 0){
+
+            int edgetype = depthedgesdata[ind];
+            if(edgetype != 0 && depthdata[ind] != 0){
 				double xx = 0.001;
 				double xy = 0;
 				double xz = 0;
@@ -416,6 +418,12 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 				double yz = 0;
 				double zz = xx;
 				double sum = 0.001;
+
+                double ww = 0.0;
+                double wh = 0;
+                double hh = 0;
+                double sum2 = 0.0;
+
 
 				double z = idepth*double(depthdata[ind]);
 				double x = (double(w) - cx) * z * ifx;
@@ -442,17 +450,35 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 				last[ind] = current;
 
 				cv::Mat rgbclone = rgb.clone();
-				unsigned char * rgbclonedata = (unsigned char *)rgbclone.data;
+                unsigned char * rgbclonedata = (unsigned char *)rgbclone.data;
 
 
 				cv::circle(rgbclone, cv::Point(w,h), 3, cv::Scalar(0,255,0));
 				cv::imshow( "rgbclone", rgbclone );
 
 				int tmp;
-				for(int go = 0; go < 20 && go < todolistw.size(); go++){
+                for(int go = 0; go < 40 && go < todolistw.size(); go++){
 					int cw = todolistw[go];
 					int ch = todolisth[go];
 					int ind = ch*width+cw;
+
+                    int dw = cw-w;
+                    int dh = ch-h;
+                    ww+=dw*dw;
+                    wh+=dw*dh;
+                    hh+=dh*dh;
+                    sum2++;
+
+                    Eigen::Matrix2d mimg;
+                    mimg(0,0) = ww/sum2;
+                    mimg(0,1) = wh/sum2;
+                    mimg(1,0) = wh/sum2;
+                    mimg(1,1) = hh/sum2;
+
+                    Eigen::EigenSolver<Eigen::Matrix2d> es(mimg);
+                    cout << "The mimg are:" << endl << mimg << endl;
+                    cout << "The eigenvalues of mimg are:" << endl << es.eigenvalues() << endl;
+                    cout << "The matrix of eigenvectors, V, is:" << endl << es.eigenvectors() << endl << endl;
 
 
 					double z2 = idepth*double(depthdata[ind]);
@@ -493,7 +519,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 					for(int tw = startw; tw <= stopw; tw++){
 						for(int th = starth; th <= stoph; th++){
 							int ind2 = th*width+tw;
-							if(depthedgesdata[ind2] == 255 && last[ind2] != current){
+                            if(depthedgesdata[ind2] == edgetype && last[ind2] != current){
 								todolistw.push_back(tw);
 								todolisth.push_back(th);
 								last[ind2] = current;
@@ -503,11 +529,25 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 
 				}
 
+                ww /= sum2;
+                wh /= sum2;
+                hh /= sum2;
+                Eigen::Matrix2d mimg;
+                mimg(0,0) = ww;
+                mimg(0,1) = wh;
+                mimg(1,0) = wh;
+                mimg(1,1) = hh;
+
+                Eigen::EigenSolver<Eigen::Matrix2d> es(mimg);
+                cout << "The mimg are:" << endl << mimg << endl;
+                cout << "The eigenvalues of mimg are:" << endl << es.eigenvalues() << endl;
+                cout << "The matrix of eigenvectors, V, is:" << endl << es.eigenvectors() << endl << endl;
+
 				//cv::circle(rgbclone, cv::Point(w,h), 3, cv::Scalar(0,255,0));
 
 
-				cv::imshow( "rgbclone", rgbclone );
-				cv::waitKey(0);
+//				cv::imshow( "rgbclone", rgbclone );
+//				cv::waitKey(0);
 
 
 				pcl::PointCloud<pcl::PointXYZRGBA>::Ptr	cloud2	(new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -525,18 +565,6 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 						p.b = rgbdata[3*ind3+0];//255;
 						p.g = rgbdata[3*ind3+1];//255;
 						p.r = rgbdata[3*ind3+2];//255;
-						double z3 = 1;//idepth*double(depthdata[ind3]);
-
-						if(w3%30 == 0 && h3%30 == 0){printf("%i %i -> %f\n",w3,h3,z3);}
-						if(z3 > 0){
-							p.x = (double(w3) - cx) * z3 * ifx;
-							p.y = (double(h3) - cy) * z3 * ify;
-							p.z = z3;
-						}else{
-							p.x = NAN;
-							p.y = NAN;
-							p.z = NAN;
-						}
 					}
 				}
 
@@ -551,21 +579,23 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 					p.r = 255;
 				}
 
-				viewer->removeAllPointClouds();
-				viewer->addPointCloud<pcl::PointXYZRGBA> (cloud2, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBA>(cloud2), "cloud");
-				viewer->spin();
+                for(int w3 = 0; w3 < width; w3++){
+                    for(int h3 = 0; h3 < height;h3++){
+                        int ind3 = h3*width+w3;
+                        pcl::PointXYZRGBA & p = cloud2->points[ind3];
+                        double z3 = idepth*double(depthdata[ind3]);
+                        if(z3 > 0){
+                            p.x = (double(w3) - cx) * z3 * ifx;
+                            p.y = (double(h3) - cy) * z3 * ify;
+                            p.z = z3;
+                        }else{
+                            p.x = 0;
+                            p.y = 0;
+                            p.z = 0;
+                        }
+                    }
+                }
 
-				for(int w3 = 0; w3 < width; w3++){
-					for(int h3 = 0; h3 < height;h3++){
-						int ind3 = h3*width+w3;
-						pcl::PointXYZRGBA & p = cloud2->points[ind3];
-
-						double z3 = 1;//idepth*double(depthdata[ind3]);
-						p.b = rgbdata[3*ind3+0];//255;
-						p.g = rgbdata[3*ind3+1];//255;
-						p.r = rgbdata[3*ind3+2];//255;
-					}
-				}
 				viewer->removeAllPointClouds();
 				viewer->addPointCloud<pcl::PointXYZRGBA> (cloud2, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBA>(cloud2), "cloud");
 				viewer->spin();
