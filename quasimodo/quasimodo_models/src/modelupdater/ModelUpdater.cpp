@@ -2506,7 +2506,7 @@ std::vector<int> doInference(std::vector<double> & prior, std::vector< std::vect
 	}
 
 	for(unsigned int i = 0; i < nr_data;i++){
-		for(unsigned int j = 0; j < connectionId[j].size();j++){
+        for(unsigned int j = 0; j < connectionId[i].size();j++){
 			double weight = connectionStrength[i][j];
 			g -> add_edge( i, connectionId[i][j], weight, weight );
 		}
@@ -2538,17 +2538,11 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud2 (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 
 	int tot_nr_pixels = 0;
+    std::vector<int> offsets;
 
 	for(unsigned int i = 0; i < frames.size(); i++){
-		RGBDFrame * frame = frames[i];
-		unsigned short * depthdata	= (unsigned short	*)(frame->depth.data);
-		unsigned char * rgbdata		= (unsigned char	*)(frame->rgb.data);
-
-		Camera * camera				= frame->camera;
-		const unsigned int width	= camera->width;
-		const unsigned int height	= camera->height;
-
-		unsigned int nr_pixels = frame->camera->width * frame->camera->height;
+        offsets.push_back(tot_nr_pixels);
+        unsigned int nr_pixels = frames[i]->camera->width * frames[i]->camera->height;
 		tot_nr_pixels += nr_pixels;
 	}
 
@@ -2557,8 +2551,14 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 	std::vector< std::vector<int> > connectionId;
 	std::vector< std::vector<double> > connectionStrength;
 
+    prior.resize(tot_nr_pixels);
+    connectionId.resize(tot_nr_pixels);
+    connectionStrength.resize(tot_nr_pixels);
+
+
 
     for(unsigned int i = 0; i < frames.size(); i++){
+        int offset = offsets[i];
 		RGBDFrame * frame = frames[i];
 		unsigned short * depthdata	= (unsigned short	*)(frame->depth.data);
 		unsigned char * rgbdata		= (unsigned char	*)(frame->rgb.data);
@@ -2611,52 +2611,6 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 
 		printf("nr data: %i nr edges: %i\n",nr_data, nr_edges);
 
-//		gc::Graph<double,double,double> * g2 = new gc::Graph<double,double,double>(nr_data,nr_edges);
-
-/*
-	int nr_data = prior.size();
-
-	int nr_edges = 0;
-	for(unsigned int j = 0; j < nr_data;j++){
-		nr_edges += connectionId[j].size();
-	}
-
-	printf("nr data: %i nr edges: %i\n",nr_data,nr_edges);
-
-	gc::Graph<double,double,double> * g = new gc::Graph<double,double,double>(nr_data,nr_edges);
-
-
-	for(unsigned int i = 0; i < nr_data;i++){
-		g -> add_node();
-		double p_fg = prior[i];
-		if(p_fg < 0){
-			g -> add_tweights( i, 0, 0 );
-			continue;
-		}
-		double p_bg = 1-p_fg;
-		double weightFG = -log(p_fg);
-		double weightBG = -log(p_bg);
-		g -> add_tweights( i, weightFG, weightBG );
-	}
-
-	for(unsigned int i = 0; i < nr_data;i++){
-		for(unsigned int j = 0; j < connectionId[j].size();j++){
-			double weight = connectionStrength[i][j];
-			g -> add_edge( i, connectionId[i][j], weight, weight );
-		}
-	}
-
-	int flow = g -> maxflow();
-	printf("flow: %i\n",flow);
-
-	std::vector<int> labels;
-	labels.resize(nr_data);
-
-	for(unsigned int i = 0; i < nr_data;i++){
-		labels[i] = g->what_segment(i);
-	}
-	delete g;
-*/
 
 	gc::Graph<double,double,double> * g2 = new gc::Graph<double,double,double>(nr_data,nr_edges);
 
@@ -2664,7 +2618,8 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
             g -> add_node();
             if(depthdata[j] == 0){
                 g -> add_tweights(j,0,0);
-				frame_prior[j] = -1;
+                frame_prior[j] = -1;
+                prior[offset+j] = -1;
                 continue;
             }
 
@@ -2675,7 +2630,8 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 
             p_fg = std::max(1-maxprob,std::min(maxprob,p_fg));
 
-			frame_prior[j] = p_fg;
+            frame_prior[j] = p_fg;
+            prior[offset+j] = p_fg;
 
             double p_bg = 1-p_fg;
             double weightFG = -log(p_fg);
@@ -2717,8 +2673,11 @@ for(unsigned int j = 0; j < nr_data;j++){
                     double not_p_same = 1-p_same;
                     double weight = -log(not_p_same);
 
-					frame_connectionId[ind].push_back(other);
-					frame_connectionStrength[ind].push_back(weight);
+                    frame_connectionId[ind].push_back(other);
+                    frame_connectionStrength[ind].push_back(weight);
+
+                    connectionId[ind+offset].push_back(other+offset);
+                    connectionStrength[ind+offset].push_back(weight);
 
 					g -> add_edge( ind, other, weight, weight );
 					//g2 -> add_edge( ind, other, weight, weight );
@@ -2742,6 +2701,9 @@ for(unsigned int j = 0; j < nr_data;j++){
 
 					frame_connectionId[ind].push_back(other);
 					frame_connectionStrength[ind].push_back(weight);
+
+                    connectionId[ind+offset].push_back(other+offset);
+                    connectionStrength[ind+offset].push_back(weight);
 
 					g -> add_edge( ind, other, weight, weight );
 					//g2 -> add_edge( ind, other, weight, weight );
@@ -2886,17 +2848,17 @@ for(unsigned int j = 0; j < nr_data;j++){
 		}
 
 
-//		std::vector<int> labels = doInference(frame_prior, frame_connectionId, frame_connectionStrength);
-//		int same = 0;
-//		int diff = 0;
-//		for(unsigned int i = 0; i < labels.size();i++){
-//			if(labels[i] == g->what_segment(i)){same++;}
-//			else{diff++;}
-//			//internaldata[i] =  (g->what_segment(i) == gc::Graph<double,double,double>::SOURCE));
-//		}
+        std::vector<int> labels = doInference(frame_prior, frame_connectionId, frame_connectionStrength);
+        int same = 0;
+        int diff = 0;
+        for(unsigned int i = 0; i < labels.size();i++){
+            if(labels[i] == g->what_segment(i)){same++;}
+            else{diff++;}
+            //internaldata[i] =  (g->what_segment(i) == gc::Graph<double,double,double>::SOURCE));
+        }
 
-//		printf("same: %i diff: %i\n",same,diff);
-
+        printf("same: %i diff: %i\n",same,diff);
+exit(0);
         cv::Mat internalmask;
         internalmask.create(height,width,CV_8UC1);
         unsigned char * internaldata = (unsigned char *)(internalmask.data);

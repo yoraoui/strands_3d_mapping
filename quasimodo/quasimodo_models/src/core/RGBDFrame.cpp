@@ -393,6 +393,18 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 
 		//show(true);
 	}
+
+    if(true){
+
+        for(int it = 0; it < 30; it++){
+            for(int w = 0; w < width; w++){
+                for(int h = 0; h < height;h++){
+                    int ind = h*width+w;
+                }
+            }
+        }
+    }
+
 if(false){
 	show(false);
 
