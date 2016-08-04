@@ -2156,7 +2156,7 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 		std::vector<double> dx;  dx.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dx[i] = 0.5;}
 		std::vector<double> dy;	 dy.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dy[i] = 0.5;}
 
-		for(unsigned int w = 1; w < width;w++){
+		for(unsigned int w = 1; w < width-1;w++){
 			for(unsigned int h = 1; h < height-1;h++){
 				int ind = h*width+w;
 				float z = idepth*float(depthdata[ind]);
@@ -2184,6 +2184,76 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 
 					if(z2 > 0 || z > 0){dy[ind] = funcZ->getProb((z-z2)/(z*z+z2*z2));}
 				}
+
+/*
+				if(w > 1){
+					int dir = -1;
+					int other2 = ind+2*dir;
+					int other = ind+dir;
+					int otherN = ind-dir;
+
+					float z3 = idepth*float(depthdata[other2]);
+					float z2 = idepth*float(depthdata[other]);
+					float z0 = idepth*float(depthdata[otherN]);
+
+					if(z3 > 0){z2 = 2*z2-z3;}
+
+					double diff1 = z-2*z2-z3;
+					double diff2 = z2-2*z-z0;
+
+					if(z2 > 0 || z > 0){dx[ind] = funcZ->getProb((z-z2)/(z*z+z2*z2));}
+				}
+
+				if(h > 1){
+					int dir = -width;
+					int other2 = ind+2*dir;
+					int other = ind+dir;
+					//int other3 = ind-dir;
+
+					float z3 = idepth*float(depthdata[other2]);
+					float z2 = idepth*float(depthdata[other]);
+					if(z3 > 0){z2 = 2*z2-z3;}
+
+					if(z2 > 0 || z > 0){dy[ind] = funcZ->getProb((z-z2)/(z*z+z2*z2));}
+				}
+*/
+				/*
+				if(w > 1){
+					int dir = -1;
+					int other2 = ind+2*dir;
+					int other = ind+dir;
+					int otherN = ind-dir;
+
+					float z3 = idepth*float(depthdata[other2]);
+					float z2 = idepth*float(depthdata[other]);
+					float z0 = idepth*float(depthdata[otherN]);
+
+					if(z3 > 0){z2 = 2*z2-z3;}
+
+					double diff1 = z-2*z2-z3;
+					double diff2 = z2-2*z-z0;
+
+					if(z2 > 0 || z > 0){dx[ind] = funcZ->getProb(std::min(diff1,diff2)/(z*z+z2*z2));}
+				}
+
+				if(h > 1){
+					int dir = -width;
+					int other2 = ind+2*dir;
+					int other = ind+dir;
+					int otherN = ind-dir;
+
+					float z3 = idepth*float(depthdata[other2]);
+					float z2 = idepth*float(depthdata[other]);
+					float z0 = idepth*float(depthdata[otherN]);
+
+					if(z3 > 0){z2 = 2*z2-z3;}
+
+					double diff1 = z-2*z2-z3;
+					double diff2 = z2-2*z-z0;
+
+					if(z2 > 0 || z > 0){dy[ind] = funcZ->getProb(std::min(diff1,diff2)/(z*z+z2*z2));}
+				}
+				*/
 			}
 		}
 
@@ -2408,6 +2478,54 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 
 */
 
+std::vector<int> doInference(std::vector<double> & prior, std::vector< std::vector<int> > & connectionId, std::vector< std::vector<double> > & connectionStrength){
+
+	int nr_data = prior.size();
+
+	int nr_edges = 0;
+	for(unsigned int j = 0; j < nr_data;j++){
+		nr_edges += connectionId[j].size();
+	}
+
+	printf("nr data: %i nr edges: %i\n",nr_data,nr_edges);
+
+	gc::Graph<double,double,double> * g = new gc::Graph<double,double,double>(nr_data,nr_edges);
+
+
+	for(unsigned int i = 0; i < nr_data;i++){
+		g -> add_node();
+		double p_fg = prior[i];
+		if(p_fg < 0){
+			g -> add_tweights( i, 0, 0 );
+			continue;
+		}
+		double p_bg = 1-p_fg;
+		double weightFG = -log(p_fg);
+		double weightBG = -log(p_bg);
+		g -> add_tweights( i, weightFG, weightBG );
+	}
+
+	for(unsigned int i = 0; i < nr_data;i++){
+		for(unsigned int j = 0; j < connectionId[j].size();j++){
+			double weight = connectionStrength[i][j];
+			g -> add_edge( i, connectionId[i][j], weight, weight );
+		}
+	}
+
+	int flow = g -> maxflow();
+	printf("flow: %i\n",flow);
+
+	std::vector<int> labels;
+	labels.resize(nr_data);
+
+	for(unsigned int i = 0; i < nr_data;i++){
+		labels[i] = g->what_segment(i);
+	}
+	delete g;
+
+	return labels;
+}
+
 vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Mat> bgmm, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<Mat> mm, vector<Matrix4d> poses, vector<RGBDFrame*> frames, vector<Mat> masks, bool debugg){
 	std::vector<cv::Mat> newmasks;
 
@@ -2418,6 +2536,27 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud1 (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud2 (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+
+	int tot_nr_pixels = 0;
+
+	for(unsigned int i = 0; i < frames.size(); i++){
+		RGBDFrame * frame = frames[i];
+		unsigned short * depthdata	= (unsigned short	*)(frame->depth.data);
+		unsigned char * rgbdata		= (unsigned char	*)(frame->rgb.data);
+
+		Camera * camera				= frame->camera;
+		const unsigned int width	= camera->width;
+		const unsigned int height	= camera->height;
+
+		unsigned int nr_pixels = frame->camera->width * frame->camera->height;
+		tot_nr_pixels += nr_pixels;
+	}
+
+	//Graph...
+	std::vector<double> prior;
+	std::vector< std::vector<int> > connectionId;
+	std::vector< std::vector<double> > connectionStrength;
+
 
     for(unsigned int i = 0; i < frames.size(); i++){
 		RGBDFrame * frame = frames[i];
@@ -2455,16 +2594,77 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
         }
 		std::vector< std::vector<double> > probs = getImageProbs(frames[i],5);
 
+		std::vector<double> frame_prior;
+		std::vector< std::vector<int> > frame_connectionId;
+		std::vector< std::vector<double> > frame_connectionStrength;
+
+		frame_prior.resize(nr_pixels);
+		frame_connectionId.resize(nr_pixels);
+		frame_connectionStrength.resize(nr_pixels);
+
+
         printf("starting partition\n");
         double start_part = getTime();
         int nr_data = width*height;
-        gc::Graph<double,double,double> *g = new gc::Graph<double,double,double>( nr_data, width*(height-1) + (width-1)*height);
+		int nr_edges = width*(height-1) + (width-1)*height;
+		gc::Graph<double,double,double> *g = new gc::Graph<double,double,double>( nr_data, nr_edges);
 
+		printf("nr data: %i nr edges: %i\n",nr_data, nr_edges);
+
+//		gc::Graph<double,double,double> * g2 = new gc::Graph<double,double,double>(nr_data,nr_edges);
+
+/*
+	int nr_data = prior.size();
+
+	int nr_edges = 0;
+	for(unsigned int j = 0; j < nr_data;j++){
+		nr_edges += connectionId[j].size();
+	}
+
+	printf("nr data: %i nr edges: %i\n",nr_data,nr_edges);
+
+	gc::Graph<double,double,double> * g = new gc::Graph<double,double,double>(nr_data,nr_edges);
+
+
+	for(unsigned int i = 0; i < nr_data;i++){
+		g -> add_node();
+		double p_fg = prior[i];
+		if(p_fg < 0){
+			g -> add_tweights( i, 0, 0 );
+			continue;
+		}
+		double p_bg = 1-p_fg;
+		double weightFG = -log(p_fg);
+		double weightBG = -log(p_bg);
+		g -> add_tweights( i, weightFG, weightBG );
+	}
+
+	for(unsigned int i = 0; i < nr_data;i++){
+		for(unsigned int j = 0; j < connectionId[j].size();j++){
+			double weight = connectionStrength[i][j];
+			g -> add_edge( i, connectionId[i][j], weight, weight );
+		}
+	}
+
+	int flow = g -> maxflow();
+	printf("flow: %i\n",flow);
+
+	std::vector<int> labels;
+	labels.resize(nr_data);
+
+	for(unsigned int i = 0; i < nr_data;i++){
+		labels[i] = g->what_segment(i);
+	}
+	delete g;
+*/
+
+	gc::Graph<double,double,double> * g2 = new gc::Graph<double,double,double>(nr_data,nr_edges);
 
         for(unsigned int j = 0; j < nr_data;j++){
             g -> add_node();
             if(depthdata[j] == 0){
                 g -> add_tweights(j,0,0);
+				frame_prior[j] = -1;
                 continue;
             }
 
@@ -2475,20 +2675,34 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 
             p_fg = std::max(1-maxprob,std::min(maxprob,p_fg));
 
+			frame_prior[j] = p_fg;
+
             double p_bg = 1-p_fg;
             double weightFG = -log(p_fg);
             double weightBG = -log(p_bg);
             g -> add_tweights( j, weightFG, weightBG );
         }
 
+for(unsigned int j = 0; j < nr_data;j++){
+	g2 -> add_node();
+	double p_fg = frame_prior[j];
+	if(p_fg < 0){
+		g -> add_tweights( j, 0, 0 );
+		continue;
+	}
+	double p_bg = 1-p_fg;
+	double weightFG = -log(p_fg);
+	double weightBG = -log(p_bg);
+	g2 -> add_tweights( j, weightFG, weightBG );
+}
+
+
         double maxprob_same = 0.999999999;
-		for(unsigned int w = 0; w < width-1;w++){
+		for(unsigned int w = 0; w < width;w++){
             for(unsigned int h = 0; h < height;h++){
                 int ind = h*width+w;
 
                 if(w > 0){
-
-
 					double ax = 0.5;
 					double bx = 0.5;
 					for(int p = 0; p < probs.size(); p+=2){
@@ -2502,7 +2716,12 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 					double p_same = std::max(probs[probs.size()-2][ind+1],std::min(px,maxprob_same));
                     double not_p_same = 1-p_same;
                     double weight = -log(not_p_same);
+
+					frame_connectionId[ind].push_back(other);
+					frame_connectionStrength[ind].push_back(weight);
+
 					g -> add_edge( ind, other, weight, weight );
+					//g2 -> add_edge( ind, other, weight, weight );
                 }
 
                 if(h > 0){
@@ -2520,13 +2739,29 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
                     double p_same = std::max(probs[probs.size()-1][ind],std::min(py,maxprob_same));
                     double not_p_same = 1-p_same;
                     double weight = -log(not_p_same);
-                    g -> add_edge( ind, other, weight, weight );
+
+					frame_connectionId[ind].push_back(other);
+					frame_connectionStrength[ind].push_back(weight);
+
+					g -> add_edge( ind, other, weight, weight );
+					//g2 -> add_edge( ind, other, weight, weight );
                 }
             }
         }
 
-        int flow = g -> maxflow();
-        printf("flow: %i\n",flow);
+		for(unsigned int ind = 0; ind < nr_data;ind++){
+			for(unsigned int j = 0; j < frame_connectionId[ind].size();j++){
+				int other = frame_connectionId[ind][j];
+				double weight = frame_connectionStrength[ind][j];
+				g2 -> add_edge(ind, other, weight, weight );
+			}
+		}
+
+		int flow = g -> maxflow();
+		printf("flow: %i\n",flow);
+
+		int flow2 = g2 -> maxflow();
+		printf("flow2: %i\n",flow2);
 
 
         double end_part = getTime();
@@ -2651,7 +2886,16 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 		}
 
 
+//		std::vector<int> labels = doInference(frame_prior, frame_connectionId, frame_connectionStrength);
+//		int same = 0;
+//		int diff = 0;
+//		for(unsigned int i = 0; i < labels.size();i++){
+//			if(labels[i] == g->what_segment(i)){same++;}
+//			else{diff++;}
+//			//internaldata[i] =  (g->what_segment(i) == gc::Graph<double,double,double>::SOURCE));
+//		}
 
+//		printf("same: %i diff: %i\n",same,diff);
 
         cv::Mat internalmask;
         internalmask.create(height,width,CV_8UC1);

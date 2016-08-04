@@ -713,10 +713,10 @@ int main(int argc, char** argv){
 	bgmassreg->timeout = 1200;
 	bgmassreg->viewer = viewer;
 	bgmassreg->use_surface = true;
-	bgmassreg->use_depthedge = true;
-	bgmassreg->visualizationLvl = 1;
-	bgmassreg->maskstep = 10;
-	bgmassreg->nomaskstep = 10;
+	bgmassreg->use_depthedge = false;
+	bgmassreg->visualizationLvl = 0;
+	bgmassreg->maskstep = 5;
+	bgmassreg->nomaskstep = 5;
 	bgmassreg->nomask = true;
 	bgmassreg->stopval = 0.0005;
 	bgmassreg->setData(models.front()->frames,models.front()->modelmasks);

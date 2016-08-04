@@ -364,7 +364,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 
 		for(unsigned int i = 0; i < label_indices[1].indices.size(); i++){
 			int ind = label_indices[1].indices[i];
-            depthedgesdata[ind] = 1;
+			//depthedgesdata[ind] = 1;
 //			out.data[3*ind+0] =255;
 //			out.data[3*ind+1] =0;
 //			out.data[3*ind+2] =255;
@@ -393,7 +393,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 
 		//show(true);
 	}
-
+if(false){
 	show(false);
 
 	int * last = new int[width*height];
@@ -405,8 +405,8 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	viewer->addCoordinateSystem (1.0);
 	viewer->initCameraParameters ();
 
-	for(int w = 0; w < width; w+=3){
-		for(int h = 0; h < height;h+=3){
+	for(int w = 0; w < width; w+=5){
+		for(int h = 0; h < height;h+=5){
 			int ind = h*width+w;
 
             int edgetype = depthedgesdata[ind];
@@ -419,10 +419,10 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 				double zz = xx;
 				double sum = 0.001;
 
-                double ww = 0.0;
+				double ww = 4.0;
                 double wh = 0;
-                double hh = 0;
-                double sum2 = 0.0;
+				double hh = 4.0;
+				double sum2 = 4.0;
 
 
 				double z = idepth*double(depthdata[ind]);
@@ -453,11 +453,14 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
                 unsigned char * rgbclonedata = (unsigned char *)rgbclone.data;
 
 
-				cv::circle(rgbclone, cv::Point(w,h), 3, cv::Scalar(0,255,0));
+				cv::circle(rgbclone, cv::Point(w,h), 2, cv::Scalar(0,255,0));
 				cv::imshow( "rgbclone", rgbclone );
 
+
+				printf("ratio = [");
+				double best_ratio = 0;
 				int tmp;
-                for(int go = 0; go < 40 && go < todolistw.size(); go++){
+				for(int go = 0; go < 100000 && go < todolistw.size(); go++){
 					int cw = todolistw[go];
 					int ch = todolisth[go];
 					int ind = ch*width+cw;
@@ -475,10 +478,43 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
                     mimg(1,0) = wh/sum2;
                     mimg(1,1) = hh/sum2;
 
-                    Eigen::EigenSolver<Eigen::Matrix2d> es(mimg);
-                    cout << "The mimg are:" << endl << mimg << endl;
-                    cout << "The eigenvalues of mimg are:" << endl << es.eigenvalues() << endl;
-                    cout << "The matrix of eigenvectors, V, is:" << endl << es.eigenvectors() << endl << endl;
+					Eigen::EigenSolver<Eigen::Matrix2d> es(mimg);
+					double e1 = (es.eigenvalues())(0).real();
+					double e2 = (es.eigenvalues())(1).real();
+					double ratio = 1;
+					if(e1 > e2){ratio = e1/e2;}
+					if(e2 > e1){ratio = e2/e1;}
+					printf("%5.5f ",ratio);
+
+					if(ratio < best_ratio){
+						ww-=dw*dw;
+						wh-=dw*dh;
+						hh-=dh*dh;
+						sum2--;
+						//cv::circle(rgbclone, cv::Point(cw,ch), 2, cv::Scalar(255,0,255));
+						continue;
+					}
+
+					best_ratio = ratio;
+//                    cout << "The mimg are:" << endl << mimg << endl;
+//					cout << "The eigenvalues of mimg are:" << endl << es.eigenvalues() << endl;
+//					printf("%f %f\n",e1,e2);
+//					cout << "The matrix of eigenvectors, V, is:" << endl << es.eigenvectors() << endl << endl;
+
+//					B2=(-cov[0][0]-cov[1][1])*(-cov[0][0]-cov[1][1]);
+//				    c= (4*cov[0][0]*cov[1][1])-(4*cov[0][1]*cov[1][0]);
+
+
+//				    sq= sqrt(B2-c);
+
+
+//				    B=(cov[0][0])+(cov[1][1]);
+
+//				    r1=(B+sq)(.5);
+//				    r2=(B-sq)(.5);
+
+
+//				    printf("\nThe eigenvalues are &#37;f and %f", r1, r2);
 
 
 					double z2 = idepth*double(depthdata[ind]);
@@ -529,6 +565,8 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 
 				}
 
+
+				printf("];\n");
                 ww /= sum2;
                 wh /= sum2;
                 hh /= sum2;
@@ -546,9 +584,9 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 				//cv::circle(rgbclone, cv::Point(w,h), 3, cv::Scalar(0,255,0));
 
 
-//				cv::imshow( "rgbclone", rgbclone );
-//				cv::waitKey(0);
-
+				cv::imshow( "rgbclone", rgbclone );
+				cv::waitKey(0);
+/*
 
 				pcl::PointCloud<pcl::PointXYZRGBA>::Ptr	cloud2	(new pcl::PointCloud<pcl::PointXYZRGBA>);
 				cloud2->width	= width;
@@ -599,9 +637,11 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 				viewer->removeAllPointClouds();
 				viewer->addPointCloud<pcl::PointXYZRGBA> (cloud2, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBA>(cloud2), "cloud");
 				viewer->spin();
+				*/
 			}
 		}
 	}
+}
 
 }
 
