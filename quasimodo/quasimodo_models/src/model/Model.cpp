@@ -131,9 +131,9 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 					float pny	= m10*dst_nx + m11*dst_ny + m12*dst_nz;
 					float pnz	= m20*dst_nx + m21*dst_ny + m22*dst_nz;
 
-					float pb = rgbdata[3*ind+0];
-					float pg = rgbdata[3*ind+1];
-					float pr = rgbdata[3*ind+2];
+					float pb = (float)(rgbdata[3*ind+0]);
+					float pg = (float)(rgbdata[3*ind+1]);
+					float pr = (float)(rgbdata[3*ind+2]);
 
 					Vector3f	pxyz	(px	,py	,pz );
 					Vector3f	pnxyz	(pnx,pny,pnz);
@@ -588,6 +588,38 @@ CloudData * Model::getCD(unsigned int target_points){
 }
 
 Model::~Model(){}
+
+void Model::fullDelete(){
+	points.clear();
+	all_keypoints.clear();
+	all_descriptors.clear();
+	relativeposes.clear();
+	for(size_t i = 0; i < frames.size(); i++){
+		printf("delete camera: %ld\n",frames[i]->camera);
+		delete frames[i]->camera;
+		delete frames[i];
+	}
+	frames.clear();
+
+	for(size_t i = 0; i < modelmasks.size(); i++){delete modelmasks[i];}
+	modelmasks.clear();
+
+	rep_relativeposes.clear();
+	rep_frames.clear();
+	rep_modelmasks.clear();
+
+	total_scores = 0;
+	scores.clear();
+
+	for(size_t i = 0; i < submodels.size(); i++){
+		submodels[i]->fullDelete();
+	}
+	submodels.clear();
+
+	submodels_relativeposes.clear();
+	submodels_scores.clear();
+	delete this;
+}
 
 pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr Model::getPCLnormalcloud(int step, bool color){
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGBNormal>);

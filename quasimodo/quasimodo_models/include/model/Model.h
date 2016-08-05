@@ -95,6 +95,8 @@ class superpoint{
 		Model();
 		Model(RGBDFrame * frame_, cv::Mat mask, Eigen::Matrix4d pose = Eigen::Matrix4d::Identity());
 		~Model();
+
+		void fullDelete();
 		
 		void merge(Model * model, Eigen::Matrix4d p);
 

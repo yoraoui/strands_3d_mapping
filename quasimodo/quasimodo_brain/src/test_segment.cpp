@@ -328,58 +328,29 @@ reglib::Model * load2(std::string sweep_xml){
 	SimpleXMLParser<PointType> parser;
 	SimpleXMLParser<PointType>::RoomData roomData  = parser.loadRoomFromXML(sweep_folder+"/room.xml");
 
-	reglib::Camera * cam		= new reglib::Camera();//TODO:: ADD TO CAMERAS
-    cam->fx = 532.158936;
-	cam->fy = 533.819214;
-	cam->cx = 310.514310;
-	cam->cy = 236.842039;
+//	projection
+//	532.158936 0.000000 310.514310 0.000000
+//	0.000000 533.819214 236.842039 0.000000
+//	0.000000 0.000000 1.000000 0.000000
 
-/*
-	projection
-	532.158936 0.000000 310.514310 0.000000
-	0.000000 533.819214 236.842039 0.000000
-	0.000000 0.000000 1.000000 0.000000
-*/
 
-/*
-	[image]
-
-	width
-	640
-
-	height
-	480
-
-	[narrow_stereo]
-
-	camera matrix
-	534.192642 0.000000 311.485658
-	0.000000 533.870030 237.668175
-	0.000000 0.000000 1.000000
-
-	distortion
-	0.030388 -0.100645 -0.000995 -0.000366 0.000000
-
-	rectification
-	1.000000 0.000000 0.000000
-	0.000000 1.000000 0.000000
-	0.000000 0.000000 1.000000
-
-	projection
-	532.158936 0.000000 310.514310 0.000000
-	0.000000 533.819214 236.842039 0.000000
-	0.000000 0.000000 1.000000 0.000000
-*/
-
-	cv::Mat fullmask;
-	fullmask.create(480,640,CV_8UC1);
-	unsigned char * maskdata = (unsigned char *)fullmask.data;
-	for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
 
 	reglib::Model * sweepmodel = 0;
 	std::vector<reglib::RGBDFrame * > current_room_frames;
 	for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++)
 	{
+
+		cv::Mat fullmask;
+		fullmask.create(480,640,CV_8UC1);
+		unsigned char * maskdata = (unsigned char *)fullmask.data;
+		for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
+
+		reglib::Camera * cam		= new reglib::Camera();//TODO:: ADD TO CAMERAS
+		cam->fx = 532.158936;
+		cam->fy = 533.819214;
+		cam->cx = 310.514310;
+		cam->cy = 236.842039;
+
 		cout<<"Intermediate cloud size "<<roomData.vIntermediateRoomClouds[i]->points.size()<<endl;
 
 		printf("%i / %i\n",i,roomData.vIntermediateRoomClouds.size());
@@ -411,286 +382,18 @@ reglib::Model * load2(std::string sweep_xml){
 	models.push_back(sweepmodel);
 	printf("nr points: %i\n",sweepmodel->points.size());
 
-/*
-	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
-	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( objectModel, reg);
-	mu->occlusion_penalty               = 15;
-	mu->massreg_timeout                 = 60*4;
-	mu->viewer							= viewer;
-
-	objectModel->print();
-	mu->makeInitialSetup();
-	objectModel->print();
-	delete mu;
-
-	objectModel->recomputeModelPoints();
-*/
-//	reglib::Model * newmodelHolder = new reglib::Model();
-//	newmodelHolder->submodels.push_back(sweepmodel);
-//	newmodelHolder->submodels_relativeposes.push_back(Eigen::Matrix4d::Identity());
-//	newmodelHolder->recomputeModelPoints();
-/*
-	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cn1 = objectModel->getPCLnormalcloud(1, false);
-	viewer->removeAllPointClouds();
-	viewer->addPointCloud<pcl::PointXYZRGBNormal> (cn1, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cn1), "sample cloud");
-	viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "sample cloud");
-	viewer->spin();
-*/
-
-//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cn = sweepmodel->getPCLnormalcloud(1, false);
-//	viewer->removeAllPointClouds();
-//	viewer->addPointCloud<pcl::PointXYZRGBNormal> (cn, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cn), "sample cloud");
-//	viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "sample cloud");
-//	viewer->spin();
-
 	return sweepmodel;
 }
 
-void load(std::string sweep_xml){
-
-	int slash_pos = sweep_xml.find_last_of("/");
-	std::string sweep_folder = sweep_xml.substr(0, slash_pos) + "/";
-	printf("folder: %s\n",sweep_folder.c_str());
-
-	SimpleXMLParser<PointType> parser;
-	SimpleXMLParser<PointType>::RoomData roomData  = parser.loadRoomFromXML(sweep_folder+"/room.xml");
-
-	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("*object*.xml"));
-	vector<ObjectData> objects = semantic_map_load_utilties::loadAllDynamicObjectsFromSingleSweep<PointType>(sweep_folder+"room.xml");
-
-	int object_id;
-	for (unsigned int i=0; i< objects.size(); i++){
-		if (objects[i].objectScanIndices.size() != 0){object_id = i;}
+void runExitBehaviour(){
+	for(int j = 0; j < models.size(); j++){
+		models[j]->fullDelete();
 	}
-	int index = objectFiles[object_id].toStdString().find_last_of(".");
-	string object_root_name = objectFiles[object_id].toStdString().substr(0,index);
-
-	for (auto object : objects){
-		if (!object.objectScanIndices.size()){continue;}
-
-		nr_vAdditionalViews = 1 + rand()%5;
-
-		std::vector<cv::Mat> viewrgbs;
-		std::vector<cv::Mat> viewdepths;
-		std::vector<cv::Mat> viewmasks;
-		std::vector<tf::StampedTransform > viewtfs;
-		std::vector<Eigen::Matrix4f> viewposes;
-		std::vector< image_geometry::PinholeCameraModel > viewcams;
-		char buf [1024];
-		sprintf(buf,"%s/object_%i/poses.txt",sweep_folder.c_str(),object_id);
-		std::vector<Eigen::Matrix4f> poses = getRegisteredViewPoses(std::string(buf), object.vAdditionalViews.size());
-		cout<<"Loaded "<<poses.size()<<" registered poses."<<endl;
-
-		for (unsigned int i=0; i < nr_vAdditionalViews && i<object.vAdditionalViews.size(); i++){
-			CloudPtr cloud = object.vAdditionalViews[i];
-
-			cv::Mat mask;
-			mask.create(cloud->height,cloud->width,CV_8UC1);
-			unsigned char * maskdata = (unsigned char *)mask.data;
-
-			cv::Mat rgb;
-			rgb.create(cloud->height,cloud->width,CV_8UC3);
-			unsigned char * rgbdata = (unsigned char *)rgb.data;
-
-			cv::Mat depth;
-			depth.create(cloud->height,cloud->width,CV_16UC1);
-			unsigned short * depthdata = (unsigned short *)depth.data;
-
-			unsigned int nr_data = cloud->height * cloud->width;
-			for(unsigned int j = 0; j < nr_data; j++){
-				maskdata[j] = 0;
-				PointType p = cloud->points[j];
-				rgbdata[3*j+0]	= p.b;
-				rgbdata[3*j+1]	= p.g;
-				rgbdata[3*j+2]	= p.r;
-				depthdata[j]	= short(5000.0 * p.z);
-			}
-
-			cout<<"Processing AV "<<i<<endl;
-
-			stringstream av_ss; av_ss<<object_root_name; av_ss<<"_additional_view_"; av_ss<<i; av_ss<<".txt";
-			string complete_av_mask_name = sweep_folder + av_ss.str();
-			ifstream av_mask_in(complete_av_mask_name);
-			if (!av_mask_in.is_open()){
-				cout<<"COULD NOT FIND AV MASK FILE "<<complete_av_mask_name<<endl;
-				continue;
-			}
-
-			CloudPtr av_mask(new Cloud);
-
-			int av_index;
-			while (av_mask_in.is_open() && !av_mask_in.eof()){
-				av_mask_in>>av_index;
-				av_mask->push_back(object.vAdditionalViews[i]->points[av_index]);
-				maskdata[av_index] = 255;
-			}
-
-			viewrgbs.push_back(rgb);
-			viewdepths.push_back(depth);
-			viewmasks.push_back(mask);
-			viewtfs.push_back(object.vAdditionalViewsTransforms[i]);
-			viewposes.push_back(poses[i+1]);
-			viewcams.push_back(roomData.vIntermediateRoomCloudCamParams.front());
-
-			cv::namedWindow("rgbimage",     cv::WINDOW_AUTOSIZE);
-			cv::imshow(		"rgbimage",     rgb);
-			cv::namedWindow("depthimage",	cv::WINDOW_AUTOSIZE);
-			cv::imshow(		"depthimage",	depth);
-			cv::namedWindow("mask",         cv::WINDOW_AUTOSIZE);
-			cv::imshow(		"mask",         mask);
-			cv::waitKey(30);
-		}
-
-		if(viewrgbs.size() > 0){
-
-			rgbs.push_back(viewrgbs);
-			depths.push_back(viewdepths);
-			masks.push_back(viewmasks);
-			tfs.push_back(viewtfs);
-			initposes.push_back(viewposes);
-			cams.push_back(viewcams);
-/*
-			tf::StampedTransform tf	= roomData.vIntermediateRoomCloudTransforms.front();
-			geometry_msgs::TransformStamped tfstmsg;
-			tf::transformStampedTFToMsg (tf, tfstmsg);
-			geometry_msgs::Transform tfmsg = tfstmsg.transform;
-			geometry_msgs::Pose		pose;
-			pose.orientation		= tfmsg.rotation;
-			pose.position.x		= tfmsg.translation.x;
-			pose.position.y		= tfmsg.translation.y;
-			pose.position.z		= tfmsg.translation.z;
-			Eigen::Affine3d localthing;
-			tf::poseMsgToEigen(pose, localthing);
-
-			reglib::Camera * cam		= new reglib::Camera();//TODO:: ADD TO CAMERAS
-			cam->fx = viewcams.front().fx();
-			cam->fy = viewcams.front().fy();
-			cam->cx = viewcams.front().cx();
-			cam->cy = viewcams.front().cy();
-
-
-			cv::Mat fullmask;
-			fullmask.create(480,640,CV_8UC1);
-			unsigned char * maskdata = (unsigned char *)fullmask.data;
-			for(int j = 0; j < 480*640; j++){maskdata[j] = 0;}
-
-
-			reglib::Model * objectModel = 0;//new reglib::Model(frames[frame_id],mask);
-
-			std::vector<reglib::RGBDFrame * > current_frames;
-			for (unsigned int i=0;i < nr_vAdditionalViews && i<object.vAdditionalViews.size(); i++){
-				tf::StampedTransform tf	= object.vAdditionalViewsTransforms[i];
-				geometry_msgs::TransformStamped tfstmsg;
-				tf::transformStampedTFToMsg (tf, tfstmsg);
-				geometry_msgs::Transform tfmsg = tfstmsg.transform;
-				geometry_msgs::Pose		pose;
-				pose.orientation		= tfmsg.rotation;
-				pose.position.x		= tfmsg.translation.x;
-				pose.position.y		= tfmsg.translation.y;
-				pose.position.z		= tfmsg.translation.z;
-				Eigen::Affine3d epose;
-				tf::poseMsgToEigen(pose, epose);
-				epose = localthing.inverse()*epose;
-
-				reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],0, epose.matrix());
-				current_frames.push_back(frame);
-
-				if(i == 0){
-					objectModel = new reglib::Model(frame,viewmasks[i]);
-				}else{
-					objectModel->frames.push_back(frame);
-					objectModel->relativeposes.push_back(current_frames.front()->pose.inverse() * frame->pose);
-					objectModel->modelmasks.push_back(new reglib::ModelMask(viewmasks[i]));//fullmask));
-				}
-			}
-
-			reglib::Model * sweepmodel = 0;
-			std::vector<reglib::RGBDFrame * > current_room_frames;
-			for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++)
-			{
-				cout<<"Intermediate cloud size "<<roomData.vIntermediateRoomClouds[i]->points.size()<<endl;
-
-				//Transform
-				tf::StampedTransform tf	= roomData.vIntermediateRoomCloudTransformsRegistered[i];
-				geometry_msgs::TransformStamped tfstmsg;
-				tf::transformStampedTFToMsg (tf, tfstmsg);
-				geometry_msgs::Transform tfmsg = tfstmsg.transform;
-				geometry_msgs::Pose		pose;
-				pose.orientation		= tfmsg.rotation;
-				pose.position.x		= tfmsg.translation.x;
-				pose.position.y		= tfmsg.translation.y;
-				pose.position.z		= tfmsg.translation.z;
-				Eigen::Affine3d epose;
-				tf::poseMsgToEigen(pose, epose);
-
-				reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,roomData.vIntermediateRGBImages[i],5.0*roomData.vIntermediateDepthImages[i],0, epose.matrix());
-				current_room_frames.push_back(frame);
-				if(i == 0){
-					sweepmodel = new reglib::Model(frame,fullmask);
-				}else{
-					sweepmodel->frames.push_back(frame);
-					sweepmodel->relativeposes.push_back(current_room_frames.front()->pose.inverse() * frame->pose);
-					sweepmodel->modelmasks.push_back(new reglib::ModelMask(fullmask));
-				}
-			}
-			sweepmodel->recomputeModelPoints();
-
-//            objectModel->submodels.push_back(sweepmodel);
-//            objectModel->submodels_relativeposes.push_back(objectModel->frames.front()->pose.inverse() * sweepmodel->frames.front()->pose);
-
-
-			reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
-			reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( objectModel, reg);
-			mu->occlusion_penalty               = 15;
-			mu->massreg_timeout                 = 60*4;
-			mu->viewer							= viewer;
-
-			objectModel->print();
-			mu->makeInitialSetup();
-			objectModel->print();
-			delete mu;
-
-			objectModel->recomputeModelPoints();
-
-			reglib::Model * newmodelHolder = new reglib::Model();
-			newmodelHolder->submodels.push_back(objectModel);
-			newmodelHolder->submodels_relativeposes.push_back(Eigen::Matrix4d::Identity());
-			newmodelHolder->recomputeModelPoints();
-
-			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cn1 = objectModel->getPCLnormalcloud(1, false);
-			viewer->removeAllPointClouds();
-			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cn1, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cn1), "sample cloud");
-			viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "sample cloud");
-			viewer->spin();
-
-			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cn = sweepmodel->getPCLnormalcloud(1, false);
-			viewer->removeAllPointClouds();
-			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cn, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cn), "sample cloud");
-			viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "sample cloud");
-			viewer->spin();
-*/
-//            rgbs.push_back(viewrgbs);
-//            depths.push_back(viewdepths);
-//            masks.push_back(viewmasks);
-//            tfs.push_back(viewtfs);
-//            initposes.push_back(viewposes);
-//            cams.push_back(viewcams);
-		}
-	}
+	printf("done\n");
+	viewer.reset();
 }
 
 int main(int argc, char** argv){
-
-	ros::init(argc, argv, "test_segment");
-	ros::NodeHandle n;
-//	ros::Subscriber sub = n.subscribe("modelserver", 1000, chatterCallback);
-
-	viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
-	viewer->setBackgroundColor (0.5, 0, 0.5);
-	viewer->addCoordinateSystem (1.0);
-	viewer->initCameraParameters ();
-
-	ros::ServiceClient segmentation_client = n.serviceClient<quasimodo_msgs::segment_model>("segment_model");
 
 	for(int ar = 1; ar < argc; ar++){
 		string overall_folder = std::string(argv[ar]);
@@ -702,28 +405,50 @@ int main(int argc, char** argv){
 		}
 	}
 
-	//Not needed if metaroom well calibrated
-	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
-	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( models.front(), reg);
-	mu->occlusion_penalty               = 15;
-	mu->massreg_timeout                 = 60*4;
-	mu->viewer							= viewer;
 
+
+
+ros::init(argc, argv, "test_segment");
+ros::NodeHandle n;
+//	ros::Subscriber sub = n.subscribe("modelserver", 1000, chatterCallback);
+
+viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
+viewer->setBackgroundColor (0.5, 0, 0.5);
+viewer->addCoordinateSystem (1.0);
+viewer->initCameraParameters ();
+
+ros::ServiceClient segmentation_client = n.serviceClient<quasimodo_msgs::segment_model>("segment_model");
+
+
+	//Not needed if metaroom well calibrated
     reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.01);
+
+
+
 	bgmassreg->timeout = 1200;
 	bgmassreg->viewer = viewer;
 	bgmassreg->use_surface = true;
 	bgmassreg->use_depthedge = false;
 	bgmassreg->visualizationLvl = 0;
-	bgmassreg->maskstep = 5;
-	bgmassreg->nomaskstep = 5;
+	bgmassreg->maskstep = 10;
+	bgmassreg->nomaskstep = 10;
 	bgmassreg->nomask = true;
 	bgmassreg->stopval = 0.0005;
 	bgmassreg->setData(models.front()->frames,models.front()->modelmasks);
+
+	delete bgmassreg;
+	runExitBehaviour();
+	return 1;
+
+
 	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(models.front()->relativeposes);
 
 
-
+	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
+	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( models.front(), reg);
+	mu->occlusion_penalty               = 15;
+	mu->massreg_timeout                 = 60*4;
+	mu->viewer							= viewer;
 	for(int j = 0; j < models.size(); j++){
 		models[j]->relativeposes	= bgmfr.poses;
 		models[j]->points			= mu->getSuperPoints(models[j]->relativeposes,models[j]->frames,models[j]->modelmasks,1,false);

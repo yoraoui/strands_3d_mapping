@@ -657,7 +657,13 @@ if(false){
 
 }
 
-RGBDFrame::~RGBDFrame(){}
+RGBDFrame::~RGBDFrame(){
+	rgb.release();
+	normals.release();
+	depth.release();
+	depthedges.release();
+	if(labels != 0){delete labels; labels = 0;}
+}
 
 void RGBDFrame::show(bool stop){
 	cv::namedWindow( "rgb", cv::WINDOW_AUTOSIZE );			cv::imshow( "rgb", rgb );

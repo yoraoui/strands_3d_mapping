@@ -717,16 +717,16 @@ void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vect
 				}
 
                 matchscores[i][j] = ratiosum;
-                printf("%i %i -> %5.5f\n",i,j,ratiosum);
+				//printf("%i %i -> %5.5f\n",i,j,ratiosum);
                 overlapping += ratiosum > 0;
                 work_done++;
 
 			}
 		}
 
-        printf("ignores_overlap: %i/%i -> %5.5f\n",ignores_overlap,nr_frames*nr_frames - nr_frames, double(ignores_overlap)/double(nr_frames*nr_frames - nr_frames));
-        printf("ignores_motion:  %i/%i -> %5.5f\n",ignores_motion,nr_frames*nr_frames - nr_frames, double(ignores_motion)/double(nr_frames*nr_frames - nr_frames));
-        printf("total work done: %i/%i -> %5.5f\n",work_done,nr_frames*nr_frames - nr_frames, double(work_done)/double(nr_frames*nr_frames - nr_frames));
+		//printf("ignores_overlap: %i/%i -> %5.5f\n",ignores_overlap,nr_frames*nr_frames - nr_frames, double(ignores_overlap)/double(nr_frames*nr_frames - nr_frames));
+		//printf("ignores_motion:  %i/%i -> %5.5f\n",ignores_motion,nr_frames*nr_frames - nr_frames, double(ignores_motion)/double(nr_frames*nr_frames - nr_frames));
+		//printf("total work done: %i/%i -> %5.5f\n",work_done,nr_frames*nr_frames - nr_frames, double(work_done)/double(nr_frames*nr_frames - nr_frames));
 	}
 
 	if(rmt==1){
@@ -3127,8 +3127,9 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 					depthedge_func->computeModel(depthedge_all_residuals);
 				}
 
-				printf("surface reg: %5.5f noise: %5.5f\n",func->regularization,func->noiseval);
-				printf("edge:   reg: %5.5f noise: %5.5f\n",depthedge_func->regularization,depthedge_func->noiseval);
+				//printf("surface reg: %5.5f noise: %5.5f\n",func->regularization,func->noiseval);
+				//printf("edge:   reg: %5.5f noise: %5.5f\n",depthedge_func->regularization,depthedge_func->noiseval);
+
 //				kpfunc->computeModel(all_KPresiduals);
 				//stopval = func->getNoise()*0.1;
 //                printf("reg: %f noise:%f stopval: %f\n",func->regularization,func->noiseval,stopval);
