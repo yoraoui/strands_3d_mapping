@@ -67,6 +67,9 @@ bool SimpleSummaryParser::createSummaryXML(std::string rootFolder, bool verbose)
     xmlWriter->writeEndDocument();
 
     ROS_INFO_STREAM("Done looking for observations. Found "<<m_vAllRooms.size()<<" observations.");
+    
+    delete xmlWriter;
+    xmlWriter = 0;
 
     return true;
 }
@@ -116,6 +119,9 @@ void SimpleSummaryParser::saveSemanticRooms(QXmlStreamWriter* xmlWriter, QString
         }
 
         file.close();
+        
+        delete xmlReader;
+    	xmlReader = 0;
     }
 
 
