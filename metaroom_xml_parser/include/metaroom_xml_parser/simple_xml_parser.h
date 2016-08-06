@@ -253,7 +253,8 @@ public:
                 }
                 if (xmlReader->name() == "RoomRunNumber")
                 {
-                    aRoom.roomRunNumber = xmlReader->readElementText().toInt();
+                    QString tmp = xmlReader->readElementText();
+                    aRoom.roomRunNumber = atoi(tmp.toStdString().c_str());//xmlReader->readElementText().toInt();
                 }
 
                 if (xmlReader->name() == "RoomLogStartTime")
@@ -325,7 +326,10 @@ public:
                     QStringList transformSlist = transformS.split(' ');
                     for (size_t i=0; i<16;i++)
                     {
-                        transform(i)=transformSlist[i].toDouble();
+                        //QString tmp = xmlReader->readElementText();
+                        //aRoom.roomRunNumber = atoi(tmp.toStdString().c_str());//xmlReader->readElementText().toInt();
+                        transform(i)=atof(transformSlist[i].toStdString().c_str());
+                        //transform(i)=transformSlist[i].toDouble();
                     }
                     aRoom.roomTransform = transform;
                 }
@@ -382,12 +386,13 @@ private:
             {
                 if (xmlReader.name() == "sec")
                 {
-                    int sec = xmlReader.readElementText().toInt();
+
+                    int sec = atoi(xmlReader.readElementText().toStdString().c_str());//xmlReader.readElementText().toInt();
                     tfmsg.header.stamp.sec = sec;
                 }
                 if (xmlReader.name() == "nsec")
                 {
-                    int nsec = xmlReader.readElementText().toInt();
+                    int nsec = atoi(xmlReader.readElementText().toStdString().c_str());//xmlReader.readElementText().toInt();
                     tfmsg.header.stamp.nsec = nsec;
                 }
                 if (xmlReader.name() == "FrameId")
@@ -410,12 +415,12 @@ private:
                 }
                 if (xmlReader.name() == "w")
                 {
-                    double w = xmlReader.readElementText().toDouble();
+                    double w = atof(xmlReader.readElementText().toStdString().c_str());//xmlReader.readElementText().toDouble();
                     tfmsg.transform.rotation.w = w;
                 }
                 if (xmlReader.name() == "x")
                 {
-                    double x = xmlReader.readElementText().toDouble();
+                    double x = atof(xmlReader.readElementText().toStdString().c_str());//xmlReader.readElementText().toDouble();
                     if (intermediateParentNode == "Rotation")
                     {
                         tfmsg.transform.rotation.x = x;
@@ -427,7 +432,7 @@ private:
                 }
                 if (xmlReader.name() == "y")
                 {
-                    double y = xmlReader.readElementText().toDouble();
+                    double y = atof(xmlReader.readElementText().toStdString().c_str());//xmlReader.readElementText().toDouble();
                     if (intermediateParentNode == "Rotation")
                     {
                         tfmsg.transform.rotation.y = y;
@@ -439,7 +444,7 @@ private:
                 }
                 if (xmlReader.name() == "z")
                 {
-                    double z = xmlReader.readElementText().toDouble();
+                    double z = atof(xmlReader.readElementText().toStdString().c_str());//xmlReader.readElementText().toDouble();
                     if (intermediateParentNode == "Rotation")
                     {
                         tfmsg.transform.rotation.z = z;
@@ -470,7 +475,7 @@ private:
                     if (paramAttributes.hasAttribute("height"))
                     {
                         QString val = paramAttributes.value("height").toString();
-                        camInfo.height = val.toInt();
+                        camInfo.height = atoi(val.toStdString().c_str());//val.toInt();
 
                     } else {
                         ROS_ERROR("RoomIntermediateCameraParameters xml node does not have the height attribute. Cannot construct camera parameters object.");
@@ -480,7 +485,7 @@ private:
                     if (paramAttributes.hasAttribute("width"))
                     {
                         QString val = paramAttributes.value("width").toString();
-                        camInfo.width = val.toInt();
+                        camInfo.width = atoi(val.toStdString().c_str());//val.toInt();
 
                     } else {
                         ROS_ERROR("RoomIntermediateCameraParameters xml node does not have the width attribute. Cannot construct camera parameters object.");
@@ -518,7 +523,7 @@ private:
                         } else {
                             for (size_t j=0; j< val_list.size();j++)
                             {
-                                camInfo.K[j] = val_list[j].toDouble();
+                                camInfo.K[j] = atof(val_list[j].toStdString().c_str());//val_list[j].toDouble();
                             }
                         }
                     } else {
@@ -537,7 +542,7 @@ private:
                         } else {
                             for (size_t j=0; j< val_list.size();j++)
                             {
-                                camInfo.D.push_back(val_list[j].toDouble());
+                                camInfo.D.push_back(atof(val_list[j].toStdString().c_str()));//val_list[j].toDouble());
                             }
                         }
                     } else {
@@ -556,7 +561,7 @@ private:
                         } else {
                             for (size_t j=0; j< val_list.size();j++)
                             {
-                                camInfo.R[j] = val_list[j].toDouble();
+                                camInfo.R[j] = atof(val_list[j].toStdString().c_str());//val_list[j].toDouble();
                             }
                         }
                     } else {
@@ -575,7 +580,7 @@ private:
                         } else {
                             for (size_t j=0; j< val_list.size();j++)
                             {
-                                camInfo.P[j] = val_list[j].toDouble();
+                                camInfo.P[j] = atof(val_list[j].toStdString().c_str());//val_list[j].toDouble();
                             }
                         }
                     } else {
@@ -636,13 +641,13 @@ private:
         // read in number of depth and rgb images
         int numRGB, numDepth;
         if (attributes.hasAttribute("RGB_Images"))
-        {
-            numRGB = attributes.value("RGB_Images").toString().toInt();
+        {//atoi(val.toStdString().c_str());//
+            numRGB = atoi(attributes.value("RGB_Images").toString().toStdString().c_str());//.toInt();
         }
 
         if (attributes.hasAttribute("Depth_Images"))
         {
-            numDepth = attributes.value("Depth_Images").toString().toInt();
+            numDepth = atoi(attributes.value("Depth_Images").toString().toStdString().c_str());//.toInt();
         }
 
         // read in the images
@@ -723,7 +728,7 @@ private:
             if (paramAttributes.hasAttribute("height"))
             {
                 QString val = paramAttributes.value("height").toString();
-                camInfo.height = val.toInt();
+                camInfo.height = atoi(val.toStdString().c_str());//val.toInt();
 
             } else {
                 ROS_ERROR("%s xml node does not have the height attribute. Cannot construct camera parameters object.",xmlReader->name().toString().toStdString().c_str());
@@ -733,7 +738,7 @@ private:
             if (paramAttributes.hasAttribute("width"))
             {
                 QString val = paramAttributes.value("width").toString();
-                camInfo.width = val.toInt();
+                camInfo.width = atoi(val.toStdString().c_str());//val.toInt();
 
             } else {
                 ROS_ERROR("%s xml node does not have the width attribute. Cannot construct camera parameters object.",xmlReader->name().toString().toStdString().c_str());
@@ -771,7 +776,7 @@ private:
                 } else {
                     for (size_t j=0; j< val_list.size();j++)
                     {
-                        camInfo.K[j] = val_list[j].toDouble();
+                        camInfo.K[j] = atof(val_list[j].toStdString().c_str());//toDouble();
                     }
                 }
             } else {
@@ -790,7 +795,7 @@ private:
                 } else {
                     for (size_t j=0; j< val_list.size();j++)
                     {
-                        camInfo.D.push_back(val_list[j].toDouble());
+                        camInfo.D.push_back(atof(val_list[j].toStdString().c_str()));//.toDouble());
                     }
                 }
             } else {
@@ -809,7 +814,7 @@ private:
                 } else {
                     for (size_t j=0; j< val_list.size();j++)
                     {
-                        camInfo.R[j] = val_list[j].toDouble();
+                        camInfo.R[j] = atof(val_list[j].toStdString().c_str());//val_list[j].toDouble();
                     }
                 }
             } else {
@@ -828,7 +833,7 @@ private:
                 } else {
                     for (size_t j=0; j< val_list.size();j++)
                     {
-                        camInfo.P[j] = val_list[j].toDouble();
+                        camInfo.P[j] = atof(val_list[j].toStdString().c_str());//val_list[j].toDouble();
                     }
                 }
             } else {
@@ -869,7 +874,7 @@ private:
             if (paramAttributes.hasAttribute("Stamp_sec"))
             {
                 QString val = paramAttributes.value("Stamp_sec").toString();
-                tfmsg.header.stamp.sec = val.toInt();
+                tfmsg.header.stamp.sec = atoi(val.toStdString().c_str());//val.toInt();
 
             } else {
                 ROS_ERROR("%s xml node does not have the Stamp_sec attribute. Cannot construct tf::StampedTransform.", xmlReader->name().toString().toStdString().c_str());
@@ -878,7 +883,7 @@ private:
             if (paramAttributes.hasAttribute("Stamp_nsec"))
             {
                 QString val = paramAttributes.value("Stamp_nsec").toString();
-                tfmsg.header.stamp.nsec = val.toInt();
+                tfmsg.header.stamp.nsec = atoi(val.toStdString().c_str());//val.toInt();
 
             } else {
                 ROS_ERROR("%s xml node does not have the Stamp_nsec attribute. Cannot construct tf::StampedTransform.", xmlReader->name().toString().toStdString().c_str());
@@ -905,7 +910,7 @@ private:
             if (paramAttributes.hasAttribute("Trans_x"))
             {
                 QString val = paramAttributes.value("Trans_x").toString();
-                tfmsg.transform.translation.x = val.toDouble();
+                tfmsg.transform.translation.x = atof(val.toStdString().c_str());//val.toDouble();
 
             } else {
                 ROS_ERROR("%s xml node does not have the Trans_x attribute. Cannot construct tf::StampedTransform.", xmlReader->name().toString().toStdString().c_str());
@@ -914,7 +919,7 @@ private:
             if (paramAttributes.hasAttribute("Trans_y"))
             {
                 QString val = paramAttributes.value("Trans_y").toString();
-                tfmsg.transform.translation.y = val.toDouble();
+                tfmsg.transform.translation.y = atof(val.toStdString().c_str());//val.toDouble();
 
             } else {
                 ROS_ERROR("%s xml node does not have the Trans_y attribute. Cannot construct tf::StampedTransform.", xmlReader->name().toString().toStdString().c_str());
@@ -923,7 +928,7 @@ private:
             if (paramAttributes.hasAttribute("Trans_z"))
             {
                 QString val = paramAttributes.value("Trans_z").toString();
-                tfmsg.transform.translation.z = val.toDouble();
+                tfmsg.transform.translation.z = atof(val.toStdString().c_str());//val.toDouble();
 
             } else {
                 ROS_ERROR("%s xml node does not have the Trans_z attribute. Cannot construct tf::StampedTransform.", xmlReader->name().toString().toStdString().c_str());
@@ -932,7 +937,7 @@ private:
             if (paramAttributes.hasAttribute("Rot_w"))
             {
                 QString val = paramAttributes.value("Rot_w").toString();
-                tfmsg.transform.rotation.w = val.toDouble();
+                tfmsg.transform.rotation.w = atof(val.toStdString().c_str());//val.toDouble();
 
             } else {
                 ROS_ERROR("%s xml node does not have the Rot_w attribute. Cannot construct tf::StampedTransform.", xmlReader->name().toString().toStdString().c_str());
@@ -941,7 +946,7 @@ private:
             if (paramAttributes.hasAttribute("Rot_x"))
             {
                 QString val = paramAttributes.value("Rot_x").toString();
-                tfmsg.transform.rotation.x = val.toDouble();
+                tfmsg.transform.rotation.x = atof(val.toStdString().c_str());//val.toDouble();
 
             } else {
                 ROS_ERROR("%s xml node does not have the Rot_x attribute. Cannot construct tf::StampedTransform.", xmlReader->name().toString().toStdString().c_str());
@@ -950,7 +955,7 @@ private:
             if (paramAttributes.hasAttribute("Rot_y"))
             {
                 QString val = paramAttributes.value("Rot_y").toString();
-                tfmsg.transform.rotation.y = val.toDouble();
+                tfmsg.transform.rotation.y = atof(val.toStdString().c_str());//val.toDouble();
 
             } else {
                 ROS_ERROR("%s xml node does not have the Rot_y attribute. Cannot construct tf::StampedTransform.", xmlReader->name().toString().toStdString().c_str());
@@ -959,7 +964,7 @@ private:
             if (paramAttributes.hasAttribute("Rot_z"))
             {
                 QString val = paramAttributes.value("Rot_z").toString();
-                tfmsg.transform.rotation.z = val.toDouble();
+                tfmsg.transform.rotation.z = atof(val.toStdString().c_str());//val.toDouble();
 
             } else {
                 ROS_ERROR("%s xml node does not have the Rot_z attribute. Cannot construct tf::StampedTransform.", xmlReader->name().toString().toStdString().c_str());
