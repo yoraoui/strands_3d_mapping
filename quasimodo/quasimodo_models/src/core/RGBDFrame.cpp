@@ -60,8 +60,8 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
     sweepid = -1;
 	id = RGBDFrame_id_counter++;
 	camera = camera_;
-	rgb = rgb_;
-	depth = depth_;
+    rgb = rgb_.clone();
+    depth = depth_.clone();
 	capturetime = capturetime_;
 	pose = pose_;
 
@@ -92,8 +92,8 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	intersections[0].resize(1);
 	intersections[0][0] = 0;
 
-	nr_labels = 1;
-	labels = new int[width*height];
+    nr_labels = 1;
+    labels = new int[width*height];
     for(int i = 0; i < width*height; i++){labels[i] = 0;}
 
 
@@ -662,7 +662,7 @@ RGBDFrame::~RGBDFrame(){
 	normals.release();
 	depth.release();
 	depthedges.release();
-	if(labels != 0){delete labels; labels = 0;}
+    if(labels != 0){delete[] labels; labels = 0;}
 }
 
 void RGBDFrame::show(bool stop){

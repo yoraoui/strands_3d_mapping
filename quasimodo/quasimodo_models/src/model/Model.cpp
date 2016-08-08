@@ -29,10 +29,11 @@ Model::Model(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d pose){
     relativeposes.push_back(pose);
     frames.push_back(frame);
     modelmasks.push_back(new ModelMask(mask));
-    recomputeModelPoints();
+    //recomputeModelPoints();
 }
 
 void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* frame, ModelMask* modelmask){
+    printf("addSuperPoints\n");
 	bool * maskvec = modelmask->maskvec;
 	unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
 	unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
@@ -67,9 +68,12 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 
 	bool * isfused = new bool[width*height];
 	for(unsigned int i = 0; i < width*height; i++){isfused[i] = false;}
-
+printf("%i\n",__LINE__);
 
 	for(unsigned int ind = 0; ind < spvec.size();ind++){
+        if(ind % 1000 == 0){
+            //printf("ind: %i\n",ind);
+        }
 		superpoint & sp = spvec[ind];
 
 		float src_x = sp.point(0);
@@ -146,7 +150,7 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 			}
 		}
 	}
-
+printf("%i\n",__LINE__);
 	int nr_fused = 0;
 	int nr_mask = 0;
 	for(unsigned int w = 0; w < width; w++){
@@ -156,7 +160,7 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 			nr_mask += maskvec[ind] > 0;
 		}
 	}
-
+printf("%i\n",__LINE__);
 	for(unsigned int w = 0; w < width; w++){
 		for(unsigned int h = 0; h < height;h++){
 			int ind = h*width+w;
@@ -193,7 +197,7 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 			}
 		}
 	}
-
+printf("%i\n",__LINE__);
 	delete[] isfused;
 }
 
@@ -361,6 +365,7 @@ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> ret;
 }
 
 void Model::addAllSuperPoints(std::vector<superpoint> & spvec, Eigen::Matrix4d pose){
+    printf("addAllSuperPoints\n");
 	for(unsigned int i = 0; i < frames.size(); i++){
 		addSuperPoints(spvec, pose*relativeposes[i], frames[i], modelmasks[i]);
 	}
@@ -371,16 +376,8 @@ void Model::addAllSuperPoints(std::vector<superpoint> & spvec, Eigen::Matrix4d p
 }
 
 void Model::recomputeModelPoints(Eigen::Matrix4d pose){
-//	for(unsigned int i = 0; i < frames.size(); i++){
-//		bool res = testFrame(i);
-//	}
-
     points.clear();
-	addAllSuperPoints(points,pose);
-
-//	vector<superpoint> spvec;
-//	addAllSuperPoints(spvec,pose);
-//	points = spvec;
+    addAllSuperPoints(points,pose);
 }
 
 void Model::addPointsToModel(RGBDFrame * frame, ModelMask * modelmask, Eigen::Matrix4d p){
@@ -590,35 +587,36 @@ CloudData * Model::getCD(unsigned int target_points){
 Model::~Model(){}
 
 void Model::fullDelete(){
-	points.clear();
-	all_keypoints.clear();
-	all_descriptors.clear();
-	relativeposes.clear();
-	for(size_t i = 0; i < frames.size(); i++){
-		printf("delete camera: %ld\n",frames[i]->camera);
-		delete frames[i]->camera;
-		delete frames[i];
-	}
-	frames.clear();
+    points.clear();
+    all_keypoints.clear();
+    all_descriptors.clear();
+    relativeposes.clear();
+    for(size_t i = 0; i < frames.size(); i++){
+        printf("delete camera: %ld\n",frames[i]->camera);
+        delete frames[i]->camera;
+        delete frames[i];
+    }
+    frames.clear();
 
-	for(size_t i = 0; i < modelmasks.size(); i++){delete modelmasks[i];}
-	modelmasks.clear();
+    for(size_t i = 0; i < modelmasks.size(); i++){delete modelmasks[i];}
+    modelmasks.clear();
 
-	rep_relativeposes.clear();
-	rep_frames.clear();
-	rep_modelmasks.clear();
+    rep_relativeposes.clear();
+    rep_frames.clear();
+    rep_modelmasks.clear();
 
-	total_scores = 0;
-	scores.clear();
+    total_scores = 0;
+    scores.clear();
 
-	for(size_t i = 0; i < submodels.size(); i++){
-		submodels[i]->fullDelete();
-	}
-	submodels.clear();
+    for(size_t i = 0; i < submodels.size(); i++){
+        submodels[i]->fullDelete();
+        delete submodels[i];
+    }
+    submodels.clear();
 
-	submodels_relativeposes.clear();
-	submodels_scores.clear();
-	delete this;
+    submodels_relativeposes.clear();
+    submodels_scores.clear();
+//	delete this;
 }
 
 pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr Model::getPCLnormalcloud(int step, bool color){

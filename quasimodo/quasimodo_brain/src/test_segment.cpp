@@ -107,217 +107,6 @@ std::vector<Eigen::Matrix4f> getRegisteredViewPoses(const std::string& poses_fil
 	return toRet;
 }
 
-void chatterCallback(const std_msgs::String::ConstPtr& msg)
-{
-	ROS_INFO("I heard: [%s]", msg->data.c_str());
-
-	for(unsigned int i = 1; i < rgbs.size(); i++){
-		std::vector<int> fid;
-		std::vector<int> fadded;
-		for(unsigned int j = 0; j < rgbs[i].size(); j++){
-			printf("%i %i\n",i,j);
-
-			//cv::Mat maskimage			= masks[i][j];
-			cv::Mat rgbimage			= rgbs[i][j];
-			cv::Mat depthimage			= depths[i][j];
-			tf::StampedTransform tf		= tfs[i][j];
-			Eigen::Matrix4f m			= initposes[i][j];
-			geometry_msgs::TransformStamped tfstmsg;
-			tf::transformStampedTFToMsg (tf, tfstmsg);
-
-			geometry_msgs::Transform tfmsg = tfstmsg.transform;
-
-			printf("start adding frame %i\n",i);
-
-			Eigen::Quaternionf q = Eigen::Quaternionf(Eigen::Affine3f(m).rotation());
-
-			geometry_msgs::Pose		pose;
-//			pose.orientation		= tfmsg.rotation;
-//			pose.position.x		= tfmsg.translation.x;
-//			pose.position.y		= tfmsg.translation.y;
-//			pose.position.z		= tfmsg.translation.z;
-					  pose.orientation.x	= q.x();
-					  pose.orientation.y	= q.y();
-					  pose.orientation.z	= q.z();
-					  pose.orientation.w	= q.w();
-					  pose.position.x		= m(0,3);
-					  pose.position.y		= m(1,3);
-					  pose.position.z		= m(2,3);
-
-
-			cv_bridge::CvImage rgbBridgeImage;
-			rgbBridgeImage.image = rgbimage;
-			rgbBridgeImage.encoding = "bgr8";
-
-			cv_bridge::CvImage depthBridgeImage;
-			depthBridgeImage.image = depthimage;
-			depthBridgeImage.encoding = "mono16";
-/*
-			quasimodo_msgs::index_frame ifsrv;
-			ifsrv.request.frame.capture_time = ros::Time();
-			ifsrv.request.frame.pose		= pose;
-			ifsrv.request.frame.frame_id	= -1;
-			ifsrv.request.frame.rgb		= *(rgbBridgeImage.toImageMsg());
-			ifsrv.request.frame.depth		= *(depthBridgeImage.toImageMsg());
-
-
-			//314.458000 242.038000 536.458000 537.422000
-			ifsrv.request.frame.camera.K[0] = 536.458000;//cams[i][j].fx();
-			ifsrv.request.frame.camera.K[4] = 537.422000;//cams[i][j].fy();
-			ifsrv.request.frame.camera.K[2] = 314.458000;//cams[i][j].cx();
-			ifsrv.request.frame.camera.K[5] = 242.038000;//cams[i][j].cy();
-
-			printf("camera: %f %f %f %f\n",cams[i][j].cx(),cams[i][j].cy(),cams[i][j].fx(),cams[i][j].fy());
-
-			if (index_frame_client.call(ifsrv)){//Add frame to model server
-				int frame_id = ifsrv.response.frame_id;
-				fadded.push_back(j);
-				fid.push_back(frame_id);
-				ROS_INFO("frame_id%i", frame_id );
-			}else{ROS_ERROR("Failed to call service index_frame");}
-*/
-			printf("stop adding frame %i\n",i);
-		}
-
-		for(unsigned int j = 0; j < fadded.size(); j++){
-			printf("start adding mask %i\n",i);
-			cv::Mat mask	= masks[i][fadded[j]];
-
-			cv_bridge::CvImage maskBridgeImage;
-			maskBridgeImage.image = mask;
-			maskBridgeImage.encoding = "mono8";
-/*
-			quasimodo_msgs::model_from_frame mff;
-			mff.request.mask		= *(maskBridgeImage.toImageMsg());
-			mff.request.isnewmodel	= (j == (fadded.size()-1));
-			mff.request.frame_id	= fid[j];
-
-			if (model_from_frame_client.call(mff)){//Build model from frame
-				int model_id = mff.response.model_id;
-				if(model_id > 0){
-					ROS_INFO("model_id%i", model_id );
-				}
-			}else{ROS_ERROR("Failed to call service index_frame");}
-*/
-			printf("stop adding mask %i\n",i);
-
-		}
-	}
-}
-
-pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr transformCloud(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud, Eigen::Matrix4d p){
-	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr ret (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-	ret->points.resize(cloud->points.size());
-
-	const double & m00 = p(0,0); const double & m01 = p(0,1); const double & m02 = p(0,2); const double & m03 = p(0,3);
-	const double & m10 = p(1,0); const double & m11 = p(1,1); const double & m12 = p(1,2); const double & m13 = p(1,3);
-	const double & m20 = p(2,0); const double & m21 = p(2,1); const double & m22 = p(2,2); const double & m23 = p(2,3);
-
-	for(unsigned int i = 0; i < cloud->points.size(); i++){
-		pcl::PointXYZRGBNormal & p1 = cloud->points[i];
-		pcl::PointXYZRGBNormal & p2 = ret->points[i];
-
-		p2.r = p1.r;
-		p2.g = p1.g;
-		p2.b = p1.b;
-
-		const double & src_x = p1.x;
-		const double & src_y = p1.y;
-		const double & src_z = p1.z;
-
-		const double & src_nx = p1.normal_x;
-		const double & src_ny = p1.normal_y;
-		const double & src_nz = p1.normal_z;
-
-		p2.x = m00*src_x + m01*src_y + m02*src_z + m03;
-		p2.y = m10*src_x + m11*src_y + m12*src_z + m13;
-		p2.z = m20*src_x + m21*src_y + m22*src_z + m23;
-
-		p2.normal_x = m00*src_nx + m01*src_ny + m02*src_nz;
-		p2.normal_y = m10*src_nx + m11*src_ny + m12*src_nz;
-		p2.normal_z = m20*src_nx + m21*src_ny + m22*src_nz;
-
-		p2.r = p1.r;
-		p2.g = p1.g;
-		p2.b = p1.b;
-	}
-
-	return ret;
-}
-
-pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr getNC(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, int nr_data = 5000000){
-	int MaxDepthChangeFactor = 20;
-	int NormalSmoothingSize = 7;
-	int depth_dependent_smoothing = 1;
-
-	pcl::IntegralImageNormalEstimation<pcl::PointXYZRGB, pcl::Normal> ne;
-	ne.setMaxDepthChangeFactor(0.001*double(MaxDepthChangeFactor));
-	ne.setNormalSmoothingSize(NormalSmoothingSize);
-	ne.setDepthDependentSmoothing (depth_dependent_smoothing);
-	ne.setNormalEstimationMethod (ne.COVARIANCE_MATRIX);
-
-	pcl::PointCloud<pcl::Normal>::Ptr	normals (new pcl::PointCloud<pcl::Normal>);
-	ne.setInputCloud(cloud);
-	ne.compute(*normals);
-
-	int rc = rand()%256;
-	int gc = rand()%256;
-	int bc = rand()%256;
-
-	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr ret (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-	pcl::concatenateFields(*cloud,*normals,*ret);
-
-	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
-	viewer->setBackgroundColor (0.5, 0, 0.5);
-	viewer->addCoordinateSystem (1.0);
-	viewer->initCameraParameters ();
-
-	viewer->removeAllPointClouds();
-	viewer->addPointCloud<pcl::PointXYZRGB> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cloud), "sample cloud");
-	viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "sample cloud");
-	viewer->spin();
-
-	viewer->removeAllPointClouds();
-	viewer->addPointCloud<pcl::PointXYZRGBNormal> (ret, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(ret), "sample cloud");
-	viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "sample cloud");
-	viewer->addPointCloudNormals<pcl::PointXYZRGBNormal, pcl::PointXYZRGBNormal> (ret, ret, 15, 0.10, "normals");
-	viewer->spin();
-
-
-//	ret->points.resize(cloud->points.size());
-//	for(int i = 0; i < cloud->points.size(); i++){
-//		pcl::PointXYZRGBNormal & p1 = ret->points[i];
-//		pcl::PointXYZRGB & p = cloud->points[i];
-//		pcl::Normal & pn = normals->points[i];
-
-//		p1.x = p.x;
-//		p1.y = p.y;
-//		p1.z = p.z;
-////		p1.r = rc;
-////		p1.g = gc;
-////		p1.b = bc;
-//		p1.r = p.r;
-//		p1.g = p.g;
-//		p1.b = p.b;
-//		p1.normal_x = pn.normal_x;
-//		p1.normal_y = pn.normal_y;
-//		p1.normal_z = pn.normal_z;
-//	}
-/*
-
-*/
-
-//	for(int i = 0; i < ret->points.size(); i++){
-//		pcl::PointXYZRGBNormal & p1 = ret->points[i];
-//		p1.r = rc;
-//		p1.g = gc;
-//		p1.b = bc;
-//	}
-	return ret;
-}
-
-int nr_vAdditionalViews = 4;
-
 std::vector<reglib::Model * > models;
 
 reglib::Model * load2(std::string sweep_xml){
@@ -333,11 +122,10 @@ reglib::Model * load2(std::string sweep_xml){
 //	0.000000 533.819214 236.842039 0.000000
 //	0.000000 0.000000 1.000000 0.000000
 
-
-
 	reglib::Model * sweepmodel = 0;
+
 	std::vector<reglib::RGBDFrame * > current_room_frames;
-	for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++)
+    for (size_t i=0; i < 2 && i<roomData.vIntermediateRoomClouds.size(); i++)
 	{
 
 		cv::Mat fullmask;
@@ -350,6 +138,7 @@ reglib::Model * load2(std::string sweep_xml){
 		cam->fy = 533.819214;
 		cam->cx = 310.514310;
 		cam->cy = 236.842039;
+
 
 		cout<<"Intermediate cloud size "<<roomData.vIntermediateRoomClouds[i]->points.size()<<endl;
 
@@ -369,7 +158,10 @@ reglib::Model * load2(std::string sweep_xml){
 		tf::poseMsgToEigen(pose, epose);
 
 		reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,roomData.vIntermediateRGBImages[i],5.0*roomData.vIntermediateDepthImages[i],0, epose.matrix());
-		current_room_frames.push_back(frame);
+//        delete frame;
+//        delete cam;
+
+        current_room_frames.push_back(frame);
 		if(i == 0){
 			sweepmodel = new reglib::Model(frame,fullmask);
 		}else{
@@ -378,81 +170,87 @@ reglib::Model * load2(std::string sweep_xml){
 			sweepmodel->modelmasks.push_back(new reglib::ModelMask(fullmask));
 		}
 	}
-	sweepmodel->recomputeModelPoints();
-	models.push_back(sweepmodel);
-	printf("nr points: %i\n",sweepmodel->points.size());
 
+    //sweepmodel->recomputeModelPoints();
+    printf("nr points: %i\n",sweepmodel->points.size());
+//    sweepmodel->fullDelete();
+//    delete sweepmodel;
+
+
+    models.push_back(sweepmodel);
 	return sweepmodel;
 }
 
 void runExitBehaviour(){
-	for(int j = 0; j < models.size(); j++){
-		models[j]->fullDelete();
-	}
+//	for(int j = 0; j < models.size(); j++){
+//		models[j]->fullDelete();
+//	}
 	printf("done\n");
 	viewer.reset();
 }
 
 int main(int argc, char** argv){
+    reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 
-	for(int ar = 1; ar < argc; ar++){
-		string overall_folder = std::string(argv[ar]);
-		vector<string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<PointType>(overall_folder);
-		printf("sweep_xmls\n");
-		for (auto sweep_xml : sweep_xmls) {
-			printf("sweep_xml: %s\n",sweep_xml.c_str());
-			load2(sweep_xml);
-		}
-	}
+//    viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
+//    viewer->setBackgroundColor (0.5, 0, 0.5);
+//    viewer->addCoordinateSystem (1.0);
+//    viewer->initCameraParameters ();
+
+    for(int ar = 1; ar < argc; ar++){
+        string overall_folder = std::string(argv[ar]);
+        vector<string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<PointType>(overall_folder);
+        printf("sweep_xmls\n");
+        for (auto sweep_xml : sweep_xmls) {
+            printf("sweep_xml: %s\n",sweep_xml.c_str());
+            load2(sweep_xml);
+        }
+    }
+
+//Not needed if metaroom well calibrated
+    reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.01);
+    bgmassreg->timeout = 20;
+    bgmassreg->viewer = viewer;
+    bgmassreg->use_surface = true;
+    bgmassreg->use_depthedge = false;
+    bgmassreg->visualizationLvl = 0;
+    bgmassreg->maskstep = 10;
+    bgmassreg->nomaskstep = 10;
+    bgmassreg->nomask = true;
+    bgmassreg->stopval = 0.0005;
+    bgmassreg->setData(models.front()->frames,models.front()->modelmasks);
+    reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(models.front()->relativeposes);
+    delete bgmassreg;
+
+
+//    reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( models.front(), reg);
+//    mu->occlusion_penalty               = 15;
+//    mu->massreg_timeout                 = 60*4;
+//    mu->viewer							= viewer;
+    for(size_t j = 0; j < models.size(); j++){
+//        //models[j]->relativeposes	= bgmfr.poses;
+//        models[j]->points			= mu->getSuperPoints(models[j]->relativeposes,models[j]->frames,models[j]->modelmasks,1,false);
+    }
+
+
+
 
 
 
 
 ros::init(argc, argv, "test_segment");
 ros::NodeHandle n;
-//	ros::Subscriber sub = n.subscribe("modelserver", 1000, chatterCallback);
-
-viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
-viewer->setBackgroundColor (0.5, 0, 0.5);
-viewer->addCoordinateSystem (1.0);
-viewer->initCameraParameters ();
-
 ros::ServiceClient segmentation_client = n.serviceClient<quasimodo_msgs::segment_model>("segment_model");
 
 
-	//Not needed if metaroom well calibrated
-    reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.01);
 
 
 
-	bgmassreg->timeout = 1200;
-	bgmassreg->viewer = viewer;
-	bgmassreg->use_surface = true;
-	bgmassreg->use_depthedge = false;
-	bgmassreg->visualizationLvl = 0;
-	bgmassreg->maskstep = 10;
-	bgmassreg->nomaskstep = 10;
-	bgmassreg->nomask = true;
-	bgmassreg->stopval = 0.0005;
-	bgmassreg->setData(models.front()->frames,models.front()->modelmasks);
-
-	delete bgmassreg;
-	runExitBehaviour();
-	return 1;
 
 
-	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(models.front()->relativeposes);
 
+//
 
-	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
-	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( models.front(), reg);
-	mu->occlusion_penalty               = 15;
-	mu->massreg_timeout                 = 60*4;
-	mu->viewer							= viewer;
-	for(int j = 0; j < models.size(); j++){
-		models[j]->relativeposes	= bgmfr.poses;
-		models[j]->points			= mu->getSuperPoints(models[j]->relativeposes,models[j]->frames,models[j]->modelmasks,1,false);
-	}
 
 //	for(int i = 0; i < models.front()->relativeposes.size(); i++){
 //		models.front()->frames[i]->camera->print();
@@ -463,15 +261,25 @@ ros::ServiceClient segmentation_client = n.serviceClient<quasimodo_msgs::segment
 	for(unsigned int i = 1; i < models.size(); i++){
 		quasimodo_msgs::segment_model sm;
 		sm.request.models.push_back(quasimodo_brain::getModelMSG(models[i]));
+                /*
 		if(i > 0){
 			sm.request.backgroundmodel = quasimodo_brain::getModelMSG(models[i-1]);
 		}
+
 		if (segmentation_client.call(sm)){//Build model from frame
 			//int model_id = mff.response.model_id;
 			printf("segmented: %i\n",i);
 		}else{ROS_ERROR("Failed to call service segment_model");}
+        */
 	}
 
+    delete reg;
+    //viewer.reset();
+    for(size_t j = 0; j < models.size(); j++){
+        models[j]->fullDelete();
+        delete models[j];
+    }
+    return 0;
 
 //	mff.request.mask		= *(maskBridgeImage.toImageMsg());
 //	mff.request.isnewmodel	= (j == (fadded.size()-1));

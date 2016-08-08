@@ -82,14 +82,6 @@ MassRegistrationPPR2::MassRegistrationPPR2(double startreg, bool visualize){
 }
 MassRegistrationPPR2::~MassRegistrationPPR2(){
 
-	for(unsigned int i = 0; i < arraypoints.size(); i++){delete[] arraypoints[i];}
-	for(unsigned int i = 0; i < arraynormals.size(); i++){delete[] arraynormals[i];}
-	for(unsigned int i = 0; i < arraycolors.size(); i++){delete[] arraycolors[i];}
-	for(unsigned int i = 0; i < arrayinformations.size(); i++){delete[] arrayinformations[i];}
-
-	for(unsigned int i = 0; i < trees3d.size(); i++){delete trees3d[i];}
-	for(unsigned int i = 0; i < a3dv.size(); i++){delete a3dv[i];}
-
 	delete func;
 	delete kpfunc;
 	delete depthedge_func;
@@ -104,7 +96,13 @@ MassRegistrationPPR2::~MassRegistrationPPR2(){
 	delete[] kp_Qn_arr;
 	delete[] kp_Xp_arr;
 	delete[] kp_Xn_arr;
-	delete[] kp_rangeW_arr;
+    delete[] kp_rangeW_arr;
+
+    delete[] depthedge_Qp_arr;
+    delete[] depthedge_Xp_arr;
+    delete[] depthedge_rangeW_arr;
+
+    clearData();
 }
 
 void MassRegistrationPPR2::addModel(Model * model){
@@ -1165,7 +1163,179 @@ Eigen::MatrixXd MassRegistrationPPR2::getAllKpResiduals(std::vector<Eigen::Matri
 	return all_residuals;
 }
 
-void MassRegistrationPPR2::clearData(){}
+void MassRegistrationPPR2::clearData(){
+    rematch_time = 0;
+    residuals_time = 0;
+    opt_time = 0;
+    computeModel_time = 0;
+    setup_matches_time = 0;
+    setup_equation_time = 0;
+    setup_equation_time2 = 0;
+    solve_equation_time = 0;
+    total_time_start = 0;
+
+    nr_datas.clear();
+    is_ok.clear();
+
+    points.clear();
+    colors.clear();
+    normals.clear();
+    transformed_points.clear();
+    transformed_normals.clear();
+    informations.clear();
+
+    kp_nr_arraypoints.clear();
+
+    for(size_t i = 0; i < kp_arraypoints.size(); i++){
+        if(kp_arraypoints[i] != 0){
+            delete[] kp_arraypoints[i];
+            kp_arraypoints[i] = 0;
+        }
+    }
+    kp_arraypoints.clear();
+
+    for(size_t i = 0; i < kp_arraynormals.size(); i++){
+        if(kp_arraynormals[i] != 0){
+            delete[] kp_arraynormals[i];
+            kp_arraynormals[i] = 0;
+        }
+    }
+    kp_arraynormals.clear();
+
+    for(size_t i = 0; i < kp_arrayinformations.size(); i++){
+        if(kp_arrayinformations[i] != 0){
+            delete[] kp_arrayinformations[i];
+            kp_arrayinformations[i] = 0;
+        }
+    }
+    kp_arrayinformations.clear();
+
+
+    for(size_t i = 0; i < kp_arraydescriptors.size(); i++){
+        if(kp_arraydescriptors[i] != 0){
+            delete[] kp_arraydescriptors[i];
+            kp_arraydescriptors[i] = 0;
+        }
+    }
+    kp_arraydescriptors.clear();
+
+
+    kp_matches.clear();
+//    double * kp_Qp_arr;
+//    double * kp_Qn_arr;
+//    double * kp_Xp_arr;
+//    double * kp_Xn_arr;
+//    double * kp_rangeW_arr;
+//    DistanceWeightFunction2PPR2 * kpfunc;
+
+    frameid.clear();
+
+    nr_arraypoints.clear();
+
+    for(size_t i = 0; i < arraypoints.size(); i++){
+        if(arraypoints[i] != 0){
+            delete[] arraypoints[i];
+            arraypoints[i] = 0;
+        }
+    }
+    arraypoints.clear();
+
+    for(size_t i = 0; i < arraynormals.size(); i++){
+        if(arraynormals[i] != 0){
+            delete[] arraynormals[i];
+            arraynormals[i] = 0;
+        }
+    }
+    arraynormals.clear();
+
+    for(size_t i = 0; i < arraycolors.size(); i++){
+        if(arraycolors[i] != 0){
+            delete[] arraycolors[i];
+            arraycolors[i] = 0;
+        }
+    }
+    arraycolors.clear();
+
+    for(size_t i = 0; i < arrayinformations.size(); i++){
+        if(arrayinformations[i] != 0){
+            delete[] arrayinformations[i];
+            arrayinformations[i] = 0;
+        }
+    }
+    arrayinformations.clear();
+
+    for(size_t i = 0; i < trees3d.size(); i++){
+        if(trees3d[i] != 0){
+            delete trees3d[i];
+            trees3d[i] = 0;
+        }
+    }
+    trees3d.clear();
+
+    for(size_t i = 0; i < a3dv.size(); i++){
+        if(a3dv[i] != 0){
+            delete a3dv[i];
+            a3dv[i] = 0;
+        }
+    }
+    a3dv.clear();
+
+    nr_matches.clear();
+    matchids.clear();
+    matchdists.clear();
+//    double * Qp_arr;
+//    double * Qn_arr;
+//    double * Xp_arr;
+//    double * Xn_arr;
+//    double * rangeW_arr;
+//    DistanceWeightFunction2PPR2 * func;
+    matchscores.clear();
+
+    depthedge_nr_arraypoints.clear();
+
+    for(size_t i = 0; i < depthedge_arraypoints.size(); i++){
+        if(depthedge_arraypoints[i] != 0){
+            delete[] depthedge_arraypoints[i];
+            depthedge_arraypoints[i] = 0;
+        }
+    }
+    depthedge_arraypoints.clear();
+
+    for(size_t i = 0; i < depthedge_arrayinformations.size(); i++){
+        if(depthedge_arrayinformations[i] != 0){
+            delete[] depthedge_arrayinformations[i];
+            depthedge_arrayinformations[i] = 0;
+        }
+    }
+    depthedge_arrayinformations.clear();
+
+    for(size_t i = 0; i < depthedge_trees3d.size(); i++){
+        if(depthedge_trees3d[i] != 0){
+            delete depthedge_trees3d[i];
+            depthedge_trees3d[i] = 0;
+        }
+    }
+    depthedge_trees3d.clear();
+
+    for(size_t i = 0; i < depthedge_a3dv.size(); i++){
+        if(depthedge_a3dv[i] != 0){
+            delete depthedge_a3dv[i];
+            depthedge_a3dv[i] = 0;
+        }
+    }
+    depthedge_a3dv.clear();
+
+    depthedge_nr_matches.clear();
+    depthedge_matchids.clear();
+    depthedge_matchdists.clear();;
+//    double * depthedge_Qp_arr;
+//    double * depthedge_Xp_arr;
+//    double * depthedge_rangeW_arr;
+//    DistanceWeightFunction2PPR2 * depthedge_func;
+
+    sweepids.clear();;
+    background_nr_datas.clear();
+}
 
 void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 
