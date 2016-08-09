@@ -33,7 +33,6 @@ Model::Model(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d pose){
 }
 
 void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* frame, ModelMask* modelmask){
-    printf("addSuperPoints\n");
 	bool * maskvec = modelmask->maskvec;
 	unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
 	unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
@@ -66,14 +65,15 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 	const float ifx				= 1.0/camera->fx;
 	const float ify				= 1.0/camera->fy;
 
-	bool * isfused = new bool[width*height];
+	std::vector<bool> isfused;
+	isfused.resize(width*height);
+
+	//bool * isfused = new bool[width*height];
 	for(unsigned int i = 0; i < width*height; i++){isfused[i] = false;}
-printf("%i\n",__LINE__);
+
+	printf("wh:%i %i\n",width,height);
 
 	for(unsigned int ind = 0; ind < spvec.size();ind++){
-        if(ind % 1000 == 0){
-            //printf("ind: %i\n",ind);
-        }
 		superpoint & sp = spvec[ind];
 
 		float src_x = sp.point(0);
@@ -150,7 +150,7 @@ printf("%i\n",__LINE__);
 			}
 		}
 	}
-printf("%i\n",__LINE__);
+
 	int nr_fused = 0;
 	int nr_mask = 0;
 	for(unsigned int w = 0; w < width; w++){
@@ -160,7 +160,6 @@ printf("%i\n",__LINE__);
 			nr_mask += maskvec[ind] > 0;
 		}
 	}
-printf("%i\n",__LINE__);
 	for(unsigned int w = 0; w < width; w++){
 		for(unsigned int h = 0; h < height;h++){
 			int ind = h*width+w;
@@ -197,8 +196,7 @@ printf("%i\n",__LINE__);
 			}
 		}
 	}
-printf("%i\n",__LINE__);
-	delete[] isfused;
+	//delete[] isfused;
 }
 
 void Model::showHistory(boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer){
@@ -365,7 +363,6 @@ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> ret;
 }
 
 void Model::addAllSuperPoints(std::vector<superpoint> & spvec, Eigen::Matrix4d pose){
-    printf("addAllSuperPoints\n");
 	for(unsigned int i = 0; i < frames.size(); i++){
 		addSuperPoints(spvec, pose*relativeposes[i], frames[i], modelmasks[i]);
 	}
