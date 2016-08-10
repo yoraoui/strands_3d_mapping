@@ -173,6 +173,221 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 */
 
 
+    if(true){
+
+        cv::Mat colimg_est;
+        colimg_est.create(height,width,CV_32FC3);
+        float * cest = (float *)colimg_est.data;
+
+        cv::Mat colimg_base;
+        colimg_base.create(height,width,CV_32FC3);
+        float * cbase = (float *)colimg_base.data;
+
+        cv::Mat cn_est;
+        cn_est.create(height,width,CV_32FC3);
+        float * cnest = (float *)cn_est.data;
+
+        cv::Mat z_est;
+        z_est.create(height,width,CV_32FC3);
+        float * zest = (float *)z_est.data;
+
+        cv::Mat z_base;
+        z_base.create(height,width,CV_32FC3);
+        float * zbase = (float *)z_base.data;
+
+        cv::Mat nimg;
+        nimg.create(height,width,CV_32FC3);
+        float * nest = (float *)nimg.data;
+
+
+        cv::Mat dz_est;
+        dz_est.create(height,width,CV_32FC2);
+        float * dzest = (float *)dz_est.data;
+
+        for(int i = 0; i < width*height; i++){
+            zbase[i]       = zest[i] = idepth*double(depthdata[i]);
+        }
+
+        double w0 = 0.1;
+        for(int w = 90; w < 1110; w++){
+            for(int h = 0; h < height;h++){
+                int i = h*width+w;
+
+                if( h == 100){
+                    printf("%i: base: %5.5f %5.5f\n",w,zbase[i],zest[i]);
+                }
+            }
+        }
+
+        for(int i = 0; i < 3*width*height; i++){
+            cbase[i]       = cest[i] = float(rgbdata[i])/256.0;
+        }
+
+        for(int w = 0; w < width; w++){
+            for(int h = 0; h < height;h++){
+                int i = h*width+w;
+                dzest[2*i+0] = 0;
+                dzest[2*i+1] = 0;
+//                double z = zest[i];
+//                if(w < width-1){
+//                    dzest[2*i+0] = z-zest[i+1];
+//                }else{
+//                    dzest[2*i+0] = dzest[2*i-2];
+//                }
+
+//                if(h < height-1){
+//                    dzest[2*i+1] = z-zest[i+width];
+//                }else{
+//                    dzest[2*i+1] = dzest[2*(i-width)+1];
+//                }
+            }
+        }
+
+        pcl::PointCloud<pcl::PointXYZRGBA>::Ptr	cloud (new pcl::PointCloud<pcl::PointXYZRGBA>);
+        cloud->width	= width;
+        cloud->height	= height;
+        cloud->points.resize(width*height);
+
+        boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
+        viewer->setBackgroundColor (0, 0, 0);
+        viewer->addCoordinateSystem (1.0);
+        viewer->initCameraParameters ();
+
+        for(int it = 0; true; it++){
+            printf("it: %i\n",it);
+            if(it % 100 == 0){
+                for(int w = 0; w < width; w++){
+                    for(int h = 0; h < height;h++){
+                        int ind = h*width+w;
+                        pcl::PointXYZRGBA & p = cloud->points[ind];
+                        p.b = cest[3*ind+0]*256.0;
+                        p.g = cest[3*ind+1]*256.0;
+                        p.r = cest[3*ind+2]*256.0;
+                        double z = zest[ind];
+                        if(z > 0){
+                            p.x = (double(w) - cx) * z * ifx;
+                            p.y = (double(h) - cy) * z * ify;
+                            p.z = z;
+                        }else{
+                            p.x = 0;
+                            p.y = 0;
+                            p.z = 0;
+                        }
+                    }
+                }
+
+                viewer->removeAllPointClouds();
+                viewer->addPointCloud<pcl::PointXYZRGBA> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBA>(cloud), "cloud");
+                viewer->spin();
+            }
+
+////            Compute normals
+//            cv::namedWindow( "rgb", cv::WINDOW_AUTOSIZE );			cv::imshow( "rgb", colimg_est );
+//            cv::namedWindow( "normals", cv::WINDOW_AUTOSIZE );		cv::imshow( "normals", nimg  );
+//            cv::namedWindow( "dz", cv::WINDOW_AUTOSIZE );           cv::imshow( "dz", dz_est  );
+//            cv::namedWindow( "depth", cv::WINDOW_AUTOSIZE );		cv::imshow( "depth", z_est);
+//            cv::waitKey(0);
+
+//            for(int w = 0; w < width; w++){
+//                for(int h = 0; h < height;h++){
+//                    int i = h*width+w;
+//                    double z = zest[i];
+//                    if(w < width-1){    dzest[2*i+0] = z-zest[i+1];}
+//                    else{               dzest[2*i+0] = dzest[2*i-2];}
+
+//                    if(h < height-1){   dzest[2*i+1] = z-zest[i+width];}
+//                    else{               dzest[2*i+1] = dzest[2*(i-width)+1];}
+//                }
+//            }
+
+            double w0 = 0.001;
+            for(int w = 0; w < width; w++){
+                for(int h = 0; h < height;h++){
+                    int i = h*width+w;
+
+                    if(w < 103 && w > 97 && h == 100){
+                        printf("mid %i: base: %5.5f %5.5f\n",w,zbase[i],zest[i]);
+                    }
+                    double z = zbase[i];
+                    double sumw = w0/(z*z);
+                    double sumz = sumw*zbase[i];
+
+                    if(z == 0){
+                        sumz = 0;
+                        sumw = 0;
+                    }
+
+                    if(w > 0){
+                        int i2 = i-1;
+
+                        double predz = zest[i2]+dzest[2*i+0];
+                        double weight = fabs(z -predz) < 0.05;
+                        sumz+=weight*predz;
+                        sumw+=weight;
+
+//                        if(w == 100 && h == 100){
+//                            printf("left %i: base: %5.5f %5.5f\n",w-1,zbase[i2],zest[i2]);
+//                        }
+                    }
+
+                    if(w < width-1){
+                        int i2 = i+1;
+                        double predz = zest[i2]-dzest[2*i+0];
+                        double weight = fabs(z -predz) < 0.05;
+                        sumz+=weight*predz;
+                        sumw+=weight;
+                    }
+
+                    if(h > 0){
+                        int i2 = i-width;
+                        double predz = zest[i2]+dzest[2*i+0];
+                        double weight = fabs(z -predz) < 0.05;
+                        sumz+=weight*predz;
+                        sumw+=weight;
+                    }
+
+                    if(h < height-1){
+                        int i2 = i+width;
+                        double predz = zest[i2]-dzest[2*i+0];
+                        double weight = fabs(z -predz) < 0.05;
+                        sumz+=weight*predz;
+                        sumw+=weight;
+                    }
+
+                    if(sumw == 0){
+                        zest[i] = 0;
+                    }else{
+                        zest[i] = sumz/sumw;
+                    }
+                }
+            }
+
+
+
+        }
+//        double * z_base     = new double[width*height];
+//        double * col_base   = new double[3*width*height];
+//        double * z_est      = new double[width*height];
+//        double * col_est    = new double[3*width*height];
+//        double * normal_est = new double[3*width*height];
+
+//        for(int i = 0; i < width*height; i++){
+//            z_base[i]       = z_est[i] = idepth*double(depthdata[ind]);
+//            col_est[3*i+0]  = rgbdata[3*i+0];
+//            col_est[3*i+1]  = rgbdata[3*i+1];
+//            col_est[3*i+2]  = rgbdata[3*i+2];
+//        }
+//        delete[] z_base;
+//        delete[] col_base;
+//        delete[] z_est;
+//        delete[] col_est;
+//        delete[] normal_est;
+
+
+
+
+    }
+
 	//printf("%s LINE:%i\n",__FILE__,__LINE__);
 	if(compute_normals){
 		normals.create(height,width,CV_32FC3);
