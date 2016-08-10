@@ -54,6 +54,23 @@ RGBDFrame::RGBDFrame(){
 bool updated = true;
 void on_trackbar( int, void* ){updated = true;}
 
+//void update(cv::Mat & err, cv::Mat & est, cv::Mat & dx, int dir){
+//}
+
+float pred(float targetW, float targetH, int sourceW, int sourceH, int width, float * est, float * dx, float * dy){
+	int ind = sourceH * width + sourceW;
+	return est[ind]+(targetW-float(sourceW))*dx[ind]+(targetH-float(sourceH))*dy[ind];
+}
+
+float weightFunc(int w0, int h0, int w1, int h1, int width, std::vector<cv::Mat> & est, std::vector<cv::Mat> & dx, std::vector<cv::Mat> & dy){
+	float weight = 1;
+	for(int c = 0; c < est.size(); c++){
+		float error = ((float*)(est[c].data))[h0*width+w0] - pred(w0,h0,w1,h1,width, (float*)(est[c].data), (float*)(dx[c].data), (float*)(dy[c].data));
+		weight *= exp(-0.5*error*error/(0.1*0.1));
+	}
+	return weight;
+}
+
 RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capturetime_, Eigen::Matrix4d pose_, bool compute_normals){
 	keyval = "";
 
@@ -173,7 +190,357 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 */
 
 
-    if(true){
+	if(false){
+		//Per channel
+			//Base
+			//est
+			//dx
+			//dy
+			//errX
+			//errY
+		std::vector<cv::Mat> channels_base;
+		std::vector<cv::Mat> channels_noise;
+		std::vector<cv::Mat> channels_est;
+		std::vector<cv::Mat> channels_dx;
+		std::vector<cv::Mat> channels_dy;
+		std::vector<cv::Mat> channels_errx;
+		std::vector<cv::Mat> channels_erry;
+
+		cv::Mat z_base;
+		z_base.create(height,width,CV_32FC1);
+		float * zbase = (float *)z_base.data;
+
+		for(int i = 0; i < width*height; i++){
+			zbase[i] = idepth*double(depthdata[i]);
+		}
+
+		channels_base.push_back(z_base);
+		for(int c = 0; c < 3; c++){
+			cv::Mat current_base;
+			current_base.create(height,width,CV_32FC1);
+			float * currentbase = (float *)current_base.data;
+
+			for(int i = 0; i < width*height; i++){
+				currentbase[i] = float(rgbdata[3*i+c])/256.0;
+			}
+			channels_base.push_back(current_base);
+		}
+
+		for(int c = 0; c < channels_base.size(); c++){
+			float * data = (float *)(channels_base[c].data);
+			cv::Mat tmp;
+			tmp.create(height,width,CV_32FC1);
+			float * tmpdata = (float *)tmp.data;
+			for(int i = 0; i < width*height; i++){
+				tmpdata[i] = data[i];
+			}
+			channels_est.push_back(tmp);
+		}
+
+		for(int c = 0; c < channels_base.size(); c++){
+			cv::Mat tmp;
+			tmp.create(height,width,CV_32FC1);
+			float * tmpdata = (float *)tmp.data;
+			for(int i = 0; i < width*height; i++){
+				tmpdata[i] = 0;
+			}
+			channels_dx.push_back(tmp);
+		}
+
+		for(int c = 0; c < channels_base.size(); c++){
+			cv::Mat tmp;
+			tmp.create(height,width,CV_32FC1);
+			float * tmpdata = (float *)tmp.data;
+			for(int i = 0; i < width*height; i++){
+				tmpdata[i] = 0;
+			}
+			channels_dy.push_back(tmp);
+		}
+
+		for(int c = 0; c < channels_base.size(); c++){
+			cv::Mat tmp;
+			tmp.create(height,width,CV_32FC1);
+			float * tmpdata = (float *)tmp.data;
+			for(int i = 0; i < width*height; i++){
+				tmpdata[i] = 0;
+			}
+			channels_errx.push_back(tmp);
+		}
+
+		for(int c = 0; c < channels_base.size(); c++){
+			cv::Mat tmp;
+			tmp.create(height,width,CV_32FC1);
+			float * tmpdata = (float *)tmp.data;
+			for(int i = 0; i < width*height; i++){
+				tmpdata[i] = 0;
+			}
+			channels_erry.push_back(tmp);
+		}
+
+		//Shared weights
+		cv::Mat wximg;
+		wximg.create(height,width,CV_32FC1);
+		float * wx = (float *)wximg.data;
+		for(int i = 0; i < width*height; i++){wx[i] = 1;}
+
+		cv::Mat wyimg;
+		wyimg.create(height,width,CV_32FC1);
+		float * wy = (float *)wyimg.data;
+		for(int i = 0; i < width*height; i++){wy[i] = 1;}
+
+
+		pcl::PointCloud<pcl::PointXYZRGBA>::Ptr	cloud (new pcl::PointCloud<pcl::PointXYZRGBA>);
+		cloud->width	= width;
+		cloud->height	= height;
+		cloud->points.resize(width*height);
+
+		boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
+		viewer->setBackgroundColor (0, 0, 0);
+		viewer->addCoordinateSystem (1.0);
+		viewer->initCameraParameters ();
+
+		for(int it = 0; true ; it++){
+
+			if(it % 1 == 0){
+				for(int c = 0; c < channels_base.size(); c++){
+					float * est		= (float *)(channels_est[c].data);
+					for(int w = 0; w < width; w++){
+						for(int h = 0; h < height;h++){
+							int ind = h*width+w;
+							pcl::PointXYZRGBA & p = cloud->points[ind];
+							double z = est[ind];
+							if(c == 0){
+								if(w % 40 == 0 && h % 40 == 0){printf("%i %i -> %f\n",w,h,z);}
+								if(z > 0){
+									p.x = (double(w) - cx) * z * ifx;
+									p.y = (double(h) - cy) * z * ify;
+									p.z = z;
+								}else{
+									p.x = 0;
+									p.y = 0;
+									p.z = 0;
+								}
+							}
+							if(c == 1){p.b = z*256.0;}
+							if(c == 2){p.g = z*256.0;}
+							if(c == 3){p.r = z*256.0;}
+						}
+					}
+				}
+
+				viewer->removeAllPointClouds();
+				viewer->addPointCloud<pcl::PointXYZRGBA> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBA>(cloud), "cloud");
+				viewer->spin();
+
+				viewer->removeAllShapes();
+				for(int w0 = 0; w0 < width-1; w0++){
+					for(int h0 = 0; h0 < height;h0+=120){
+						int ind0 = h0*width+w0;
+
+						int w1 = w0+1;
+						int h1 = h0;
+						int ind1 = h1*width+w1;
+
+						pcl::PointXYZRGBA & p0 = cloud->points[ind0];
+						pcl::PointXYZRGBA & p1 = cloud->points[ind1];
+						if(p0.z == 0 || p1.z == 0){continue;}
+
+						float weight = weightFunc(w0,h0,w1,h1,width, channels_est, channels_dx, channels_dy);
+
+						char buf [1024];
+						sprintf(buf,"line_%i_%i_%i_%i",w0,h0,w1,h1);
+						viewer->addLine<pcl::PointXYZRGBA> (p0,p1,(1-weight),weight,0,buf);
+					}
+				}
+
+				for(int w0 = 0; w0 < width; w0+=120){
+					for(int h0 = 0; h0 < height-1;h0++){
+						int ind0 = h0*width+w0;
+
+						int w1 = w0;
+						int h1 = h0+1;
+						int ind1 = h1*width+w1;
+
+						pcl::PointXYZRGBA & p0 = cloud->points[ind0];
+						pcl::PointXYZRGBA & p1 = cloud->points[ind1];
+						if(p0.z == 0 || p1.z == 0){continue;}
+
+						float weight = weightFunc(w0,h0,w1,h1,width, channels_est, channels_dx, channels_dy);
+
+						char buf [1024];
+						sprintf(buf,"line_%i_%i_%i_%i",w0,h0,w1,h1);
+						viewer->addLine<pcl::PointXYZRGBA> (p0,p1,(1-weight),weight,0,buf);
+					}
+				}
+				viewer->spin();
+
+				//float pred(float targetW, float targetH, int sourceW, int sourceH, int width, float * est, float * dx, float * dy)
+
+
+			}
+
+			//Update errors
+			for(int c = 0; c < channels_base.size(); c++){
+				float * estdata = (float *)(channels_est[c].data);
+
+				float * dxdata = (float *)(channels_dx[c].data);
+				float * dydata = (float *)(channels_dy[c].data);
+
+				float * errxdata = (float *)(channels_errx[c].data);
+				float * errydata = (float *)(channels_erry[c].data);
+				for(int w = 0; w < width-1; w++){
+					for(int h = 0; h < height;h++){
+						int i			= h*width+w;
+						int i2			= i+1;
+						float z0		= estdata[i];
+						float z1		= estdata[i2];
+						float slope0	= dxdata[i];
+						float slope1	= dxdata[i2];
+
+						float e0 = (z0+slope0)-z1;
+						float e1 = (z1-slope1)-z0;
+
+						errxdata[i] = fabs(e0)+fabs(e1);
+					}
+				}
+
+				for(int w = 0; w < width; w++){
+					for(int h = 0; h < height-1;h++){
+						int i			= h*width+w;
+						int i2			= i+width;
+						float z0		= estdata[i];
+						float z1		= estdata[i2];
+						float slope0	= dydata[i];
+						float slope1	= dydata[i2];
+
+						float e0 = (z0+slope0)-z1;
+						float e1 = (z1-slope1)-z0;
+
+						errydata[i] = fabs(e0)+fabs(e1);
+					}
+				}
+			}
+
+			//Update weights
+			for(int w = 0; w < width; w++){
+				for(int h = 0; h < height;h++){
+					int i = h*width+w;
+					float weight = 1;
+					for(int c = 0; c < channels_base.size(); c++){
+						float e = ((float *)(channels_errx[c].data))[i];
+						if(c == 0){weight *= exp(-0.5*e*e/0.1);}
+						if(c == 1){weight *= exp(-0.5*e*e/0.005);}
+						if(c == 2){weight *= exp(-0.5*e*e/0.005);}
+						if(c == 3){weight *= exp(-0.5*e*e/0.005);}
+					}
+					wx[i] = weight;
+				}
+			}
+
+			//Update weights
+			for(int w = 0; w < width; w++){
+				for(int h = 0; h < height;h++){
+					int i = h*width+w;
+					float weight = 1;
+					for(int c = 0; c < channels_base.size(); c++){
+						float e = ((float *)(channels_erry[c].data))[i];
+						if(c == 0){weight *= exp(-0.5*e*e/0.1);}
+						if(c == 1){weight *= exp(-0.5*e*e/0.005);}
+						if(c == 2){weight *= exp(-0.5*e*e/0.005);}
+						if(c == 3){weight *= exp(-0.5*e*e/0.005);}
+					}
+					wy[i] = weight;
+				}
+			}
+
+//			cv::namedWindow( "wx", cv::WINDOW_AUTOSIZE );			cv::imshow( "wx",	wximg);
+//			cv::namedWindow( "wy", cv::WINDOW_AUTOSIZE );			cv::imshow( "wy",	wyimg);
+//			cv::waitKey(0);
+
+			//Update points
+			double wbase = 0.1;
+			for(int c = 0; c < channels_base.size(); c++){
+				float * base	= (float *)(channels_base[c].data);
+				float * est		= (float *)(channels_est[c].data);
+				float * dx		= (float *)(channels_dx[c].data);
+				float * dy		= (float *)(channels_dy[c].data);
+				for(int w = 1; w < width-1; w++){
+					for(int h = 1; h < height-1;h++){
+						int i = h*width+w;
+
+						float wtmp =  wbase * float(base[i] > 0);
+						if(wtmp == 0){continue;}
+						float w0 = wx[i-1] * float(base[i-1] > 0);
+						float w1 = wx[i] * float(base[i+1] > 0);
+						float w2 = wy[i-1] * float(base[i-width] > 0);
+						float w3 = wy[i] * float(base[i+width] > 0);
+
+						float z			= base[i];
+						float pred0		= est[i-1]		+dx[i-1];
+						float pred1		= est[i+1]		-dx[i+1];
+						float pred2		= est[i-width]	+dy[i-width];
+						float pred3		= est[i+width]	-dy[i+width];
+
+						double sumz = wtmp*z+w0*pred0+w1*pred1+w2*pred2+w3*pred3;
+						double sumw = wtmp+w0+w1+w2+w3;
+
+						if(false && w % 40 == 0 && h % 40 == 0){
+							printf("%4.4i %4.4i %4.4i -> M(%4.4f %4.4f) ",c,w,h,z,wbase);
+							printf("est: %4.4f %4.4f %4.4f ",	est[i-1],est[i],est[i+1]);
+							printf("dx: %4.4f %4.4f %4.4f ",	dx[i-1], dx[i], dx[i+1]);
+							printf("wx: %4.4f %4.4f",			wx[i-1], wx[i]);
+							printf("\n");
+						}
+
+						//if(w % 40 == 0 && h % 40 == 0){printf("%i %i %i -> M(%4.4f %4.4f) L(%4.4f %4.4f) R(%4.4f %4.4f) U(%4.4f %4.4f) D(%4.4f %4.4f)\n",c,w,h,z,wbase,pred0,w0,pred1,w1,pred2,w2,pred3,w3);}
+						if(sumw > 0){
+							est[i] = sumz/sumw;
+						}else{
+							//est[i] = 0;
+						}
+
+					}
+				}
+//				exit(0);
+			}
+
+			//Update slopes
+
+
+			//}
+
+//			cv::namedWindow( "wx", cv::WINDOW_AUTOSIZE );			cv::imshow( "wx",	wximg);
+//			cv::namedWindow( "wy", cv::WINDOW_AUTOSIZE );			cv::imshow( "wy",	wyimg);
+//			cv::waitKey(0);
+		}
+
+		//			cv::namedWindow( "est", cv::WINDOW_AUTOSIZE );			cv::imshow( "est",	channels_est[c] );
+		//			cv::namedWindow( "dx", cv::WINDOW_AUTOSIZE );			cv::imshow( "dx",	channels_dx[c]  );
+		//			cv::namedWindow( "dy", cv::WINDOW_AUTOSIZE );           cv::imshow( "dy",	channels_dy[c]  );
+		//			cv::namedWindow( "errx", cv::WINDOW_AUTOSIZE );			cv::imshow( "errx",	channels_errx[c]);
+		//			cv::namedWindow( "erry", cv::WINDOW_AUTOSIZE );			cv::imshow( "erry",	channels_erry[c]);
+		//			cv::waitKey(0);
+exit(0);
+	//Shared weights
+
+//Diffs
+		cv::Mat diffzimg;
+		diffzimg.create(height,width,CV_32FC2);
+		float * diffz = (float *)diffzimg.data;
+
+		cv::Mat diffrimg;
+		diffrimg.create(height,width,CV_32FC2);
+		float * diffr = (float *)diffrimg.data;
+
+		cv::Mat diffgimg;
+		diffgimg.create(height,width,CV_32FC2);
+		float * diffg = (float *)diffgimg.data;
+
+		cv::Mat diffbimg;
+		diffbimg.create(height,width,CV_32FC2);
+		float * diffb = (float *)diffbimg.data;
+
+
 
         cv::Mat colimg_est;
         colimg_est.create(height,width,CV_32FC3);
@@ -191,9 +558,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
         z_est.create(height,width,CV_32FC3);
         float * zest = (float *)z_est.data;
 
-        cv::Mat z_base;
-        z_base.create(height,width,CV_32FC3);
-        float * zbase = (float *)z_base.data;
+
 
         cv::Mat nimg;
         nimg.create(height,width,CV_32FC3);
@@ -204,19 +569,10 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
         dz_est.create(height,width,CV_32FC2);
         float * dzest = (float *)dz_est.data;
 
+
+
         for(int i = 0; i < width*height; i++){
             zbase[i]       = zest[i] = idepth*double(depthdata[i]);
-        }
-
-        double w0 = 0.1;
-        for(int w = 90; w < 1110; w++){
-            for(int h = 0; h < height;h++){
-                int i = h*width+w;
-
-                if( h == 100){
-                    printf("%i: base: %5.5f %5.5f\n",w,zbase[i],zest[i]);
-                }
-            }
         }
 
         for(int i = 0; i < 3*width*height; i++){
@@ -228,30 +584,10 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
                 int i = h*width+w;
                 dzest[2*i+0] = 0;
                 dzest[2*i+1] = 0;
-//                double z = zest[i];
-//                if(w < width-1){
-//                    dzest[2*i+0] = z-zest[i+1];
-//                }else{
-//                    dzest[2*i+0] = dzest[2*i-2];
-//                }
-
-//                if(h < height-1){
-//                    dzest[2*i+1] = z-zest[i+width];
-//                }else{
-//                    dzest[2*i+1] = dzest[2*(i-width)+1];
-//                }
             }
         }
 
-        pcl::PointCloud<pcl::PointXYZRGBA>::Ptr	cloud (new pcl::PointCloud<pcl::PointXYZRGBA>);
-        cloud->width	= width;
-        cloud->height	= height;
-        cloud->points.resize(width*height);
 
-        boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
-        viewer->setBackgroundColor (0, 0, 0);
-        viewer->addCoordinateSystem (1.0);
-        viewer->initCameraParameters ();
 
         for(int it = 0; true; it++){
             printf("it: %i\n",it);

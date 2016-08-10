@@ -1,0 +1,4 @@
+string background
+string foreground
+---
+sensor_msgs/Image[] segmentation

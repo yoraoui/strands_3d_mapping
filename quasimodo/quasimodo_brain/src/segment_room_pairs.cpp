@@ -64,26 +64,26 @@
 
 using namespace std;
 
-typedef pcl::PointXYZRGB PointType;
-typedef pcl::PointCloud<PointType> Cloud;
-typedef typename Cloud::Ptr CloudPtr;
-typedef pcl::search::KdTree<PointType> Tree;
-typedef semantic_map_load_utilties::DynamicObjectData<PointType> ObjectData;
+//typedef pcl::PointXYZRGB PointType;
+//typedef pcl::PointCloud<PointType> Cloud;
+//typedef typename Cloud::Ptr CloudPtr;
+//typedef pcl::search::KdTree<PointType> Tree;
+//typedef semantic_map_load_utilties::DynamicObjectData<PointType> ObjectData;
 
-using pcl::visualization::PointCloudColorHandlerCustom;
+//using pcl::visualization::PointCloudColorHandlerCustom;
 
-std::vector< std::vector<cv::Mat> > rgbs;
-std::vector< std::vector<cv::Mat> > depths;
-std::vector< std::vector<cv::Mat> > masks;
-std::vector< std::vector<tf::StampedTransform > >tfs;
-std::vector< std::vector<Eigen::Matrix4f> > initposes;
-std::vector< std::vector< image_geometry::PinholeCameraModel > > cams;
+//std::vector< std::vector<cv::Mat> > rgbs;
+//std::vector< std::vector<cv::Mat> > depths;
+//std::vector< std::vector<cv::Mat> > masks;
+//std::vector< std::vector<tf::StampedTransform > >tfs;
+//std::vector< std::vector<Eigen::Matrix4f> > initposes;
+//std::vector< std::vector< image_geometry::PinholeCameraModel > > cams;
 
-pcl::visualization::PCLVisualizer* pg;
-boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
+//pcl::visualization::PCLVisualizer* pg;
+//boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 
-std::vector<reglib::Model * > models;
-
+//std::vector<reglib::Model * > models;
+/*
 reglib::Model * load2(std::string sweep_xml){
 	int slash_pos = sweep_xml.find_last_of("/");
 	std::string sweep_folder = sweep_xml.substr(0, slash_pos) + "/";
@@ -150,8 +150,13 @@ reglib::Model * load2(std::string sweep_xml){
     models.push_back(sweepmodel);
 	return sweepmodel;
 }
-
+*/
 int main(int argc, char** argv){
+	ros::init(argc, argv, "segmentationserver_metaroom");
+	ros::NodeHandle n;
+//	ros::ServiceServer service = n.advertiseService("segment_model", segment_model);
+	ros::spin();
+	/*
     reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 
 	viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
@@ -210,5 +215,6 @@ int main(int argc, char** argv){
         delete models[j];
     }
 	printf("done\n");
+	*/
 	return 0;
 }

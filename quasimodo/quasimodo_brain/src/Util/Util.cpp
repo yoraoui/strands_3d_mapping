@@ -103,4 +103,88 @@ quasimodo_msgs::model getModelMSG(reglib::Model * model){
 	return msg;
 }
 
+std::vector<Eigen::Matrix4f> getRegisteredViewPoses(const std::string& poses_file, const int& no_transforms){
+	std::vector<Eigen::Matrix4f> toRet;
+	ifstream in(poses_file);
+	if (!in.is_open()){
+		cout<<"ERROR: cannot find poses file "<<poses_file<<endl;
+		return toRet;
+	}
+	cout<<"Loading additional view registered poses from "<<poses_file<<endl;
+
+	for (int i=0; i<no_transforms+1; i++){
+		Eigen::Matrix4f transform;
+		float temp;
+		for (size_t j=0; j<4; j++){
+			for (size_t k=0; k<4; k++){
+				in >> temp;
+				transform(j,k) = temp;
+			}
+		}
+		toRet.push_back(transform);
+	}
+	return toRet;
+}
+
+reglib::Model * load_metaroom_model(std::string sweep_xml){
+	int slash_pos = sweep_xml.find_last_of("/");
+	std::string sweep_folder = sweep_xml.substr(0, slash_pos) + "/";
+	printf("folder: %s\n",sweep_folder.c_str());
+
+	SimpleXMLParser<pcl::PointXYZRGB> parser;
+	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(sweep_folder+"/room.xml");
+
+	reglib::Model * sweepmodel = 0;
+
+	std::vector<reglib::RGBDFrame * > current_room_frames;
+	for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++)
+	{
+
+		cv::Mat fullmask;
+		fullmask.create(480,640,CV_8UC1);
+		unsigned char * maskdata = (unsigned char *)fullmask.data;
+		for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
+
+		reglib::Camera * cam		= new reglib::Camera();//TODO:: ADD TO CAMERAS
+		cam->fx = 532.158936;
+		cam->fy = 533.819214;
+		cam->cx = 310.514310;
+		cam->cy = 236.842039;
+
+
+		cout<<"Intermediate cloud size "<<roomData.vIntermediateRoomClouds[i]->points.size()<<endl;
+
+		printf("%i / %i\n",i,roomData.vIntermediateRoomClouds.size());
+
+		//Transform
+		tf::StampedTransform tf	= roomData.vIntermediateRoomCloudTransformsRegistered[i];
+		geometry_msgs::TransformStamped tfstmsg;
+		tf::transformStampedTFToMsg (tf, tfstmsg);
+		geometry_msgs::Transform tfmsg = tfstmsg.transform;
+		geometry_msgs::Pose		pose;
+		pose.orientation		= tfmsg.rotation;
+		pose.position.x		= tfmsg.translation.x;
+		pose.position.y		= tfmsg.translation.y;
+		pose.position.z		= tfmsg.translation.z;
+		Eigen::Affine3d epose;
+		tf::poseMsgToEigen(pose, epose);
+
+		reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,roomData.vIntermediateRGBImages[i],5.0*roomData.vIntermediateDepthImages[i],0, epose.matrix());
+
+		current_room_frames.push_back(frame);
+		if(i == 0){
+			sweepmodel = new reglib::Model(frame,fullmask);
+		}else{
+			sweepmodel->frames.push_back(frame);
+			sweepmodel->relativeposes.push_back(current_room_frames.front()->pose.inverse() * frame->pose);
+			sweepmodel->modelmasks.push_back(new reglib::ModelMask(fullmask));
+		}
+	}
+
+	//sweepmodel->recomputeModelPoints();
+	printf("nr points: %i\n",sweepmodel->points.size());
+
+	return sweepmodel;
+}
+
 }

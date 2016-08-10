@@ -30,6 +30,8 @@
 #include "modelupdater/ModelUpdater.h"
 #include "core/RGBDFrame.h"
 
+#include "metaroom_xml_parser/simple_xml_parser.h"
+
 namespace quasimodo_brain {
 
 double getTime();
@@ -37,6 +39,10 @@ reglib::Model * getModelFromMSG(quasimodo_msgs::model & msg);
 
 void addToModelMSG(quasimodo_msgs::model & msg, reglib::Model * model, Eigen::Affine3d rp = Eigen::Affine3d::Identity());
 quasimodo_msgs::model getModelMSG(reglib::Model * model);
+
+std::vector<Eigen::Matrix4f> getRegisteredViewPoses(const std::string& poses_file, const int& no_transforms);
+
+reglib::Model * load_metaroom_model(std::string sweep_xml);
 
 }
 
