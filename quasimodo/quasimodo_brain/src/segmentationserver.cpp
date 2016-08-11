@@ -247,7 +247,19 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 		while(cv::waitKey(50)!='q'){viewer->spinOnce();}
 	}
 
+	res.backgroundmodel = req.backgroundmodel;
+
+
+	res.masks.resize(models.size());
 	for(unsigned int i = 0; i < models.size(); i++){
+		for(unsigned int j = 0; j < models[i]->frames.size(); j++){
+			cv_bridge::CvImage maskBridgeImage;
+			maskBridgeImage.image			= dynamic[i][j];
+			maskBridgeImage.encoding		= "mono8";
+			res.masks[i].images.push_back( *(maskBridgeImage.toImageMsg()) );
+		}
+
+		res.models.push_back(quasimodo_brain::getModelMSG(models[i]));
 		models[i]->fullDelete();
 		delete models[i];
 	}

@@ -65,6 +65,7 @@ add_service_files(
   simple_query_cloud.srv
   visualize_query.srv
   segment_model.srv
+  metaroom_pair.srv
 )
 
 ## Generate actions in the 'action' folder

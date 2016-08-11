@@ -233,6 +233,15 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
         float * gest = new float[width*height];
         float * best = new float[width*height];
 
+		float * zdx = new float[width*height];
+		float * rdx = new float[width*height];
+		float * gdx = new float[width*height];
+		float * bdx = new float[width*height];
+
+		float * zdy = new float[width*height];
+		float * rdy = new float[width*height];
+		float * gdy = new float[width*height];
+		float * bdy = new float[width*height];
 
         float * znext = new float[width*height];
         float * rnext = new float[width*height];
@@ -240,14 +249,18 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
         float * bnext = new float[width*height];
 
         for(int i = 0; i < width*height; i++){
-            zbase[i] = zest[i] = idepth*double(depthdata[i]);
-            bbase[i] = best[i] = float(rgbdata[3*i+0])/256.0;
-            gbase[i] = gest[i] = float(rgbdata[3*i+1])/256.0;
-            rbase[i] = rest[i] = float(rgbdata[3*i+2])/256.0;
+			zbase[i]	= zest[i]	= idepth*double(depthdata[i]);
+			bbase[i]	= best[i]	= float(rgbdata[3*i+0])/256.0;
+			gbase[i]	= gest[i]	= float(rgbdata[3*i+1])/256.0;
+			rbase[i]	= rest[i]	= float(rgbdata[3*i+2])/256.0;
+			zdx[i]		= zdy[i]	= 0;
+			rdx[i]		= rdy[i]	= 0;
+			gdx[i]		= gdy[i]	= 0;
+			bdx[i]		= bdy[i]	= 0;
         }
 
         for(int it = 0; true; it++){
-            if(it % 1 == 0){
+			if(it % 100 == 0){
                 for(int w = 0; w < width; w++){
                     for(int h = 0; h < height;h++){
                         int ind = h*width+w;
@@ -262,17 +275,79 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
                             p.y = 0;
                             p.z = 0;
                         }
-                        p.b = best[ind]*256.0;
-                        p.g = gest[ind]*256.0;
-                        p.r = rest[ind]*256.0;
+						p.b = best[ind]*256.0;
+						p.g = gest[ind]*256.0;
+						p.r = rest[ind]*256.0;
                     }
                 }
 
                 viewer->removeAllPointClouds();
                 viewer->addPointCloud<pcl::PointXYZRGBA> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBA>(cloud), "cloud");
                 viewer->spin();
+
+				//for(int w = 0; w < width; w++){
+				for(int w = 0; w < width; w++){
+					for(int h = 0; h < height;h++)
+					{
+						//int h= height/2;
+						int ind = h*width+w;
+						pcl::PointXYZRGBA & p = cloud->points[ind];
+
+						double z1 = zest[ind];
+						double x1 = (double(w) - cx) * z1 * ifx;
+						double y1 = (double(h) - cy) * z1 * ify;
+						Eigen::Vector3d point1 (x1,y1,z1);
+
+						double z2 = zest[ind]+zdx[ind];
+						double x2 = (double(w+1) - cx) * z2 * ifx;
+						double y2 = (double(h) - cy) * z2 * ify;
+						Eigen::Vector3d point2 (x2,y2,z2);
+
+						double z3 = zest[ind]+zdy[ind];
+						double x3 = (double(w) - cx) * z2 * ifx;
+						double y3 = (double(h+1) - cy) * z2 * ify;
+						Eigen::Vector3d point3 (x3,y3,z3);
+
+						Eigen::Vector3d normal =  (point2-point1).cross(point3-point1);
+						normal.normalize();
+
+						float r = 0.5*(normal(0)+1.0);
+						float g = 0.5*(normal(1)+1.0);
+						float b = 0.5*(normal(2)+1.0);
+
+						p.b = b*255.0;//(2.0*normal(2)-1.0)*255.0;
+						p.g = g*255.0;//(2.0*normal(1)-1.0)*255.0;
+						p.r = r*255.0;//(2.0*normal(0)-1.0)*255.0;
+
+//						printf("%4.4i -> x1: %3.3f %3.3f %3.3f x2: %3.3f %3.3f %3.3f normal: %3.3f %3.3f %3.3f shifted: %3.3f %3.3f %3.3f rgb: %3.3i %3.3i %3.3i\n",w,point2(0)-point1(0),point2(1)-point1(1),point2(2)-point1(2),   point3(0)-point1(0),point3(1)-point1(1),point3(2)-point1(2),     normal(0),normal(1),normal(2),  0.5*(normal(0)+1.0),0.5*(normal(1)+1.0),0.5*(normal(2)+1.0),   p.r,p.g,p.b);
+
+//						viewer->removeAllPointClouds();
+//						viewer->addPointCloud<pcl::PointXYZRGBA> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBA>(cloud), "cloud");
+//						viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 5, "cloud");
+//						viewer->spin();
+					}
+				}
+
+				viewer->removeAllPointClouds();
+				viewer->addPointCloud<pcl::PointXYZRGBA> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBA>(cloud), "cloud");
+				viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "cloud");
+				viewer->spin();
+
+
             }
 
+
+			float sumeL = 0;
+			float sumeR = 0;
+			float sumeU = 0;
+			float sumeD = 0;
+
+			float sumeLpred = 0;
+			float sumeRpred = 0;
+			float sumeUpred = 0;
+			float sumeDpred = 0;
+			float angleVar = 100*pow(0.97,it);
+			printf("angleVar: %15.15f\n",angleVar);
 
             for(int w = 1; w < width-1; w++){
                 for(int h = 1; h < height-1;h++){
@@ -282,13 +357,32 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
                     int iU = iM-width;
                     int iD = iM+width;
 
-                    float zMbase = zbase[iM];
-                    float zM = zest[iM];
-                    float zL = zest[iL];
-                    float zR = zest[iR];
-                    float zU = zest[iU];
-                    float zD = zest[iD];
+					//Z
+					float zMbase = zbase[iM];
+					float zM = zest[iM];
+					float zL = zest[iL];
+					float zR = zest[iR];
+					float zU = zest[iU];
+					float zD = zest[iD];
 
+					float zMdx = zdx[iM];
+					float zLdx = zdx[iL];
+					float zRdx = zdx[iR];
+					float zUdx = zdx[iU];
+					float zDdx = zdx[iD];
+
+					float zMdy = zdy[iM];
+					float zLdy = zdy[iL];
+					float zRdy = zdy[iR];
+					float zUdy = zdy[iU];
+					float zDdy = zdy[iD];
+
+					float zLpred = zL-zLdx;
+					float zRpred = zR+zRdx;
+					float zUpred = zU-zUdy;
+					float zDpred = zD+zDdy;
+
+					//R
                     float rMbase = rbase[iM];
                     float rM = rest[iM];
                     float rL = rest[iL];
@@ -296,6 +390,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
                     float rU = rest[iU];
                     float rD = rest[iD];
 
+					//G
                     float gMbase = gbase[iM];
                     float gM = gest[iM];
                     float gL = gest[iL];
@@ -303,6 +398,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
                     float gU = gest[iU];
                     float gD = gest[iD];
 
+					//B
                     float bMbase = bbase[iM];
                     float bM = best[iM];
                     float bL = best[iL];
@@ -310,14 +406,148 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
                     float bU = best[iU];
                     float bD = best[iD];
 
+					//Diffs
 
-                    float dzL = zM-zL;
-                    float dzR = zM-zR;
-                    float dzU = zM-zU;
-                    float dzD = zM-zD;
+					float dzL2 = (zM-zL)*(zM-zL)/(zM*zM*zM*zM+zL*zL*zL*zL);
+					float dzL2pred = (zM-zLpred)*(zM-zLpred)/(zM*zM*zM*zM+zL*zL*zL*zL);
+
+					float drL = rM-rL;
+					float dgL = gM-gL;
+					float dbL = bM-bL;
+
+					float dzR2 = (zM-zR)*(zM-zR)/(zM*zM*zM*zM+zR*zR*zR*zR);
+					float dzR2pred = (zM-zRpred)*(zM-zRpred)/(zM*zM*zM*zM+zR*zR*zR*zR);
+					float drR = rM-rR;
+					float dgR = gM-gR;
+					float dbR = bM-bR;
+
+					float dzU2 = (zM-zU)*(zM-zU)/(zM*zM*zM*zM+zU*zU*zU*zU);
+					float dzU2pred = (zM-zUpred)*(zM-zUpred)/(zM*zM*zM*zM+zU*zU*zU*zU);
+					float drU = rM-rU;
+					float dgU = gM-gU;
+					float dbU = bM-bU;
+
+					float dzD2 = (zM-zD)*(zM-zD)/(zM*zM*zM*zM+zD*zD*zD*zD);
+					float dzD2pred = (zM-zDpred)*(zM-zDpred)/(zM*zM*zM*zM+zD*zD*zD*zD);
+					float drD = rM-rD;
+					float dgD = gM-gD;
+					float dbD = bM-bD;
+
+					int itthresh = 20000;
+					if(it < itthresh || dzL2 < dzL2pred){
+						dzL2pred = dzL2;
+						zLpred = zL;
+					}
+
+					if(it < itthresh ||  dzR2 < dzR2pred){
+						dzR2pred = dzR2;
+						zRpred = zR;
+					}
+
+					if(it < itthresh ||  dzU2 < dzU2pred){
+						dzU2pred = dzU2;
+						zUpred = zU;
+					}
+
+					if(it < itthresh ||  dzD2 < dzD2pred){
+						dzD2pred = dzD2;
+						zDpred = zD;
+					}
+
+					float zangleL = (zLdx-zMdx)*(zLdx-zMdx)+(zLdy-zMdy)*(zLdy-zMdy);
+					float zangleR = (zRdx-zMdx)*(zRdx-zMdx)+(zRdy-zMdy)*(zRdy-zMdy);
+					float zangleU = (zUdx-zMdx)*(zUdx-zMdx)+(zUdy-zMdy)*(zUdy-zMdy);
+					float zangleD = (zDdx-zMdx)*(zDdx-zMdx)+(zDdy-zMdy)*(zDdy-zMdy);
+
+
+					//Weights
+					float distVar = 0.01*0.01;
+
+					float weightM = 1.0*float(zMbase > 0);
+					float weightL = exp(-0.5*dzL2pred/distVar)*exp(-0.5*zangleL/angleVar);
+					float weightR = exp(-0.5*dzR2pred/distVar)*exp(-0.5*zangleR/angleVar);
+					float weightU = exp(-0.5*dzU2pred/distVar)*exp(-0.5*zangleU/angleVar);
+					float weightD = exp(-0.5*dzD2pred/distVar)*exp(-0.5*zangleD/angleVar);
+
+
+
+					float sumW = weightM+weightL+weightR+weightU+weightD;
+					if(sumW > 0){
+						sumeL += dzL2*weightL;
+						sumeR += dzR2*weightR;
+						sumeU += dzU2*weightU;
+						sumeD += dzD2*weightD;
+
+						sumeLpred += dzL2pred*weightL;
+						sumeRpred += dzR2pred*weightR;
+						sumeUpred += dzU2pred*weightU;
+						sumeDpred += dzD2pred*weightD;
+
+						if(isnan(sumeLpred)){
+							printf("w: %i h:%i\n",w,h);
+
+							printf("L:: val: %3.3f dx: %3.3f dy: %3.3f pred: %3.3f\n",zL,zLdx,zLdy,zLpred);
+							printf("normal sums: %10.10f %10.10f %10.10f %10.10f\npredic sums: %10.10f %10.10f %10.10f %10.10f\n",sumeL,sumeR,sumeU,sumeD,sumeLpred,sumeRpred,sumeUpred,sumeDpred);
+							exit(0);
+						}
+
+						float znextM = (zM*weightM+zLpred*weightL+zRpred*weightR+zUpred*weightU+zDpred*weightD)/sumW;
+						znext[iM]	= znextM;
+						if(weightL + weightR > 0){
+							zdx[iM]		= (weightL*(zL-znextM) + weightR*(znextM-zR))/(weightL + weightR);
+						}
+
+						if(weightU + weightD > 0){
+							zdy[iM]		= (weightU*(zU-znextM) + weightD*(znextM-zD))/(weightU + weightD);
+						}
+						/*
+						if(fabs(znext[iM] - zMbase)/sqrt(zMbase*zMbase*zMbase*zMbase + znext[iM]*znext[iM]*znext[iM]*znext[iM]) > 0.01 && znext[iM] < 2.0){
+
+							printf("new value: %3.3f\n",znext[iM]);
+							printf("value   M: %3.3f L %3.3f R %3.3f U %3.3f D %3.3f\n",zM,zL,zR,zU,zD);
+							printf("weight  M: %3.3f L %3.3f R %3.3f U %3.3f D %3.3f\n",weightM,weightL,weightR,weightU,weightD);
+
+
+							pcl::PointXYZRGBA & p = cloud->points[iM];
+							p.b = 0;
+							p.g = 255;
+							p.r = 0;
+
+							viewer->removeAllShapes();
+							viewer->addLine<pcl::PointXYZRGBA> (cloud->points[iM],cloud->points[iL],(1-weightL),weightL,0,"L");
+							viewer->addLine<pcl::PointXYZRGBA> (cloud->points[iM],cloud->points[iR],(1-weightR),weightR,0,"R");
+							viewer->addLine<pcl::PointXYZRGBA> (cloud->points[iM],cloud->points[iU],(1-weightU),weightU,0,"U");
+							viewer->addLine<pcl::PointXYZRGBA> (cloud->points[iM],cloud->points[iD],(1-weightD),weightD,0,"D");
+
+							viewer->removeAllPointClouds();
+							viewer->addPointCloud<pcl::PointXYZRGBA> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBA>(cloud), "cloud");
+							viewer->spin();
+
+							p.b = 255;//best[iM]*256.0;
+							p.g = 0;//gest[iM]*256.0;
+							p.r = 255;//rest[iM]*256.0;
+
+						}
+						*/
+					}else{
+						znext[iM] = zest[iM];
+					}
 
                 }
             }
+
+			printf("------\n");
+			printf("normal sums: %10.10f %10.10f %10.10f %10.10f\npredic sums: %10.10f %10.10f %10.10f %10.10f\n",sumeL,sumeR,sumeU,sumeD,sumeLpred,sumeRpred,sumeUpred,sumeDpred);
+
+//			std::memcpy(zest,znext,width*height*sizeof(float));
+//			std::memcpy(rest,rnext,width*height*sizeof(float));
+//			std::memcpy(gest,gnext,width*height*sizeof(float));
+//			std::memcpy(best,bnext,width*height*sizeof(float));
+
+			float * ztmp = zest; zest = znext; znext = ztmp;
+//			float * rtmp = rest; rest = rnext; rnext = rtmp;
+//			float * gtmp = gest; gest = gnext; gnext = gtmp;
+//			float * btmp = best; best = bnext; bnext = btmp;
         }
         exit(0);
     }

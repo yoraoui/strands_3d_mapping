@@ -32,6 +32,7 @@
 #include "quasimodo_msgs/fuse_models.h"
 #include "quasimodo_msgs/get_model.h"
 #include "quasimodo_msgs/segment_model.h"
+#include "quasimodo_msgs/metaroom_pair.h"
 
 #include "ros/ros.h"
 #include <quasimodo_msgs/query_cloud.h>
@@ -60,101 +61,37 @@
 #include "core/RGBDFrame.h"
 #include "Util/Util.h"
 
+ros::ServiceClient segmentation_client;
 
 
 using namespace std;
 
-//typedef pcl::PointXYZRGB PointType;
-//typedef pcl::PointCloud<PointType> Cloud;
-//typedef typename Cloud::Ptr CloudPtr;
-//typedef pcl::search::KdTree<PointType> Tree;
-//typedef semantic_map_load_utilties::DynamicObjectData<PointType> ObjectData;
+bool segment_metaroom(quasimodo_msgs::metaroom_pair::Request  & req, quasimodo_msgs::metaroom_pair::Response & res){
+	printf("segment_metaroom\n");
 
-//using pcl::visualization::PointCloudColorHandlerCustom;
+	reglib::Model * bg_model = quasimodo_brain::load_metaroom_model(req.background);
+	reglib::Model * fg_model = quasimodo_brain::load_metaroom_model(req.foreground);
 
-//std::vector< std::vector<cv::Mat> > rgbs;
-//std::vector< std::vector<cv::Mat> > depths;
-//std::vector< std::vector<cv::Mat> > masks;
-//std::vector< std::vector<tf::StampedTransform > >tfs;
-//std::vector< std::vector<Eigen::Matrix4f> > initposes;
-//std::vector< std::vector< image_geometry::PinholeCameraModel > > cams;
+	quasimodo_msgs::segment_model sm;
+	sm.request.backgroundmodel = quasimodo_brain::getModelMSG(bg_model);
+	sm.request.models.push_back(quasimodo_brain::getModelMSG(fg_model));
 
-//pcl::visualization::PCLVisualizer* pg;
-//boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
+	if (segmentation_client.call(sm)){
+		//int model_id = mff.response.model_id;
+	}else{ROS_ERROR("Failed to call service segment_model");}
 
-//std::vector<reglib::Model * > models;
-/*
-reglib::Model * load2(std::string sweep_xml){
-	int slash_pos = sweep_xml.find_last_of("/");
-	std::string sweep_folder = sweep_xml.substr(0, slash_pos) + "/";
-	printf("folder: %s\n",sweep_folder.c_str());
-
-	SimpleXMLParser<PointType> parser;
-	SimpleXMLParser<PointType>::RoomData roomData  = parser.loadRoomFromXML(sweep_folder+"/room.xml");
-
-//	projection
-//	532.158936 0.000000 310.514310 0.000000
-//	0.000000 533.819214 236.842039 0.000000
-//	0.000000 0.000000 1.000000 0.000000
-
-	reglib::Model * sweepmodel = 0;
-
-	std::vector<reglib::RGBDFrame * > current_room_frames;
-	for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++)
-	{
-
-		cv::Mat fullmask;
-		fullmask.create(480,640,CV_8UC1);
-		unsigned char * maskdata = (unsigned char *)fullmask.data;
-		for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
-
-		reglib::Camera * cam		= new reglib::Camera();//TODO:: ADD TO CAMERAS
-		cam->fx = 532.158936;
-		cam->fy = 533.819214;
-		cam->cx = 310.514310;
-		cam->cy = 236.842039;
-
-
-		cout<<"Intermediate cloud size "<<roomData.vIntermediateRoomClouds[i]->points.size()<<endl;
-
-		printf("%i / %i\n",i,roomData.vIntermediateRoomClouds.size());
-
-		//Transform
-		tf::StampedTransform tf	= roomData.vIntermediateRoomCloudTransformsRegistered[i];
-		geometry_msgs::TransformStamped tfstmsg;
-		tf::transformStampedTFToMsg (tf, tfstmsg);
-		geometry_msgs::Transform tfmsg = tfstmsg.transform;
-		geometry_msgs::Pose		pose;
-		pose.orientation		= tfmsg.rotation;
-		pose.position.x		= tfmsg.translation.x;
-		pose.position.y		= tfmsg.translation.y;
-		pose.position.z		= tfmsg.translation.z;
-		Eigen::Affine3d epose;
-		tf::poseMsgToEigen(pose, epose);
-
-		reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,roomData.vIntermediateRGBImages[i],5.0*roomData.vIntermediateDepthImages[i],0, epose.matrix());
-
-        current_room_frames.push_back(frame);
-		if(i == 0){
-			sweepmodel = new reglib::Model(frame,fullmask);
-		}else{
-			sweepmodel->frames.push_back(frame);
-			sweepmodel->relativeposes.push_back(current_room_frames.front()->pose.inverse() * frame->pose);
-			sweepmodel->modelmasks.push_back(new reglib::ModelMask(fullmask));
-		}
-	}
-
-    //sweepmodel->recomputeModelPoints();
-    printf("nr points: %i\n",sweepmodel->points.size());
-
-    models.push_back(sweepmodel);
-	return sweepmodel;
+	bg_model->fullDelete();
+	delete bg_model;
+	fg_model->fullDelete();
+	delete fg_model;
 }
-*/
+
 int main(int argc, char** argv){
 	ros::init(argc, argv, "segmentationserver_metaroom");
 	ros::NodeHandle n;
-//	ros::ServiceServer service = n.advertiseService("segment_model", segment_model);
+	segmentation_client = n.serviceClient<quasimodo_msgs::segment_model>("segment_model");
+	ros::ServiceServer service = n.advertiseService("segment_metaroom", segment_metaroom);
+
 	ros::spin();
 	/*
     reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();

@@ -6,3 +6,4 @@ uint64 models_refine
 ---
 model backgroundmodel
 model[] models
+image_array[] masks
