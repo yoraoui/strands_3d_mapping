@@ -260,7 +260,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
         }
 
         for(int it = 0; true; it++){
-			if(it % 100 == 0){
+            if(it % 10 == 0){
                 for(int w = 0; w < width; w++){
                     for(int h = 0; h < height;h++){
                         int ind = h*width+w;
@@ -433,26 +433,26 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 					float dgD = gM-gD;
 					float dbD = bM-bD;
 
-					int itthresh = 20000;
-					if(it < itthresh || dzL2 < dzL2pred){
-						dzL2pred = dzL2;
-						zLpred = zL;
-					}
+                    int itthresh = 20;
+                    if(it < itthresh || dzL2 < dzL2pred){
+                        dzL2pred = dzL2;
+                        zLpred = zL;
+                    }
 
-					if(it < itthresh ||  dzR2 < dzR2pred){
-						dzR2pred = dzR2;
-						zRpred = zR;
-					}
+                    if(it < itthresh ||  dzR2 < dzR2pred){
+                        dzR2pred = dzR2;
+                        zRpred = zR;
+                    }
 
-					if(it < itthresh ||  dzU2 < dzU2pred){
-						dzU2pred = dzU2;
-						zUpred = zU;
-					}
+                    if(it < itthresh ||  dzU2 < dzU2pred){
+                        dzU2pred = dzU2;
+                        zUpred = zU;
+                    }
 
-					if(it < itthresh ||  dzD2 < dzD2pred){
-						dzD2pred = dzD2;
-						zDpred = zD;
-					}
+                    if(it < itthresh ||  dzD2 < dzD2pred){
+                        dzD2pred = dzD2;
+                        zDpred = zD;
+                    }
 
 					float zangleL = (zLdx-zMdx)*(zLdx-zMdx)+(zLdy-zMdy)*(zLdy-zMdy);
 					float zangleR = (zRdx-zMdx)*(zRdx-zMdx)+(zRdy-zMdy)*(zRdy-zMdy);
@@ -460,16 +460,27 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 					float zangleD = (zDdx-zMdx)*(zDdx-zMdx)+(zDdy-zMdy)*(zDdy-zMdy);
 
 
-					//Weights
-					float distVar = 0.01*0.01;
+                    //Weights
+                    float distVar = 0.1*0.1;
+                    float colVar = 0.1*0.1;
 
-					float weightM = 1.0*float(zMbase > 0);
-					float weightL = exp(-0.5*dzL2pred/distVar)*exp(-0.5*zangleL/angleVar);
-					float weightR = exp(-0.5*dzR2pred/distVar)*exp(-0.5*zangleR/angleVar);
-					float weightU = exp(-0.5*dzU2pred/distVar)*exp(-0.5*zangleU/angleVar);
-					float weightD = exp(-0.5*dzD2pred/distVar)*exp(-0.5*zangleD/angleVar);
+                    float diffZ = fabs(zM-zMbase)/(0.001*zMbase*zMbase);
+
+                    float weightM = pow(diffZ,4)*0.01*float(zMbase > 0);//exp(-0.5*(zM-zMbase)*(zM-zMbase)/distVar);//1.0*float(zMbase > 0);
+                    float weightL = exp(-0.5*(dzL2/distVar + drL*drL/colVar + dgL*dgL/colVar + dbL*dbL/colVar));//*exp(-0.5*zangleL/angleVar);
+                    float weightR = exp(-0.5*(dzR2/distVar + drR*drR/colVar + dgR*dgR/colVar + dbR*dbR/colVar));//*exp(-0.5*zangleR/angleVar);
+                    float weightU = exp(-0.5*(dzU2/distVar + drU*drU/colVar + dgU*dgU/colVar + dbU*dbU/colVar));//*exp(-0.5*zangleU/angleVar);
+                    float weightD = exp(-0.5*(dzD2/distVar + drD*drD/colVar + dgD*dgD/colVar + dbD*dbD/colVar));//*exp(-0.5*zangleD/angleVar);
 
 
+                    if(w == width/2 && h == height/2){
+                        printf("w: %i h:%i\n",w,h);
+                        printf("M: %3.3f Base: %3.3f\n",zM,zMbase);
+                        printf("L:: val: %3.3f dx: %3.3f dy: %3.3f pred: %3.3f\n",zL,zLdx,zLdy,zLpred);
+                        printf("R:: val: %3.3f dx: %3.3f dy: %3.3f pred: %3.3f\n",zR,zRdx,zRdy,zRpred);
+                        printf("U:: val: %3.3f dx: %3.3f dy: %3.3f pred: %3.3f\n",zU,zUdx,zUdy,zUpred);
+                        printf("D:: val: %3.3f dx: %3.3f dy: %3.3f pred: %3.3f\n",zD,zDdx,zDdy,zDpred);
+                    }
 
 					float sumW = weightM+weightL+weightR+weightU+weightD;
 					if(sumW > 0){
@@ -485,7 +496,6 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 
 						if(isnan(sumeLpred)){
 							printf("w: %i h:%i\n",w,h);
-
 							printf("L:: val: %3.3f dx: %3.3f dy: %3.3f pred: %3.3f\n",zL,zLdx,zLdy,zLpred);
 							printf("normal sums: %10.10f %10.10f %10.10f %10.10f\npredic sums: %10.10f %10.10f %10.10f %10.10f\n",sumeL,sumeR,sumeU,sumeD,sumeLpred,sumeRpred,sumeUpred,sumeDpred);
 							exit(0);
