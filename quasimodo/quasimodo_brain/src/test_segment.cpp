@@ -100,7 +100,7 @@ reglib::Model * load2(std::string sweep_xml){
 	reglib::Model * sweepmodel = 0;
 
 	std::vector<reglib::RGBDFrame * > current_room_frames;
-	for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++)
+	for (size_t i=0; i < 20 && i<roomData.vIntermediateRoomClouds.size(); i++)
 	{
 
 		cv::Mat fullmask;
@@ -144,20 +144,23 @@ reglib::Model * load2(std::string sweep_xml){
 		}
 	}
 
-    //sweepmodel->recomputeModelPoints();
-    printf("nr points: %i\n",sweepmodel->points.size());
+	//sweepmodel->recomputeModelPoints();
+	//printf("nr points: %i\n",sweepmodel->points.size());
 
     models.push_back(sweepmodel);
 	return sweepmodel;
 }
 
-int main(int argc, char** argv){
-    reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
+//segment(reglib::Model * bg, std::vector< reglib::Model * > models, bool debugg)
 
-	viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
-	viewer->setBackgroundColor (0.5, 0, 0.5);
-	viewer->addCoordinateSystem (1.0);
-	viewer->initCameraParameters ();
+int main(int argc, char** argv){
+
+//    reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
+
+//	viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
+//	viewer->setBackgroundColor (0.5, 0, 0.5);
+//	viewer->addCoordinateSystem (1.0);
+//	viewer->initCameraParameters ();
 
     for(int ar = 1; ar < argc; ar++){
         string overall_folder = std::string(argv[ar]);
@@ -169,46 +172,62 @@ int main(int argc, char** argv){
         }
     }
 
-	//Not needed if metaroom well calibrated
-    reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.01);
-    bgmassreg->timeout = 20;
-    bgmassreg->viewer = viewer;
-    bgmassreg->use_surface = true;
-    bgmassreg->use_depthedge = false;
-    bgmassreg->visualizationLvl = 0;
-    bgmassreg->maskstep = 10;
-    bgmassreg->nomaskstep = 10;
-    bgmassreg->nomask = true;
-    bgmassreg->stopval = 0.0005;
-    bgmassreg->setData(models.front()->frames,models.front()->modelmasks);
-    reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(models.front()->relativeposes);
-    delete bgmassreg;
+//	//Not needed if metaroom well calibrated
+//    reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.01);
+//    bgmassreg->timeout = 20;
+//    bgmassreg->viewer = viewer;
+//    bgmassreg->use_surface = true;
+//    bgmassreg->use_depthedge = false;
+//    bgmassreg->visualizationLvl = 0;
+//    bgmassreg->maskstep = 10;
+//    bgmassreg->nomaskstep = 10;
+//    bgmassreg->nomask = true;
+//    bgmassreg->stopval = 0.0005;
+//    bgmassreg->setData(models.front()->frames,models.front()->modelmasks);
+//    reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(models.front()->relativeposes);
+//    delete bgmassreg;
 
 
+/*
 	ros::init(argc, argv, "test_segment");
 	ros::NodeHandle n;
 	ros::ServiceClient segmentation_client = n.serviceClient<quasimodo_msgs::segment_model>("segment_model");
 
+
 	for(unsigned int i = 1; i < models.size(); i++){
 		quasimodo_msgs::segment_model sm;
 		sm.request.models.push_back(quasimodo_brain::getModelMSG(models[i]));
-
-		if(i > 0){
-			sm.request.backgroundmodel = quasimodo_brain::getModelMSG(models[i-1]);
-		}
+		if(i > 0){sm.request.backgroundmodel = quasimodo_brain::getModelMSG(models[i-1]);}
 
 		if (segmentation_client.call(sm)){//Build model from frame
-			//int model_id = mff.response.model_id;
 			printf("segmented: %i\n",i);
 		}else{ROS_ERROR("Failed to call service segment_model");}
 	}
-	//ros::spin();
+*/
 
-    delete reg;
+	for(unsigned int i = 1; i < models.size(); i++){
+		std::vector< reglib::Model * > foreground;
+		foreground.push_back(models[i]);
+		std::vector< std::vector< cv::Mat > > internal;
+		std::vector< std::vector< cv::Mat > > external;
+		std::vector< std::vector< cv::Mat > > dynamic;
+		quasimodo_brain::segment(models[i-1],foreground,internal,external,dynamic);
+
+//		quasimodo_msgs::segment_model sm;
+//		sm.request.models.push_back(quasimodo_brain::getModelMSG(models[i]));
+//		if(i > 0){sm.request.backgroundmodel = quasimodo_brain::getModelMSG(models[i-1]);}
+
+//		if (segmentation_client.call(sm)){//Build model from frame
+//			printf("segmented: %i\n",i);
+//		}else{ROS_ERROR("Failed to call service segment_model");}
+	}
+
     for(size_t j = 0; j < models.size(); j++){
         models[j]->fullDelete();
         delete models[j];
     }
+
+	//delete reg;
 	printf("done\n");
 	return 0;
 }

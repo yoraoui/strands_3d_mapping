@@ -87,8 +87,8 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
     sweepid = -1;
     id = RGBDFrame_id_counter++;
     camera = camera_;
-    rgb = rgb_.clone();
-    depth = depth_.clone();
+	rgb = rgb_;
+	depth = depth_;
     capturetime = capturetime_;
     pose = pose_;
 
@@ -126,13 +126,23 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 
     //printf("%s LINE:%i\n",__FILE__,__LINE__);
     unsigned short * depthdata = (unsigned short *)depth.data;
-    unsigned char * rgbdata = (unsigned char *)rgb.data;
+	unsigned char * rgbdata = (unsigned char *)rgb.data;
+
+//	rgbdata = 0;
+
+//	rgbdata = new float[3*width*height];
+//	for(int i = 0; i < 3*width*height; i++){
+//		rgbdata[i]	=  float(img_rgbdata[i]);
+//	}
 
     depthedges.create(height,width,CV_8UC1);
     unsigned char * depthedgesdata = (unsigned char *)depthedges.data;
     for(int i = 0; i < width*height; i++){
         depthedgesdata[i] = 0;
     }
+
+	//rgbdata
+
     /*
     double t = 0.01;
     for(int w = 0; w < width; w++){
@@ -212,7 +222,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
     //        src = dst.clone();
     //    }
 
-    if(true){
+	if(false){
         pcl::PointCloud<pcl::PointXYZRGBA>::Ptr	cloud (new pcl::PointCloud<pcl::PointXYZRGBA>);
         cloud->width	= width;
         cloud->height	= height;
@@ -260,7 +270,10 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
         }
 
         for(int it = 0; true; it++){
-            if(it % 10 == 0){
+			if(it % 50 == 0){
+
+
+
                 for(int w = 0; w < width; w++){
                     for(int h = 0; h < height;h++){
                         int ind = h*width+w;
@@ -333,7 +346,25 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 				viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "cloud");
 				viewer->spin();
 
-
+				for(int w = 0; w < width; w++){
+					for(int h = 0; h < height;h++){
+						int ind = h*width+w;
+						pcl::PointXYZRGBA & p = cloud->points[ind];
+						double z = zest[ind];
+						if(z > 0){
+							p.x = (double(w) - cx) * z * ifx;
+							p.y = (double(h) - cy) * z * ify;
+							p.z = z;
+						}else{
+							p.x = 0;
+							p.y = 0;
+							p.z = 0;
+						}
+						p.b = best[ind]*256.0;
+						p.g = gest[ind]*256.0;
+						p.r = rest[ind]*256.0;
+					}
+				}
             }
 
 
@@ -433,7 +464,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 					float dgD = gM-gD;
 					float dbD = bM-bD;
 
-                    int itthresh = 20;
+					int itthresh = 2000;
                     if(it < itthresh || dzL2 < dzL2pred){
                         dzL2pred = dzL2;
                         zLpred = zL;
@@ -461,16 +492,23 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 
 
                     //Weights
-                    float distVar = 0.1*0.1;
-                    float colVar = 0.1*0.1;
+					float distVar = 0.01*0.01;
+					float colVar = 0.1*0.1;
 
                     float diffZ = fabs(zM-zMbase)/(0.001*zMbase*zMbase);
 
-                    float weightM = pow(diffZ,4)*0.01*float(zMbase > 0);//exp(-0.5*(zM-zMbase)*(zM-zMbase)/distVar);//1.0*float(zMbase > 0);
+					float weightM = pow(diffZ,2)*0.01*float(zMbase > 0);//exp(-0.5*(zM-zMbase)*(zM-zMbase)/distVar);//1.0*float(zMbase > 0);
                     float weightL = exp(-0.5*(dzL2/distVar + drL*drL/colVar + dgL*dgL/colVar + dbL*dbL/colVar));//*exp(-0.5*zangleL/angleVar);
                     float weightR = exp(-0.5*(dzR2/distVar + drR*drR/colVar + dgR*dgR/colVar + dbR*dbR/colVar));//*exp(-0.5*zangleR/angleVar);
                     float weightU = exp(-0.5*(dzU2/distVar + drU*drU/colVar + dgU*dgU/colVar + dbU*dbU/colVar));//*exp(-0.5*zangleU/angleVar);
                     float weightD = exp(-0.5*(dzD2/distVar + drD*drD/colVar + dgD*dgD/colVar + dbD*dbD/colVar));//*exp(-0.5*zangleD/angleVar);
+
+					if((weightL > 0.4 && weightR < 0.2) || (weightL < 0.2 && weightR > 0.4) || (weightU > 0.4 && weightD < 0.2) || (weightU < 0.2 && weightD > 0.4)){
+						pcl::PointXYZRGBA & p = cloud->points[iM];
+						p.b = 0;
+						p.g = 255;
+						p.r = 0;
+					}
 
 
                     if(w == width/2 && h == height/2){
@@ -561,16 +599,19 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
         }
         exit(0);
     }
-    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr	cloud (new pcl::PointCloud<pcl::PointXYZRGBA>);
-    cloud->width	= width;
-    cloud->height	= height;
-    cloud->points.resize(width*height);
 
-    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
-    viewer->setBackgroundColor (0, 0, 0);
-    viewer->addCoordinateSystem (1.0);
-    viewer->initCameraParameters ();
     if(false){
+
+
+		pcl::PointCloud<pcl::PointXYZRGBA>::Ptr	cloud (new pcl::PointCloud<pcl::PointXYZRGBA>);
+		cloud->width	= width;
+		cloud->height	= height;
+		cloud->points.resize(width*height);
+
+		boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
+		viewer->setBackgroundColor (0, 0, 0);
+		viewer->addCoordinateSystem (1.0);
+		viewer->initCameraParameters ();
         //        cv::Mat bilat;
         //        cv::adaptiveBilateralFilter(rgb, bilat, cv::Size(21,21), 30);
 
@@ -1123,10 +1164,6 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
         //        delete[] z_est;
         //        delete[] col_est;
         //        delete[] normal_est;
-
-
-
-
     }
 
     //printf("%s LINE:%i\n",__FILE__,__LINE__);
@@ -1618,6 +1655,7 @@ RGBDFrame::~RGBDFrame(){
     normals.release();
     depth.release();
     depthedges.release();
+	//if(rgbdata != 0){delete[] rgbdata; rgbdata = 0;}
     if(labels != 0){delete[] labels; labels = 0;}
 }
 

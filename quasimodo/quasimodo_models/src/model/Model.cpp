@@ -35,6 +35,7 @@ Model::Model(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d pose){
 void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* frame, ModelMask* modelmask){
 	bool * maskvec = modelmask->maskvec;
 	unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
+	//float  * rgbdata				= frame->rgbdata;
 	unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
 	float		   * normalsdata	= (float			*)(frame->normals.data);
 
@@ -135,9 +136,9 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 					float pny	= m10*dst_nx + m11*dst_ny + m12*dst_nz;
 					float pnz	= m20*dst_nx + m21*dst_ny + m22*dst_nz;
 
-					float pb = (float)(rgbdata[3*ind+0]);
-					float pg = (float)(rgbdata[3*ind+1]);
-					float pr = (float)(rgbdata[3*ind+2]);
+					float pb = (float)(rgbdata[3*dst_ind+0]);
+					float pg = (float)(rgbdata[3*dst_ind+1]);
+					float pr = (float)(rgbdata[3*dst_ind+2]);
 
 					Vector3f	pxyz	(px	,py	,pz );
 					Vector3f	pnxyz	(pnx,pny,pnz);

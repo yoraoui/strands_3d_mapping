@@ -148,6 +148,10 @@ add_executable(			segment_room_pairs src/segment_room_pairs.cpp)
 add_dependencies(		segment_room_pairs roscpp quasimodo_msgs_generate_messages_cpp)
 target_link_libraries(	segment_room_pairs quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
+add_executable(			test_segment_room_pairs src/test_segment_room_pairs.cpp)
+add_dependencies(		test_segment_room_pairs roscpp quasimodo_msgs_generate_messages_cpp)
+target_link_libraries(	test_segment_room_pairs quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+
 add_executable(			segmentationserver src/segmentationserver.cpp)
 add_dependencies(		segmentationserver roscpp quasimodo_msgs_generate_messages_cpp)
 target_link_libraries(	segmentationserver quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})

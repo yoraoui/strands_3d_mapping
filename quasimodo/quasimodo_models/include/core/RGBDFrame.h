@@ -34,7 +34,7 @@ namespace reglib
 		Eigen::Matrix4d pose;
 		int sweepid;
 
-        float * rgbdata;
+		//float * rgbdata;
 
 		cv::Mat rgb;
 		cv::Mat depth;

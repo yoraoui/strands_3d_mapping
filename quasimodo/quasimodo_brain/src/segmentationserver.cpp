@@ -38,6 +38,9 @@ boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 //Update background
     //How?
 
+
+//std::vector<cv::Mat>
+
 bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs::segment_model::Response & res){
 	printf("segment_model\n");
 	std::vector< reglib::Model * > models;
@@ -47,6 +50,10 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 
 	reglib::Model * bg = quasimodo_brain::getModelFromMSG(req.backgroundmodel);
 
+	std::vector< std::vector< cv::Mat > > internal;
+	std::vector< std::vector< cv::Mat > > external;
+	std::vector< std::vector< cv::Mat > > dynamic;
+/*
 	reglib::MassRegistrationPPR2 * massregmod = new reglib::MassRegistrationPPR2(0.25);
 	massregmod->timeout = 1200;
 	massregmod->viewer = viewer;
@@ -117,9 +124,7 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 	}
 
 
-	std::vector< std::vector< cv::Mat > > internal;
-	std::vector< std::vector< cv::Mat > > external;
-	std::vector< std::vector< cv::Mat > > dynamic;
+
 
 	for(int j = 0; j < models.size(); j++){
 		reglib::Model * model = models[j];
@@ -135,7 +140,7 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 			masks.push_back(mask);
 		}
 
-		std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,model->relativeposes,model->frames,masks,true);//Determine self occlusions
+		std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,model->relativeposes,model->frames,masks,false);//Determine self occlusions
 		std::vector<cv::Mat> external_masks = mu->computeDynamicObject(model->relativeposes,model->frames,masks,bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,false);//Determine external occlusions
 		std::vector<cv::Mat> dynamic_masks;
 		for(unsigned int i = 0; i < model->frames.size(); i++){
@@ -169,9 +174,11 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 		external.push_back(external_masks);
 		dynamic.push_back(dynamic_masks);
 	}
+*/
 
+	quasimodo_brain::segment(bg,models,internal,external,dynamic);
 
-	for(unsigned int i = 0; i < models.size(); i++){
+	for(unsigned int i = 0; visualization && i < models.size(); i++){
 		std::vector<cv::Mat> internal_masks = internal[i];
 		std::vector<cv::Mat> external_masks = external[i];
 		std::vector<cv::Mat> dynamic_masks	= dynamic[i];
@@ -185,11 +192,11 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 
 			reglib::Camera * camera = frame->camera;
 
-			cv::imshow( "rgb", frame->rgb );
-			cv::imshow( "internal_masks",	internal_masks[j] );
-			cv::imshow( "externalmask",		external_masks[j] );
-			cv::imshow( "dynamic_mask",		dynamic_masks[j] );
-			cv::waitKey(100);
+//			cv::imshow( "rgb", frame->rgb );
+//			cv::imshow( "internal_masks",	internal_masks[j] );
+//			cv::imshow( "externalmask",		external_masks[j] );
+//			cv::imshow( "dynamic_mask",		dynamic_masks[j] );
+//			cv::waitKey(100);
 
 
 			unsigned char * internalmaskdata = (unsigned char *)(internal_masks[j].data);
@@ -244,19 +251,26 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 		}
 		viewer->removeAllPointClouds();
 		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "scloud");
-		while(cv::waitKey(50)!='q'){viewer->spinOnce();}
+		viewer->spin();
+		//while(cv::waitKey(50)!='q'){viewer->spinOnce();}
 	}
 
 	res.backgroundmodel = req.backgroundmodel;
 
 
-	res.masks.resize(models.size());
+	res.dynamicmasks.resize(models.size());
+	res.internalmasks.resize(models.size());
 	for(unsigned int i = 0; i < models.size(); i++){
 		for(unsigned int j = 0; j < models[i]->frames.size(); j++){
-			cv_bridge::CvImage maskBridgeImage;
-			maskBridgeImage.image			= dynamic[i][j];
-			maskBridgeImage.encoding		= "mono8";
-			res.masks[i].images.push_back( *(maskBridgeImage.toImageMsg()) );
+			cv_bridge::CvImage dynamicmaskBridgeImage;
+			dynamicmaskBridgeImage.image			= dynamic[i][j];
+			dynamicmaskBridgeImage.encoding		= "mono8";
+			res.dynamicmasks[i].images.push_back( *(dynamicmaskBridgeImage.toImageMsg()) );
+
+			cv_bridge::CvImage internalmaskBridgeImage;
+			internalmaskBridgeImage.image			= internal[i][j];
+			internalmaskBridgeImage.encoding		= "mono8";
+			res.internalmasks[i].images.push_back( *(internalmaskBridgeImage.toImageMsg()) );
 		}
 
 		res.models.push_back(quasimodo_brain::getModelMSG(models[i]));
@@ -269,6 +283,7 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 }
 
 int main(int argc, char** argv){
+
 	ros::init(argc, argv, "segmentationserver");
 	ros::NodeHandle n;
 

@@ -2054,6 +2054,20 @@ std::vector<int> doInference(std::vector<double> & prior, std::vector< std::vect
 	return labels;
 }
 
+void ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Matrix4d> poses, vector<RGBDFrame*> frames, bool debugg){
+	int tot_nr_pixels = 0;
+	std::vector<int> offsets;
+
+	for(unsigned int i = 0; i < frames.size(); i++){
+		offsets.push_back(tot_nr_pixels);
+		unsigned int nr_pixels = frames[i]->camera->width * frames[i]->camera->height;
+		tot_nr_pixels += nr_pixels;
+	}
+	printf("tot_nr_pixels: %i\n",tot_nr_pixels);
+	exit(0);
+}
+
+
 vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Mat> bgmm, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<Mat> mm, vector<Matrix4d> poses, vector<RGBDFrame*> frames, vector<Mat> masks, bool debugg){
 	std::vector<cv::Mat> newmasks;
 
@@ -2306,7 +2320,7 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
         delete[] occlusions;
     }
 
-	std::vector<int> global_labels = doInference(prior,connectionId,connectionStrength);
+	//std::vector<int> global_labels = doInference(prior,connectionId,connectionStrength);
 
 	for(unsigned int i = 0; i < interframe_connectionId.size(); i++){
 		for(unsigned int j = 0; j < interframe_connectionId[i].size(); j++){
@@ -2321,7 +2335,7 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 		int offset = offsets[f];
 		RGBDFrame * frame = frames[f];
 		unsigned short * depthdata	= (unsigned short	*)(frame->depth.data);
-		unsigned char * rgbdata		= (unsigned char	*)(frame->rgb.data);
+//		unsigned char * rgbdata		= (unsigned char	*)(frame->rgb.data);
 
 		Camera * camera				= frame->camera;
 		const unsigned int width	= camera->width;
@@ -2329,35 +2343,35 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 
 		unsigned int nr_pixels = frame->camera->width * frame->camera->height;
 
-		cv::Mat originalmask;
-		originalmask.create(height,width,CV_8UC1);
-		unsigned char * originaldata = (unsigned char *)(originalmask.data);
+//		cv::Mat originalmask;
+//		originalmask.create(height,width,CV_8UC1);
+//		unsigned char * originaldata = (unsigned char *)(originalmask.data);
 
 		cv::Mat improvedmask;
 		improvedmask.create(height,width,CV_8UC1);
 		unsigned char * improveddata = (unsigned char *)(improvedmask.data);
 
-		cv::Mat diffmask;
-		diffmask.create(height,width,CV_8UC3);
-		unsigned char * diffdata = (unsigned char *)(diffmask.data);
+//		cv::Mat diffmask;
+//		diffmask.create(height,width,CV_8UC3);
+//		unsigned char * diffdata = (unsigned char *)(diffmask.data);
 
 		for(unsigned int i = 0; i < nr_pixels;i++){
 			//internaldata[i] = 255.0*((depthdata[i] == 0) || (g->what_segment(i) == gc::Graph<double,double,double>::SOURCE));
-			originaldata[i] = 255.0*((depthdata[i] == 0) || (global_labels[i+offset] == gc::Graph<double,double,double>::SOURCE));
+			//originaldata[i] = 255.0*((depthdata[i] == 0) || (global_labels[i+offset] == gc::Graph<double,double,double>::SOURCE));
 			improveddata[i] = 255.0*((depthdata[i] == 0) || (improvedglobal_labels[i+offset] == gc::Graph<double,double,double>::SOURCE));
-			if(improveddata[i] < originaldata[i]){
-				diffdata[3*i+0] = 0;
-				diffdata[3*i+1] = 255;
-				diffdata[3*i+2] = 0;
-			}else if(improveddata[i] > originaldata[i]){
-				diffdata[3*i+0] = 0;
-				diffdata[3*i+1] = 0;
-				diffdata[3*i+2] = 255;
-			}else{
-				diffdata[3*i+0] = 0;
-				diffdata[3*i+1] = 0;
-				diffdata[3*i+2] = 0;
-			}
+//			if(improveddata[i] < originaldata[i]){
+//				diffdata[3*i+0] = 0;
+//				diffdata[3*i+1] = 255;
+//				diffdata[3*i+2] = 0;
+//			}else if(improveddata[i] > originaldata[i]){
+//				diffdata[3*i+0] = 0;
+//				diffdata[3*i+1] = 0;
+//				diffdata[3*i+2] = 255;
+//			}else{
+//				diffdata[3*i+0] = 0;
+//				diffdata[3*i+1] = 0;
+//				diffdata[3*i+2] = 0;
+//			}
 
 
 		}
@@ -2376,7 +2390,7 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 
 	if(debugg){
 
-
+/*
 		for(unsigned int i = 0; i < frames.size(); i++){
 			int offset = offsets[i];
 			RGBDFrame * frame = frames[i];
@@ -2493,6 +2507,7 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 		viewer->spin();
 
 		viewer->removeAllPointClouds();
+		*/
 	}
 
     return newmasks;

@@ -69,6 +69,9 @@ using namespace std;
 bool segment_metaroom(quasimodo_msgs::metaroom_pair::Request  & req, quasimodo_msgs::metaroom_pair::Response & res){
 	printf("segment_metaroom\n");
 
+	printf("background: %s\n",req.background.c_str());
+	printf("foreground: %s\n",req.foreground.c_str());
+
 	reglib::Model * bg_model = quasimodo_brain::load_metaroom_model(req.background);
 	reglib::Model * fg_model = quasimodo_brain::load_metaroom_model(req.foreground);
 
@@ -84,6 +87,7 @@ bool segment_metaroom(quasimodo_msgs::metaroom_pair::Request  & req, quasimodo_m
 	delete bg_model;
 	fg_model->fullDelete();
 	delete fg_model;
+	return true;
 }
 
 int main(int argc, char** argv){

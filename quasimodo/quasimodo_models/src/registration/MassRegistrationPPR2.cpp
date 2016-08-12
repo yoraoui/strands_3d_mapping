@@ -9,6 +9,8 @@
 namespace reglib
 {
 
+//#define domultithread
+
 MassRegistrationPPR2::MassRegistrationPPR2(double startreg, bool visualize){
 	type					= PointToPlane;
 	//type					= PointToPoint;
@@ -536,7 +538,11 @@ double matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, int nr_a
     double good = 0;
     double bad = 0;
 
-#pragma omp parallel for num_threads(8)
+
+
+#if defdomultithread
+	#pragma omp parallel for num_threads(8)
+#endif
 	for(unsigned int k = 0; k < nr_ap; ++k) {
 		int prev = matchid[k];
 		double qp [3];
@@ -581,7 +587,11 @@ double update_matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, i
     double good = 0;
     double bad = 0;
 
-    #pragma omp parallel for num_threads(8)
+
+
+#if defdomultithread
+	#pragma omp parallel for num_threads(8)
+#endif
     for(unsigned int k = 0; k < nr_ap; ++k) {
         const double & src_x = ap[3*k+0];
         const double & src_y = ap[3*k+1];
@@ -1547,7 +1557,11 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 
 
 //        const int nrdn = depthedge_nr_neighbours+1;
-//        #pragma omp parallel for num_threads(8)
+//
+
+//#if defdomultithread
+//	#pragma omp parallel for num_threads(8)
+//#endif
 //        for(int c = 0; c < depthedge_count; c++){
 //            size_t ret_index[nrdn];
 //            double out_dist_sqr[nrdn];
@@ -2828,7 +2842,11 @@ if(useOrb){
             float di = 10.0;
             float pi = 10.0;
 
-			#pragma omp parallel for num_threads(8)
+
+
+#if defdomultithread
+	#pragma omp parallel for num_threads(8)
+#endif
 			for(unsigned int src_k = 0; src_k < src_nr_ap; ++src_k) {
 				const double & src_x = src_ap[3*src_k+0];
 				const double & src_y = src_ap[3*src_k+1];
@@ -2968,7 +2986,11 @@ if(useSurf){
             const double & m10 = rp(1,0); const double & m11 = rp(1,1); const double & m12 = rp(1,2); const double & m13 = rp(1,3);
             const double & m20 = rp(2,0); const double & m21 = rp(2,1); const double & m22 = rp(2,2); const double & m23 = rp(2,3);
 
-            #pragma omp parallel for num_threads(8)
+
+
+#if defdomultithread
+	#pragma omp parallel for num_threads(8)
+#endif
             for(unsigned int src_k = 0; src_k < src_nr_ap; ++src_k) {
                 const double & src_x = src_ap[3*src_k+0];
                 const double & src_y = src_ap[3*src_k+1];
