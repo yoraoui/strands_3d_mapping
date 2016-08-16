@@ -2246,13 +2246,14 @@ void ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBD
 	printf("tot_nr_pixels: %i\n",tot_nr_pixels);
 
 
-    int current_point   = 0;
-    double * priors      = new double[3*tot_nr_pixels];
-    double * estimates   = new double[3*tot_nr_pixels];
-    double * points      = new double[3*tot_nr_pixels];
-    double * noise       = new double[3*tot_nr_pixels];
-    double * colors      = new double[3*tot_nr_pixels];
-    double * normals     = new double[3*tot_nr_pixels];
+    int current_point           = 0;
+    double * priors             = new double[3*tot_nr_pixels];
+    double * priors_weight      = new double[3*tot_nr_pixels];
+    double * estimates          = new double[3*tot_nr_pixels];
+    double * points             = new double[3*tot_nr_pixels];
+    double * noise              = new double[3*tot_nr_pixels];
+    double * colors             = new double[3*tot_nr_pixels];
+    double * normals            = new double[3*tot_nr_pixels];
 
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud  (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 
@@ -2342,22 +2343,25 @@ void ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBD
                     p_dynamic_tot/= norm;
                     p_static_tot /= norm;
 
-                    priors[3*current_point+0]    = p_moving_tot;
-                    priors[3*current_point+1]    = p_dynamic_tot;
-                    priors[3*current_point+2]    = p_static_tot;
-                    estimates[3*current_point+0] = priors[3*current_point+0];
-                    estimates[3*current_point+1] = priors[3*current_point+1];
-                    estimates[3*current_point+2] = priors[3*current_point+2];
-                    points[3*current_point+0]    = m00*x + m01*y + m02*z + m03;
-                    points[3*current_point+1]    = m10*x + m11*y + m12*z + m13;
-                    points[3*current_point+2]    = m20*x + m21*y + m22*z + m23;
-                    noise[current_point]         = z*z;
-                    colors[3*current_point+0]    = rgbdata[3*ind+0];
-                    colors[3*current_point+1]    = rgbdata[3*ind+1];
-                    colors[3*current_point+2]    = rgbdata[3*ind+2];
-                    normals[3*current_point+0]   = -2;
-                    normals[3*current_point+1]   = -2;
-                    normals[3*current_point+2]   = -2;
+                    priors[3*current_point+0]       = p_moving_tot;
+                    priors[3*current_point+1]       = p_dynamic_tot;
+                    priors[3*current_point+2]       = p_static_tot;
+                    priors_weight[3*current_point+0] = -log(1-p_moving_tot);
+                    priors_weight[3*current_point+1] = -log(1-p_dynamic_tot);
+                    priors_weight[3*current_point+2] = -log(1-p_static_tot);
+                    estimates[3*current_point+0]    = priors[3*current_point+0];
+                    estimates[3*current_point+1]    = priors[3*current_point+1];
+                    estimates[3*current_point+2]    = priors[3*current_point+2];
+                    points[3*current_point+0]       = m00*x + m01*y + m02*z + m03;
+                    points[3*current_point+1]       = m10*x + m11*y + m12*z + m13;
+                    points[3*current_point+2]       = m20*x + m21*y + m22*z + m23;
+                    noise[current_point]            = z*z;
+                    colors[3*current_point+0]       = rgbdata[3*ind+0];
+                    colors[3*current_point+1]       = rgbdata[3*ind+1];
+                    colors[3*current_point+2]       = rgbdata[3*ind+2];
+                    normals[3*current_point+0]      = -2;
+                    normals[3*current_point+1]      = -2;
+                    normals[3*current_point+2]      = -2;
                     if(tx != 2){
                         normals[3*current_point+0]   = m00*tx + m01*ty + m02*tz;
                         normals[3*current_point+1]   = m10*tx + m11*ty + m12*tz;
@@ -2416,30 +2420,139 @@ void ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBD
     Tree3d * tree	= new Tree3d(3, *a3d, nanoflann::KDTreeSingleIndexAdaptorParams(10));
     tree->buildIndex();
 
-    const int nr_neighbours = 20;
+    const int find_nr_neighbours = 10;
+
+    std::vector<std::vector<int> >   neighbour_inds;
+    std::vector<std::vector<float> > neighbour_weights;
+    neighbour_inds.resize(current_point);
+    neighbour_weights.resize(current_point);
+    std::set<std::string> neighbours_list;
 
     for(unsigned int i = 0; i < current_point; i++){
-        //if(i%1000 == 0){printf("%i/%i -> %f\n",i,current_point,float(i)/float(current_point));}
+        if(i%100000 == 0){printf("%i/%i -> %f\n",i,current_point,float(i)/float(current_point));}
         double qp [3];
         qp[0] = points[3*i+0];
         qp[1] = points[3*i+1];
         qp[2] = points[3*i+2];
-        size_t ret_index [nr_neighbours];
-        double out_dist_sqr [nr_neighbours];
-        nanoflann::KNNResultSet<double> resultSet(nr_neighbours);
+        size_t ret_index    [find_nr_neighbours];
+        double out_dist_sqr [find_nr_neighbours];
+        nanoflann::KNNResultSet<double> resultSet(find_nr_neighbours);
         resultSet.init(ret_index, out_dist_sqr );
         tree->findNeighbors(resultSet, qp, nanoflann::SearchParams(10));
 
+        for(unsigned int j = 1; j < find_nr_neighbours; j++){
+            int ind = ret_index[j];
+            float weight = 1.00;//Make based on distance, normal and color(if same frame)
+            char buff [1024];
+            sprintf(buff,"%i_%i",i,ind);
+            if(neighbours_list.count(buff) == 0){
+                neighbours_list.insert(buff);
 
+                neighbour_inds[ind].push_back(i);
+                neighbour_weights[ind].push_back(weight);
+
+                neighbour_inds[i].push_back(ind);
+                neighbour_weights[i].push_back(weight);
+            }
+        }
     }
 
+    for(int it = 0; it < 1000; it++){
+        if(debugg){
+            for(unsigned int i = 0; i < current_point; i++){
+                cloud->points[i].r = estimates[3*i+0]*255.0;
+                cloud->points[i].g = estimates[3*i+1]*255.0;
+                cloud->points[i].b = estimates[3*i+2]*255.0;
+            }
 
-    if(debugg){
+            viewer->removeAllPointClouds();
+            viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "cloud");
+            viewer->spin();
+        }
+
+        double total_change = 0;
+        double max_change = 0;
+        for(unsigned int i = 0; i < current_point; i++){
+            if(i%100000 == 0){printf("%i/%i -> %f\n",i,current_point,float(i)/float(current_point));}
+            float score0 = priors_weight[3*i+0];
+            float score1 = priors_weight[3*i+1];
+            float score2 = priors_weight[3*i+2];
+            std::vector<int> & neighbours = neighbour_inds[i];
+            std::vector<float> & weights = neighbour_weights[i];
+            unsigned int nr_neighbours = neighbours.size();
+
+
+
+            for(unsigned int j = 0; j < nr_neighbours; j++){
+                int ind = neighbours[j];
+                float weight = weights[j];
+                float e0 = estimates[3*ind+0];
+                float e1 = estimates[3*ind+1];
+                float e2 = estimates[3*ind+2];
+                float minval = 0;//std::min(std::min(e0,e1),e2);
+                score0+=weight*(e0-minval);
+                score1+=weight*(e1-minval);
+                score2+=weight*(e2-minval);
+            }
+
+            float p0 = 1-exp(-score0);
+            float p1 = 1-exp(-score1);
+            float p2 = 1-exp(-score2);
+            float norm = p0+p1+p2;
+            p0 /= norm;
+            p1 /= norm;
+            p2 /= norm;
+            float e0    = estimates[3*i+0];
+            float e1    = estimates[3*i+1];
+            float e2    = estimates[3*i+2];
+            double change = fabs(e0-p0)+fabs(e1-p1)+fabs(e2-p2);
+
+            if(true && change > max_change){
+                printf("%i/%i -> ",i,current_point);
+                printf("prior: %f %f %f -> \n",priors_weight[3*i+0],priors_weight[3*i+1],priors_weight[3*i+2]);
+
+                for(unsigned int j = 0; j < nr_neighbours; j++){
+                    int ind = neighbours[j];
+                    float weight = weights[j];
+                    float e0 = estimates[3*ind+0];
+                    float e1 = estimates[3*ind+1];
+                    float e2 = estimates[3*ind+2];
+                    float minval = std::min(std::min(e0,e1),e2);
+                    printf("%f ,",weight*(e0-minval));
+                    printf("%f ,",weight*(e1-minval));
+                    printf("%f\n",weight*(e2-minval));
+                }
+
+
+                printf("total: %f %f %f\n",score0,score1,score2);
+
+                printf("\n");
+            }
+
+            total_change += change;
+            max_change = std::max(change,max_change);
+
+            estimates[3*i+0] = p0;
+            estimates[3*i+1] = p1;
+            estimates[3*i+2] = p2;
+
+
+            cloud->points[i].r = std::min((change)*255.0,255.0);
+            cloud->points[i].g = std::min((1-change)*255.0,255.0);
+            cloud->points[i].b = 0;
+        }
+        printf("mean_change: %f max change: %f\n",total_change/float(current_point),max_change);
         viewer->removeAllPointClouds();
         viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "cloud");
         viewer->spin();
+
     }
 
+
+
+
+    delete[] estimates;
+    delete[] priors_weight;
     delete[] priors;
     delete[] points;
     delete[] colors;

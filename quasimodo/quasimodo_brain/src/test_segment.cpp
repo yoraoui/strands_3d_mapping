@@ -100,7 +100,7 @@ reglib::Model * load2(std::string sweep_xml){
 	reglib::Model * sweepmodel = 0;
 
 	std::vector<reglib::RGBDFrame * > current_room_frames;
-	for (size_t i=0; i < 20 && i<roomData.vIntermediateRoomClouds.size(); i++)
+    for (size_t i=0; i < 1 && i<roomData.vIntermediateRoomClouds.size(); i++)
 	{
 
 		cv::Mat fullmask;
@@ -215,7 +215,7 @@ int main(int argc, char** argv){
 		std::vector< std::vector< cv::Mat > > internal;
 		std::vector< std::vector< cv::Mat > > external;
 		std::vector< std::vector< cv::Mat > > dynamic;
-        quasimodo_brain::segment(models[i-1],foreground,internal,external,dynamic,true);
+        quasimodo_brain::segment(models[i-1],foreground,internal,external,dynamic,false);
 
 //		quasimodo_msgs::segment_model sm;
 //		sm.request.models.push_back(quasimodo_brain::getModelMSG(models[i]));

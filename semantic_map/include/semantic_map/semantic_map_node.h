@@ -45,6 +45,16 @@
 #include "reg_transforms.h"
 #include "room_utilities.h"
 
+#include "quasimodo_msgs/model.h"
+#include "quasimodo_msgs/rgbd_frame.h"
+#include "quasimodo_msgs/model_from_frame.h"
+#include "quasimodo_msgs/index_frame.h"
+#include "quasimodo_msgs/fuse_models.h"
+#include "quasimodo_msgs/get_model.h"
+#include "quasimodo_msgs/segment_model.h"
+#include "quasimodo_msgs/metaroom_pair.h"
+#include <cv_bridge/cv_bridge.h>
+
 
 
 template <class PointType>
@@ -76,6 +86,7 @@ public:
     ros::Publisher                                                              m_PublisherDynamicClusters;
     ros::Publisher                                                              m_PublisherStatus;
     ros::ServiceServer                                                          m_ClearMetaroomServiceServer;
+    ros::ServiceClient                                                          m_segmentation_client;
 
 private:
 
@@ -83,7 +94,7 @@ private:
     SemanticMapSummaryParser                                         m_SummaryParser;
     bool                                                                        m_bSaveIntermediateData;
     std::vector<boost::shared_ptr<MetaRoom<PointType> > >                       m_vLoadedMetarooms;
-    mongodb_store::MessageStoreProxy                                           m_messageStore;
+    //mongodb_store::MessageStoreProxy                                           m_messageStore;
     bool                                                                        m_bLogToDB;
     std::map<std::string, boost::shared_ptr<MetaRoom<PointType> > >             m_WaypointToMetaroomMap;
     std::map<std::string, SemanticRoom<PointType> >                             m_WaypointToRoomMap;
@@ -92,15 +103,18 @@ private:
     bool                                                                        m_bNewestClusters;
     bool                                                                        m_bUseNDTRegistration;
 	int									m_MinObjectSize;
+    int segmentationtype;
 
 };
 
 template <class PointType>
-SemanticMapNode<PointType>::SemanticMapNode(ros::NodeHandle nh) : m_messageStore(nh)
+SemanticMapNode<PointType>::SemanticMapNode(ros::NodeHandle nh)// : m_messageStore(nh)
 {
+    segmentationtype = 1;
     ROS_INFO_STREAM("Semantic map node initialized");
     m_NodeHandle = nh;
 
+    m_segmentation_client = nh.serviceClient<quasimodo_msgs::metaroom_pair>("segment_metaroom");
     m_SubscriberRoomObservation = m_NodeHandle.subscribe("/local_metric_map/room_observations",1, &SemanticMapNode::roomObservationCallback,this);
 
     m_PublisherMetaroom = m_NodeHandle.advertise<sensor_msgs::PointCloud2>("/local_metric_map/metaroom", 1, true);
@@ -119,6 +133,7 @@ SemanticMapNode<PointType>::SemanticMapNode(ros::NodeHandle nh) : m_messageStore
     m_NodeHandle.param<bool>("log_to_db",m_bLogToDB,false);
     if (m_bLogToDB)
     {
+        //m_messageStore = mongodb_store::MessageStoreProxy(nh);
         ROS_INFO_STREAM("Logging dynamic clusters to the database.");
     } else {
         ROS_INFO_STREAM("NOT logging dynamic clusters to the database.");
@@ -281,6 +296,69 @@ void SemanticMapNode<PointType>::processRoomObservation(std::string xml_file_nam
         MetaRoomXMLParser<PointType> meta_parser;
         meta_parser.saveMetaRoomAsXML(*metaroom);
     }
+    if(segmentationtype == 1){
+        std::string previousObservationXml;
+        passwd* pw = getpwuid(getuid());
+        std::string dataPath(pw->pw_dir);
+        dataPath+="/.semanticMap";
+
+        std::vector<std::string> matchingObservations = semantic_map_load_utilties::getSweepXmlsForTopologicalWaypoint<PointType>(dataPath, aRoom.getRoomStringId());
+        if (matchingObservations.size() == 0) // no observations -> first observation
+        {
+            ROS_INFO_STREAM("No observations for this waypoint saved on the disk "+aRoom.getRoomStringId()+" cannot compare with previous observation.");
+            std_msgs::String msg;
+            msg.data = "finished_processing_observation";
+            m_PublisherStatus.publish(msg);
+            return;
+        }
+        if (matchingObservations.size() == 1) // first observation at this waypoint
+        {
+            ROS_INFO_STREAM("No dynamic clusters.");
+            std_msgs::String msg;
+            msg.data = "finished_processing_observation";
+            m_PublisherStatus.publish(msg);
+            return;
+        }
+
+        int stopind = 0;
+
+        for(unsigned int i = 0; i < matchingObservations.size(); i++){
+            if(matchingObservations[i].compare(xml_file_name) == 0){
+                break;
+            }else{
+                stopind = i;//latest = matchingObservations[i];
+            }
+        }
+
+        if(stopind == 0) // first observation at this waypoint
+        {
+            ROS_INFO_STREAM("No dynamic clusters.");
+            std_msgs::String msg;
+            msg.data = "finished_processing_observation";
+            m_PublisherStatus.publish(msg);
+            return;
+        }
+        previousObservationXml = matchingObservations[stopind];
+        printf("prev: %s\n",previousObservationXml.c_str());
+        // multiple observations -> find the previous one
+//        reverse(matchingObservations.begin(), matchingObservations.end());
+//        latest = matchingObservations[0];
+//        if (latest != xml_file_name)
+//        {
+//            ROS_WARN_STREAM("The xml file for the latest observations "+latest+" is different from the one provided "+xml_file_name+" Aborting");
+//        }
+//        previousObservationXml = matchingObservations[1];
+
+        quasimodo_msgs::metaroom_pair sm;
+        sm.request.background = previousObservationXml;
+        sm.request.foreground = xml_file_name;
+
+        if (m_segmentation_client.call(sm)){
+            //int model_id = mff.response.model_id;
+        }else{ROS_ERROR("Failed to call service segment_model");}
+
+exit(0);
+    }else{
 
     CloudPtr difference(new Cloud()); // this stores the difference between a) current obs and previous obs or b) current obs and metaroom (depending on the node parameters)
     if (m_bNewestClusters){
@@ -495,7 +573,7 @@ void SemanticMapNode<PointType>::processRoomObservation(std::string xml_file_nam
         m_WaypointToDynamicClusterMap[aRoom.getRoomStringId()] = dynamicClusters;
         ROS_INFO_STREAM("Updated map with new dynamic clusters for waypoint "<<aRoom.getRoomStringId());
     }
-
+/*
     if (m_bLogToDB)
     {
         QString databaseName = QString(aRoom.getRoomLogName().c_str()) + QString("/room_")+ QString::number(aRoom.getRoomRunNumber()) +QString("/dynamic_clusters");
@@ -513,7 +591,8 @@ void SemanticMapNode<PointType>::processRoomObservation(std::string xml_file_nam
             }
         }
     }
-
+*/
+}
     std_msgs::String msg;
     msg.data = "finished_processing_observation";
     m_PublisherStatus.publish(msg);
