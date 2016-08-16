@@ -187,15 +187,12 @@ reglib::Model * load_metaroom_model(std::string sweep_xml){
 	return sweepmodel;
 }
 
-void segment(reglib::Model * bg, std::vector< reglib::Model * > models,
-std::vector< std::vector< cv::Mat > > & internal,
-std::vector< std::vector< cv::Mat > > & external,
-std::vector< std::vector< cv::Mat > > & dynamic, bool debugg){
+void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vector< std::vector< cv::Mat > > & internal, std::vector< std::vector< cv::Mat > > & external, std::vector< std::vector< cv::Mat > > & dynamic, bool debugg){
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 	if(debugg){
 		viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("viewer"));
 		viewer->addCoordinateSystem(0.01);
-		viewer->setBackgroundColor(0.0,0.0,0.0);
+        viewer->setBackgroundColor(1.0,1.0,1.0);
 	}
 
 	reglib::MassRegistrationPPR2 * massregmod = new reglib::MassRegistrationPPR2(0.25);

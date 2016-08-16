@@ -157,10 +157,10 @@ int main(int argc, char** argv){
 
 //    reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 
-//	viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
-//	viewer->setBackgroundColor (0.5, 0, 0.5);
-//	viewer->addCoordinateSystem (1.0);
-//	viewer->initCameraParameters ();
+//    viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
+//    viewer->setBackgroundColor (0.5, 0, 0.5);
+//    viewer->addCoordinateSystem (1.0);
+//    viewer->initCameraParameters ();
 
     for(int ar = 1; ar < argc; ar++){
         string overall_folder = std::string(argv[ar]);
@@ -172,20 +172,24 @@ int main(int argc, char** argv){
         }
     }
 
-//	//Not needed if metaroom well calibrated
-//    reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.01);
-//    bgmassreg->timeout = 20;
-//    bgmassreg->viewer = viewer;
-//    bgmassreg->use_surface = true;
-//    bgmassreg->use_depthedge = false;
-//    bgmassreg->visualizationLvl = 0;
-//    bgmassreg->maskstep = 10;
-//    bgmassreg->nomaskstep = 10;
-//    bgmassreg->nomask = true;
-//    bgmassreg->stopval = 0.0005;
-//    bgmassreg->setData(models.front()->frames,models.front()->modelmasks);
-//    reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(models.front()->relativeposes);
-//    delete bgmassreg;
+    //Not needed if metaroom well calibrated
+    reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.01);
+    bgmassreg->timeout = 20;
+    bgmassreg->viewer = viewer;
+    bgmassreg->use_surface = true;
+    bgmassreg->use_depthedge = false;
+    bgmassreg->visualizationLvl = 0;
+    bgmassreg->maskstep = 4;
+    bgmassreg->nomaskstep = 4;
+    bgmassreg->nomask = true;
+    bgmassreg->stopval = 0.0005;
+    bgmassreg->setData(models.front()->frames,models.front()->modelmasks);
+    reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(models.front()->relativeposes);
+    delete bgmassreg;
+
+    for(unsigned int i = 0; i < models.size(); i++){
+        models[i]->relativeposes = bgmfr.poses;
+    }
 
 
 /*
@@ -211,7 +215,7 @@ int main(int argc, char** argv){
 		std::vector< std::vector< cv::Mat > > internal;
 		std::vector< std::vector< cv::Mat > > external;
 		std::vector< std::vector< cv::Mat > > dynamic;
-		quasimodo_brain::segment(models[i-1],foreground,internal,external,dynamic);
+        quasimodo_brain::segment(models[i-1],foreground,internal,external,dynamic,true);
 
 //		quasimodo_msgs::segment_model sm;
 //		sm.request.models.push_back(quasimodo_brain::getModelMSG(models[i]));

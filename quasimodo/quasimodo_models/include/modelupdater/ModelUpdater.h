@@ -92,7 +92,7 @@ namespace reglib
         virtual void getAreaWeights(Matrix4d p, RGBDFrame* frame1, double * weights1, double * overlaps1, double * total1, RGBDFrame* frame2, double * weights2, double * overlaps2, double * total2);
 
         virtual void computeOcclusionAreas(vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<ModelMask*> cm);
-
+        virtual void getDynamicWeights(Matrix4d p, RGBDFrame* frame1, double * overlaps, double * occlusions, RGBDFrame* frame2, double debugg);
 		virtual void getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, double * overlaps, double * totalocclusions, RGBDFrame* frame2, cv::Mat mask, int offset1, int offset2, std::vector< std::vector<int> > & interframe_connectionId, std::vector< std::vector<double> > & interframe_connectionStrength,double debugg = false);
         virtual std::vector<cv::Mat> computeDynamicObject(reglib::Model * bg, Eigen::Matrix4d bgpose, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<cv::Mat> masks);
         virtual vector<Mat> computeDynamicObject(vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Mat> bgmm, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<Mat> mm, vector<Matrix4d> poses, vector<RGBDFrame*> frames, vector<Mat> masks, bool debugg = false);
