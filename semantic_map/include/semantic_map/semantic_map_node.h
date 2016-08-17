@@ -296,6 +296,8 @@ void SemanticMapNode<PointType>::processRoomObservation(std::string xml_file_nam
         MetaRoomXMLParser<PointType> meta_parser;
         meta_parser.saveMetaRoomAsXML(*metaroom);
     }
+
+	CloudPtr difference(new Cloud());
     if(segmentationtype == 1){
         std::string previousObservationXml;
         passwd* pw = getpwuid(getuid());
@@ -340,27 +342,48 @@ void SemanticMapNode<PointType>::processRoomObservation(std::string xml_file_nam
         }
         previousObservationXml = matchingObservations[stopind];
         printf("prev: %s\n",previousObservationXml.c_str());
-        // multiple observations -> find the previous one
-//        reverse(matchingObservations.begin(), matchingObservations.end());
-//        latest = matchingObservations[0];
-//        if (latest != xml_file_name)
-//        {
-//            ROS_WARN_STREAM("The xml file for the latest observations "+latest+" is different from the one provided "+xml_file_name+" Aborting");
-//        }
-//        previousObservationXml = matchingObservations[1];
 
-        quasimodo_msgs::metaroom_pair sm;
-        sm.request.background = previousObservationXml;
-        sm.request.foreground = xml_file_name;
+		quasimodo_msgs::metaroom_pair sm;
+		sm.request.background = previousObservationXml;
+		sm.request.foreground = xml_file_name;
 
-        if (m_segmentation_client.call(sm)){
-            //int model_id = mff.response.model_id;
-        }else{ROS_ERROR("Failed to call service segment_model");}
+		if (m_segmentation_client.call(sm)){
+			CloudPtr dynamiccloud(new Cloud());
+			std::vector<cv::Mat> dynamicmasks;
+			for(unsigned int i = 0; i < sm.response.dynamicmasks.size(); i++){
+				cv_bridge::CvImagePtr			img_ptr;
+				try{							img_ptr = cv_bridge::toCvCopy(sm.response.dynamicmasks[i], sensor_msgs::image_encodings::MONO8);}
+				catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
+				cv::Mat mask = img_ptr->image;
+				dynamicmasks.push_back(mask);
 
-exit(0);
+				CloudPtr currentcloud = aRoom.getIntermediateClouds()[i];
+				CloudPtr currentcloudTMP(new Cloud());
+				aRoom.getIntermediateCloudTransformsRegistered()[i];
+				//pcl::transformPointCloud (*currentcloud, *currentcloudTMP, aRoom.m_vIntermediateRoomCloudTransformsRegistered[i]);
+
+				pcl_ros::transformPointCloud(*currentcloud, *currentcloudTMP,aRoom.getIntermediateCloudTransformsRegistered()[i]);
+				unsigned char * maskdata = mask.data;
+				for(unsigned int j = 0; j < currentcloudTMP->points.size(); j++){
+					if(maskdata[j] > 0){
+						difference->points.push_back(currentcloudTMP->points[j]);
+					}
+				}
+			}
+
+//			std::vector<CloudPtr> vClusters = MetaRoom<PointType>::clusterPointCloud(dynamiccloud,0.03,100,1000000);
+//			ROS_INFO_STREAM("Clustered differences. "<<vClusters.size()<<" different clusters.");
+		}else{
+			ROS_ERROR("Failed to call service segment_model");
+			std_msgs::String msg;
+			msg.data = "error_processing_observation";
+			m_PublisherStatus.publish(msg);
+			return;
+		}
+
     }else{
 
-    CloudPtr difference(new Cloud()); // this stores the difference between a) current obs and previous obs or b) current obs and metaroom (depending on the node parameters)
+	// this stores the difference between a) current obs and previous obs or b) current obs and metaroom (depending on the node parameters)
     if (m_bNewestClusters){
          // computing the latest clusters by comparison with the previous observation -> register with the previous observation
         // look for the previous observation in ~/.semanticMap/
@@ -507,7 +530,7 @@ exit(0);
             ROS_INFO_STREAM("Comparison cloud "<<metaroomCloud->points.size()<<"  room cloud "<<room_interior_cloud->points.size());
 
     }
-
+}
     ROS_INFO_STREAM("Raw difference "<<difference->points.size());
 
 
@@ -592,7 +615,7 @@ exit(0);
         }
     }
 */
-}
+
     std_msgs::String msg;
     msg.data = "finished_processing_observation";
     m_PublisherStatus.publish(msg);

@@ -847,9 +847,9 @@ void ModelUpdater::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFr
 					float pny	= m10*dst_nx + m11*dst_ny + m12*dst_nz;
 					float pnz	= m20*dst_nx + m21*dst_ny + m22*dst_nz;
 
-					float pb = rgbdata[3*ind+0];
-					float pg = rgbdata[3*ind+1];
-					float pr = rgbdata[3*ind+2];
+					float pb = rgbdata[3*dst_ind+0];
+					float pg = rgbdata[3*dst_ind+1];
+					float pr = rgbdata[3*dst_ind+2];
 
 					Vector3f	pxyz	(px	,py	,pz );
 					Vector3f	pnxyz	(pnx,pny,pnz);

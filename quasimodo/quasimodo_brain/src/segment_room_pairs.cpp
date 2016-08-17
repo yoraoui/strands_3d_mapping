@@ -79,15 +79,24 @@ bool segment_metaroom(quasimodo_msgs::metaroom_pair::Request  & req, quasimodo_m
 	sm.request.backgroundmodel = quasimodo_brain::getModelMSG(bg_model);
 	sm.request.models.push_back(quasimodo_brain::getModelMSG(fg_model));
 
+	bool status;
+
 	if (segmentation_client.call(sm)){
-		//int model_id = mff.response.model_id;
-	}else{ROS_ERROR("Failed to call service segment_model");}
+		if(sm.response.dynamicmasks.size() > 0){
+			res.dynamicmasks	= sm.response.dynamicmasks.front().images;
+			res.movingmasks		= sm.response.movingmasks.front().images;
+		}
+		status = true;
+	}else{
+		ROS_ERROR("Failed to call service segment_model");
+		status = false;
+	}
 
 	bg_model->fullDelete();
 	delete bg_model;
 	fg_model->fullDelete();
 	delete fg_model;
-	return true;
+	return status;
 }
 
 int main(int argc, char** argv){

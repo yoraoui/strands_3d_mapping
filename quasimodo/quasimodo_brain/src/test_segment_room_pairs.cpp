@@ -68,9 +68,7 @@ using namespace std;
 
 
 int main(int argc, char** argv){
-	ros::init(argc, argv, "test_segmentationserver_metaroom");
-	ros::NodeHandle n;
-	ros::ServiceClient segmentation_client = n.serviceClient<quasimodo_msgs::metaroom_pair>("segment_metaroom");
+
 
 	vector<string> room_xmls;
 	for(int ar = 1; ar < argc; ar++){
@@ -84,13 +82,16 @@ int main(int argc, char** argv){
 		}
 	}
 
+	ros::init(argc, argv, "test_segmentationserver_metaroom");
+	ros::NodeHandle n;
+	ros::ServiceClient segmentation_client = n.serviceClient<quasimodo_msgs::metaroom_pair>("segment_metaroom");
 	quasimodo_msgs::metaroom_pair sm;
 	sm.request.background = std::string(room_xmls[0]);
 	sm.request.foreground = std::string(room_xmls[1]);
-
+for(int i = 0; i < 150; i++){
 	if (segmentation_client.call(sm)){
 		//int model_id = mff.response.model_id;
 	}else{ROS_ERROR("Failed to call service segment_model");}
-
+}
 	return 0;
 }

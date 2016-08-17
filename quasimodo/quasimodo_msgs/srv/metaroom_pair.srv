@@ -1,4 +1,5 @@
 string background
 string foreground
 ---
-sensor_msgs/Image[] segmentation
+sensor_msgs/Image[] dynamicmasks
+sensor_msgs/Image[] movingmasks

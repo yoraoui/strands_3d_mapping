@@ -7,4 +7,4 @@ uint64 models_refine
 model backgroundmodel
 model[] models
 image_array[] dynamicmasks
-image_array[] internalmasks
+image_array[] movingmasks
