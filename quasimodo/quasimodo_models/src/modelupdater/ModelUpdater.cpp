@@ -1816,7 +1816,7 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 
 		DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
 		func->zeromean				= true;
-		func->maxp					= 0.99;
+		func->maxp					= 0.999;
 		func->startreg				= 0.0;
 		func->debugg_print			= false;
 		func->bidir					= true;

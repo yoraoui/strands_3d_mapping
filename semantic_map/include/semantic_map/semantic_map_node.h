@@ -165,7 +165,7 @@ SemanticMapNode<PointType>::SemanticMapNode(ros::NodeHandle nh)// : m_messageSto
 //    }
 
 
-    m_NodeHandle.param<int>("min_object_size",m_MinObjectSize,500);
+	m_NodeHandle.param<int>("min_object_size",m_MinObjectSize,500);
     ROS_INFO_STREAM("Min object size set to"<<m_MinObjectSize);
 
     std::string statusTopic;
@@ -533,7 +533,7 @@ void SemanticMapNode<PointType>::processRoomObservation(std::string xml_file_nam
 }
     ROS_INFO_STREAM("Raw difference "<<difference->points.size());
 
-
+/*
     if (difference->points.size() == 0)
     {
         // -> no dynamic clusters can be computed
@@ -543,17 +543,18 @@ void SemanticMapNode<PointType>::processRoomObservation(std::string xml_file_nam
         m_PublisherStatus.publish(msg);
         return;
     }
-
+*/
 
     std::vector<CloudPtr> vClusters = MetaRoom<PointType>::clusterPointCloud(difference,0.03,m_MinObjectSize,100000);
     ROS_INFO_STREAM("Clustered differences. "<<vClusters.size()<<" different clusters.");
-    MetaRoom<PointType>::filterClustersBasedOnDistance(aRoom.getIntermediateCloudTransforms()[0].getOrigin(), vClusters,4.0);
-    ROS_INFO_STREAM(vClusters.size()<<" different clusters after max distance filtering.");
+	MetaRoom<PointType>::filterClustersBasedOnDistance(aRoom.getIntermediateCloudTransforms()[0].getOrigin(), vClusters,4.0);
+	ROS_INFO_STREAM(vClusters.size()<<" different clusters after max distance filtering.");
 
     ROS_INFO_STREAM("Clustered differences. "<<vClusters.size()<<" different clusters.");
 
     // Check cluster planarity and discard the absolutely planar ones (usually parts of walls, floor, ceiling).
     CloudPtr dynamicClusters(new Cloud());
+	/*
     for (size_t i=0; i<vClusters.size(); i++)
     {
         pcl::SACSegmentation<PointType> seg;
@@ -575,6 +576,12 @@ void SemanticMapNode<PointType>::processRoomObservation(std::string xml_file_nam
             *dynamicClusters += *vClusters[i];
         }
     }
+*/
+
+	for (size_t i=0; i<vClusters.size(); i++)
+	{
+		*dynamicClusters += *vClusters[i];
+	}
 
     // publish dynamic clusters
     // transform back into the sweep frame of ref (before metaroom registration, to align with the previously published sweep point cloud)
@@ -596,29 +603,30 @@ void SemanticMapNode<PointType>::processRoomObservation(std::string xml_file_nam
         m_WaypointToDynamicClusterMap[aRoom.getRoomStringId()] = dynamicClusters;
         ROS_INFO_STREAM("Updated map with new dynamic clusters for waypoint "<<aRoom.getRoomStringId());
     }
-/*
-    if (m_bLogToDB)
-    {
-        QString databaseName = QString(aRoom.getRoomLogName().c_str()) + QString("/room_")+ QString::number(aRoom.getRoomRunNumber()) +QString("/dynamic_clusters");
-        std::string id(m_messageStore.insertNamed(databaseName.toStdString(), msg_clusters));
-        ROS_INFO_STREAM("Dynamic clusters \""<<databaseName.toStdString()<<"\" inserted with id "<<id);
 
-        std::vector< boost::shared_ptr<sensor_msgs::PointCloud2> > results;
-        if(m_messageStore.queryNamed<sensor_msgs::PointCloud2>(databaseName.toStdString(), results)) {
+//    if (m_bLogToDB)
+//    {
+//        QString databaseName = QString(aRoom.getRoomLogName().c_str()) + QString("/room_")+ QString::number(aRoom.getRoomRunNumber()) +QString("/dynamic_clusters");
+//        std::string id(m_messageStore.insertNamed(databaseName.toStdString(), msg_clusters));
+//        ROS_INFO_STREAM("Dynamic clusters \""<<databaseName.toStdString()<<"\" inserted with id "<<id);
 
-            BOOST_FOREACH( boost::shared_ptr<sensor_msgs::PointCloud2> p,  results)
-            {
-                CloudPtr databaseCloud(new Cloud());
-                pcl::fromROSMsg(*p,*databaseCloud);
-                ROS_INFO_STREAM("Got pointcloud by name. No points: " << databaseCloud->points.size());
-            }
-        }
-    }
-*/
+//        std::vector< boost::shared_ptr<sensor_msgs::PointCloud2> > results;
+//        if(m_messageStore.queryNamed<sensor_msgs::PointCloud2>(databaseName.toStdString(), results)) {
+
+//            BOOST_FOREACH( boost::shared_ptr<sensor_msgs::PointCloud2> p,  results)
+//            {
+//                CloudPtr databaseCloud(new Cloud());
+//                pcl::fromROSMsg(*p,*databaseCloud);
+//                ROS_INFO_STREAM("Got pointcloud by name. No points: " << databaseCloud->points.size());
+//            }
+//        }
+//    }
+
 
     std_msgs::String msg;
     msg.data = "finished_processing_observation";
     m_PublisherStatus.publish(msg);
+
     return;
 }
 

@@ -55,6 +55,7 @@ bool SemanticRoomXMLParser<PointType>::setRootFolderFromRoomXml(std::string room
 template <class PointType>
 std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointType>& aRoom, std::string xmlFile, bool verbose )
 {    
+	printf("saveRoomAsXML\n");
     // create folder structure
     QString roomLogName(aRoom.getRoomLogName().c_str());
     int index = roomLogName.indexOf('_');
@@ -202,8 +203,12 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
     QString dynamicClustersFilename = roomFolder + dynamicClustersFilenameLocal; // add the folder prefix
     QFile dynamicClustersFile(dynamicClustersFilename);
 
+	//
+
+
     if (aRoom.getDynamicClustersCloudLoaded() && aRoom.getDynamicClustersCloud()->points.size()) // only save the cloud file if it's been loaded
     {
+		printf("there are dynamic clusters found\n");
         //            if (!dynamicClustersFile.exists())
         //            {
         pcl::io::savePCDFileBinary(dynamicClustersFilename.toStdString(), *aRoom.getDynamicClustersCloud());
@@ -218,6 +223,7 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
         xmlWriter->writeAttribute("filename",dynamicClustersFilenameLocal);
         xmlWriter->writeEndElement();
     } else {
+		printf("no dynamic clusters found\n");
         if (dynamicClustersFile.exists())
         {
             xmlWriter->writeStartElement("RoomDynamicClusters");
