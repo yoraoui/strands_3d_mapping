@@ -253,7 +253,7 @@ public:
                 }
                 if (xmlReader->name() == "RoomRunNumber")
                 {
-                    QString tmp = xmlReader->readElementText();
+					QString tmp = xmlReader->readElementText();
                     aRoom.roomRunNumber = atoi(tmp.toStdString().c_str());//xmlReader->readElementText().toInt();
                 }
 

@@ -3,6 +3,9 @@
 #include "eigen_conversions/eigen_msg.h"
 #include "tf_conversions/tf_eigen.h"
 
+
+#include "Util/Util.h"
+
 typedef pcl::PointXYZRGB PointType;
 typedef pcl::PointCloud<PointType> Cloud;
 typedef typename Cloud::Ptr CloudPtr;
@@ -11,6 +14,8 @@ typedef semantic_map_load_utilties::DynamicObjectData<PointType> ObjectData;
 
 using namespace std;
 using namespace semantic_map_load_utilties;
+
+boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 
 std::string getPrevXML(std::string xml_file_name){
 	std::cout<<"File name "<<xml_file_name<<std::endl;
@@ -352,7 +357,6 @@ void processMetaroom(std::string path){
 
             CloudPtr cloud = object.vAdditionalViews[i];
 
-
             cv::Mat rgb;
             rgb.create(cloud->height,cloud->width,CV_8UC3);
             unsigned char * rgbdata = (unsigned char *)rgb.data;
@@ -384,6 +388,8 @@ void processMetaroom(std::string path){
         }
     }
 
+	reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path);
+
     std::vector<Eigen::Matrix4d> unrefined;
     std::vector<double> times;
     for(unsigned int i = 0; i < viewrgbs.size(); i++){
@@ -407,49 +413,41 @@ void processMetaroom(std::string path){
 
         unrefined.push_back(a.matrix());
         times.push_back(time);
+
     }
 
-/*
-    xmlWriter->writeStartElement("Transform");
-    xmlWriter->writeStartElement("Translation");
-    xmlWriter->writeStartElement("x");
-    xmlWriter->writeCharacters(QString::number(msg.transform.translation.x));
-    xmlWriter->writeEndElement();
-    xmlWriter->writeStartElement("y");
-    xmlWriter->writeCharacters(QString::number(msg.transform.translation.y));
-    xmlWriter->writeEndElement();
-    xmlWriter->writeStartElement("z");
-    xmlWriter->writeCharacters(QString::number(msg.transform.translation.z));
-    xmlWriter->writeEndElement();
-    xmlWriter->writeEndElement(); // Translation
-    xmlWriter->writeStartElement("Rotation");
-    xmlWriter->writeStartElement("w");
-    xmlWriter->writeCharacters(QString::number(msg.transform.rotation.w));
-    xmlWriter->writeEndElement();
-    xmlWriter->writeStartElement("x");
-    xmlWriter->writeCharacters(QString::number(msg.transform.rotation.x));
-    xmlWriter->writeEndElement();
-    xmlWriter->writeStartElement("y");
-    xmlWriter->writeCharacters(QString::number(msg.transform.rotation.y));
-    xmlWriter->writeEndElement();
-    xmlWriter->writeStartElement("z");
-    xmlWriter->writeCharacters(QString::number(msg.transform.rotation.z));
-*/
+//    xmlWriter->writeStartElement("Transform");
+//    xmlWriter->writeStartElement("Translation");
+//    xmlWriter->writeStartElement("x");
+//    xmlWriter->writeCharacters(QString::number(msg.transform.translation.x));
+//    xmlWriter->writeEndElement();
+//    xmlWriter->writeStartElement("y");
+//    xmlWriter->writeCharacters(QString::number(msg.transform.translation.y));
+//    xmlWriter->writeEndElement();
+//    xmlWriter->writeStartElement("z");
+//    xmlWriter->writeCharacters(QString::number(msg.transform.translation.z));
+//    xmlWriter->writeEndElement();
+//    xmlWriter->writeEndElement(); // Translation
+//    xmlWriter->writeStartElement("Rotation");
+//    xmlWriter->writeStartElement("w");
+//    xmlWriter->writeCharacters(QString::number(msg.transform.rotation.w));
+//    xmlWriter->writeEndElement();
+//    xmlWriter->writeStartElement("x");
+//    xmlWriter->writeCharacters(QString::number(msg.transform.rotation.x));
+//    xmlWriter->writeEndElement();
+//    xmlWriter->writeStartElement("y");
+//    xmlWriter->writeCharacters(QString::number(msg.transform.rotation.y));
+//    xmlWriter->writeEndElement();
+//    xmlWriter->writeStartElement("z");
+//    xmlWriter->writeCharacters(QString::number(msg.transform.rotation.z));
+
     std_msgs::String msg;
     msg.data = path;
     out_pub.publish(msg);
     ros::spinOnce();
 }
 
-void chatterCallback(const std_msgs::String::ConstPtr& msg){
-    processMetaroom(msg->data);
-}
-
-void segmentWithAdditionalViewsXml(std::string sweep_xml,std::string prev){
-	printf("segmentWithAdditionalViewsXml\n");
-//	std::string prev = getPrevXML(sweep_xml);
-}
-
+void chatterCallback(const std_msgs::String::ConstPtr& msg){processMetaroom(msg->data);}
 
 int main(int argc, char **argv)
 {

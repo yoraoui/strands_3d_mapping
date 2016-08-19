@@ -37,6 +37,7 @@ namespace reglib
 		void save(std::string path = "");
 		void print();
 		static Camera * load(std::string path);
+		Camera * clone();
 	};
 
 }

@@ -32,6 +32,18 @@ Model::Model(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d pose){
     //recomputeModelPoints();
 }
 
+void Model::getData(std::vector<Eigen::Matrix4d> & po, std::vector<RGBDFrame*> & fr, std::vector<ModelMask*> & mm, Eigen::Matrix4d p){
+	for(unsigned int i = 0; i < frames.size(); i++){
+		fr.push_back(frames[i]);
+		mm.push_back(modelmasks[i]);
+		po.push_back(p*relativeposes[i]);
+	}
+
+	for(unsigned int i = 0; i < submodels.size(); i++){
+		submodels[i]->getData(po,fr,mm, p*submodels_relativeposes[i]);
+	}
+}
+
 void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* frame, ModelMask* modelmask){
 	bool * maskvec = modelmask->maskvec;
 	unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);

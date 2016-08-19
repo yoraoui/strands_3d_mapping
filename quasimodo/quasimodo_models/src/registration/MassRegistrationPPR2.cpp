@@ -507,20 +507,20 @@ void MassRegistrationPPR2::setData(std::vector<RGBDFrame*> frames_,std::vector<M
 	double total_load_time_start = getTime();
 
 	unsigned int nr_frames = frames_.size();
-	if(arraypoints.size() > 0){
-		for(unsigned int i = 0; i < arraypoints.size(); i++){delete[] arraypoints[i];}
-		arraypoints.resize(0);
-	}
+//	if(arraypoints.size() > 0){
+//		for(unsigned int i = 0; i < arraypoints.size(); i++){delete[] arraypoints[i];}
+//		arraypoints.resize(0);
+//	}
 
-	if(a3dv.size() > 0){
-		for(unsigned int i = 0; i < a3dv.size(); i++){delete a3dv[i];}
-		a3dv.resize(0);
-	}
+//	if(a3dv.size() > 0){
+//		for(unsigned int i = 0; i < a3dv.size(); i++){delete a3dv[i];}
+//		a3dv.resize(0);
+//	}
 
-	if(trees3d.size() > 0){
-		for(unsigned int i = 0; i < trees3d.size(); i++){delete trees3d[i];}
-		trees3d.resize(0);
-	}
+//	if(trees3d.size() > 0){
+//		for(unsigned int i = 0; i < trees3d.size(); i++){delete trees3d[i];}
+//		trees3d.resize(0);
+//	}
 
 	for(unsigned int i = 0; i < nr_frames; i++){addData(frames_[i], mmasks_[i]);}
 	//printf("total load time:          %5.5f\n",getTime()-total_load_time_start);

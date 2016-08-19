@@ -94,13 +94,13 @@ set(SRCS
 
 add_library(semantic_map ${HDRS} ${HDRS_IMPL} ${SRCS})
 add_executable(semantic_map_node include/semantic_map/semantic_map_node.h src/semantic_map_node.cpp src/semantic_map_main.cpp)
-add_executable(semantic_map_recompute include/semantic_map/semantic_map_node.h src/semantic_map_node.cpp src/semantic_map_recompute.cpp)
+#add_executable(semantic_map_recompute include/semantic_map/semantic_map_node.h src/semantic_map_node.cpp src/semantic_map_recompute.cpp)
 add_executable(load_from_mongo src/load_from_mongo.cpp)
 add_executable(add_to_mongo src/add_to_mongo.cpp)
 
 add_dependencies(semantic_map quasimodo_msgs_generate_messages_cpp semantic_map_generate_messages_cpp primitive_extraction_generate_messages_cpp strands_perception_msgs_generate_messages_cpp observation_registration_services_generate_messages_cpp)
 add_dependencies(semantic_map_node quasimodo_msgs_generate_messages_cpp semantic_map_generate_messages_cpp primitive_extraction_generate_messages_cpp strands_perception_msgs_generate_messages_cpp observation_registration_services_generate_messages_cpp)
-add_dependencies(semantic_map_recompute quasimodo_msgs_generate_messages_cpp semantic_map_generate_messages_cpp primitive_extraction_generate_messages_cpp strands_perception_msgs_generate_messages_cpp observation_registration_services_generate_messages_cpp)
+#add_dependencies(semantic_map_recompute quasimodo_msgs_generate_messages_cpp semantic_map_generate_messages_cpp primitive_extraction_generate_messages_cpp strands_perception_msgs_generate_messages_cpp observation_registration_services_generate_messages_cpp)
 
  target_link_libraries(semantic_map
    ${catkin_LIBRARIES}
@@ -117,13 +117,13 @@ add_dependencies(semantic_map_recompute quasimodo_msgs_generate_messages_cpp sem
    semantic_map
   )
 
- target_link_libraries(semantic_map_recompute
-   ${catkin_LIBRARIES}
-   ${PCL_LIBRARIES}
-   ${QT_LIBRARIES}
-   ${Boost_LIBRARIES}
-   semantic_map
-  )
+ #target_link_libraries(semantic_map_recompute
+ #  ${catkin_LIBRARIES}
+ #  ${PCL_LIBRARIES}
+ #  ${QT_LIBRARIES}
+ #  ${Boost_LIBRARIES}
+ #  semantic_map
+ # )
 
  target_link_libraries(load_from_mongo
    ${catkin_LIBRARIES}
@@ -143,7 +143,7 @@ add_dependencies(semantic_map_recompute quasimodo_msgs_generate_messages_cpp sem
 
 ############################# INSTALL TARGETS
 
-install(TARGETS semantic_map semantic_map_node semantic_map_recompute load_from_mongo
+install(TARGETS semantic_map semantic_map_node load_from_mongo #semantic_map_recompute
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

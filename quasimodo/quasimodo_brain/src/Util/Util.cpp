@@ -126,6 +126,21 @@ std::vector<Eigen::Matrix4f> getRegisteredViewPoses(const std::string& poses_fil
 	return toRet;
 }
 
+Eigen::Matrix4d getMat(tf::StampedTransform tf){
+	//Transform
+	geometry_msgs::TransformStamped tfstmsg;
+	tf::transformStampedTFToMsg (tf, tfstmsg);
+	geometry_msgs::Transform tfmsg = tfstmsg.transform;
+	geometry_msgs::Pose		pose;
+	pose.orientation		= tfmsg.rotation;
+	pose.position.x		= tfmsg.translation.x;
+	pose.position.y		= tfmsg.translation.y;
+	pose.position.z		= tfmsg.translation.z;
+	Eigen::Affine3d epose;
+	tf::poseMsgToEigen(pose, epose);
+	return epose.matrix();
+}
+
 reglib::Model * load_metaroom_model(std::string sweep_xml){
 	int slash_pos = sweep_xml.find_last_of("/");
 	std::string sweep_folder = sweep_xml.substr(0, slash_pos) + "/";
@@ -135,6 +150,9 @@ reglib::Model * load_metaroom_model(std::string sweep_xml){
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(sweep_folder+"/room.xml");
 
 	reglib::Model * sweepmodel = 0;
+
+	Eigen::Matrix4d m2 = getMat(roomData.vIntermediateRoomCloudTransforms[0]);
+	cout << m2 << endl << endl;
 
 	std::vector<reglib::RGBDFrame * > current_room_frames;
 	for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++)
@@ -152,24 +170,33 @@ reglib::Model * load_metaroom_model(std::string sweep_xml){
 		cam->cy = 236.842039;
 
 
-		cout<<"Intermediate cloud size "<<roomData.vIntermediateRoomClouds[i]->points.size()<<endl;
+//		cout<<"Intermediate cloud size "<<roomData.vIntermediateRoomClouds[i]->points.size()<<endl;
 
-		printf("%i / %i\n",i,roomData.vIntermediateRoomClouds.size());
+//		printf("%i / %i\n",i,roomData.vIntermediateRoomClouds.size());
 
-		//Transform
-		tf::StampedTransform tf	= roomData.vIntermediateRoomCloudTransformsRegistered[i];
-		geometry_msgs::TransformStamped tfstmsg;
-		tf::transformStampedTFToMsg (tf, tfstmsg);
-		geometry_msgs::Transform tfmsg = tfstmsg.transform;
-		geometry_msgs::Pose		pose;
-		pose.orientation		= tfmsg.rotation;
-		pose.position.x		= tfmsg.translation.x;
-		pose.position.y		= tfmsg.translation.y;
-		pose.position.z		= tfmsg.translation.z;
-		Eigen::Affine3d epose;
-		tf::poseMsgToEigen(pose, epose);
 
-		reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,roomData.vIntermediateRGBImages[i],5.0*roomData.vIntermediateDepthImages[i],0, epose.matrix());
+
+
+
+
+//		//Transform
+//		tf::StampedTransform tf	= roomData.vIntermediateRoomCloudTransformsRegistered[i];
+//		geometry_msgs::TransformStamped tfstmsg;
+//		tf::transformStampedTFToMsg (tf, tfstmsg);
+//		geometry_msgs::Transform tfmsg = tfstmsg.transform;
+//		geometry_msgs::Pose		pose;
+//		pose.orientation		= tfmsg.rotation;
+//		pose.position.x		= tfmsg.translation.x;
+//		pose.position.y		= tfmsg.translation.y;
+//		pose.position.z		= tfmsg.translation.z;
+//		Eigen::Affine3d epose;
+//		tf::poseMsgToEigen(pose, epose);
+
+		Eigen::Matrix4d m = m2*getMat(roomData.vIntermediateRoomCloudTransformsRegistered[i]);
+
+//		cout << m << endl << endl;
+
+		reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,roomData.vIntermediateRGBImages[i],5.0*roomData.vIntermediateDepthImages[i],0, m);
 
 		current_room_frames.push_back(frame);
 		if(i == 0){
@@ -211,58 +238,122 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
 	mu->massreg_timeout                 = 60*4;
 	mu->viewer							= viewer;
 
+	std::vector<Eigen::Matrix4d> bg_po;
+	std::vector<reglib::RGBDFrame*> bg_fr;
+	std::vector<reglib::ModelMask*> bg_mm;
+	bg->getData(bg_po, bg_fr, bg_mm);
+	bg->points = mu->getSuperPoints(bg_po,bg_fr,bg_mm,1,false);
+
+	std::vector< std::vector<Eigen::Matrix4d> > mod_po_vec;
+	std::vector< std::vector<reglib::RGBDFrame*> > mod_fr_vec;
+	std::vector< std::vector<reglib::ModelMask*> > mod_mm_vec;
+
+	for(int j = 0; j < models.size(); j++){
+		reglib::Model * mod = models[j];
+		std::vector<Eigen::Matrix4d> mod_po;
+		std::vector<reglib::RGBDFrame*> mod_fr;
+		std::vector<reglib::ModelMask*> mod_mm;
+		mod->getData(mod_po, mod_fr, mod_mm);
+		mod->points = mu->getSuperPoints(mod_po,mod_fr,mod_mm,1,false);
+
+		mod_po_vec.push_back(mod_po);
+		mod_fr_vec.push_back(mod_fr);
+		mod_mm_vec.push_back(mod_mm);
+	}
 
 	if(models.size() > 0 && bg->frames.size() > 0){
 		std::vector<Eigen::Matrix4d> cpmod;
 
-		bg->points = mu->getSuperPoints(bg->relativeposes,bg->frames,bg->modelmasks,1,false);
+		//bg->points = mu->getSuperPoints(bg->relativeposes,bg->frames,bg->modelmasks,1,false);
+
 		cpmod.push_back(Eigen::Matrix4d::Identity());//,models.front()->relativeposes.front().inverse() * bg->relativeposes.front());
 		massregmod->addModel(bg);
 
 		for(int j = 0; j < models.size(); j++){
-			models[j]->points			= mu->getSuperPoints(models[j]->relativeposes,models[j]->frames,models[j]->modelmasks,1,false);
-			cpmod.push_back(bg->relativeposes.front().inverse() * models[j]->relativeposes.front());
-			massregmod->addModel(models[j]);
+			//models[j]->points			= mu->getSuperPoints(models[j]->relativeposes,models[j]->frames,models[j]->modelmasks,1,false);
+			//cpmod.push_back(bg->relativeposes.front().inverse() * models[j]->relativeposes.front());
+			//massregmod->addModel(models[j]);
+
+			reglib::Model * mod = models[j];
+//			std::vector<Eigen::Matrix4d> mod_po;
+//			std::vector<reglib::RGBDFrame*> mod_fr;
+//			std::vector<reglib::ModelMask*> mod_mm;
+//			mod->getData(mod_po, mod_fr, mod_mm);
+			cpmod.push_back(bg_po.front().inverse() * mod_po_vec[j].front());
+			massregmod->addModel(mod);
 		}
 
 		reglib::MassFusionResults mfrmod = massregmod->getTransforms(cpmod);
 
 		for(int j = 0; j < models.size(); j++){
 			Eigen::Matrix4d change = mfrmod.poses[j+1] * cpmod[j+1].inverse();
-			for(unsigned int k = 0; k < models[j]->relativeposes.size(); k++){
-				models[j]->relativeposes[k] = change*models[j]->relativeposes[k];
+
+			for(unsigned int k = 0; k < mod_po_vec[j].size(); k++){
+				mod_po_vec[j][k] = change*mod_po_vec[j][k];
 			}
+
+//			for(unsigned int k = 0; k < models[j]->relativeposes.size(); k++){
+//				models[j]->relativeposes[k] = change*models[j]->relativeposes[k];
+//			}
+
+//			for(unsigned int k = 0; k < models[j]->submodels_relativeposes.size(); k++){
+//				models[j]->submodels_relativeposes[k] = change*models[j]->submodels_relativeposes[k];
+//			}
 		}
 	}else if(models.size() > 1){
 		std::vector<Eigen::Matrix4d> cpmod;
 
+		//Eigen::Matrix4d first = Eigen::Matrix4d::Identity();
+		Eigen::Matrix4d first = mod_po_vec.front().front();
 		for(int j = 0; j < models.size(); j++){
-			models[j]->points	= mu->getSuperPoints(models[j]->relativeposes,models[j]->frames,models[j]->modelmasks,1,false);
-			cpmod.push_back(models.front()->relativeposes.front().inverse() * models[j]->relativeposes.front());
-			massregmod->addModel(models[j]);
+//			models[j]->points	= mu->getSuperPoints(models[j]->relativeposes,models[j]->frames,models[j]->modelmasks,1,false);
+//			cpmod.push_back(models.front()->relativeposes.front().inverse() * models[j]->relativeposes.front());
+//			massregmod->addModel(models[j]);
+
+			reglib::Model * mod = models[j];
+//			std::vector<Eigen::Matrix4d> mod_po;
+//			std::vector<reglib::RGBDFrame*> mod_fr;
+//			std::vector<reglib::ModelMask*> mod_mm;
+//			mod->getData(mod_po, mod_fr, mod_mm);
+//			mod->points = mu->getSuperPoints(mod_po,mod_fr,mod_mm,1,false);
+//			if(j == 0){first = mod_po.front();}
+			cpmod.push_back(first.inverse() * mod_po_vec[j].front());
+			massregmod->addModel(mod);
 		}
 
 		reglib::MassFusionResults mfrmod = massregmod->getTransforms(cpmod);
 		for(int j = 0; j < models.size(); j++){
 			Eigen::Matrix4d change = mfrmod.poses[j] * cpmod[j].inverse();
-			for(unsigned int k = 0; k < models[j]->relativeposes.size(); k++){
-				models[j]->relativeposes[k] = change*models[j]->relativeposes[k];
+
+			for(unsigned int k = 0; k < mod_po_vec[j].size(); k++){
+				mod_po_vec[j][k] = change*mod_po_vec[j][k];
 			}
+//			for(unsigned int k = 0; k < models[j]->relativeposes.size(); k++){
+//				models[j]->relativeposes[k] = change*models[j]->relativeposes[k];
+//			}
+
+//			for(unsigned int k = 0; k < models[j]->submodels_relativeposes.size(); k++){
+//				models[j]->submodels_relativeposes[k] = change*models[j]->submodels_relativeposes[k];
+//			}
 		}
 	}
 
 	delete massregmod;
 
 
-	std::vector<Eigen::Matrix4d> bgcp;
-	std::vector<reglib::RGBDFrame*> bgcf;
+	std::vector<Eigen::Matrix4d> bgcp = bg_po;
+	std::vector<reglib::RGBDFrame*> bgcf = bg_fr;
 	std::vector<cv::Mat> bgmask;
 
-	for(unsigned int k = 0; k < bg->relativeposes.size(); k++){
-		bgcp.push_back(bg->relativeposes[k]);
-		bgcf.push_back(bg->frames[k]);
-		bgmask.push_back(bg->modelmasks[k]->getMask());
+	for(unsigned int k = 0; k < bg_mm.size(); k++){
+		bgmask.push_back(bg_mm[k]->getMask());
 	}
+
+//	for(unsigned int k = 0; k < bg->relativeposes.size(); k++){
+//		bgcp.push_back(bg->relativeposes[k]);
+//		bgcf.push_back(bg->frames[k]);
+//		bgmask.push_back(bg->modelmasks[k]->getMask());
+//	}
 
 	for(int j = 0; j < models.size(); j++){
 		reglib::Model * model = models[j];
@@ -279,7 +370,8 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
 		}
 
         //mu->computeMovingDynamicStatic(bgcp,bgcf,model->relativeposes,model->frames,debugg);//Determine self occlusions
-
+		print("TODO: %s :: %i \n",__FILE__,__LINE__);
+exit(0);
 
 		std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,model->relativeposes,model->frames,masks,false);//Determine self occlusions
 		std::vector<cv::Mat> external_masks = mu->computeDynamicObject(model->relativeposes,model->frames,masks,bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,false);//Determine external occlusions

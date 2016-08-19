@@ -118,6 +118,10 @@ class superpoint{
 		void save(std::string path = "");
 		static Model * load(Camera * cam, std::string path);
 		bool testFrame(int ind = 0);
+
+		void getData(std::vector<Eigen::Matrix4d> & po, std::vector<RGBDFrame*> & fr, std::vector<ModelMask*> & mm, Eigen::Matrix4d p = Eigen::Matrix4d::Identity());
+
+		//void getData(std::vector<Eigen::Matrix4d> & po, std::vector<RGBDFrame*> & fr, std::vector<ModelMask*> & mm, Eigen::Matrix4d p = Eigen::Matrix4d::Identity());
 	};
 
 }

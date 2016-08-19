@@ -66,6 +66,16 @@ void Camera::print(){
 	printf("Camera fx: %5.5f fy: %5.5f cx: %5.5f cy: %5.5f\n",fx,fy,cx,cy);
 }
 
+
+Camera * Camera::clone(){
+	Camera * cam = new Camera();
+	cam->fx = fx;
+	cam->fy = fy;
+	cam->cx = cx;
+	cam->cy = cy;
+	return cam;
+}
+
 Camera * Camera::load(std::string path){
 	Camera * cam = new Camera();
 

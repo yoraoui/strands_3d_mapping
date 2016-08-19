@@ -42,6 +42,7 @@ quasimodo_msgs::model getModelMSG(reglib::Model * model);
 
 std::vector<Eigen::Matrix4f> getRegisteredViewPoses(const std::string& poses_file, const int& no_transforms);
 
+Eigen::Matrix4d getMat(tf::StampedTransform tf);
 reglib::Model * load_metaroom_model(std::string sweep_xml);
 
 void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vector< std::vector< cv::Mat > > & internal, std::vector< std::vector< cv::Mat > > & external, std::vector< std::vector< cv::Mat > > & dynamic, bool debugg = false);
