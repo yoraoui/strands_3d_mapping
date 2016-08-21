@@ -3112,6 +3112,7 @@ if(false){
 }
 
 void MassRegistrationPPR2::showEdges(std::vector<Eigen::Matrix4d> poses){
+    printf("showEdges\n");
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 	for(unsigned int i = 0; i < poses.size(); i++){
         printf("%i/%i -> %i\n",i,poses.size(),depthedge_nr_arraypoints[i]);
@@ -3142,9 +3143,11 @@ void MassRegistrationPPR2::showEdges(std::vector<Eigen::Matrix4d> poses){
 			cloud->points.push_back(p);
 		}
 	}
-    viewer->removeAllPointClouds();
-    viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "cloud");
-    viewer->spin();
+    if(cloud->points.size() > 0){
+        viewer->removeAllPointClouds();
+        viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "cloud");
+        viewer->spin();
+    }
 }
 
 MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4d> poses){

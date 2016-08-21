@@ -82,6 +82,7 @@ Eigen::MatrixXd MassRegistration::getMat(int rows, int cols, double * datas){
 
 
 void MassRegistration::show(std::vector<Eigen::MatrixXd> Xv, bool save, std::string filename, bool stop){
+    printf("show\n");
 	//for(unsigned int a = 0; a < Xv.size(); a++){
 		viewer->removeAllPointClouds();
 
@@ -117,11 +118,16 @@ void MassRegistration::show(std::vector<Eigen::MatrixXd> Xv, bool save, std::str
 				p.r = b;
 				cloud->points.push_back(p);
 			}
+
+            printf("cloud->points: %i\n",cloud->points.size());
+
 			char buf [1024];
 			sprintf(buf,"cloud%i",xi);
 			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), buf);
 
 		}
+
+
 
 		if(!save){
 			viewer->spin();

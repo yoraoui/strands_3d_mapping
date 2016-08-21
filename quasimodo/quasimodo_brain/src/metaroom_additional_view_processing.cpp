@@ -221,7 +221,7 @@ void processMetaroom(std::string path){
 	bgmassreg->viewer = viewer;
 	bgmassreg->use_surface = true;
 	bgmassreg->use_depthedge = false;
-	bgmassreg->visualizationLvl = visualization_lvl;
+    bgmassreg->visualizationLvl = 0;//visualization_lvl;
 	bgmassreg->maskstep = 15;
 	bgmassreg->nomaskstep = 15;
 	bgmassreg->nomask = true;
@@ -230,6 +230,44 @@ void processMetaroom(std::string path){
 	bgmassreg->setData(frames,masks);
 	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
 
+    reglib::Model * av = new reglib::Model();
+    av->frames = frames;
+    av->modelmasks = masks;
+    for(unsigned int i = 0; i < frames.size(); i++){
+        av->relativeposes.push_back(bgmfr.poses[1].inverse()*bgmfr.poses[i+1]);
+    }
+
+
+    av->points = mu->getSuperPoints(av->relativeposes,av->frames,av->modelmasks,1,false);
+
+    for(unsigned int i = 0; i < frames.size(); i++){
+        frames[i]->pose = sweep->frames.front()->pose * bgmfr.poses[i+1];
+    }
+
+
+//    reglib::Model * fullmodel = new reglib::Model();
+//    fullmodel->submodels.push_back(sweep);
+//    fullmodel->submodels_relativeposes.push_back(bgmfr.poses[0]);
+//    if(frames.size() > 0){
+//        fullmodel->submodels.push_back(av);
+//        fullmodel->submodels_relativeposes.push_back(bgmfr.poses[1]);
+//    }
+
+    reglib::Model * fullmodel = new reglib::Model();
+    fullmodel->frames = sweep->frames;
+    fullmodel->relativeposes = sweep->relativeposes;
+    fullmodel->modelmasks = sweep->modelmasks;
+    for(unsigned int i = 0; i < frames.size(); i++){
+        fullmodel->frames.push_back(frames[i]);
+        fullmodel->modelmasks.push_back(masks[i]);
+        fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
+    }
+
+    std::vector<Eigen::Matrix4d> po;
+    std::vector<reglib::RGBDFrame*> fr;
+    std::vector<reglib::ModelMask*> mm;
+    fullmodel->getData(po, fr, mm);
+    fullmodel->points = mu->getSuperPoints(po,fr,mm,1,false);
 
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData current_roomData  = parser.loadRoomFromXML(path);
@@ -254,22 +292,26 @@ void processMetaroom(std::string path){
 		}
 	}
 
+
+
 	if(prevind != -1){
 		std::string prev = sweep_xmls[prevind];
 		printf("prev: %s\n",prev.c_str());
 
 		reglib::Model * bg = quasimodo_brain::load_metaroom_model(prev);
-		bg->points = mu->getSuperPoints(bg->relativeposes,bg->frames,bg->modelmasks,1,false);
+        bg->points = mu->getSuperPoints(bg->relativeposes,bg->frames,bg->modelmasks,1,false);
 
 		std::vector< reglib::Model * > models;
-		models.push_back(sweep);
+        //models.push_back(sweep);
+        //models.push_back(fullmodel);
+        models.push_back(av);
 
 
 		std::vector< std::vector< cv::Mat > > internal;
 		std::vector< std::vector< cv::Mat > > external;
 		std::vector< std::vector< cv::Mat > > dynamic;
 
-		quasimodo_brain::segment(bg,models,internal,external,dynamic);
+        quasimodo_brain::segment(bg,models,internal,external,dynamic,true);
 
 
 
