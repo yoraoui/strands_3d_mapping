@@ -1597,6 +1597,9 @@ void ModelUpdater::getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, d
     unsigned short * src_depthdata		= (unsigned short	*)(frame1->depth.data);
     float		   * src_normalsdata	= (float			*)(frame1->normals.data);
 
+	unsigned char * src_detdata = (unsigned char*)(frame1->det_dilate.data);
+	unsigned char * dst_detdata = (unsigned char*)(frame2->det_dilate.data);
+
     Camera * src_camera				= frame1->camera;
     const unsigned int src_width	= src_camera->width;
     const unsigned int src_height	= src_camera->height;
@@ -1634,6 +1637,11 @@ void ModelUpdater::getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, d
     pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dst_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
     if(debugg){
 
+
+//		cv::namedWindow( "src_det_dilate", cv::WINDOW_AUTOSIZE );	cv::imshow( "src_det_dilate",	frame1->det_dilate);
+//		cv::namedWindow( "dst_det_dilate", cv::WINDOW_AUTOSIZE );	cv::imshow( "dst_det_dilate",	frame2->det_dilate);
+//		cv::waitKey(0);
+
         src_cloud->points.resize(src_width*src_height);
         for(unsigned int src_w = 0; src_w < src_width;src_w++){
             for(unsigned int src_h = 0; src_h < src_height;src_h++){
@@ -1656,9 +1664,14 @@ void ModelUpdater::getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, d
                     point.x = tx;
                     point.y = ty;
                     point.z = tz;
-                    point.r = 255;
-                    point.g = 0;
-                    point.b = 0;
+					//point.r = 255*src_detdata[src_ind] != 0;
+//                    point.g = 0;
+//                    point.b = 0;
+
+					point.r = src_detdata[src_ind];
+					point.g = 0;
+					point.b = 0;
+
                     src_cloud->points[src_ind] = point;
                 }
             }
@@ -1683,11 +1696,17 @@ void ModelUpdater::getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, d
                     point.z = dst_z;
                     point.r = 0;
                     point.g = 0;
-                    point.b = 255;
+					point.b = dst_detdata[dst_ind];
                     dst_cloud->points[dst_ind] = point;
                 }
             }
         }
+
+
+//		viewer->removeAllPointClouds();
+//		viewer->addPointCloud<pcl::PointXYZRGBNormal> (src_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(src_cloud), "scloud");
+//		viewer->addPointCloud<pcl::PointXYZRGBNormal> (dst_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dst_cloud), "dcloud");
+//		viewer->spin();
     }
 
     int informations = 0;
@@ -1697,7 +1716,7 @@ void ModelUpdater::getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, d
             int src_ind = src_h*src_width+src_w;
             float src_z = src_idepth*float(src_depthdata[src_ind]);
             float src_nx = src_normalsdata[3*src_ind+0];
-            if(src_z > 0 && src_nx != 2){
+			if(src_z > 0 && src_nx != 2){
                 float src_ny = src_normalsdata[3*src_ind+1];
                 float src_nz = src_normalsdata[3*src_ind+2];
 
@@ -1717,7 +1736,7 @@ void ModelUpdater::getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, d
 
                     float dst_z = dst_idepth*float(dst_depthdata[dst_ind]);
                     float dst_nx = dst_normalsdata[3*dst_ind+0];
-                    if(dst_z > 0 && dst_nx != 2){
+					if(dst_z > 0 && dst_nx != 2){
                         float dst_ny = dst_normalsdata[3*dst_ind+1];
                         float dst_nz = dst_normalsdata[3*dst_ind+2];
 
@@ -1736,7 +1755,7 @@ void ModelUpdater::getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, d
                         //d *= src_z;//compare_mul;
                         double surface_angle = tnx*dst_nx+tny*dst_ny+tnz*dst_nz;
 
-                        if(fabs(d) < 0.01){//If close, according noises, and angle of the surfaces similar: FUSE
+						if(fabs(d) <= 0.0025){//If close, according noises, and angle of the surfaces similar: FUSE
                             if(surface_angle > 0.8 && dst_maskdata[dst_ind] > 0){
                                 if(interframe_connectionId.size() > 0){
                                     double p_same = 0.9;
@@ -1746,19 +1765,22 @@ void ModelUpdater::getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, d
                                     interframe_connectionId[src_ind+offset1].push_back(dst_ind+offset2);
                                     interframe_connectionStrength[src_ind+offset1].push_back(weight);
                                 }
-                                overlaps[src_ind]++;
-                                if(debugg){
-                                    informations++;
-                                    dst_cloud->points[dst_ind].r = 0;
-                                    dst_cloud->points[dst_ind].g = 255;
-                                    dst_cloud->points[dst_ind].b = 0;
-                                    src_cloud->points[src_ind].r = 0;
-                                    src_cloud->points[src_ind].g = 255;
-                                    src_cloud->points[src_ind].b = 0;
-                                }
+								if(dst_detdata[dst_ind] == 0 && src_detdata[src_ind] == 0){
+									overlaps[src_ind]++;
+									if(debugg){
+										informations++;
+										dst_cloud->points[dst_ind].r = 0;
+										dst_cloud->points[dst_ind].g = 255;
+										dst_cloud->points[dst_ind].b = 0;
+										src_cloud->points[src_ind].r = 0;
+										src_cloud->points[src_ind].g = 255;
+										src_cloud->points[src_ind].b = 0;
+									}
+								}
                             }
-                        }else if(tz < dst_z){
-                            occlusions[src_ind]++;
+						}else if(tz < dst_z && fabs(d) > 0.005 && dst_detdata[dst_ind] == 0 && src_detdata[src_ind] == 0){
+
+							occlusions[src_ind] ++;
                             if(debugg){
                                 informations++;
                                 src_cloud->points[src_ind].r = 255;
@@ -1840,8 +1862,8 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
     for(unsigned int w = 1; w < width-1;w++){
         for(unsigned int h = 1; h < height-1;h++){
             int ind = h*width+w;
-            maxima_dxdata[ind] = 255*(src_dxdata[ind] >= src_dxdata[ind-1]     && src_dxdata[ind] >= src_dxdata[ind+1]);
-            maxima_dydata[ind] = 255*(src_dydata[ind] >= src_dydata[ind-width] && src_dydata[ind] >= src_dydata[ind+width]);
+			maxima_dxdata[ind] = 255*(src_dxdata[ind] >= src_dxdata[ind-1]     && src_dxdata[ind] > src_dxdata[ind+1]);
+			maxima_dydata[ind] = 255*(src_dydata[ind] >= src_dydata[ind-width] && src_dydata[ind] > src_dydata[ind+width]);
         }
     }
 
@@ -1874,8 +1896,8 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 
         DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
         func->zeromean				= true;
-        func->maxp					= 0.99;
-        func->startreg				= 0.0;
+		func->maxp					= 0.9999;
+		func->startreg				= 0.5;
         func->debugg_print			= false;
         func->bidir					= true;
         func->maxd					= 256.0;
@@ -2017,13 +2039,7 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
                     float z2 = idepth*float(depthdata[other]);
 
                     float dz = fabs(z-z2);
-
-                    //if(z3 > 0){z2 = 2*z2-z3;}
                     if(z3 > 0){dz = std::min(dz,fabs(z- (2*z2-z3)));}
-
-                    //dz = fabs(z-z2);
-                    //dz = std::min(dz,fabs(z-z2));
-
                     if(z2 > 0 || z > 0){dx[ind] = funcZ->getProb(dz/(z*z+z2*z2));}
                 }
 
@@ -2037,25 +2053,8 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
                     float z2 = idepth*float(depthdata[other]);
 
                     float dz = fabs(z-z2);
-
-                    //if(z3 > 0){z2 = 2*z2-z3;}
-                    //if(z3 > 0){dz = std::min(dz,fabs(z- 2*z2-z3));}
-
-
-                    //dz = std::min(dz,fabs(z-z2));
                     if(z3 > 0){dz = std::min(dz,fabs(z- (2*z2-z3)));}
                     if(z2 > 0 || z > 0){dy[ind] = funcZ->getProb(dz/(z*z+z2*z2));}
-
-                    //					int other2 = ind+2*dir;
-                    //					int other = ind+dir;
-
-                    //					float z3 = idepth*float(depthdata[other2]);
-                    //					float z2 = idepth*float(depthdata[other]);
-                    //					if(z3 > 0){z2 = 2*z2-z3;}
-
-                    //					float dz = z-z2;
-
-                    //					if(z2 > 0 || z > 0){dy[ind] = funcZ->getProb(dz/(z*z+z2*z2));}
                 }
             }
         }
@@ -2064,8 +2063,89 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
         probs.push_back(dx);
         probs.push_back(dy);
     }
-    //return probs;
 
+
+	cv::Mat col_probs;
+	col_probs.create(height,width,CV_32FC3);
+	float * cpdata = (float *)col_probs.data;
+
+	cv::Mat d_probs;
+	d_probs.create(height,width,CV_32FC3);
+	float * dpdata = (float *)d_probs.data;
+
+	for(unsigned int w = 0; w < width;w++){
+		for(unsigned int h = 0; h < height;h++){
+			int ind = h*width+w;
+
+			cpdata[3*ind+0] = 0;
+			cpdata[3*ind+1] = 0;
+			cpdata[3*ind+2] = 0;
+
+			dpdata[3*ind+0] = 0;
+			dpdata[3*ind+1] = 0;
+			dpdata[3*ind+2] = 0;
+
+			if(w > 0 && w < width-1){
+				double ax = 0.5;
+				double bx = 0.5;
+				for(unsigned int p = 0; p < probs.size()-2; p+=2){
+					double pr = probs[p][ind];
+					ax *= pr;
+					bx *= 1.0-pr;
+				}
+				double px = ax/(ax+bx);
+				cpdata[3*ind+1] = (1-px) * float(maxima_dxdata[ind] > 0);
+				dpdata[3*ind+1] = (1-probs[probs.size()-2][ind]);
+				if(!frame->det_dilate.data[ind]){dpdata[3*ind+1] = (1-px) * float(maxima_dxdata[ind] > 0);}
+				//dpdata[3*ind+1] *= cpdata[3*ind+1];
+			}
+
+			if(h > 0 && h < height-1){
+
+				double ay = 0.5;
+				double by = 0.5;
+				for(unsigned int p = 1; p < probs.size()-2; p+=2){
+					double pr = probs[p][ind];
+					ay *= pr;
+					by *= 1.0-pr;
+				}
+				double py = ay/(ay+by);
+				cpdata[3*ind+2] = (1-py) * float(maxima_dydata[ind] > 0);
+				dpdata[3*ind+2] = (1-probs[probs.size()-1][ind]);
+				if(!frame->det_dilate.data[ind]){dpdata[3*ind+2] = (1-py) * float(maxima_dydata[ind] > 0);}
+				//dpdata[3*ind+2] *= cpdata[3*ind+2];
+			}
+		}
+	}
+
+
+//	cv::namedWindow( "src", cv::WINDOW_AUTOSIZE );          cv::imshow( "src",	src);
+//	cv::namedWindow( "col_probs", cv::WINDOW_AUTOSIZE );	cv::imshow( "col_probs",	col_probs);
+//	cv::namedWindow( "d_probs", cv::WINDOW_AUTOSIZE );		cv::imshow( "d_probs",	d_probs);
+//	//    cv::namedWindow( "src_dx", cv::WINDOW_AUTOSIZE );		cv::imshow( "src_dx",	cv::abs(src_dx));
+//	//    cv::namedWindow( "src_dy", cv::WINDOW_AUTOSIZE );		cv::imshow( "src_dy",	cv::abs(src_dy));
+//	//    cv::namedWindow( "maxima_dx", cv::WINDOW_AUTOSIZE );		cv::imshow( "maxima_dx",maxima_dx);
+//	//    cv::namedWindow( "maxima_dy", cv::WINDOW_AUTOSIZE );		cv::imshow( "maxima_dy",maxima_dy);
+
+//	cv::waitKey(0);
+
+	//return probs;
+
+	std::vector<double> dxc;
+	dxc.resize(width*height);
+	for(unsigned int i = 0; i < width*height;i++){dxc[i] = 1-dpdata[3*i+1];}
+
+	std::vector<double> dyc;
+	dyc.resize(width*height);
+	for(unsigned int i = 0; i < width*height;i++){dyc[i] = 1-dpdata[3*i+2];}
+
+
+	std::vector< std::vector<double> > probs2;
+	probs2.push_back(dxc);
+	probs2.push_back(dyc);
+	return probs2;
+
+/*
     std::vector<double> dxc;
     dxc.resize(width*height);
     for(unsigned int i = 0; i < width*height;i++){dxc[i] = 0.5;}
@@ -2130,6 +2210,7 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 
     //    cv::waitKey(0);
     return probs2;
+	*/
 }
 
 std::vector<int> doInference(std::vector<double> & prior, std::vector< std::vector<int> > & connectionId, std::vector< std::vector<double> > & connectionStrength){
@@ -2686,7 +2767,13 @@ void ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBD
 
 
 vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Mat> bgmm, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<Mat> mm, vector<Matrix4d> poses, vector<RGBDFrame*> frames, vector<Mat> masks, bool debugg){
-    std::vector<cv::Mat> newmasks;
+//
+std::vector<cv::Mat> newmasks;
+//for(double test = 0.99; test > 0.00000001; test *= 0.1)
+{
+//	double maxprob_same = 1-test;//0.99;
+
+	double maxprob_same = 0.999999;
 
     double maxprob = 0.7;
 
@@ -2726,7 +2813,7 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
         RGBDFrame * frame = frames[i];
         unsigned short * depthdata	= (unsigned short	*)(frame->depth.data);
         unsigned char * rgbdata		= (unsigned char	*)(frame->rgb.data);
-
+		unsigned char * detdata		= (unsigned char	*)(frame->det_dilate.data);
         Camera * camera				= frame->camera;
         const unsigned int width	= camera->width;
         const unsigned int height	= camera->height;
@@ -2758,7 +2845,7 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
             Eigen::Matrix4d p = poses[i].inverse() * cp[j];
             getDynamicWeights(false,p.inverse(), frame, overlaps, occlusions, cf[j],mm[j],0,0,interframe_connectionId_tmp,interframe_connectionStrength_tmp,debugg);
         }
-        std::vector< std::vector<double> > probs = getImageProbs(frames[i],5);
+		std::vector< std::vector<double> > probs = getImageProbs(frames[i],9);
 
         std::vector<double> frame_prior;
         std::vector< std::vector<int> > frame_connectionId;
@@ -2779,7 +2866,7 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
                 continue;
             }
 
-            double p_fg = 0.499999;
+			double p_fg = 0.499999999;
 
             if(occlusions[j] >= 1){	p_fg = maxprob;}
             else if(overlaps[j] >= 1){	p_fg = 0.4;}
@@ -2790,11 +2877,40 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
             prior[offset+j] = p_fg;
         }
 
-        double maxprob_same = 0.99999;
+
         for(unsigned int w = 0; w < width;w++){
             for(unsigned int h = 0; h < height;h++){
                 int ind = h*width+w;
+				if(w > 0 && w < width-1){
+					int other = ind-1;
+					double p_same = std::min(probs[0][ind],maxprob_same);
+					double not_p_same = 1-p_same;
+					double weight = -log(not_p_same);
+					if(!std::isnan(weight) && weight > 0){
+						frame_connectionId[ind].push_back(other);
+						frame_connectionStrength[ind].push_back(weight);
 
+						connectionId[ind+offset].push_back(other+offset);
+						connectionStrength[ind+offset].push_back(weight);
+					}
+				}
+
+				if(h > 0 && h < height-1){
+					int other = ind-width;
+					double p_same = std::min(probs[1][ind],maxprob_same);
+					double not_p_same = 1-p_same;
+					double weight = -log(not_p_same);
+
+					if(!std::isnan(weight) && weight > 0){
+						frame_connectionId[ind].push_back(other);
+						frame_connectionStrength[ind].push_back(weight);
+
+						connectionId[ind+offset].push_back(other+offset);
+						connectionStrength[ind+offset].push_back(weight);
+					}
+				}
+
+/*
                 if(w > 0 && w < width-1){
                     double ax = 0.5;
                     double bx = 0.5;
@@ -2809,7 +2925,17 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
                     //double p_same = std::max(probs[probs.size()-2][ind],std::min(px,maxprob_same));
                     //double p_same = std::max(probs[probs.size()-2][ind],std::min(px,maxprob_same));
                     //double p_same = std::min(probs[probs.size()-2][ind],maxprob_same);
-                    double p_same = std::max(1-maxprob_same,std::min(px,maxprob_same));
+					//double p_same = std::max(1-maxprob_same,std::min(std::min(px,probs[probs.size()-2][ind]),maxprob_same));
+					//double p_same = std::min(std::min(px,probs[probs.size()-2][ind]),maxprob_same);
+					//double p_same = std::min(px,maxprob_same);
+
+//					double p_same = std::min(probs[probs.size()-2][ind],maxprob_same);
+//					if(detdata[ind] == 0){
+//						p_same = std::min(px,maxprob_same);
+//					}
+
+					float p_same = std::min(px,maxprob_same);
+
                     double not_p_same = 1-p_same;
                     double weight = -log(not_p_same);
                     if(!std::isnan(weight) && weight > 0){
@@ -2836,8 +2962,17 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
                     //double p_same = std::max(probs[probs.size()-1][ind],std::min(py,maxprob_same));
 
                     //double p_same = std::min(py,maxprob_same);
-                    double p_same = std::max(1-maxprob_same,std::min(py,maxprob_same));
+					//double p_same = std::max(1-maxprob_same,std::min(std::min(py,probs[probs.size()-1][ind]),maxprob_same));
                     //double p_same = std::min(probs[probs.size()-1][ind],maxprob_same);
+
+					//double p_same = std::min(std::min(py,probs[probs.size()-1][ind]),maxprob_same);
+					double p_same = std::min(py,maxprob_same);
+
+					//double p_same = std::min(probs[probs.size()-1][ind],maxprob_same);
+					//if(detdata[ind] == 0){
+					//	p_same = std::min(py,maxprob_same);
+					//}
+
                     double not_p_same = 1-p_same;
                     double weight = -log(not_p_same);
 
@@ -2849,6 +2984,7 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
                         connectionStrength[ind+offset].push_back(weight);
                     }
                 }
+				*/
             }
         }
 
@@ -3003,14 +3139,14 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 
         }
 
-        //		frame->show(false);
-        //		cv::namedWindow( "Original", cv::WINDOW_AUTOSIZE );
-        //		cv::imshow( "Original", originalmask );
-        //		cv::namedWindow( "Improved", cv::WINDOW_AUTOSIZE );
-        //		cv::imshow( "Improved", improvedmask );
-        //		cv::namedWindow( "Difference", cv::WINDOW_AUTOSIZE );
-        //		cv::imshow( "Difference", diffmask );
-        //		cv::waitKey(0);
+//				frame->show(false);
+//				//cv::namedWindow( "Original", cv::WINDOW_AUTOSIZE );
+//				//cv::imshow( "Original", originalmask );
+//				cv::namedWindow( "Improved", cv::WINDOW_AUTOSIZE );
+//				cv::imshow( "Improved", improvedmask );
+//				//cv::namedWindow( "Difference", cv::WINDOW_AUTOSIZE );
+//				//cv::imshow( "Difference", diffmask );
+//				cv::waitKey(0);
         newmasks.push_back(improvedmask);
     }
 
@@ -3082,7 +3218,7 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
         viewer->removeAllPointClouds();
 
     }
-
+}
     return newmasks;
 }
 

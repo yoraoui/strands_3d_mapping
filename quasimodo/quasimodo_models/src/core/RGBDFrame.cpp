@@ -81,6 +81,214 @@ float weightFunc(int w0, int h0, int w1, int h1, int width, std::vector<float*> 
     return weight;
 }
 
+std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int blursize = 5){
+	cv::Mat src						= frame->rgb.clone();
+	unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
+	float		   * normalsdata	= (float			*)(frame->normals.data);
+	const float idepth				= frame->camera->idepth_scale;
+
+	cv::GaussianBlur( src, src, cv::Size(blursize,blursize), 0, 0, cv::BORDER_DEFAULT );
+
+	unsigned char * srcdata = (unsigned char *)src.data;
+	unsigned int width = src.cols;
+	unsigned int height = src.rows;
+
+	std::vector< std::vector<double> > probs;
+	unsigned int chans = 3;
+	for(unsigned int c = 0; c < chans;c++){
+		std::vector<double> Xvec;
+		int dir;
+		for(unsigned int w = 1; w < width-1;w++){
+			for(unsigned int h = 1; h < height-1;h++){
+				int ind = h*width+w;
+				dir		= 1;
+				Xvec.push_back(fabs(srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c]));
+
+				dir		= width;
+				Xvec.push_back(fabs(srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c]));
+			}
+		}
+
+		Eigen::MatrixXd X = Eigen::MatrixXd::Zero(1,Xvec.size());
+		for(unsigned int i = 0; i < Xvec.size();i++){X(0,i) = Xvec[i];}
+
+		double stdval = 0;
+		for(unsigned int i = 0; i < Xvec.size();i++){stdval += X(0,i)*X(0,i);}
+		stdval = sqrt(stdval/double(Xvec.size()));
+
+		DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
+		func->zeromean				= true;
+		func->maxp					= 0.99;
+		func->startreg				= 0.0;
+		func->debugg_print			= false;
+		func->bidir					= true;
+		func->maxd					= 256.0;
+		func->histogram_size		= 256;
+		func->fixed_histogram_size	= true;
+		func->startmaxd				= func->maxd;
+		func->starthistogram_size	= func->histogram_size;
+		func->blurval				= 0.005;
+		func->stdval2				= stdval;
+		func->maxnoise				= stdval;
+		func->reset();
+		func->computeModel(X);
+
+		std::vector<double> dx;  dx.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dx[i] = 0.5;}
+		std::vector<double> dy;	 dy.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dy[i] = 0.5;}
+		std::vector<double> dxy; dxy.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dxy[i] = 0.5;}
+		std::vector<double> dyx; dyx.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dyx[i] = 0.5;}
+		for(unsigned int w = 1; w < width;w++){
+			for(unsigned int h = 1; h < height-1;h++){
+				int ind = h*width+w;
+
+				dir		= 1;
+				dx[ind] = func->getProb(fabs(srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c]));
+
+				dir		= width;
+				dy[ind] = func->getProb(fabs(srcdata[chans*ind+c] - srcdata[chans*(ind-dir)+c]));
+			}
+		}
+		delete func;
+
+		probs.push_back(dx);
+		probs.push_back(dy);
+	}
+
+	{
+		std::vector<double> Xvec;
+		for(unsigned int w = 1; w < width-1;w++){
+			for(unsigned int h = 1; h < height-1;h++){
+				int ind = h*width+w;
+				float z = idepth*float(depthdata[ind]);
+
+				if(w > 1){
+					int dir = -1;
+					int other2 = ind+2*dir;
+					int other = ind+dir;
+
+					float z3 = idepth*float(depthdata[other2]);
+					float z2 = idepth*float(depthdata[other]);
+					z2 = 2*z2-z3;
+
+					if(z2 > 0 || z > 0){Xvec.push_back((z-z2)/(z*z+z2*z2));}
+				}
+
+				if(h > 1){
+					int dir = -width;
+					int other2 = ind+2*dir;
+					int other = ind+dir;
+
+					float z3 = idepth*float(depthdata[other2]);
+					float z2 = idepth*float(depthdata[other]);
+					z2 = 2*z2-z3;
+
+					if(z2 > 0 || z > 0){Xvec.push_back((z-z2)/(z*z+z2*z2));}
+				}
+			}
+		}
+
+		Eigen::MatrixXd X = Eigen::MatrixXd::Zero(1,Xvec.size());
+		for(unsigned int i = 0; i < Xvec.size();i++){X(0,i) = Xvec[i];}
+
+		double stdval = 0;
+		for(unsigned int i = 0; i < Xvec.size();i++){stdval += X(0,i)*X(0,i);}
+		stdval = sqrt(stdval/double(Xvec.size()));
+
+		DistanceWeightFunction2PPR2 * funcZ = new DistanceWeightFunction2PPR2();
+		funcZ->zeromean				= true;
+		funcZ->startreg				= 0.002;
+		funcZ->debugg_print			= false;
+		funcZ->bidir				= true;
+		funcZ->maxp					= 0.999999;
+		funcZ->maxd					= 0.1;
+		funcZ->histogram_size		= 100;
+		funcZ->fixed_histogram_size	= true;
+		funcZ->startmaxd			= funcZ->maxd;
+		funcZ->starthistogram_size	= funcZ->histogram_size;
+		funcZ->blurval				= 0.5;
+		funcZ->stdval2				= stdval;
+		funcZ->maxnoise				= stdval;
+		funcZ->reset();
+		funcZ->computeModel(X);
+
+		for(unsigned int w = 1; w < width-1;w++){
+			for(unsigned int h = 1; h < height-1;h++){
+				int ind = h*width+w;
+				float z = idepth*float(depthdata[ind]);
+
+				if(w > 1){
+					int dir = -1;
+					int other2 = ind+2*dir;
+					int other = ind+dir;
+
+					float z3 = idepth*float(depthdata[other2]);
+					float z2 = idepth*float(depthdata[other]);
+					z2 = 2*z2-z3;
+
+					if(z2 > 0 || z > 0){Xvec.push_back((z-z2)/(z*z+z2*z2));}
+				}
+
+				if(h > 1){
+					int dir = -width;
+					int other2 = ind+2*dir;
+					int other = ind+dir;
+
+					float z3 = idepth*float(depthdata[other2]);
+					float z2 = idepth*float(depthdata[other]);
+					z2 = 2*z2-z3;
+
+					if(z2 > 0 || z > 0){Xvec.push_back((z-z2)/(z*z+z2*z2));}
+				}
+			}
+		}
+
+		std::vector<double> dx;  dx.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dx[i] = 0.5;}
+		std::vector<double> dy;	 dy.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dy[i] = 0.5;}
+
+		for(unsigned int w = 1; w < width-1;w++){
+			for(unsigned int h = 1; h < height-1;h++){
+				int ind = h*width+w;
+				float z = idepth*float(depthdata[ind]);
+
+				if(w > 1){
+					int dir = -1;
+					int other2 = ind+2*dir;
+					int other = ind+dir;
+
+
+					float z3 = idepth*float(depthdata[other2]);
+					float z2 = idepth*float(depthdata[other]);
+
+					float dz = fabs(z-z2);
+
+					if(z3 > 0){dz = std::min(float(dz),float(fabs(z- (2*z2-z3))));}
+
+					if(z2 > 0 || z > 0){dx[ind] = funcZ->getProb(dz/(z*z+z2*z2));}
+				}
+
+				if(h > 1){
+					int dir = -width;
+
+					int other2 = ind+2*dir;
+					int other = ind+dir;
+
+					float z3 = idepth*float(depthdata[other2]);
+					float z2 = idepth*float(depthdata[other]);
+					float dz = fabs(z-z2);
+
+					if(z3 > 0){dz = std::min(float(dz),float(fabs(z- (2*z2-z3))));}
+					if(z2 > 0 || z > 0){dy[ind] = funcZ->getProb(dz/(z*z+z2*z2));}
+				}
+			}
+		}
+
+		delete funcZ;
+		probs.push_back(dx);
+		probs.push_back(dy);
+	}
+	return probs;
+}
+
 RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capturetime_, Eigen::Matrix4d pose_, bool compute_normals){
     keyval = "";
 
@@ -135,92 +343,245 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 //		rgbdata[i]	=  float(img_rgbdata[i]);
 //	}
 
+
+	//std::vector< std::vector<double> > probs = getImageProbs(this,5);
+
+	cv::Mat de;
+	de.create(height,width,CV_32FC3);
+	float * dedata = (float*)de.data;
+	for(int i = 0; i < 3*width*height; i++){
+		dedata[i] = 0;
+	}
+
+	cv::Mat ce;
+	ce.create(height,width,CV_32FC3);
+	float * cedata = (float*)ce.data;
+	for(int i = 0; i < 2*width*height; i++){
+		cedata[i] = 0;
+	}
+
+	std::vector<double> Xvec;
+
+	for(unsigned int w = 1; w < width-1;w++){
+		for(unsigned int h = 1; h < height-1;h++){
+			int ind = h*width+w;
+			float z = idepth*float(depthdata[ind]);
+
+			if(w > 1){
+				int dir = -1;
+				int other2 = ind+2*dir;
+				int other = ind+dir;
+
+				float z3 = idepth*float(depthdata[other2]);
+				float z2 = idepth*float(depthdata[other]);
+				z2 = 2*z2-z3;
+
+				if(z2 > 0 || z > 0){
+					dedata[3*ind+1] = fabs((z-z2)/(z*z+z2*z2));
+					Xvec.push_back(dedata[3*ind+1]);
+				}
+			}
+
+			if(h > 1){
+				int dir = -width;
+				int other2 = ind+2*dir;
+				int other = ind+dir;
+
+				float z3 = idepth*float(depthdata[other2]);
+				float z2 = idepth*float(depthdata[other]);
+				z2 = 2*z2-z3;
+
+				if(z2 > 0 || z > 0){
+					dedata[3*ind+2] = fabs((z-z2)/(z*z+z2*z2));
+					Xvec.push_back(dedata[3*ind+2]);
+				}
+			}
+		}
+	}
+
+
+
+	Eigen::MatrixXd X = Eigen::MatrixXd::Zero(1,Xvec.size());
+	for(unsigned int i = 0; i < Xvec.size();i++){X(0,i) = Xvec[i];}
+
+	double stdval = 0;
+	for(unsigned int i = 0; i < Xvec.size();i++){stdval += X(0,i)*X(0,i);}
+	stdval = sqrt(stdval/double(Xvec.size()));
+
+	DistanceWeightFunction2PPR2 * funcZ = new DistanceWeightFunction2PPR2();
+	funcZ->zeromean				= true;
+	funcZ->startreg				= 0.002;
+	funcZ->debugg_print			= false;
+	funcZ->bidir				= true;
+	funcZ->maxp					= 0.999999;
+	funcZ->maxd					= 0.1;
+	funcZ->histogram_size		= 100;
+	funcZ->fixed_histogram_size	= true;
+	funcZ->startmaxd			= funcZ->maxd;
+	funcZ->starthistogram_size	= funcZ->histogram_size;
+	funcZ->blurval				= 0.5;
+	funcZ->stdval2				= stdval;
+	funcZ->maxnoise				= stdval;
+	funcZ->reset();
+	funcZ->computeModel(X);
+
+	for(unsigned int w = 1; w < width-1;w++){
+		for(unsigned int h = 1; h < height-1;h++){
+			int ind = h*width+w;
+			if(w > 1){
+				dedata[3*ind+1] = 1-funcZ->getProb(dedata[3*ind+1]);
+			}
+
+			if(h > 1){
+				dedata[3*ind+2] = 1-funcZ->getProb(dedata[3*ind+2]);
+			}
+		}
+	}
+
+	delete funcZ;
+
+	cv::Mat det;
+	det.create(height,width,CV_8UC1);
+	unsigned char * detdata = (unsigned char*)det.data;
+	for(int i = 0; i < width*height; i++){
+		detdata[i] = 255*((dedata[3*i+1] > 0.5) || (dedata[3*i+2] > 0.5));
+	}
+
+
+
+
+	int dilation_size = 3;
+	cv::dilate( det, det_dilate, getStructuringElement( cv::MORPH_RECT, cv::Size( 2*dilation_size + 1, 2*dilation_size+1 ), cv::Point( dilation_size, dilation_size ) ) );
+/*
+	cv::Mat det2;
+	det2.create(height,width,CV_8UC3);
+	unsigned char * detdata2 = (unsigned char*)det2.data;
+	for(int i = 0; i < width*height; i++){
+		detdata2[3*i+0] = detdata2[3*i+1] = detdata2[3*i+2] = detdata[i];
+	}
+
+	int area = 5;
+	for(unsigned int w = area; w < width-area;w++){
+		for(unsigned int h = area; h < height-area;h++){
+			bool p11 = detdata[h*width+w-0] != 0;
+			if(!p11){continue;}
+
+			int sum = 0;
+			for(unsigned int x = w-area; x < w+area;x++){
+				for(unsigned int y = h-area; y < h+area;y++){
+					sum += detdata[y*width+x] != 0;
+				}
+			}
+
+			if(sum <= area/2){
+				cv::circle(det2, cv::Point(w,h), 5, cv::Scalar(0,255,0));
+			}
+
+		}
+	}
+
+
+	cv::namedWindow( "de", cv::WINDOW_AUTOSIZE );			cv::imshow( "de",	de);
+	cv::namedWindow( "det", cv::WINDOW_AUTOSIZE );			cv::imshow( "det",	det);
+	cv::namedWindow( "det2", cv::WINDOW_AUTOSIZE );			cv::imshow( "det",	det2);
+	cv::namedWindow( "det_dilate", cv::WINDOW_AUTOSIZE );	cv::imshow( "det_dilate",	det_dilate);
+	cv::namedWindow( "ce", cv::WINDOW_AUTOSIZE );			cv::imshow( "ce",	ce);
+	cv::waitKey(0);
+*/
+/*
+{
+
+
+	for(unsigned int w = 1; w < width-1;w++){
+		for(unsigned int h = 1; h < height-1;h++){
+			int ind = h*width+w;
+			float z = idepth*float(depthdata[ind]);
+
+			if(w > 1){
+				int dir = -1;
+				int other2 = ind+2*dir;
+				int other = ind+dir;
+
+				float z3 = idepth*float(depthdata[other2]);
+				float z2 = idepth*float(depthdata[other]);
+				z2 = 2*z2-z3;
+
+				if(z2 > 0 || z > 0){Xvec.push_back((z-z2)/(z*z+z2*z2));}
+			}
+
+			if(h > 1){
+				int dir = -width;
+				int other2 = ind+2*dir;
+				int other = ind+dir;
+
+				float z3 = idepth*float(depthdata[other2]);
+				float z2 = idepth*float(depthdata[other]);
+				z2 = 2*z2-z3;
+
+				if(z2 > 0 || z > 0){Xvec.push_back((z-z2)/(z*z+z2*z2));}
+			}
+		}
+	}
+
+	std::vector<double> dx;  dx.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dx[i] = 0.5;}
+	std::vector<double> dy;	 dy.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dy[i] = 0.5;}
+
+	for(unsigned int w = 1; w < width-1;w++){
+		for(unsigned int h = 1; h < height-1;h++){
+			int ind = h*width+w;
+			float z = idepth*float(depthdata[ind]);
+
+			if(w > 1){
+				int dir = -1;
+				int other2 = ind+2*dir;
+				int other = ind+dir;
+
+
+				float z3 = idepth*float(depthdata[other2]);
+				float z2 = idepth*float(depthdata[other]);
+
+				float dz = fabs(z-z2);
+				if(z3 > 0){dz = std::min(dz,float(fabs(z- (2*z2-z3))));}
+				if(z2 > 0 || z > 0){dx[ind] = funcZ->getProb(dz/(z*z+z2*z2));}
+			}
+
+			if(h > 1){
+				int dir = -width;
+
+				int other2 = ind+2*dir;
+				int other = ind+dir;
+
+				float z3 = idepth*float(depthdata[other2]);
+				float z2 = idepth*float(depthdata[other]);
+
+				float dz = fabs(z-z2);
+				if(z3 > 0){dz = std::min(dz,float(fabs(z- (2*z2-z3))));}
+				if(z2 > 0 || z > 0){dy[ind] = funcZ->getProb(dz/(z*z+z2*z2));}
+			}
+		}
+	}
+
+
+
+	for(int i = 0; i < width*height; i++){
+		dedata[3*i+0] = 1-dx[i];
+		dedata[3*i+1] = 1-dy[i];
+		dedata[2*i+2] = 0;
+	}
+
+}
+*/
+//	cv::namedWindow( "de", cv::WINDOW_AUTOSIZE );		cv::imshow( "de",	de);
+//	cv::namedWindow( "ce", cv::WINDOW_AUTOSIZE );		cv::imshow( "ce",	ce);
+//	cv::waitKey(0);
+
+
+
     depthedges.create(height,width,CV_8UC1);
     unsigned char * depthedgesdata = (unsigned char *)depthedges.data;
     for(int i = 0; i < width*height; i++){
         depthedgesdata[i] = 0;
-    }
-
-	//rgbdata
-
-    /*
-    double t = 0.01;
-    for(int w = 0; w < width; w++){
-        for(int h = 0; h < height;h++){
-            int ind = h*width+w;
-            depthedgesdata[ind] = 0;
-            double z = idepth*double(depthdata[ind]);
-            if(w > 0){
-                double z2 = idepth*double(depthdata[ind-1]);
-                double info = 1.0/(z*z+z2*z2);
-                double diff = fabs(z2-z)*info;
-                if(diff > t){depthedgesdata[ind] = 255;}
-            }
-
-            if(w < width-1){
-                double z2 = idepth*double(depthdata[ind+1]);
-                double info = 1.0/(z*z+z2*z2);
-                double diff = fabs(z2-z)*info;
-                if(diff > t){depthedgesdata[ind] = 255;}
-            }
-
-            if(h > 0){
-                double z2 = idepth*double(depthdata[ind-width]);
-                double info = 1.0/(z*z+z2*z2);
-                double diff = fabs(z2-z)*info;
-                if(diff > t){depthedgesdata[ind] = 255;}
-            }
-
-            if(h < height-1){
-                double z2 = idepth*double(depthdata[ind+width]);
-                double info = 1.0/(z*z+z2*z2);
-                double diff = fabs(z2-z)*info;
-                if(diff > t){depthedgesdata[ind] = 255;}
-            }
-
-            if(h > 0 && w > 0){
-                double z2 = idepth*double(depthdata[ind-width-1]);
-                double info = 1.0/(z*z+z2*z2);
-                double diff = fabs(z2-z)*info;
-                if(diff > t){depthedgesdata[ind] = 255;}
-            }
-
-            if(w > 0 && h < height-1){
-                double z2 = idepth*double(depthdata[ind+width-1]);
-                double info = 1.0/(z*z+z2*z2);
-                double diff = fabs(z2-z)*info;
-                if(diff > t){depthedgesdata[ind] = 255;}
-            }
-
-            if(h > 0 && w < width-1){
-                double z2 = idepth*double(depthdata[ind-width+1]);
-                double info = 1.0/(z*z+z2*z2);
-                double diff = fabs(z2-z)*info;
-                if(diff > t){depthedgesdata[ind] = 255;}
-            }
-
-            if(h < height-1 && w < width-1){
-                double z2 = idepth*double(depthdata[ind+width+1]);
-                double info = 1.0/(z*z+z2*z2);
-                double diff = fabs(z2-z)*info;
-                if(diff > t){depthedgesdata[ind] = 255;}
-            }
-        }
-    }
-*/
-
-
-    //    cv::Mat src = rgb.clone();
-
-    //    for(int i = 0; i < 20; i++){
-    //        cv::Mat dst;
-    //        cv::adaptiveBilateralFilter(src, dst, cv::Size(7,7), 30);
-
-    //        cv::namedWindow( "rgb", cv::WINDOW_AUTOSIZE );			cv::imshow( "rgb",      rgb);
-    //        cv::namedWindow( "bilat", cv::WINDOW_AUTOSIZE );		cv::imshow( "bilat",	dst);
-    //        cv::waitKey(0);
-    //        src = dst.clone();
-    //    }
+    }	
 
 	if(false){
         pcl::PointCloud<pcl::PointXYZRGBA>::Ptr	cloud (new pcl::PointCloud<pcl::PointXYZRGBA>);

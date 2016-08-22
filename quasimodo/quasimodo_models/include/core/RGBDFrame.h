@@ -22,6 +22,7 @@
 
 #include "Util.h"
 #include "Camera.h"
+#include "../weightfunctions/DistanceWeightFunction2.h"
 
 namespace reglib
 {
@@ -35,7 +36,7 @@ namespace reglib
 		int sweepid;
 
 		//float * rgbdata;
-
+		cv::Mat det_dilate;
 		cv::Mat rgb;
 		cv::Mat depth;
 		cv::Mat normals;

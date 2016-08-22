@@ -225,7 +225,7 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
     reglib::MassRegistrationPPR2 * massregmod = new reglib::MassRegistrationPPR2(0.05);
     massregmod->timeout = 1200;
     massregmod->viewer = viewer;
-    massregmod->visualizationLvl = 1;
+	massregmod->visualizationLvl = 0;
     massregmod->maskstep = 10;//std::max(1,int(0.4*double(models[i]->frames.size())));
     massregmod->nomaskstep = 10;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
     massregmod->nomask = true;
@@ -394,8 +394,8 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
         //exit(0);
         //        std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,mod_po_vec[j],mod_fr_vec[j],masks,mod_po_vec[j],mod_fr_vec[j],masks,true);//Determine self occlusions
         //        std::vector<cv::Mat> external_masks = mu->computeDynamicObject(mod_po_vec[j],mod_fr_vec[j],masks,bgcp,bgcf,bgmask,mod_po_vec[j],mod_fr_vec[j],masks,true);//Determine external occlusions
-        std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,model->relativeposes,model->frames,masks,false);//Determine self occlusions
-        std::vector<cv::Mat> external_masks = mu->computeDynamicObject(model->relativeposes,model->frames,masks,bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,false);//Determine external occlusions
+		std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,model->relativeposes,model->frames,masks,false);//Determine self occlusions
+		std::vector<cv::Mat> external_masks = mu->computeDynamicObject(model->relativeposes,model->frames,masks,bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,false);//Determine external occlusions
         std::vector<cv::Mat> dynamic_masks;
         //        for(unsigned int i = 0; i < mod_fr_vec[j].size(); i++){
         //            reglib::RGBDFrame * frame = mod_fr_vec[j][i];
