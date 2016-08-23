@@ -56,7 +56,7 @@ add_library(quasimodo_weightlib src/weightfunctions/DistanceWeightFunction2.cpp 
 target_link_libraries(quasimodo_weightlib ceres glog ${catkin_LIBRARIES})
 
 add_library(quasimodo_core src/core/Util.cpp src/core/Camera.cpp src/core/RGBDFrame.cpp)
-target_link_libraries(quasimodo_core ${CERES_LIBRARIES} ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(quasimodo_core quasimodo_weightlib ${CERES_LIBRARIES} ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
 add_library(quasimodo_reglib src/registration/Registration.cpp src/registration/RegistrationRandom.cpp src/registration/RegistrationRefinement.cpp)
 target_link_libraries(quasimodo_reglib quasimodo_weightlib ceres glog ${catkin_LIBRARIES})

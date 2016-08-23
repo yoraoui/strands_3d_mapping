@@ -1758,7 +1758,7 @@ void ModelUpdater::getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, d
 						if(fabs(d) <= 0.0025){//If close, according noises, and angle of the surfaces similar: FUSE
                             if(surface_angle > 0.8 && dst_maskdata[dst_ind] > 0){
                                 if(interframe_connectionId.size() > 0){
-                                    double p_same = 0.9;
+									double p_same = 0.99;
                                     double not_p_same = 1-p_same;
                                     double weight = -log(not_p_same);
 

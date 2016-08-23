@@ -75,46 +75,13 @@ typedef semantic_map_load_utilties::DynamicObjectData<PointType> ObjectData;
 using namespace std;
 using namespace semantic_map_load_utilties;
 
-/*
-bool segment_metaroom(quasimodo_msgs::metaroom_pair::Request  & req, quasimodo_msgs::metaroom_pair::Response & res){
-	printf("segment_metaroom\n");
-
-	printf("background: %s\n",req.background.c_str());
-	printf("foreground: %s\n",req.foreground.c_str());
-
-	reglib::Model * bg_model = quasimodo_brain::load_metaroom_model(req.background);
-	reglib::Model * fg_model = quasimodo_brain::load_metaroom_model(req.foreground);
-
-	quasimodo_msgs::segment_model sm;
-	sm.request.backgroundmodel = quasimodo_brain::getModelMSG(bg_model);
-	sm.request.models.push_back(quasimodo_brain::getModelMSG(fg_model));
-
-	bool status;
-
-	if (segmentation_client.call(sm)){
-		if(sm.response.dynamicmasks.size() > 0){
-			res.dynamicmasks	= sm.response.dynamicmasks.front().images;
-			res.movingmasks		= sm.response.movingmasks.front().images;
-		}
-		status = true;
-	}else{
-		ROS_ERROR("Failed to call service segment_model");
-		status = false;
-	}
-
-	bg_model->fullDelete();
-	delete bg_model;
-	fg_model->fullDelete();
-	delete fg_model;
-	return status;
-}
-*/
-
 std::string overall_folder = "~/.semanticMap/";
 boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 int visualization_lvl = 0;
 std::string outtopic = "/some/topic";
 ros::Publisher out_pub;
+std::string posepath = "";
+std::vector<Eigen::Matrix4d> sweepPoses;
 
 void remove_old_seg(std::string sweep_folder){
 	char buf [1024];
@@ -125,12 +92,288 @@ void remove_old_seg(std::string sweep_folder){
 	printf("%s\n",buf);
 }
 
-void processMetaroom(std::string path){
-	printf("processing: %s\n",path.c_str());
+void writePose(QXmlStreamWriter* xmlWriter, Eigen::Matrix4d pose){
+	Eigen::Quaterniond q = Eigen::Quaterniond ((Eigen::Affine3d (pose)).rotation());
+
+	xmlWriter->writeStartElement("Translation");
+	xmlWriter->writeStartElement("x");
+	xmlWriter->writeCharacters(QString::number(pose(0,3)));
+	xmlWriter->writeEndElement();
+	xmlWriter->writeStartElement("y");
+	xmlWriter->writeCharacters(QString::number(pose(1,3)));
+	xmlWriter->writeEndElement();
+	xmlWriter->writeStartElement("z");
+	xmlWriter->writeCharacters(QString::number(pose(2,3)));
+	xmlWriter->writeEndElement();
+	xmlWriter->writeEndElement(); // Translation
+
+	xmlWriter->writeStartElement("Rotation");
+	xmlWriter->writeStartElement("w");
+	xmlWriter->writeCharacters(QString::number(q.w()));
+	xmlWriter->writeEndElement();
+	xmlWriter->writeStartElement("x");
+	xmlWriter->writeCharacters(QString::number(q.x()));
+	xmlWriter->writeEndElement();
+	xmlWriter->writeStartElement("y");
+	xmlWriter->writeCharacters(QString::number(q.y()));
+	xmlWriter->writeEndElement();
+	xmlWriter->writeStartElement("z");
+	xmlWriter->writeCharacters(QString::number(q.z()));
+	xmlWriter->writeEndElement();
+	xmlWriter->writeEndElement(); //Rotation
+}
+
+void writeXml(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames, std::vector<Eigen::Matrix4d> & poses){
+	int slash_pos = xmlFile.find_last_of("/");
+	std::string sweep_folder = xmlFile.substr(0, slash_pos) + "/";
+
+	QFile file(xmlFile.c_str());
+	if (file.exists()){file.remove();}
+
+
+	if (!file.open(QIODevice::ReadWrite | QIODevice::Text))
+	{
+		std::cerr<<"Could not open file "<<sweep_folder<<"additionalViews.xml to save views as XML"<<std::endl;
+		return;
+	}
+
+	QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
+	xmlWriter->setDevice(&file);
+
+	xmlWriter->writeStartDocument();
+	xmlWriter->writeStartElement("Views");
+	xmlWriter->writeAttribute("number_of_views", QString::number(frames.size()));
+	for(unsigned int i = 0; i < frames.size(); i++){
+		reglib::RGBDFrame * frame = frames[i];
+		char buf [1024];
+
+		xmlWriter->writeStartElement("View");
+		sprintf(buf,"%s/view_RGB%10.10i.png",sweep_folder.c_str(),i);
+		cv::imwrite(buf, frame->rgb );
+		xmlWriter->writeAttribute("RGB", QString(buf));
+
+
+		sprintf(buf,"%s/view_DEPTH%10.10i.png",sweep_folder.c_str(),i);
+		cv::imwrite(buf, frame->depth );
+		xmlWriter->writeAttribute("DEPTH", QString(buf));
+
+		long nsec = 1e9*((frame->capturetime)-std::floor(frame->capturetime));
+		long sec = frame->capturetime;
+		xmlWriter->writeStartElement("Stamp");
+
+			xmlWriter->writeStartElement("sec");
+				xmlWriter->writeCharacters(QString::number(sec));
+			xmlWriter->writeEndElement();
+
+			xmlWriter->writeStartElement("nsec");
+				xmlWriter->writeCharacters(QString::number(nsec));
+			xmlWriter->writeEndElement();
+
+		xmlWriter->writeEndElement(); // Stamp
+
+		xmlWriter->writeStartElement("Camera");
+
+			xmlWriter->writeStartElement("fx");
+				xmlWriter->writeCharacters(QString::number(frame->camera->fx));
+			xmlWriter->writeEndElement();
+
+			xmlWriter->writeStartElement("fy");
+				xmlWriter->writeCharacters(QString::number(frame->camera->fy));
+			xmlWriter->writeEndElement();
+
+			xmlWriter->writeStartElement("cx");
+				xmlWriter->writeCharacters(QString::number(frame->camera->cx));
+			xmlWriter->writeEndElement();
+
+			xmlWriter->writeStartElement("cy");
+				xmlWriter->writeCharacters(QString::number(frame->camera->cy));
+			xmlWriter->writeEndElement();
+
+		xmlWriter->writeEndElement(); // camera
+
+		xmlWriter->writeStartElement("RegisteredPose");
+			writePose(xmlWriter,poses[i]);
+		xmlWriter->writeEndElement();
+
+		xmlWriter->writeStartElement("Pose");
+			writePose(xmlWriter,frame->pose);
+		xmlWriter->writeEndElement();
+
+		xmlWriter->writeEndElement();
+	}
+	xmlWriter->writeEndElement(); // Semantic Room
+	xmlWriter->writeEndDocument();
+	delete xmlWriter;
+}
+
+Eigen::Matrix4d getPose(QXmlStreamReader * xmlReader){
+	QXmlStreamReader::TokenType token = xmlReader->readNext();//Translation
+	QString elementName = xmlReader->name().toString();
+
+	token = xmlReader->readNext();//fx
+	double tx = atof(xmlReader->readElementText().toStdString().c_str());
+
+	token = xmlReader->readNext();//fy
+	double ty = atof(xmlReader->readElementText().toStdString().c_str());
+
+	token = xmlReader->readNext();//cx
+	double tz = atof(xmlReader->readElementText().toStdString().c_str());
+
+	token = xmlReader->readNext();//Translation
+	elementName = xmlReader->name().toString();
+
+	token = xmlReader->readNext();//Rotation
+	elementName = xmlReader->name().toString();
+
+	token = xmlReader->readNext();//qw
+	double qw = atof(xmlReader->readElementText().toStdString().c_str());
+
+	token = xmlReader->readNext();//qx
+	double qx = atof(xmlReader->readElementText().toStdString().c_str());
+
+	token = xmlReader->readNext();//qy
+	double qy = atof(xmlReader->readElementText().toStdString().c_str());
+
+	token = xmlReader->readNext();//qz
+	double qz = atof(xmlReader->readElementText().toStdString().c_str());
+
+	token = xmlReader->readNext();//Rotation
+	elementName = xmlReader->name().toString();
+
+	Eigen::Matrix4d regpose = (Eigen::Affine3d(Eigen::Quaterniond(qw,qx,qy,qz))).matrix();
+	regpose(0,3) = tx;
+	regpose(0,3) = ty;
+	regpose(0,3) = tz;
+
+	return regpose;
+}
+
+void readViewXML(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames, std::vector<Eigen::Matrix4d> & poses){
+
+	QFile file(xmlFile.c_str());
+
+	if (!file.exists())
+	{
+		ROS_ERROR("Could not open file %s to load room.",xmlFile.c_str());
+		return;
+	}
+
+	QString xmlFileQS(xmlFile.c_str());
+	int index = xmlFileQS.lastIndexOf('/');
+	QString roomFolder = xmlFileQS.left(index);
+
+
+	file.open(QIODevice::ReadOnly);
+	ROS_INFO_STREAM("Parsing xml file: "<<xmlFile.c_str());
+
+	QXmlStreamReader* xmlReader = new QXmlStreamReader(&file);
+
+
+	while (!xmlReader->atEnd() && !xmlReader->hasError())
+	{
+		QXmlStreamReader::TokenType token = xmlReader->readNext();
+		if (token == QXmlStreamReader::StartDocument)
+			continue;
+
+		if (xmlReader->hasError())
+		{
+			ROS_ERROR("XML error: %s",xmlReader->errorString().toStdString().c_str());
+			return;
+		}
+
+		QString elementName = xmlReader->name().toString();
+
+		if (token == QXmlStreamReader::StartElement)
+		{
+
+			if (xmlReader->name() == "View")
+			{
+				cv::Mat rgb;
+				cv::Mat depth;
+				//printf("elementName: %s\n",elementName.toStdString().c_str());
+				QXmlStreamAttributes attributes = xmlReader->attributes();
+				if (attributes.hasAttribute("RGB"))
+				{
+					QString rgbpath = attributes.value("RGB").toString();
+					//printf("rgb filename: %s\n",rgbpath.toStdString().c_str());
+					rgb = cv::imread(rgbpath.toStdString().c_str(), CV_LOAD_IMAGE_UNCHANGED);
+				}else{break;}
+
+
+				if (attributes.hasAttribute("DEPTH"))
+				{
+					QString depthpath = attributes.value("DEPTH").toString();
+					//printf("depth filename: %s\n",depthpath.toStdString().c_str());
+					depth = cv::imread(depthpath.toStdString().c_str(), CV_LOAD_IMAGE_UNCHANGED);
+				}else{break;}
+
+
+				token = xmlReader->readNext();//Stamp
+				elementName = xmlReader->name().toString();
+
+				token = xmlReader->readNext();//sec
+				elementName = xmlReader->name().toString();
+				int sec = atoi(xmlReader->readElementText().toStdString().c_str());
+
+				token = xmlReader->readNext();//nsec
+				elementName = xmlReader->name().toString();
+				int nsec = atoi(xmlReader->readElementText().toStdString().c_str());
+				token = xmlReader->readNext();//end stamp
+
+				token = xmlReader->readNext();//Camera
+				elementName = xmlReader->name().toString();
+
+				reglib::Camera * cam = new reglib::Camera();
+
+				token = xmlReader->readNext();//fx
+				cam->fx = atof(xmlReader->readElementText().toStdString().c_str());
+
+				token = xmlReader->readNext();//fy
+				cam->fy = atof(xmlReader->readElementText().toStdString().c_str());
+
+				token = xmlReader->readNext();//cx
+				cam->cx = atof(xmlReader->readElementText().toStdString().c_str());
+
+				token = xmlReader->readNext();//cy
+				cam->cy = atof(xmlReader->readElementText().toStdString().c_str());
+
+				token = xmlReader->readNext();//Camera
+				elementName = xmlReader->name().toString();
+
+				double time = double(sec)+double(nsec)/double(1e9);
+
+				token = xmlReader->readNext();//RegisteredPose
+				elementName = xmlReader->name().toString();
+
+				Eigen::Matrix4d regpose = getPose(xmlReader);
+
+				token = xmlReader->readNext();//RegisteredPose
+				elementName = xmlReader->name().toString();
+
+
+				token = xmlReader->readNext();//Pose
+				elementName = xmlReader->name().toString();
+
+				Eigen::Matrix4d pose = getPose(xmlReader);
+
+				token = xmlReader->readNext();//Pose
+				elementName = xmlReader->name().toString();
+
+				reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb,depth, time, pose);
+				frames.push_back(frame);
+				poses.push_back(pose);
+			}
+		}
+	}
+	delete xmlReader;
+}
+
+reglib::Model * processAV(std::string path){
+	printf("processAV: %s\n",path.c_str());
 
 	int slash_pos = path.find_last_of("/");
 	std::string sweep_folder = path.substr(0, slash_pos) + "/";
-remove_old_seg(sweep_folder);
+
 	std::vector<cv::Mat> viewrgbs;
 	std::vector<cv::Mat> viewdepths;
 	std::vector<tf::StampedTransform > viewtfs;
@@ -161,18 +404,14 @@ remove_old_seg(sweep_folder);
 			viewrgbs.push_back(rgb);
 			viewdepths.push_back(depth);
 			viewtfs.push_back(object.vAdditionalViewsTransforms[i]);
-			//viewcams.push_back(roomData.vIntermediateRoomCloudCamParams.front());
-
-			cv::namedWindow("rgbimage",     cv::WINDOW_AUTOSIZE);
-			cv::imshow(		"rgbimage",     rgb);
-			cv::namedWindow("depthimage",	cv::WINDOW_AUTOSIZE);
-			cv::imshow(		"depthimage",	depth);
-			cv::waitKey(30);
 		}
 	}
 
 	reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path);
-
+	for(unsigned int i = 0; (i < sweep->frames.size()) && (sweep->frames.size() == sweepPoses.size()) ; i++){
+		sweep->frames[i].pose	= sweep->frames.front().pose * sweepPoses[i];
+		sweep->relativeposes[i] = sweepPoses[i];
+	}
 
 	std::vector<reglib::RGBDFrame *> frames;
 	std::vector<reglib::ModelMask *> masks;
@@ -206,6 +445,8 @@ remove_old_seg(sweep_folder);
 		reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],time, m);//a.matrix());
 		frames.push_back(frame);
 
+
+
 		//both_unrefined.push_back(sweep->frames.front()->pose.inverse()*a.matrix());
 		both_unrefined.push_back(sweep->frames.front()->pose.inverse()*m);
 	}
@@ -215,7 +456,6 @@ remove_old_seg(sweep_folder);
 	mu->occlusion_penalty               = 15;
 	mu->massreg_timeout                 = 60*4;
 	mu->viewer							= viewer;
-
 
 	sweep->points = mu->getSuperPoints(sweep->relativeposes,sweep->frames,sweep->modelmasks,1,false);
 
@@ -234,28 +474,9 @@ remove_old_seg(sweep_folder);
 	bgmassreg->setData(frames,masks);
 	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
 
-	reglib::Model * av = new reglib::Model();
-	av->frames = frames;
-	av->modelmasks = masks;
-	for(unsigned int i = 0; i < frames.size(); i++){
-		av->relativeposes.push_back(bgmfr.poses[1].inverse()*bgmfr.poses[i+1]);
-	}
-
-
-	av->points = mu->getSuperPoints(av->relativeposes,av->frames,av->modelmasks,1,false);
-
 	for(unsigned int i = 0; i < frames.size(); i++){
 		frames[i]->pose = sweep->frames.front()->pose * bgmfr.poses[i+1];
 	}
-
-
-	//    reglib::Model * fullmodel = new reglib::Model();
-	//    fullmodel->submodels.push_back(sweep);
-	//    fullmodel->submodels_relativeposes.push_back(bgmfr.poses[0]);
-	//    if(frames.size() > 0){
-	//        fullmodel->submodels.push_back(av);
-	//        fullmodel->submodels_relativeposes.push_back(bgmfr.poses[1]);
-	//    }
 
 	reglib::Model * fullmodel = new reglib::Model();
 	fullmodel->frames = sweep->frames;
@@ -266,6 +487,99 @@ remove_old_seg(sweep_folder);
 		fullmodel->modelmasks.push_back(masks[i]);
 		fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
 	}
+
+	delete bgmassreg;
+	delete reg;
+	delete mu;
+	delete sweep;
+
+	return fullmodel;
+}
+
+void savePoses(std::string xmlFile, std::vector<Eigen::Matrix4d> poses, int maxposes = -1){
+	QFile file(xmlFile.c_str());
+	if (file.exists()){file.remove();}
+
+	if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){
+		std::cerr<<"Could not open file "<< xmlFile <<" to save views as XML"<<std::endl;
+		return;
+	}
+
+	QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
+	xmlWriter->setDevice(&file);
+
+	xmlWriter->writeStartDocument();
+//	xmlWriter->writeStartElement("Poses");
+//	xmlWriter->writeAttribute("number_of_poses", QString::number(poses.size()));
+	for(unsigned int i = 0; i < poses.size() && (i == -1 || i < maxposes); i++){
+		xmlWriter->writeStartElement("Pose");
+			writePose(xmlWriter,poses[i]);
+		xmlWriter->writeEndElement();
+	}
+//	xmlWriter->writeEndElement(); // Poses
+	xmlWriter->writeEndDocument();
+	delete xmlWriter;
+}
+
+std::vector<Eigen::Matrix4d> readPoseXML(std::string xmlFile){
+	std::vector<Eigen::Matrix4d> poses;
+	QFile file(xmlFile.c_str());
+
+	if (!file.exists()){
+		ROS_ERROR("Could not open file %s to load poses.",xmlFile.c_str());
+		return poses;
+	}
+
+	file.open(QIODevice::ReadOnly);
+	ROS_INFO_STREAM("Parsing xml file: "<<xmlFile.c_str());
+
+	QXmlStreamReader* xmlReader = new QXmlStreamReader(&file);
+
+	while (!xmlReader->atEnd() && !xmlReader->hasError()){
+		QXmlStreamReader::TokenType token = xmlReader->readNext();
+		if (token == QXmlStreamReader::StartDocument)
+			continue;
+
+		if (xmlReader->hasError())
+		{
+			ROS_ERROR("XML error: %s",xmlReader->errorString().toStdString().c_str());
+			return poses;
+		}
+
+		QString elementName = xmlReader->name().toString();
+
+		if (token == QXmlStreamReader::StartElement){
+			if (xmlReader->name() == "Pose"){
+				Eigen::Matrix4d pose = getPose(xmlReader);
+
+				token = xmlReader->readNext();//Pose
+				elementName = xmlReader->name().toString();
+
+				poses.push_back(pose);
+			}
+		}
+	}
+	delete xmlReader;
+	return poses;
+}
+
+void processMetaroom(std::string path){
+	printf("processing: %s\n",path.c_str());
+
+	int slash_pos = path.find_last_of("/");
+	std::string sweep_folder = path.substr(0, slash_pos) + "/";
+
+	reglib::Model * fullmodel = processAV(path);
+
+	savePoses(sweep_folder+"testposes.xml",fullmodel->relativeposes,17);
+
+	writeXml(path+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes);
+
+	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
+	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( fullmodel, reg);
+	mu->occlusion_penalty               = 15;
+	mu->massreg_timeout                 = 60*4;
+	mu->viewer							= viewer;
 
 	std::vector<Eigen::Matrix4d> po;
 	std::vector<reglib::RGBDFrame*> fr;
@@ -279,104 +593,15 @@ remove_old_seg(sweep_folder);
 
 	if(overall_folder.back() == '/'){overall_folder.pop_back();}
 
-
 	int prevind = -1;
 	std::vector<std::string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<pcl::PointXYZRGB>(overall_folder);
 	for (int i = 0; i < sweep_xmls.size(); i++){
-
 		SimpleXMLParser<pcl::PointXYZRGB>::RoomData other_roomData  = parser.loadRoomFromXML(sweep_xmls[i],std::vector<std::string>(),false,false);
 		std::string other_waypointid = other_roomData.roomWaypointId;
 
-
-		if(sweep_xmls[i].compare(path) == 0){
-			break;
-		}
-		if(other_waypointid.compare(current_waypointid) == 0){
-			prevind = i;
-		}
+		if(sweep_xmls[i].compare(path) == 0){break;}
+		if(other_waypointid.compare(current_waypointid) == 0){prevind = i;}
 	}
-
-
-	QFile file((sweep_folder+"ViewGroup.xml").c_str());
-	if (file.exists()){file.remove();}
-
-
-	if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){
-		std::cerr<<"Could not open file "<<sweep_folder<<"additionalViews.xml to save views as XML"<<std::endl;
-		return;
-	}
-
-	QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
-	xmlWriter->setDevice(&file);
-
-	xmlWriter->writeStartDocument();
-	xmlWriter->writeStartElement("ViewGroup");
-
-	for(unsigned int i = 0; i < fullmodel->frames.size(); i++){
-		char buf [1024];
-		xmlWriter->writeStartElement("View");
-//		sprintf(buf,"%s/RGB%10.10i.png",sweep_folder.c_str(),i);
-//		cv::imwrite(buf, fullmodel->frames[i]->rgb );
-//		sprintf(buf,"%s/DEPTH%10.10i.png",sweep_folder.c_str(),i);
-//		cv::imwrite(buf, fullmodel->frames[i]->depth );
-
-//		xmlWriter->writeStartElement("AdditionalViewTransform");
-
-//		geometry_msgs::TransformStamped msg;
-//		tf::transformStampedTFToMsg(viewtfs[i], msg);
-
-//		xmlWriter->writeStartElement("Stamp");
-//		xmlWriter->writeStartElement("sec");
-//		xmlWriter->writeCharacters(QString::number(msg.header.stamp.sec));
-//		xmlWriter->writeEndElement();
-//		xmlWriter->writeStartElement("nsec");
-//		xmlWriter->writeCharacters(QString::number(msg.header.stamp.nsec));
-//		xmlWriter->writeEndElement();
-//		xmlWriter->writeEndElement(); // Stamp
-
-//		xmlWriter->writeStartElement("FrameId");
-//		xmlWriter->writeCharacters(QString(msg.header.frame_id.c_str()));
-//		xmlWriter->writeEndElement();
-
-//		xmlWriter->writeStartElement("ChildFrameId");
-//		xmlWriter->writeCharacters(QString(msg.child_frame_id.c_str()));
-//		xmlWriter->writeEndElement();
-
-//		xmlWriter->writeStartElement("Transform");
-//		xmlWriter->writeStartElement("Translation");
-//		xmlWriter->writeStartElement("x");
-//		xmlWriter->writeCharacters(QString::number(msg.transform.translation.x));
-//		xmlWriter->writeEndElement();
-//		xmlWriter->writeStartElement("y");
-//		xmlWriter->writeCharacters(QString::number(msg.transform.translation.y));
-//		xmlWriter->writeEndElement();
-//		xmlWriter->writeStartElement("z");
-//		xmlWriter->writeCharacters(QString::number(msg.transform.translation.z));
-//		xmlWriter->writeEndElement();
-//		xmlWriter->writeEndElement(); // Translation
-//		xmlWriter->writeStartElement("Rotation");
-//		xmlWriter->writeStartElement("w");
-//		xmlWriter->writeCharacters(QString::number(msg.transform.rotation.w));
-//		xmlWriter->writeEndElement();
-//		xmlWriter->writeStartElement("x");
-//		xmlWriter->writeCharacters(QString::number(msg.transform.rotation.x));
-//		xmlWriter->writeEndElement();
-//		xmlWriter->writeStartElement("y");
-//		xmlWriter->writeCharacters(QString::number(msg.transform.rotation.y));
-//		xmlWriter->writeEndElement();
-//		xmlWriter->writeStartElement("z");
-//		xmlWriter->writeCharacters(QString::number(msg.transform.rotation.z));
-//		xmlWriter->writeEndElement();
-//		xmlWriter->writeEndElement(); // Rotation
-//		xmlWriter->writeEndElement(); // Transform
-//		xmlWriter->writeEndElement(); // RoomIntermediateCloudTransform
-		xmlWriter->writeEndElement(); // View
-	}
-	xmlWriter->writeEndElement(); // ViewGroup
-	xmlWriter->writeEndDocument();
-	delete xmlWriter;
-
-exit(0);
 
 	if(prevind != -1){
 		std::string prev = sweep_xmls[prevind];
@@ -386,18 +611,14 @@ exit(0);
 		bg->points = mu->getSuperPoints(bg->relativeposes,bg->frames,bg->modelmasks,1,false);
 
 		std::vector< reglib::Model * > models;
-		//models.push_back(sweep);
 		models.push_back(fullmodel);
-		//models.push_back(av);
-
 
 		std::vector< std::vector< cv::Mat > > internal;
 		std::vector< std::vector< cv::Mat > > external;
 		std::vector< std::vector< cv::Mat > > dynamic;
 
 		quasimodo_brain::segment(bg,models,internal,external,dynamic,true);
-
-
+		remove_old_seg(sweep_folder);
 
 		for(unsigned int i = 0; i < models.size(); i++){
 			std::vector<cv::Mat> internal_masks = internal[i];
@@ -510,6 +731,19 @@ exit(0);
 					cloud_cluster->points.push_back(dynamiccloud->points[pid]);
 				}
 
+				char buf [1024];
+				sprintf(buf,"%s/dynamic_object%10.10i.xml",sweep_folder.c_str(),d);
+				QFile file(buf);
+				if (file.exists()){file.remove();}
+				if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save dynamic object as XML"<<std::endl;}
+
+				QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
+				xmlWriter->setDevice(&file);
+
+				xmlWriter->writeStartDocument();
+				xmlWriter->writeStartElement("Object");
+				xmlWriter->writeAttribute("object_number", QString::number(d));
+
 				for(unsigned int j = 0; j < mod_fr.size(); j++){
 					if(inds[j].size() == 0){continue;}
 					reglib::RGBDFrame * frame = mod_fr[j];
@@ -523,17 +757,15 @@ exit(0);
 					char buf [1024];
 					sprintf(buf,"%s/dynamicmask_%i_%i.png",sweep_folder.c_str(),d,j);
 					cv::imwrite(buf, mask );
-
-					cv::namedWindow( "mask", cv::WINDOW_AUTOSIZE );			cv::imshow( "mask",	mask);
-					cv::namedWindow( "rgb", cv::WINDOW_AUTOSIZE );			cv::imshow( "rgb",	frame->rgb);
-					cv::waitKey(0);
+					xmlWriter->writeStartElement("Mask");
+					xmlWriter->writeAttribute("filename", QString(buf));
+					xmlWriter->writeAttribute("image_number", QString::number(j));
+					xmlWriter->writeEndElement();
 				}
 
-				if(visualization_lvl > 0){
-					viewer->removeAllPointClouds();
-					viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster), "scloud");
-					viewer->spin();
-				}
+				xmlWriter->writeEndElement();
+				xmlWriter->writeEndDocument();
+				delete xmlWriter;
 			}
 
 			// Creating the KdTree object for the search method of the extraction
@@ -560,61 +792,56 @@ exit(0);
 					cloud_cluster->points.push_back(movingcloud->points[pid]);
 				}
 
-				if(visualization_lvl > 0){
-					viewer->removeAllPointClouds();
-					viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster), "scloud");
-					viewer->spin();
+				char buf [1024];
+				sprintf(buf,"%s/moving_object%10.10i.xml",sweep_folder.c_str(),d);
+				QFile file(buf);
+				if (file.exists()){file.remove();}
+				if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save moving object as XML"<<std::endl;}
+
+				QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
+				xmlWriter->setDevice(&file);
+
+				xmlWriter->writeStartDocument();
+				xmlWriter->writeStartElement("Object");
+				xmlWriter->writeAttribute("object_number", QString::number(d));
+
+				for(unsigned int j = 0; j < mod_fr.size(); j++){
+					if(inds[j].size() == 0){continue;}
+					reglib::RGBDFrame * frame = mod_fr[j];
+					reglib::Camera * cam = frame->camera;
+					cv::Mat mask;
+					mask.create(cam->height,cam->width,CV_8UC1);
+					unsigned char * maskdata = (unsigned char *)(mask.data);
+					for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 0;}
+					for(unsigned int k = 0; k < inds[j].size(); k++){maskdata[inds[j][k]] = 255;}
+
+					char buf [1024];
+					sprintf(buf,"%s/movingmask_%i_%i.png",sweep_folder.c_str(),d,j);
+					cv::imwrite(buf, mask );
+					xmlWriter->writeStartElement("Mask");
+					xmlWriter->writeAttribute("filename", QString(buf));
+					xmlWriter->writeAttribute("image_number", QString::number(j));
+					xmlWriter->writeEndElement();
 				}
+
+				xmlWriter->writeEndElement();
+				xmlWriter->writeEndDocument();
+				delete xmlWriter;
 			}
 
 			if(visualization_lvl > 0){
 				viewer->removeAllPointClouds();
 				viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "scloud");
 				viewer->spin();
-
-				viewer->removeAllPointClouds();
-				viewer->addPointCloud<pcl::PointXYZRGBNormal> (dynamiccloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dynamiccloud), "scloud");
-				viewer->spin();
-
-				viewer->removeAllPointClouds();
-				viewer->addPointCloud<pcl::PointXYZRGBNormal> (movingcloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(movingcloud), "scloud");
-				viewer->spin();
 			}
-
 		}
-
 	}
 
 
 
-	delete bgmassreg;
+//	delete bgmassreg;
 	delete reg;
 	delete mu;
-
-	//    xmlWriter->writeStartElement("Transform");
-	//    xmlWriter->writeStartElement("Translation");
-	//    xmlWriter->writeStartElement("x");
-	//    xmlWriter->writeCharacters(QString::number(msg.transform.translation.x));
-	//    xmlWriter->writeEndElement();
-	//    xmlWriter->writeStartElement("y");
-	//    xmlWriter->writeCharacters(QString::number(msg.transform.translation.y));
-	//    xmlWriter->writeEndElement();
-	//    xmlWriter->writeStartElement("z");
-	//    xmlWriter->writeCharacters(QString::number(msg.transform.translation.z));
-	//    xmlWriter->writeEndElement();
-	//    xmlWriter->writeEndElement(); // Translation
-	//    xmlWriter->writeStartElement("Rotation");
-	//    xmlWriter->writeStartElement("w");
-	//    xmlWriter->writeCharacters(QString::number(msg.transform.rotation.w));
-	//    xmlWriter->writeEndElement();
-	//    xmlWriter->writeStartElement("x");
-	//    xmlWriter->writeCharacters(QString::number(msg.transform.rotation.x));
-	//    xmlWriter->writeEndElement();
-	//    xmlWriter->writeStartElement("y");
-	//    xmlWriter->writeCharacters(QString::number(msg.transform.rotation.y));
-	//    xmlWriter->writeEndElement();
-	//    xmlWriter->writeStartElement("z");
-	//    xmlWriter->writeCharacters(QString::number(msg.transform.rotation.z));
 
 	std_msgs::String msg;
 	msg.data = path;
@@ -626,9 +853,37 @@ void chatterCallback(const std_msgs::String::ConstPtr& msg){
 	processMetaroom(msg->data);
 }
 
-void segmentWithAdditionalViewsXml(std::string sweep_xml,std::string prev){
-	printf("segmentWithAdditionalViewsXml\n");
-	//	std::string prev = getPrevXML(sweep_xml);
+
+void trainMetaroom(std::string path){
+	printf("processing: %s\n",path.c_str());
+	if(posepath.compare("")==0){
+		printf("posepath not set, set before training\n");
+		return ;
+	}
+
+	int slash_pos = path.find_last_of("/");
+	std::string sweep_folder = path.substr(0, slash_pos) + "/";
+
+	reglib::Model * fullmodel = processAV(path);
+
+	//Not needed if metaroom well calibrated
+	reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.01);
+	bgmassreg->timeout = 600;
+	bgmassreg->viewer = viewer;
+	bgmassreg->use_surface = true;
+	bgmassreg->use_depthedge = true;
+	bgmassreg->visualizationLvl = visualization_lvl;
+	bgmassreg->maskstep = 5;
+	bgmassreg->nomaskstep = 5;
+	bgmassreg->nomask = true;
+	bgmassreg->stopval = 0.0005;
+	bgmassreg->setData(fullmodel->frames,fullmodel->modelmasks);
+	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(fullmodel->relativeposes);
+
+	savePoses(path+"/testposes.xml",bgmfr.poses,17);
+	fullmodel->fullDelete();
+	delete fullmodel;
+	delete bgmassreg;
 }
 
 int main(int argc, char** argv){
@@ -640,10 +895,13 @@ int main(int argc, char** argv){
 	int inputstate = 0;
 	for(int i = 1; i < argc;i++){
 		printf("input: %s\n",argv[i]);
-		if(std::string(argv[i]).compare("-file") == 0){inputstate = 2;}
-		else if(std::string(argv[i]).compare("-intopic") == 0){inputstate = 0;}
-		else if(std::string(argv[i]).compare("-outtopic") == 0){inputstate = 1;}
-		else if(std::string(argv[i]).compare("-folder") == 0){inputstate = 4;}
+		if(std::string(argv[i]).compare("-file") == 0){				inputstate = 2;}
+		else if(std::string(argv[i]).compare("-intopic") == 0){		inputstate = 0;}
+		else if(std::string(argv[i]).compare("-outtopic") == 0){	inputstate = 1;}
+		else if(std::string(argv[i]).compare("-folder") == 0){		inputstate = 4;}
+		else if(std::string(argv[i]).compare("-train") == 0){		inputstate = 5;}
+		else if(std::string(argv[i]).compare("-posepath") == 0){	inputstate = 6;}
+		else if(std::string(argv[i]).compare("-loadposes") == 0){		inputstate = 7;}
 		else if(std::string(argv[i]).compare("-v") == 0){
 			viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
 			viewer->setBackgroundColor (0.5, 0, 0.5);
@@ -661,54 +919,16 @@ int main(int argc, char** argv){
 			visualization_lvl = atoi(argv[i]);
 		}else if(inputstate == 4){
 			overall_folder = std::string(argv[i]);
+		}else if(inputstate == 5){
+			trainMetaroom(std::string(argv[i]));
+		}else if(inputstate == 6){
+			posepath = std::string(argv[i]);
+		}else if(inputstate == 7){
+			sweepPoses = readPoseXML(std::string(argv[i]));
 		}else{
 			out_pub = n.advertise<std_msgs::String>(outtopic, 1000);
 			processMetaroom(std::string(argv[i]));
 		}
 	}
-	/*
-	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
-
-
-
-	for(int ar = 1; ar < argc; ar++){
-		string overall_folder = std::string(argv[ar]);
-		vector<string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<PointType>(overall_folder);
-		printf("sweep_xmls\n");
-		for (auto sweep_xml : sweep_xmls) {
-			printf("sweep_xml: %s\n",sweep_xml.c_str());
-			load2(sweep_xml);
-		}
-	}
-
-
-
-
-	ros::init(argc, argv, "test_segment");
-	ros::NodeHandle n;
-	ros::ServiceClient segmentation_client = n.serviceClient<quasimodo_msgs::segment_model>("segment_model");
-
-	for(unsigned int i = 1; i < models.size(); i++){
-		quasimodo_msgs::segment_model sm;
-		sm.request.models.push_back(quasimodo_brain::getModelMSG(models[i]));
-
-		if(i > 0){
-			sm.request.backgroundmodel = quasimodo_brain::getModelMSG(models[i-1]);
-		}
-
-		if (segmentation_client.call(sm)){//Build model from frame
-			//int model_id = mff.response.model_id;
-			printf("segmented: %i\n",i);
-		}else{ROS_ERROR("Failed to call service segment_model");}
-	}
-	//ros::spin();
-
-	delete reg;
-	for(size_t j = 0; j < models.size(); j++){
-		models[j]->fullDelete();
-		delete models[j];
-	}
-	printf("done\n");
-	*/
 	return 0;
 }
