@@ -161,42 +161,42 @@ void writeXml(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames, st
 		long sec = frame->capturetime;
 		xmlWriter->writeStartElement("Stamp");
 
-			xmlWriter->writeStartElement("sec");
-				xmlWriter->writeCharacters(QString::number(sec));
-			xmlWriter->writeEndElement();
+		xmlWriter->writeStartElement("sec");
+		xmlWriter->writeCharacters(QString::number(sec));
+		xmlWriter->writeEndElement();
 
-			xmlWriter->writeStartElement("nsec");
-				xmlWriter->writeCharacters(QString::number(nsec));
-			xmlWriter->writeEndElement();
+		xmlWriter->writeStartElement("nsec");
+		xmlWriter->writeCharacters(QString::number(nsec));
+		xmlWriter->writeEndElement();
 
 		xmlWriter->writeEndElement(); // Stamp
 
 		xmlWriter->writeStartElement("Camera");
 
-			xmlWriter->writeStartElement("fx");
-				xmlWriter->writeCharacters(QString::number(frame->camera->fx));
-			xmlWriter->writeEndElement();
+		xmlWriter->writeStartElement("fx");
+		xmlWriter->writeCharacters(QString::number(frame->camera->fx));
+		xmlWriter->writeEndElement();
 
-			xmlWriter->writeStartElement("fy");
-				xmlWriter->writeCharacters(QString::number(frame->camera->fy));
-			xmlWriter->writeEndElement();
+		xmlWriter->writeStartElement("fy");
+		xmlWriter->writeCharacters(QString::number(frame->camera->fy));
+		xmlWriter->writeEndElement();
 
-			xmlWriter->writeStartElement("cx");
-				xmlWriter->writeCharacters(QString::number(frame->camera->cx));
-			xmlWriter->writeEndElement();
+		xmlWriter->writeStartElement("cx");
+		xmlWriter->writeCharacters(QString::number(frame->camera->cx));
+		xmlWriter->writeEndElement();
 
-			xmlWriter->writeStartElement("cy");
-				xmlWriter->writeCharacters(QString::number(frame->camera->cy));
-			xmlWriter->writeEndElement();
+		xmlWriter->writeStartElement("cy");
+		xmlWriter->writeCharacters(QString::number(frame->camera->cy));
+		xmlWriter->writeEndElement();
 
 		xmlWriter->writeEndElement(); // camera
 
 		xmlWriter->writeStartElement("RegisteredPose");
-			writePose(xmlWriter,poses[i]);
+		writePose(xmlWriter,poses[i]);
 		xmlWriter->writeEndElement();
 
 		xmlWriter->writeStartElement("Pose");
-			writePose(xmlWriter,frame->pose);
+		writePose(xmlWriter,frame->pose);
 		xmlWriter->writeEndElement();
 
 		xmlWriter->writeEndElement();
@@ -242,8 +242,8 @@ Eigen::Matrix4d getPose(QXmlStreamReader * xmlReader){
 
 	Eigen::Matrix4d regpose = (Eigen::Affine3d(Eigen::Quaterniond(qw,qx,qy,qz))).matrix();
 	regpose(0,3) = tx;
-	regpose(0,3) = ty;
-	regpose(0,3) = tz;
+	regpose(1,3) = ty;
+	regpose(2,3) = tz;
 
 	return regpose;
 }
@@ -408,10 +408,10 @@ reglib::Model * processAV(std::string path){
 	}
 
 	reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path);
-	for(unsigned int i = 0; (i < sweep->frames.size()) && (sweep->frames.size() == sweepPoses.size()) ; i++){
-		sweep->frames[i].pose	= sweep->frames.front().pose * sweepPoses[i];
-		sweep->relativeposes[i] = sweepPoses[i];
-	}
+//	for(unsigned int i = 0; (i < sweep->frames.size()) && (sweep->frames.size() == sweepPoses.size()) ; i++){
+//		sweep->frames[i]->pose	= sweep->frames.front()->pose * sweepPoses[i];
+//		sweep->relativeposes[i] = sweepPoses[i];
+//	}
 
 	std::vector<reglib::RGBDFrame *> frames;
 	std::vector<reglib::ModelMask *> masks;
@@ -445,8 +445,6 @@ reglib::Model * processAV(std::string path){
 		reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],time, m);//a.matrix());
 		frames.push_back(frame);
 
-
-
 		//both_unrefined.push_back(sweep->frames.front()->pose.inverse()*a.matrix());
 		both_unrefined.push_back(sweep->frames.front()->pose.inverse()*m);
 	}
@@ -465,9 +463,9 @@ reglib::Model * processAV(std::string path){
 	bgmassreg->viewer = viewer;
 	bgmassreg->use_surface = true;
 	bgmassreg->use_depthedge = false;
-	bgmassreg->visualizationLvl = 0;//visualization_lvl;
-	bgmassreg->maskstep = 15;
-	bgmassreg->nomaskstep = 15;
+	bgmassreg->visualizationLvl = 0;
+	bgmassreg->maskstep = 5;
+	bgmassreg->nomaskstep = 5;
 	bgmassreg->nomask = true;
 	bgmassreg->stopval = 0.0005;
 	bgmassreg->addModel(sweep);
@@ -509,14 +507,15 @@ void savePoses(std::string xmlFile, std::vector<Eigen::Matrix4d> poses, int maxp
 	xmlWriter->setDevice(&file);
 
 	xmlWriter->writeStartDocument();
-//	xmlWriter->writeStartElement("Poses");
-//	xmlWriter->writeAttribute("number_of_poses", QString::number(poses.size()));
+	xmlWriter->writeStartElement("Poses");
+	//	xmlWriter->writeAttribute("number_of_poses", QString::number(poses.size()));
 	for(unsigned int i = 0; i < poses.size() && (i == -1 || i < maxposes); i++){
+		printf("saving %i\n",i);
 		xmlWriter->writeStartElement("Pose");
-			writePose(xmlWriter,poses[i]);
+		writePose(xmlWriter,poses[i]);
 		xmlWriter->writeEndElement();
 	}
-//	xmlWriter->writeEndElement(); // Poses
+	xmlWriter->writeEndElement(); // Poses
 	xmlWriter->writeEndDocument();
 	delete xmlWriter;
 }
@@ -555,6 +554,7 @@ std::vector<Eigen::Matrix4d> readPoseXML(std::string xmlFile){
 				token = xmlReader->readNext();//Pose
 				elementName = xmlReader->name().toString();
 
+				std::cout << pose << std::endl << std::endl;
 				poses.push_back(pose);
 			}
 		}
@@ -707,139 +707,146 @@ void processMetaroom(std::string path){
 				}
 			}
 
-			// Creating the KdTree object for the search method of the extraction
-			pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr dynamictree (new pcl::search::KdTree<pcl::PointXYZRGBNormal>);
-			dynamictree->setInputCloud (dynamiccloud);
+			printf("dynamiccloud: %i\n",dynamiccloud->points.size());
+			if(dynamiccloud->points.size() > 0){
+				// Creating the KdTree object for the search method of the extraction
+				pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr dynamictree (new pcl::search::KdTree<pcl::PointXYZRGBNormal>);
+				dynamictree->setInputCloud (dynamiccloud);
 
-			std::vector<pcl::PointIndices> dynamic_indices;
-			pcl::EuclideanClusterExtraction<pcl::PointXYZRGBNormal> dynamic_ec;
-			dynamic_ec.setClusterTolerance (0.02); // 2cm
-			dynamic_ec.setMinClusterSize (500);
-			dynamic_ec.setMaxClusterSize (250000000);
-			dynamic_ec.setSearchMethod (dynamictree);
-			dynamic_ec.setInputCloud (dynamiccloud);
-			dynamic_ec.extract (dynamic_indices);
+				std::vector<pcl::PointIndices> dynamic_indices;
+				pcl::EuclideanClusterExtraction<pcl::PointXYZRGBNormal> dynamic_ec;
+				dynamic_ec.setClusterTolerance (0.02); // 2cm
+				dynamic_ec.setMinClusterSize (500);
+				dynamic_ec.setMaxClusterSize (250000000);
+				dynamic_ec.setSearchMethod (dynamictree);
+				dynamic_ec.setInputCloud (dynamiccloud);
+				dynamic_ec.extract (dynamic_indices);
 
-			for (unsigned int d = 0; d < dynamic_indices.size(); d++){
-				std::vector< std::vector<int> > inds;
-				inds.resize(mod_fr.size());
+				for (unsigned int d = 0; d < dynamic_indices.size(); d++){
+					std::vector< std::vector<int> > inds;
+					inds.resize(mod_fr.size());
 
-				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-				for (unsigned int ind = 0; ind < dynamic_indices[d].indices.size(); ind++){
-					int pid = dynamic_indices[d].indices[ind];
-					inds[dynamic_frameid[pid]].push_back(dynamic_pixelid[pid]);
-					cloud_cluster->points.push_back(dynamiccloud->points[pid]);
-				}
-
-				char buf [1024];
-				sprintf(buf,"%s/dynamic_object%10.10i.xml",sweep_folder.c_str(),d);
-				QFile file(buf);
-				if (file.exists()){file.remove();}
-				if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save dynamic object as XML"<<std::endl;}
-
-				QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
-				xmlWriter->setDevice(&file);
-
-				xmlWriter->writeStartDocument();
-				xmlWriter->writeStartElement("Object");
-				xmlWriter->writeAttribute("object_number", QString::number(d));
-
-				for(unsigned int j = 0; j < mod_fr.size(); j++){
-					if(inds[j].size() == 0){continue;}
-					reglib::RGBDFrame * frame = mod_fr[j];
-					reglib::Camera * cam = frame->camera;
-					cv::Mat mask;
-					mask.create(cam->height,cam->width,CV_8UC1);
-					unsigned char * maskdata = (unsigned char *)(mask.data);
-					for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 0;}
-					for(unsigned int k = 0; k < inds[j].size(); k++){maskdata[inds[j][k]] = 255;}
+					pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+					for (unsigned int ind = 0; ind < dynamic_indices[d].indices.size(); ind++){
+						int pid = dynamic_indices[d].indices[ind];
+						inds[dynamic_frameid[pid]].push_back(dynamic_pixelid[pid]);
+						cloud_cluster->points.push_back(dynamiccloud->points[pid]);
+					}
 
 					char buf [1024];
-					sprintf(buf,"%s/dynamicmask_%i_%i.png",sweep_folder.c_str(),d,j);
-					cv::imwrite(buf, mask );
-					xmlWriter->writeStartElement("Mask");
-					xmlWriter->writeAttribute("filename", QString(buf));
-					xmlWriter->writeAttribute("image_number", QString::number(j));
-					xmlWriter->writeEndElement();
-				}
+					sprintf(buf,"%s/dynamic_object%10.10i.xml",sweep_folder.c_str(),d);
+					QFile file(buf);
+					if (file.exists()){file.remove();}
+					if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save dynamic object as XML"<<std::endl;}
 
-				xmlWriter->writeEndElement();
-				xmlWriter->writeEndDocument();
-				delete xmlWriter;
+					QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
+					xmlWriter->setDevice(&file);
+
+					xmlWriter->writeStartDocument();
+					xmlWriter->writeStartElement("Object");
+					xmlWriter->writeAttribute("object_number", QString::number(d));
+
+					for(unsigned int j = 0; j < mod_fr.size(); j++){
+						if(inds[j].size() == 0){continue;}
+						reglib::RGBDFrame * frame = mod_fr[j];
+						reglib::Camera * cam = frame->camera;
+						cv::Mat mask;
+						mask.create(cam->height,cam->width,CV_8UC1);
+						unsigned char * maskdata = (unsigned char *)(mask.data);
+						for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 0;}
+						for(unsigned int k = 0; k < inds[j].size(); k++){maskdata[inds[j][k]] = 255;}
+
+						char buf [1024];
+						sprintf(buf,"%s/dynamicmask_%i_%i.png",sweep_folder.c_str(),d,j);
+						cv::imwrite(buf, mask );
+						xmlWriter->writeStartElement("Mask");
+						xmlWriter->writeAttribute("filename", QString(buf));
+						xmlWriter->writeAttribute("image_number", QString::number(j));
+						xmlWriter->writeEndElement();
+					}
+
+					xmlWriter->writeEndElement();
+					xmlWriter->writeEndDocument();
+					delete xmlWriter;
+				}
 			}
 
-			// Creating the KdTree object for the search method of the extraction
-			pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr movingtree (new pcl::search::KdTree<pcl::PointXYZRGBNormal>);
-			movingtree->setInputCloud (movingcloud);
 
-			std::vector<pcl::PointIndices> moving_indices;
-			pcl::EuclideanClusterExtraction<pcl::PointXYZRGBNormal> moving_ec;
-			moving_ec.setClusterTolerance (0.02); // 2cm
-			moving_ec.setMinClusterSize (500);
-			moving_ec.setMaxClusterSize (250000000);
-			moving_ec.setSearchMethod (movingtree);
-			moving_ec.setInputCloud (movingcloud);
-			moving_ec.extract (moving_indices);
+			printf("movingcloud: %i\n",movingcloud->points.size());
+			if(movingcloud->points.size() > 0){
+				// Creating the KdTree object for the search method of the extraction
+				pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr movingtree (new pcl::search::KdTree<pcl::PointXYZRGBNormal>);
+				movingtree->setInputCloud (movingcloud);
 
-			for (unsigned int d = 0; d < moving_indices.size(); d++){
-				std::vector< std::vector<int> > inds;
-				inds.resize(mod_fr.size());
+				std::vector<pcl::PointIndices> moving_indices;
+				pcl::EuclideanClusterExtraction<pcl::PointXYZRGBNormal> moving_ec;
+				moving_ec.setClusterTolerance (0.02); // 2cm
+				moving_ec.setMinClusterSize (500);
+				moving_ec.setMaxClusterSize (250000000);
+				moving_ec.setSearchMethod (movingtree);
+				moving_ec.setInputCloud (movingcloud);
+				moving_ec.extract (moving_indices);
 
-				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-				for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
-					int pid = moving_indices[d].indices[ind];
-					inds[moving_frameid[pid]].push_back(moving_pixelid[pid]);
-					cloud_cluster->points.push_back(movingcloud->points[pid]);
-				}
+				for (unsigned int d = 0; d < moving_indices.size(); d++){
+					std::vector< std::vector<int> > inds;
+					inds.resize(mod_fr.size());
 
-				char buf [1024];
-				sprintf(buf,"%s/moving_object%10.10i.xml",sweep_folder.c_str(),d);
-				QFile file(buf);
-				if (file.exists()){file.remove();}
-				if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save moving object as XML"<<std::endl;}
-
-				QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
-				xmlWriter->setDevice(&file);
-
-				xmlWriter->writeStartDocument();
-				xmlWriter->writeStartElement("Object");
-				xmlWriter->writeAttribute("object_number", QString::number(d));
-
-				for(unsigned int j = 0; j < mod_fr.size(); j++){
-					if(inds[j].size() == 0){continue;}
-					reglib::RGBDFrame * frame = mod_fr[j];
-					reglib::Camera * cam = frame->camera;
-					cv::Mat mask;
-					mask.create(cam->height,cam->width,CV_8UC1);
-					unsigned char * maskdata = (unsigned char *)(mask.data);
-					for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 0;}
-					for(unsigned int k = 0; k < inds[j].size(); k++){maskdata[inds[j][k]] = 255;}
+					pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+					for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
+						int pid = moving_indices[d].indices[ind];
+						inds[moving_frameid[pid]].push_back(moving_pixelid[pid]);
+						cloud_cluster->points.push_back(movingcloud->points[pid]);
+					}
 
 					char buf [1024];
-					sprintf(buf,"%s/movingmask_%i_%i.png",sweep_folder.c_str(),d,j);
-					cv::imwrite(buf, mask );
-					xmlWriter->writeStartElement("Mask");
-					xmlWriter->writeAttribute("filename", QString(buf));
-					xmlWriter->writeAttribute("image_number", QString::number(j));
+					sprintf(buf,"%s/moving_object%10.10i.xml",sweep_folder.c_str(),d);
+					QFile file(buf);
+					if (file.exists()){file.remove();}
+					if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save moving object as XML"<<std::endl;}
+
+					QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
+					xmlWriter->setDevice(&file);
+
+					xmlWriter->writeStartDocument();
+					xmlWriter->writeStartElement("Object");
+					xmlWriter->writeAttribute("object_number", QString::number(d));
+
+					for(unsigned int j = 0; j < mod_fr.size(); j++){
+						if(inds[j].size() == 0){continue;}
+						reglib::RGBDFrame * frame = mod_fr[j];
+						reglib::Camera * cam = frame->camera;
+						cv::Mat mask;
+						mask.create(cam->height,cam->width,CV_8UC1);
+						unsigned char * maskdata = (unsigned char *)(mask.data);
+						for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 0;}
+						for(unsigned int k = 0; k < inds[j].size(); k++){maskdata[inds[j][k]] = 255;}
+
+						char buf [1024];
+						sprintf(buf,"%s/movingmask_%i_%i.png",sweep_folder.c_str(),d,j);
+						cv::imwrite(buf, mask );
+						xmlWriter->writeStartElement("Mask");
+						xmlWriter->writeAttribute("filename", QString(buf));
+						xmlWriter->writeAttribute("image_number", QString::number(j));
+						xmlWriter->writeEndElement();
+					}
+
 					xmlWriter->writeEndElement();
+					xmlWriter->writeEndDocument();
+					delete xmlWriter;
 				}
-
-				xmlWriter->writeEndElement();
-				xmlWriter->writeEndDocument();
-				delete xmlWriter;
 			}
-
 			if(visualization_lvl > 0){
 				viewer->removeAllPointClouds();
 				viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "scloud");
 				viewer->spin();
 			}
 		}
+
 	}
 
 
 
-//	delete bgmassreg;
+	//	delete bgmassreg;
 	delete reg;
 	delete mu;
 
@@ -872,7 +879,7 @@ void trainMetaroom(std::string path){
 	bgmassreg->viewer = viewer;
 	bgmassreg->use_surface = true;
 	bgmassreg->use_depthedge = true;
-	bgmassreg->visualizationLvl = visualization_lvl;
+	bgmassreg->visualizationLvl = 0;
 	bgmassreg->maskstep = 5;
 	bgmassreg->nomaskstep = 5;
 	bgmassreg->nomask = true;
@@ -880,7 +887,7 @@ void trainMetaroom(std::string path){
 	bgmassreg->setData(fullmodel->frames,fullmodel->modelmasks);
 	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(fullmodel->relativeposes);
 
-	savePoses(path+"/testposes.xml",bgmfr.poses,17);
+	savePoses(posepath,bgmfr.poses,17);
 	fullmodel->fullDelete();
 	delete fullmodel;
 	delete bgmassreg;
@@ -901,7 +908,7 @@ int main(int argc, char** argv){
 		else if(std::string(argv[i]).compare("-folder") == 0){		inputstate = 4;}
 		else if(std::string(argv[i]).compare("-train") == 0){		inputstate = 5;}
 		else if(std::string(argv[i]).compare("-posepath") == 0){	inputstate = 6;}
-		else if(std::string(argv[i]).compare("-loadposes") == 0){		inputstate = 7;}
+		else if(std::string(argv[i]).compare("-loadposes") == 0){	inputstate = 7;}
 		else if(std::string(argv[i]).compare("-v") == 0){
 			viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
 			viewer->setBackgroundColor (0.5, 0, 0.5);
@@ -925,6 +932,7 @@ int main(int argc, char** argv){
 			posepath = std::string(argv[i]);
 		}else if(inputstate == 7){
 			sweepPoses = readPoseXML(std::string(argv[i]));
+			//exit(0);
 		}else{
 			out_pub = n.advertise<std_msgs::String>(outtopic, 1000);
 			processMetaroom(std::string(argv[i]));
