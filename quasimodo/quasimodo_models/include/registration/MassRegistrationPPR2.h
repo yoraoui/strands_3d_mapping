@@ -10,11 +10,11 @@ namespace reglib
 	class TestMatch{
 		public:
 
-		int src;
-		int dst;
+		long src;
+		long dst;
 		double d;
 
-		TestMatch(int src_, int dst_,	double d_){
+		TestMatch(long src_, long dst_,	double d_){
 			src = src_;
 			dst = dst_;
 			d = d_;
@@ -47,11 +47,11 @@ namespace reglib
 		double solve_equation_time;
 		double total_time_start;
 
-		const unsigned int maxcount = 1000000;
+		const unsigned long maxcount = 1000000;
 
 		Model * model;
 
-		std::vector<int> nr_datas;
+		std::vector<long > nr_datas;
 
 		std::vector< bool > is_ok;
 
@@ -64,7 +64,7 @@ namespace reglib
 
 
 
-		std::vector< int >				kp_nr_arraypoints;
+		std::vector< long >				kp_nr_arraypoints;
 		std::vector< double * >			kp_arraypoints;
 		std::vector< double * >			kp_arraynormals;
 		std::vector< double * >			kp_arrayinformations;
@@ -76,20 +76,20 @@ namespace reglib
 		double * kp_Xn_arr;
 		double * kp_rangeW_arr;
 		DistanceWeightFunction2PPR2 * kpfunc;
-		//std::vector< std::vector< std::vector<int> > > matchids;
+		//std::vector< std::vector< std::vector<long > > > matchids;
 
-		std::vector< int >      frameid;
+		std::vector< long >      frameid;
 
 		bool use_surface;
-		std::vector< int >		nr_arraypoints;
+		std::vector< long >		nr_arraypoints;
 		std::vector< double * > arraypoints;
 		std::vector< double * > arraynormals;
 		std::vector< double * > arraycolors;
 		std::vector< double * > arrayinformations;
 		std::vector< Tree3d * > trees3d;
 		std::vector< ArrayData3D<double> * > a3dv;
-		std::vector<int> nr_matches;
-		std::vector< std::vector< std::vector<int> > > matchids;
+		std::vector<long > nr_matches;
+		std::vector< std::vector< std::vector<long > > > matchids;
         std::vector< std::vector< std::vector<double> > > matchdists;
 		double * Qp_arr;
 		double * Qn_arr;
@@ -101,23 +101,23 @@ namespace reglib
 
 
 		bool use_depthedge;
-		//int depthedge_nr_neighbours;
-        std::vector< int >		depthedge_nr_arraypoints;
+		//long depthedge_nr_neighbours;
+		std::vector< long >		depthedge_nr_arraypoints;
         std::vector< double * > depthedge_arraypoints;
-		//std::vector< int * >    depthedge_neighbours;
+		//std::vector< long * >    depthedge_neighbours;
 		std::vector< double * > depthedge_arrayinformations;
 		std::vector< Tree3d * > depthedge_trees3d;
 		std::vector< ArrayData3D<double> * > depthedge_a3dv;
-		std::vector<int> depthedge_nr_matches;
-		std::vector< std::vector< std::vector<int> > > depthedge_matchids;
+		std::vector<long > depthedge_nr_matches;
+		std::vector< std::vector< std::vector<long > > > depthedge_matchids;
 		std::vector< std::vector< std::vector<double> > > depthedge_matchdists;
 		double * depthedge_Qp_arr;
 		double * depthedge_Xp_arr;
 		double * depthedge_rangeW_arr;
 		DistanceWeightFunction2PPR2 * depthedge_func;
 
-		std::vector<int> sweepids;
-		std::vector<int> background_nr_datas;
+		std::vector<long > sweepids;
+		std::vector<long > background_nr_datas;
 //		std::vector< Eigen::Matrix<double, 3, Eigen::Dynamic> > background_points;
 //		std::vector< Eigen::Matrix<double, 3, Eigen::Dynamic> > background_colors;
 //		std::vector< Eigen::Matrix<double, 3, Eigen::Dynamic> > background_normals;
@@ -125,12 +125,12 @@ namespace reglib
 //		std::vector< Eigen::Matrix<double, 3, Eigen::Dynamic> > background_transformed_normals;
 //		std::vector< Eigen::VectorXd > background_informations;
 //		std::vector< nanoflann::KDTreeAdaptor<Eigen::Matrix3Xd, 3, nanoflann::metric_L2_Simple> * > background_trees;
-//		std::vector<int> background_nr_matches;
-//		std::vector< std::vector< std::vector<int> > > background_matchids;
+//		std::vector<long > background_nr_matches;
+//		std::vector< std::vector< std::vector<long > > > background_matchids;
 
 
-//		std::vector<int> feature_start;//Dimension of data a specific feature starts, if the feature is RGB this should be 3
-//		std::vector<int> feature_end;//Dimension of data a specific feature ends, if the feature is RGB this should be 5
+//		std::vector<long > feature_start;//Dimension of data a specific feature starts, if the feature is RGB this should be 3
+//		std::vector<long > feature_end;//Dimension of data a specific feature ends, if the feature is RGB this should be 5
 //		std::vector< DistanceWeightFunction2 * > feature_func;
 
 

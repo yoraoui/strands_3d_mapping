@@ -408,10 +408,10 @@ reglib::Model * processAV(std::string path){
 	}
 
 	reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path);
-//	for(unsigned int i = 0; (i < sweep->frames.size()) && (sweep->frames.size() == sweepPoses.size()) ; i++){
-//		sweep->frames[i]->pose	= sweep->frames.front()->pose * sweepPoses[i];
-//		sweep->relativeposes[i] = sweepPoses[i];
-//	}
+	for(unsigned int i = 0; (i < sweep->frames.size()) && (sweep->frames.size() == sweepPoses.size()) ; i++){
+		sweep->frames[i]->pose	= sweep->frames.front()->pose * sweepPoses[i];
+		sweep->relativeposes[i] = sweepPoses[i];
+	}
 
 	std::vector<reglib::RGBDFrame *> frames;
 	std::vector<reglib::ModelMask *> masks;
@@ -458,7 +458,7 @@ reglib::Model * processAV(std::string path){
 	sweep->points = mu->getSuperPoints(sweep->relativeposes,sweep->frames,sweep->modelmasks,1,false);
 
 	//Not needed if metaroom well calibrated
-	reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.01);
+	reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.15);
 	bgmassreg->timeout = 20;
 	bgmassreg->viewer = viewer;
 	bgmassreg->use_surface = true;
@@ -471,6 +471,7 @@ reglib::Model * processAV(std::string path){
 	bgmassreg->addModel(sweep);
 	bgmassreg->setData(frames,masks);
 	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
+	delete bgmassreg;
 
 	for(unsigned int i = 0; i < frames.size(); i++){
 		frames[i]->pose = sweep->frames.front()->pose * bgmfr.poses[i+1];
@@ -486,7 +487,7 @@ reglib::Model * processAV(std::string path){
 		fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
 	}
 
-	delete bgmassreg;
+
 	delete reg;
 	delete mu;
 	delete sweep;
@@ -617,7 +618,11 @@ void processMetaroom(std::string path){
 		std::vector< std::vector< cv::Mat > > external;
 		std::vector< std::vector< cv::Mat > > dynamic;
 
-		quasimodo_brain::segment(bg,models,internal,external,dynamic,true);
+		quasimodo_brain::segment(bg,models,internal,external,dynamic,false);
+
+		bg->fullDelete();
+		delete bg;
+
 		remove_old_seg(sweep_folder);
 
 		for(unsigned int i = 0; i < models.size(); i++){
@@ -845,7 +850,8 @@ void processMetaroom(std::string path){
 	}
 
 
-
+	fullmodel->fullDelete();
+	delete fullmodel;
 	//	delete bgmassreg;
 	delete reg;
 	delete mu;
@@ -893,11 +899,317 @@ void trainMetaroom(std::string path){
 	delete bgmassreg;
 }
 
+std::vector<reglib::Model *> loadModels(std::string path){
+	printf("loadModels: %s\n",path.c_str());
+	std::vector<reglib::Model *> models;
+	int slash_pos = path.find_last_of("/");
+	std::string sweep_folder = path.substr(0, slash_pos) + "/";
+
+	std::vector<reglib::RGBDFrame *> frames;
+	std::vector<Eigen::Matrix4d> poses;
+	readViewXML(sweep_folder+"ViewGroup.xml",frames,poses);
+
+	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("dynamic_object*.xml"));
+	for (auto objectFile : objectFiles){
+		std::string object = sweep_folder+objectFile.toStdString();
+		printf("object: %s\n",object.c_str());
+
+		QFile file(object.c_str());
+
+		if (!file.exists()){
+			ROS_ERROR("Could not open file %s to masks.",object.c_str());
+			continue;
+		}
+
+		file.open(QIODevice::ReadOnly);
+		ROS_INFO_STREAM("Parsing xml file: "<<object.c_str());
+
+		reglib::Model * mod = new reglib::Model();
+		QXmlStreamReader* xmlReader = new QXmlStreamReader(&file);
+
+/*
+		while (!xmlReader->atEnd() && !xmlReader->hasError())
+		{
+			QXmlStreamReader::TokenType token = xmlReader->readNext();
+			if (token == QXmlStreamReader::StartDocument)
+				continue;
+
+			if (xmlReader->hasError())
+			{
+				ROS_ERROR("XML error: %s",xmlReader->errorString().toStdString().c_str());
+				return;
+			}
+
+			QString elementName = xmlReader->name().toString();
+
+			if (token == QXmlStreamReader::StartElement)
+			{
+
+				if (xmlReader->name() == "View")
+				{
+					cv::Mat rgb;
+					cv::Mat depth;
+					//printf("elementName: %s\n",elementName.toStdString().c_str());
+					QXmlStreamAttributes attributes = xmlReader->attributes();
+					if (attributes.hasAttribute("RGB"))
+					{
+						QString rgbpath = attributes.value("RGB").toString();
+						//printf("rgb filename: %s\n",rgbpath.toStdString().c_str());
+						rgb = cv::imread(rgbpath.toStdString().c_str(), CV_LOAD_IMAGE_UNCHANGED);
+					}else{break;}
+
+
+					if (attributes.hasAttribute("DEPTH"))
+					{
+						QString depthpath = attributes.value("DEPTH").toString();
+						//printf("depth filename: %s\n",depthpath.toStdString().c_str());
+						depth = cv::imread(depthpath.toStdString().c_str(), CV_LOAD_IMAGE_UNCHANGED);
+					}else{break;}
+
+
+					token = xmlReader->readNext();//Stamp
+					elementName = xmlReader->name().toString();
+
+					token = xmlReader->readNext();//sec
+					elementName = xmlReader->name().toString();
+					int sec = atoi(xmlReader->readElementText().toStdString().c_str());
+
+					token = xmlReader->readNext();//nsec
+					elementName = xmlReader->name().toString();
+					int nsec = atoi(xmlReader->readElementText().toStdString().c_str());
+					token = xmlReader->readNext();//end stamp
+
+					token = xmlReader->readNext();//Camera
+					elementName = xmlReader->name().toString();
+
+					reglib::Camera * cam = new reglib::Camera();
+
+					token = xmlReader->readNext();//fx
+					cam->fx = atof(xmlReader->readElementText().toStdString().c_str());
+
+					token = xmlReader->readNext();//fy
+					cam->fy = atof(xmlReader->readElementText().toStdString().c_str());
+
+					token = xmlReader->readNext();//cx
+					cam->cx = atof(xmlReader->readElementText().toStdString().c_str());
+
+					token = xmlReader->readNext();//cy
+					cam->cy = atof(xmlReader->readElementText().toStdString().c_str());
+
+					token = xmlReader->readNext();//Camera
+					elementName = xmlReader->name().toString();
+
+					double time = double(sec)+double(nsec)/double(1e9);
+
+					token = xmlReader->readNext();//RegisteredPose
+					elementName = xmlReader->name().toString();
+
+					Eigen::Matrix4d regpose = getPose(xmlReader);
+
+					token = xmlReader->readNext();//RegisteredPose
+					elementName = xmlReader->name().toString();
+
+
+					token = xmlReader->readNext();//Pose
+					elementName = xmlReader->name().toString();
+
+					Eigen::Matrix4d pose = getPose(xmlReader);
+
+					token = xmlReader->readNext();//Pose
+					elementName = xmlReader->name().toString();
+
+					reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb,depth, time, pose);
+					frames.push_back(frame);
+					poses.push_back(pose);
+				}
+			}
+		}
+*/
+		delete xmlReader;
+
+//		QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
+//		xmlWriter->setDevice(&file);
+
+//		xmlWriter->writeStartDocument();
+//		xmlWriter->writeStartElement("Object");
+//		xmlWriter->writeAttribute("object_number", QString::number(d));
+
+//		for(unsigned int j = 0; j < mod_fr.size(); j++){
+//			if(inds[j].size() == 0){continue;}
+//			reglib::RGBDFrame * frame = mod_fr[j];
+//			reglib::Camera * cam = frame->camera;
+//			cv::Mat mask;
+//			mask.create(cam->height,cam->width,CV_8UC1);
+//			unsigned char * maskdata = (unsigned char *)(mask.data);
+//			for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 0;}
+//			for(unsigned int k = 0; k < inds[j].size(); k++){maskdata[inds[j][k]] = 255;}
+
+//			char buf [1024];
+//			sprintf(buf,"%s/dynamicmask_%i_%i.png",sweep_folder.c_str(),d,j);
+//			cv::imwrite(buf, mask );
+//			xmlWriter->writeStartElement("Mask");
+//			xmlWriter->writeAttribute("filename", QString(buf));
+//			xmlWriter->writeAttribute("image_number", QString::number(j));
+//			xmlWriter->writeEndElement();
+//		}
+
+//		xmlWriter->writeEndElement();
+//		xmlWriter->writeEndDocument();
+//		delete xmlWriter;
+
+		models.push_back(mod);
+
+	}
+
+//	std::vector<cv::Mat> rgbs;
+//	std::vector<cv::Mat> depths;
+
+//	for(int imgnr = 0; true; imgnr++){
+//		char buf [1024];
+
+//		sprintf(buf,"%s/view_RGB%10.10i.png",sweep_folder.c_str(),imgnr);
+//		cv::Mat rgb = cv::imread(buf, CV_LOAD_IMAGE_UNCHANGED);
+
+//		sprintf(buf,"%s/view_DEPTH%10.10i.png",sweep_folder.c_str(),imgnr);
+//		cv::Mat depth = cv::imread(buf, CV_LOAD_IMAGE_UNCHANGED);
+//		if(!rgb.data || !depth.data){break;}
+
+//		rgbs.push_back(rgb);
+//		depths.push_back(depth);
+
+//		cv::namedWindow( "rgb",		cv::WINDOW_AUTOSIZE );	cv::imshow( "rgb",		rgb);
+//		cv::namedWindow( "depth",	cv::WINDOW_AUTOSIZE );	cv::imshow( "depth",	depth);
+//		cv::waitKey(0);
+//	}
+
+	return models;
+/*
+
+
+	std::vector<cv::Mat> viewrgbs;
+	std::vector<cv::Mat> viewdepths;
+	std::vector<tf::StampedTransform > viewtfs;
+
+	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("*object*.xml"));
+	for (auto objectFile : objectFiles){
+		auto object = loadDynamicObjectFromSingleSweep<PointType>(sweep_folder+objectFile.toStdString(),false);
+		for (unsigned int i=0; i<object.vAdditionalViews.size(); i++){
+			CloudPtr cloud = object.vAdditionalViews[i];
+
+			cv::Mat rgb;
+			rgb.create(cloud->height,cloud->width,CV_8UC3);
+			unsigned char * rgbdata = (unsigned char *)rgb.data;
+
+			cv::Mat depth;
+			depth.create(cloud->height,cloud->width,CV_16UC1);
+			unsigned short * depthdata = (unsigned short *)depth.data;
+
+			unsigned int nr_data = cloud->height * cloud->width;
+			for(unsigned int j = 0; j < nr_data; j++){
+				PointType p = cloud->points[j];
+				rgbdata[3*j+0]	= p.b;
+				rgbdata[3*j+1]	= p.g;
+				rgbdata[3*j+2]	= p.r;
+				depthdata[j]	= short(5000.0 * p.z);
+			}
+
+			viewrgbs.push_back(rgb);
+			viewdepths.push_back(depth);
+			viewtfs.push_back(object.vAdditionalViewsTransforms[i]);
+		}
+	}
+
+	reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path);
+	for(unsigned int i = 0; (i < sweep->frames.size()) && (sweep->frames.size() == sweepPoses.size()) ; i++){
+		sweep->frames[i]->pose	= sweep->frames.front()->pose * sweepPoses[i];
+		sweep->relativeposes[i] = sweepPoses[i];
+	}
+
+	std::vector<reglib::RGBDFrame *> frames;
+	std::vector<reglib::ModelMask *> masks;
+	std::vector<Eigen::Matrix4d> unrefined;
+
+	std::vector<Eigen::Matrix4d> both_unrefined;
+	both_unrefined.push_back(Eigen::Matrix4d::Identity());
+	std::vector<double> times;
+	for(unsigned int i = 0; i < viewrgbs.size(); i++){
+		printf("additional view: %i\n",i);
+		geometry_msgs::TransformStamped msg;
+		tf::transformStampedTFToMsg(viewtfs[i], msg);
+		long sec = msg.header.stamp.sec;
+		long nsec = msg.header.stamp.nsec;
+		double time = double(sec)+1e-9*double(nsec);
+
+		Eigen::Matrix4d m = quasimodo_brain::getMat(viewtfs[i]);
+
+		cout << m << endl << endl;
+
+		unrefined.push_back(m);
+		times.push_back(time);
+
+		cv::Mat fullmask;
+		fullmask.create(480,640,CV_8UC1);
+		unsigned char * maskdata = (unsigned char *)fullmask.data;
+		for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
+		masks.push_back(new reglib::ModelMask(fullmask));
+
+		reglib::Camera * cam		= sweep->frames.front()->camera->clone();
+		reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],time, m);//a.matrix());
+		frames.push_back(frame);
+
+		//both_unrefined.push_back(sweep->frames.front()->pose.inverse()*a.matrix());
+		both_unrefined.push_back(sweep->frames.front()->pose.inverse()*m);
+	}
+
+	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
+	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( sweep, reg);
+	mu->occlusion_penalty               = 15;
+	mu->massreg_timeout                 = 60*4;
+	mu->viewer							= viewer;
+
+	sweep->points = mu->getSuperPoints(sweep->relativeposes,sweep->frames,sweep->modelmasks,1,false);
+
+	//Not needed if metaroom well calibrated
+	reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.01);
+	bgmassreg->timeout = 20;
+	bgmassreg->viewer = viewer;
+	bgmassreg->use_surface = true;
+	bgmassreg->use_depthedge = false;
+	bgmassreg->visualizationLvl = 0;
+	bgmassreg->maskstep = 5;
+	bgmassreg->nomaskstep = 5;
+	bgmassreg->nomask = true;
+	bgmassreg->stopval = 0.0005;
+	bgmassreg->addModel(sweep);
+	bgmassreg->setData(frames,masks);
+	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
+
+	for(unsigned int i = 0; i < frames.size(); i++){
+		frames[i]->pose = sweep->frames.front()->pose * bgmfr.poses[i+1];
+	}
+
+	reglib::Model * fullmodel = new reglib::Model();
+	fullmodel->frames = sweep->frames;
+	fullmodel->relativeposes = sweep->relativeposes;
+	fullmodel->modelmasks = sweep->modelmasks;
+	for(unsigned int i = 0; i < frames.size(); i++){
+		fullmodel->frames.push_back(frames[i]);
+		fullmodel->modelmasks.push_back(masks[i]);
+		fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
+	}
+
+	delete bgmassreg;
+	delete reg;
+	delete mu;
+	delete sweep;
+
+	return fullmodel;
+	*/
+}
+
 int main(int argc, char** argv){
 	ros::init(argc, argv, "metaroom_additional_view_processing");
 	ros::NodeHandle n;
-
-
 
 	int inputstate = 0;
 	for(int i = 1; i < argc;i++){
@@ -935,6 +1247,8 @@ int main(int argc, char** argv){
 			//exit(0);
 		}else{
 			out_pub = n.advertise<std_msgs::String>(outtopic, 1000);
+			std::vector<reglib::Model *> mods = loadModels(std::string(argv[i]));
+			exit(0);
 			processMetaroom(std::string(argv[i]));
 		}
 	}

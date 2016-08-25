@@ -116,7 +116,7 @@ public:
                     }
                     if (attributes.hasAttribute("roomRunNumber"))
                     {
-                        toRet.m_roomRunNumber = attributes.value("roomRunNumber").toString().toInt();
+						toRet.m_roomRunNumber = atoi(attributes.value("roomRunNumber").toString().toStdString().c_str());//.toInt();
                     } else {
                         std::cerr<<"Object xml node does not have roomRunNumber attribute."<<std::endl; // leaving blank
                     }
@@ -142,7 +142,7 @@ public:
 
                     if (attributes.hasAttribute("additionalViews"))
                     {
-                        int additionalViews = attributes.value("additionalViews").toString().toInt();
+						int additionalViews = atoi(attributes.value("additionalViews").toString().toStdString().c_str());//.toInt();
                         if (load_cloud)
                         {
                             // load clouds

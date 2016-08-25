@@ -113,7 +113,7 @@ void MassRegistrationPPR2::addModel(Model * model){
 
 
     nr_matches.push_back(	0);
-    matchids.push_back(		std::vector< std::vector<int> >() );
+	matchids.push_back(		std::vector< std::vector<long > >() );
     matchdists.push_back(	std::vector< std::vector<double> >() );
     nr_datas.push_back(		0);
 
@@ -134,7 +134,7 @@ void MassRegistrationPPR2::addModel(Model * model){
     a3dv.push_back(0);
 
 	depthedge_nr_matches.push_back(	0);
-	depthedge_matchids.push_back(		std::vector< std::vector<int> >() );
+	depthedge_matchids.push_back(		std::vector< std::vector<long > >() );
 	depthedge_matchdists.push_back(	std::vector< std::vector<double> >() );
 
     depthedge_nr_arraypoints.push_back(0);
@@ -143,13 +143,13 @@ void MassRegistrationPPR2::addModel(Model * model){
     depthedge_trees3d.push_back(0);
     depthedge_a3dv.push_back(0);
 
-	int step = maskstep*maskstep;
+	long step = maskstep*maskstep;
 
     is_ok.push_back(false);
 
 
-	int count = model->points.size()/step;
-	int i = points.size()-1;
+	long count = model->points.size()/step;
+	long i = points.size()-1;
     if(count < 10){
         is_ok[i] = false;
         return;
@@ -183,7 +183,7 @@ void MassRegistrationPPR2::addModel(Model * model){
     Eigen::Matrix<double, 3, Eigen::Dynamic> & tXn	= transformed_normals[i];
     Eigen::VectorXd information (count);
 
-	for(unsigned int c = 0; c < count; c++){
+	for(unsigned long c = 0; c < count; c++){
 
 		ap[3*c+0] = model->points[c*step].point(0);
 		ap[3*c+1] = model->points[c*step].point(1);
@@ -222,10 +222,10 @@ void MassRegistrationPPR2::addModel(Model * model){
     trees3d[i]->buildIndex();
 
 /*
-    int depthedge_count = 0;
-    for(unsigned int w = 0; w < width; w++){
-        for(unsigned int h = 0; h < height; h++){
-            int ind = h*width+w;
+	long depthedge_count = 0;
+	for(unsigned long w = 0; w < width; w++){
+		for(unsigned long h = 0; h < height; h++){
+			long ind = h*width+w;
             if(maskvec[ind] && edgedata[ind] == 255){
                 float z = idepth*float(depthdata[ind]);
                 if(z > 0.2){depthedge_count++;}
@@ -241,10 +241,10 @@ void MassRegistrationPPR2::addModel(Model * model){
         depthedge_arrayinformations[i] = depthedge_ai;
 
         c = 0;
-        for(unsigned int w = 0; w < width; w++){
-            for(unsigned int h = 0; h < height; h++){
+		for(unsigned long w = 0; w < width; w++){
+			for(unsigned long h = 0; h < height; h++){
                 if(c == depthedge_count){continue;}
-                int ind = h*width+w;
+				long ind = h*width+w;
                 if(maskvec[ind] && edgedata[ind] == 255){
                     float z = idepth*float(depthdata[ind]);
                     if(z > 0.2){
@@ -274,13 +274,13 @@ void MassRegistrationPPR2::addModelData(Model * model_, bool submodels){
 	printf("addModelData\n");
 
 	if(submodels){
-		for(unsigned int i = 0; i < model->submodels.size(); i++){
+		for(unsigned long i = 0; i < model->submodels.size(); i++){
 			addData(model->submodels[i]->getPCLnormalcloud(1,false));
 		}
 	}else{
         //setData(model->frames,model->modelmasks);
 
-        for(unsigned int i = 0; i < model->submodels.size(); i++){
+		for(unsigned long i = 0; i < model->submodels.size(); i++){
             addData(model->submodels[i]->getPCLnormalcloud(1,false));
 //            kp_nr_arraypoints.push_back(0);
 //            kp_arraypoints.push_back(0);
@@ -290,9 +290,9 @@ void MassRegistrationPPR2::addModelData(Model * model_, bool submodels){
 //            frameid.push_back(-1);
         }
 
-		unsigned int nr_frames = model->frames.size();
+		unsigned long nr_frames = model->frames.size();
 
-		for(unsigned int i = 0; i < nr_frames; i++){
+		for(unsigned long i = 0; i < nr_frames; i++){
 //            frameid.push_back(i);
             addData(model->frames[i], model->modelmasks[i]);
 
@@ -306,24 +306,24 @@ void MassRegistrationPPR2::addModelData(Model * model_, bool submodels){
 //			unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
 
 //			Camera * camera				= frame->camera;
-//			const unsigned int width	= camera->width;
-//			const unsigned int height	= camera->height;
+//			const unsigned long width	= camera->width;
+//			const unsigned long height	= camera->height;
 //			const float idepth			= camera->idepth_scale;
 //			const float cx				= camera->cx;
 //			const float cy				= camera->cy;
 //			const float ifx				= 1.0/camera->fx;
 //			const float ify				= 1.0/camera->fy;
 
-//			unsigned int nr_kp = keypoints.size();
+//			unsigned long nr_kp = keypoints.size();
 //			if(nr_kp){
 //				double * ap = new double[3*nr_kp];
 //				double * an = new double[3*nr_kp];
 //				double * ai = new double[nr_kp];
-//				for(unsigned int k = 0; k < nr_kp; k++){
+//				for(unsigned long k = 0; k < nr_kp; k++){
 //					cv::KeyPoint & kp = keypoints[k];
 //					double w = kp.pt.x;
 //					double h = kp.pt.y;
-//					int ind = int(h+0.5)*width+int(w+0.5);
+//					long ind = int(h+0.5)*width+int(w+0.5);
 
 //					float z = idepth*float(depthdata[ind]);
 //					float x = (w - cx) * z * ifx;
@@ -354,7 +354,7 @@ void MassRegistrationPPR2::addModelData(Model * model_, bool submodels){
 //			}
 		}
 
-//        for(int i = 0; i < is_ok.size(); i++){
+//        for(long i = 0; i < is_ok.size(); i++){
 //            if(is_ok[i]){printf("%i is ok\n",i);
 //            }else{printf("%i is not ok\n",i);}
 //        }
@@ -366,20 +366,20 @@ void MassRegistrationPPR2::addModelData(Model * model_, bool submodels){
 
 void MassRegistrationPPR2::setData(std::vector< pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr > all_clouds){
 	double total_load_time_start = getTime();
-	unsigned int nr_frames = all_clouds.size();
+	unsigned long nr_frames = all_clouds.size();
 
 	if(arraypoints.size() > 0){
-		for(unsigned int i = 0; i < arraypoints.size(); i++){delete[] arraypoints[i];}
+		for(unsigned long i = 0; i < arraypoints.size(); i++){delete[] arraypoints[i];}
 		arraypoints.resize(0);
 	}
 
 	if(a3dv.size() > 0){
-		for(unsigned int i = 0; i < a3dv.size(); i++){delete a3dv[i];}
+		for(unsigned long i = 0; i < a3dv.size(); i++){delete a3dv[i];}
 		a3dv.resize(0);
 	}
 
 	if(trees3d.size() > 0){
-		for(unsigned int i = 0; i < trees3d.size(); i++){delete trees3d[i];}
+		for(unsigned long i = 0; i < trees3d.size(); i++){delete trees3d[i];}
 		trees3d.resize(0);
 	}
 
@@ -405,11 +405,11 @@ void MassRegistrationPPR2::setData(std::vector< pcl::PointCloud<pcl::PointXYZRGB
 	a3dv.resize(nr_frames);
 	is_ok.resize(nr_frames);
 
-	for(unsigned int i = 0; i < nr_frames; i++){
+	for(unsigned long i = 0; i < nr_frames; i++){
 		//printf("loading data for %i\n",i);
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud = all_clouds[i];
-		int count = 0;
-		for(unsigned int i = 0; i < cloud->points.size(); i++){
+		long count = 0;
+		for(unsigned long i = 0; i < cloud->points.size(); i++){
 			if (isValidPoint(cloud->points[i])){count++;}
 		}
 
@@ -447,8 +447,8 @@ void MassRegistrationPPR2::setData(std::vector< pcl::PointCloud<pcl::PointXYZRGB
 
 		Eigen::VectorXd information (count);
 
-		int c = 0;
-		for(unsigned int i = 0; i < cloud->points.size(); i++){
+		long c = 0;
+		for(unsigned long i = 0; i < cloud->points.size(); i++){
 			pcl::PointXYZRGBNormal p = cloud->points[i];
 			if (isValidPoint(p)){
 
@@ -506,27 +506,27 @@ void MassRegistrationPPR2::setData(std::vector< pcl::PointCloud<pcl::PointXYZRGB
 void MassRegistrationPPR2::setData(std::vector<RGBDFrame*> frames_,std::vector<ModelMask *> mmasks_){
 	double total_load_time_start = getTime();
 
-	unsigned int nr_frames = frames_.size();
+	unsigned long nr_frames = frames_.size();
 //	if(arraypoints.size() > 0){
-//		for(unsigned int i = 0; i < arraypoints.size(); i++){delete[] arraypoints[i];}
+//		for(unsigned long i = 0; i < arraypoints.size(); i++){delete[] arraypoints[i];}
 //		arraypoints.resize(0);
 //	}
 
 //	if(a3dv.size() > 0){
-//		for(unsigned int i = 0; i < a3dv.size(); i++){delete a3dv[i];}
+//		for(unsigned long i = 0; i < a3dv.size(); i++){delete a3dv[i];}
 //		a3dv.resize(0);
 //	}
 
 //	if(trees3d.size() > 0){
-//		for(unsigned int i = 0; i < trees3d.size(); i++){delete trees3d[i];}
+//		for(unsigned long i = 0; i < trees3d.size(); i++){delete trees3d[i];}
 //		trees3d.resize(0);
 //	}
 
-	for(unsigned int i = 0; i < nr_frames; i++){addData(frames_[i], mmasks_[i]);}
+	for(unsigned long i = 0; i < nr_frames; i++){addData(frames_[i], mmasks_[i]);}
 	//printf("total load time:          %5.5f\n",getTime()-total_load_time_start);
 }
 
-double matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, int nr_ap, double * ap, std::vector<int> & matchid, std::vector<double> & matchdist, Tree3d * t3d, double & new_good_rematches, double & new_total_rematches){
+double matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, long nr_ap, double * ap, std::vector<long > & matchid, std::vector<double> & matchdist, Tree3d * t3d, double & new_good_rematches, double & new_total_rematches){
 	const double & m00 = rp(0,0); const double & m01 = rp(0,1); const double & m02 = rp(0,2); const double & m03 = rp(0,3);
 	const double & m10 = rp(1,0); const double & m11 = rp(1,1); const double & m12 = rp(1,2); const double & m13 = rp(1,3);
 	const double & m20 = rp(2,0); const double & m21 = rp(2,1); const double & m22 = rp(2,2); const double & m23 = rp(2,3);
@@ -543,8 +543,8 @@ double matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, int nr_a
 #if defdomultithread
 	#pragma omp parallel for num_threads(8)
 #endif
-	for(unsigned int k = 0; k < nr_ap; ++k) {
-		int prev = matchid[k];
+	for(unsigned long k = 0; k < nr_ap; ++k) {
+		long prev = matchid[k];
 		double qp [3];
 		const double & src_x = ap[3*k+0];
 		const double & src_y = ap[3*k+1];
@@ -565,7 +565,7 @@ double matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, int nr_a
             bad++;
         }
 
-		int current = ret_index;
+		long current = ret_index;
 		new_good_rematches += prev != current;
 		new_total_rematches++;
 		matchid[k] = current;
@@ -575,7 +575,7 @@ double matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, int nr_a
     return good/(good+bad+0.001);
 }
 
-double update_matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, int nr_ap, double * ap, std::vector<int> & matchid, std::vector<double> & matchdist, double * apj, int nr_dn, int * dn, Tree3d * t3d, double & new_good_rematches, double & new_total_rematches){
+double update_matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, long nr_ap, double * ap, std::vector<long > & matchid, std::vector<double> & matchdist, double * apj, long nr_dn, long * dn, Tree3d * t3d, double & new_good_rematches, double & new_total_rematches){
     const double & m00 = rp(0,0); const double & m01 = rp(0,1); const double & m02 = rp(0,2); const double & m03 = rp(0,3);
     const double & m10 = rp(1,0); const double & m11 = rp(1,1); const double & m12 = rp(1,2); const double & m13 = rp(1,3);
     const double & m20 = rp(2,0); const double & m21 = rp(2,1); const double & m22 = rp(2,2); const double & m23 = rp(2,3);
@@ -592,7 +592,7 @@ double update_matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, i
 #if defdomultithread
 	#pragma omp parallel for num_threads(8)
 #endif
-    for(unsigned int k = 0; k < nr_ap; ++k) {
+	for(unsigned long k = 0; k < nr_ap; ++k) {
         const double & src_x = ap[3*k+0];
         const double & src_y = ap[3*k+1];
         const double & src_z = ap[3*k+2];
@@ -601,7 +601,7 @@ double update_matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, i
         const double & sy = m10*src_x + m11*src_y + m12*src_z + m13;
         const double & sz = m20*src_x + m21*src_y + m22*src_z + m23;
 
-		int prev = matchid[k];
+		long prev = matchid[k];
 		const double & dx1 =apj[3*prev+0]-sx;
 		const double & dy1 =apj[3*prev+1]-sy;
 		const double & dz1 =apj[3*prev+2]-sz;
@@ -611,9 +611,9 @@ double update_matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, i
 
 		printf("point %4.4i before: %5.5f -> ",k,before);
 		while(true){
-			int next = prev;
-			for(unsigned int m = 0; m < nr_dn; ++m) {
-				int id = dn[nr_dn*prev+m];
+			long next = prev;
+			for(unsigned long m = 0; m < nr_dn; ++m) {
+				long id = dn[nr_dn*prev+m];
 				const double & dx =apj[3*id+0]-sx;
 				const double & dy =apj[3*id+1]-sy;
 				const double & dz =apj[3*id+2]-sz;
@@ -654,7 +654,7 @@ double update_matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, i
 //            bad++;
 //        }
 
-//        int current = ret_index;
+//        long current = ret_index;
 //        new_good_rematches += prev != current;
 //        new_total_rematches++;
 //        matchid[k] = current;
@@ -668,21 +668,21 @@ void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vect
 	//printf("rematch\n");
 	double new_good_rematches = 0;
 	double new_total_rematches = 0;
-	unsigned int nr_frames = poses.size();
+	unsigned long nr_frames = poses.size();
 
-	int rmt = 2;
+	long rmt = 2;
 
 	if(rmt==2){
-        int overlapping = 0;
+		long overlapping = 0;
 
-        int work_done = 0;
-        int ignores_motion = 0;
-        int ignores_overlap = 0;
-		for(unsigned int i = 0; i < nr_frames; i++){
+		long work_done = 0;
+		long ignores_motion = 0;
+		long ignores_overlap = 0;
+		for(unsigned long i = 0; i < nr_frames; i++){
 			if(!is_ok[i]){continue;}
 			nr_matches[i] = 0;
 
-			for(unsigned int j = 0; j < nr_frames; j++){
+			for(unsigned long j = 0; j < nr_frames; j++){
 				if(!is_ok[j]){continue;}
 				if(i == j){continue;}
                 if((matchscores[i][j] <= 0.001) && (matchscores[j][i] <= 0.001) && (rand()%nr_frames > 1)){
@@ -698,9 +698,9 @@ void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vect
 					double change_trans = 0;
 					double change_rot = 0;
 					double dt = 0;
-					for(unsigned int k = 0; k < 3; k++){
+					for(unsigned long k = 0; k < 3; k++){
 						dt += diff(k,3)*diff(k,3);
-						for(unsigned int l = 0; l < 3; l++){
+						for(unsigned long l = 0; l < 3; l++){
 							if(k == l){ change_rot += fabs(1-diff(k,l));}
 							else{		change_rot += fabs(diff(k,l));}
 						}
@@ -738,14 +738,14 @@ void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vect
 	}
 
 	if(rmt==1){
-		for(unsigned int i = 0; i < nr_frames; i++){
+		for(unsigned long i = 0; i < nr_frames; i++){
 			if(!is_ok[i]){continue;}
 			nr_matches[i] = 0;
 
 			double * ap = arraypoints[i];
-			const unsigned int nr_ap = nr_arraypoints[i];
+			const unsigned long nr_ap = nr_arraypoints[i];
 
-			for(unsigned int j = 0; j < nr_frames; j++){
+			for(unsigned long j = 0; j < nr_frames; j++){
 				if(!is_ok[j]){continue;}
 				if(i == j){continue;}
 				Eigen::Affine3d rp = Eigen::Affine3d(poses[j].inverse()*poses[i]);
@@ -753,12 +753,12 @@ void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vect
 				const double & m10 = rp(1,0); const double & m11 = rp(1,1); const double & m12 = rp(1,2); const double & m13 = rp(1,3);
 				const double & m20 = rp(2,0); const double & m21 = rp(2,1); const double & m22 = rp(2,2); const double & m23 = rp(2,3);
 
-				std::vector<int> & matchid = matchids[i][j];
+				std::vector<long > & matchid = matchids[i][j];
 				matchid.resize(nr_ap);
 				Tree3d * t3d = trees3d[j];
 
-				for(unsigned int k = 0; k < nr_ap; ++k) {
-					int prev = matchid[k];
+				for(unsigned long k = 0; k < nr_ap; ++k) {
+					long prev = matchid[k];
 					double qp [3];
 					const double & src_x = ap[3*k+0];
 					const double & src_y = ap[3*k+1];
@@ -773,7 +773,7 @@ void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vect
 					resultSet.init(&ret_index, &out_dist_sqr );
 					t3d->findNeighbors(resultSet, qp, nanoflann::SearchParams(10));
 
-					int current = ret_index;
+					long current = ret_index;
 					new_good_rematches += prev != current;
 					new_total_rematches++;
 					matchid[k] = current;
@@ -783,14 +783,14 @@ void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vect
 		}
 	}
 	if(rmt==0){
-		for(unsigned int i = 0; i < nr_frames; i++){
+		for(unsigned long i = 0; i < nr_frames; i++){
 			if(!is_ok[i]){continue;}
 			nr_matches[i] = 0;
 
 			double * ap = arraypoints[i];
-			int nr_ap = nr_arraypoints[i];
+			long nr_ap = nr_arraypoints[i];
 
-			for(unsigned int j = 0; j < nr_frames; j++){
+			for(unsigned long j = 0; j < nr_frames; j++){
 				if(!is_ok[j]){continue;}
 				if(i == j){continue;}
 				Eigen::Affine3d rp = Eigen::Affine3d(poses[j].inverse()*poses[i]);
@@ -800,13 +800,13 @@ void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vect
 
 				Eigen::Matrix<double, 3, Eigen::Dynamic> tX	= rp*points[i];
 
-				unsigned int nr_data = nr_datas[i];
-				std::vector<int> & matchid = matchids[i][j];
+				unsigned long nr_data = nr_datas[i];
+				std::vector<long > & matchid = matchids[i][j];
 				matchid.resize(nr_data);
 				Tree3d * t3d = trees3d[j];
 
-				for(unsigned int k = 0; k < nr_data; ++k) {
-					int prev = matchid[k];
+				for(unsigned long k = 0; k < nr_data; ++k) {
+					long prev = matchid[k];
 					double * qp = tX.col(k).data();
 
 					size_t ret_index; double out_dist_sqr;
@@ -814,7 +814,7 @@ void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vect
 					resultSet.init(&ret_index, &out_dist_sqr );
 					t3d->findNeighbors(resultSet, qp, nanoflann::SearchParams(10));
 
-					int current = ret_index;
+					long current = ret_index;
 					new_good_rematches += prev != current;
 					new_total_rematches++;
 					matchid[k] = current;
@@ -829,19 +829,19 @@ void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vect
 
 
 Eigen::MatrixXd MassRegistrationPPR2::getAllResiduals(std::vector<Eigen::Matrix4d> poses){
-	unsigned int nr_frames = poses.size();
+	unsigned long nr_frames = poses.size();
 	Eigen::MatrixXd all_residuals;
 
-	int total_matches = 0;
-	for(unsigned int i = 0; i < nr_frames; i++){
+	long total_matches = 0;
+	for(unsigned long i = 0; i < nr_frames; i++){
 		if(!is_ok[i]){continue;}
-		for(unsigned int j = 0; j < nr_frames; j++){
+		for(unsigned long j = 0; j < nr_frames; j++){
 			if(!is_ok[j]){continue;}
 			total_matches += matchids[i][j].size();
 		}
 	}
 
-	int all_residuals_type = 1;
+	long all_residuals_type = 1;
 
 	if(all_residuals_type == 1){
 		switch(type) {
@@ -850,16 +850,16 @@ Eigen::MatrixXd MassRegistrationPPR2::getAllResiduals(std::vector<Eigen::Matrix4
 		default:			{printf("type not set\n");}					break;
 		}
 
-		int count = 0;
-		for(unsigned int i = 0; i < nr_frames; i++){
+		long count = 0;
+		for(unsigned long i = 0; i < nr_frames; i++){
 			if(!is_ok[i]){continue;}
 
 			double * api = arraypoints[i];
 			double * ani = arraynormals[i];
 			double * aci = arraycolors[i];
 			double * aii = arrayinformations[i];
-			const unsigned int nr_api = nr_arraypoints[i];
-			for(unsigned int j = 0; j < nr_frames; j++){
+			const unsigned long nr_api = nr_arraypoints[i];
+			for(unsigned long j = 0; j < nr_frames; j++){
 				if(!is_ok[j]){continue;}
 				if(i == j){continue;}
 
@@ -867,10 +867,10 @@ Eigen::MatrixXd MassRegistrationPPR2::getAllResiduals(std::vector<Eigen::Matrix4
 				double * anj = arraynormals[j];
 				double * acj = arraycolors[j];
 				double * aij = arrayinformations[j];
-				const unsigned int nr_apj = nr_arraypoints[j];
+				const unsigned long nr_apj = nr_arraypoints[j];
 
-				std::vector<int> & matchidi = matchids[i][j];
-				unsigned int matchesi = matchidi.size();
+				std::vector<long > & matchidi = matchids[i][j];
+				unsigned long matchesi = matchidi.size();
 
 				Eigen::Affine3d rp = Eigen::Affine3d(poses[j].inverse()*poses[i]);
 				const double & m00 = rp(0,0); const double & m01 = rp(0,1); const double & m02 = rp(0,2); const double & m03 = rp(0,3);
@@ -878,8 +878,8 @@ Eigen::MatrixXd MassRegistrationPPR2::getAllResiduals(std::vector<Eigen::Matrix4
 				const double & m20 = rp(2,0); const double & m21 = rp(2,1); const double & m22 = rp(2,2); const double & m23 = rp(2,3);
 
 				if(type == PointToPlane){
-					for(unsigned int ki = 0; ki < nr_api; ++ki) {
-						int kj = matchidi[ki];
+					for(unsigned long ki = 0; ki < nr_api; ++ki) {
+						long kj = matchidi[ki];
 						if( kj < 0 || kj >= nr_apj){continue;}
 						const double & src_x = api[3*ki+0];
 						const double & src_y = api[3*ki+1];
@@ -914,8 +914,8 @@ Eigen::MatrixXd MassRegistrationPPR2::getAllResiduals(std::vector<Eigen::Matrix4
 				}
 
 				if(type == PointToPoint){
-					for(unsigned int ki = 0; ki < nr_api; ++ki) {
-						int kj = matchidi[ki];
+					for(unsigned long ki = 0; ki < nr_api; ++ki) {
+						long kj = matchidi[ki];
 						if( kj < 0 ){continue;}
 						const double & src_x = api[3*ki+0];
 						const double & src_y = api[3*ki+1];
@@ -929,7 +929,7 @@ Eigen::MatrixXd MassRegistrationPPR2::getAllResiduals(std::vector<Eigen::Matrix4
 
 						const double & info_j = aij[kj];
 
-						float tx = m00*src_x + m01*src_y + m02*src_z + m03;//        const unsigned int src_nr_ap = kp_nr_arraypoints[i];
+						float tx = m00*src_x + m01*src_y + m02*src_z + m03;//        const unsigned long src_nr_ap = kp_nr_arraypoints[i];
 						//        if(src_nr_ap == 0){continue;}
 						float ty = m10*src_x + m11*src_y + m12*src_z + m13;
 						float tz = m20*src_x + m21*src_y + m22*src_z + m23;
@@ -952,17 +952,17 @@ Eigen::MatrixXd MassRegistrationPPR2::getAllResiduals(std::vector<Eigen::Matrix4
 		default:			{printf("type not set\n");}					break;
 		}
 
-		int count = 0;
-		for(unsigned int i = 0; i < nr_frames; i++){
+		long count = 0;
+		for(unsigned long i = 0; i < nr_frames; i++){
 			if(!is_ok[i]){continue;}
 			Eigen::Matrix<double, 3, Eigen::Dynamic> & tXi	= transformed_points[i];
 			Eigen::Matrix<double, 3, Eigen::Dynamic> & tXni	= transformed_normals[i];
 			Eigen::VectorXd & informationi					= informations[i];
-			for(unsigned int j = 0; j < nr_frames; j++){
+			for(unsigned long j = 0; j < nr_frames; j++){
 				if(!is_ok[j]){continue;}
 				if(i == j){continue;}
-				std::vector<int> & matchidi = matchids[i][j];
-				unsigned int matchesi = matchidi.size();
+				std::vector<long > & matchidi = matchids[i][j];
+				unsigned long matchesi = matchidi.size();
 				Eigen::Matrix<double, 3, Eigen::Dynamic> & tXj	= transformed_points[j];
 				Eigen::Matrix<double, 3, Eigen::Dynamic> & tXnj	= transformed_normals[j];
 				Eigen::VectorXd & informationj					= informations[j];
@@ -972,8 +972,8 @@ Eigen::MatrixXd MassRegistrationPPR2::getAllResiduals(std::vector<Eigen::Matrix4
 				Eigen::Matrix3Xd Qn		= Eigen::Matrix3Xd::Zero(3,	matchesi);
 				Eigen::VectorXd  rangeW	= Eigen::VectorXd::Zero(	matchesi);
 
-				for(unsigned int ki = 0; ki < matchesi; ki++){
-					int kj = matchidi[ki];
+				for(unsigned long ki = 0; ki < matchesi; ki++){
+					long kj = matchidi[ki];
 					if( ki >= Qp.cols() || kj < 0 || kj >= tXj.cols() ){continue;}
 					Qp.col(ki) = tXj.col(kj);
 					Qn.col(ki) = tXnj.col(kj);
@@ -986,7 +986,7 @@ Eigen::MatrixXd MassRegistrationPPR2::getAllResiduals(std::vector<Eigen::Matrix4
 				case PointToPoint:	{residuals = Xp-Qp;} 						break;
 				case PointToPlane:	{
 					residuals		= Eigen::MatrixXd::Zero(1,	Xp.cols());
-					for(int i=0; i<Xp.cols(); ++i) {
+					for(long i=0; i<Xp.cols(); ++i) {
 						float dx = Xp(0,i)-Qp(0,i);
 						float dy = Xp(1,i)-Qp(1,i);
 						float dz = Xp(2,i)-Qp(2,i);
@@ -999,7 +999,7 @@ Eigen::MatrixXd MassRegistrationPPR2::getAllResiduals(std::vector<Eigen::Matrix4
 				}break;
 				default:			{printf("type not set\n");}					break;
 				}
-				for(unsigned int k=0; k < matchesi; ++k) {residuals.col(k) *= rangeW(k);}
+				for(unsigned long k=0; k < matchesi; ++k) {residuals.col(k) *= rangeW(k);}
 				all_residuals.block(0,count,residuals.rows(),residuals.cols()) = residuals;
 				count += residuals.cols();
 			}
@@ -1009,13 +1009,13 @@ Eigen::MatrixXd MassRegistrationPPR2::getAllResiduals(std::vector<Eigen::Matrix4
 }
 
 Eigen::MatrixXd MassRegistrationPPR2::depthedge_getAllResiduals(std::vector<Eigen::Matrix4d> poses){
-	unsigned int nr_frames = poses.size();
+	unsigned long nr_frames = poses.size();
 	Eigen::MatrixXd all_residuals;
 
-	int total_matches = 0;
-	for(unsigned int i = 0; i < nr_frames; i++){
+	long total_matches = 0;
+	for(unsigned long i = 0; i < nr_frames; i++){
 		if(!is_ok[i]){continue;}
-		for(unsigned int j = 0; j < nr_frames; j++){
+		for(unsigned long j = 0; j < nr_frames; j++){
 			if(!is_ok[j]){continue;}
 			total_matches += depthedge_matchids[i][j].size();
 		}
@@ -1025,23 +1025,23 @@ Eigen::MatrixXd MassRegistrationPPR2::depthedge_getAllResiduals(std::vector<Eige
 	all_residuals = Eigen::Matrix3Xd::Zero(3,total_matches);
 
 
-	int count = 0;
-	for(unsigned int i = 0; i < nr_frames; i++){
+	long count = 0;
+	for(unsigned long i = 0; i < nr_frames; i++){
 		if(!is_ok[i]){continue;}
 
 		double * api = depthedge_arraypoints[i];
 		double * aii = depthedge_arrayinformations[i];
-		const unsigned int nr_api = depthedge_nr_arraypoints[i];
-		for(unsigned int j = 0; j < nr_frames; j++){
+		const unsigned long nr_api = depthedge_nr_arraypoints[i];
+		for(unsigned long j = 0; j < nr_frames; j++){
 			if(!is_ok[j]){continue;}
 			if(i == j){continue;}
 
 			double * apj = depthedge_arraypoints[j];
 			double * aij = depthedge_arrayinformations[j];
-			const unsigned int nr_apj = depthedge_nr_arraypoints[j];
+			const unsigned long nr_apj = depthedge_nr_arraypoints[j];
 
-			std::vector<int> & matchidi = depthedge_matchids[i][j];
-			unsigned int matchesi = matchidi.size();
+			std::vector<long > & matchidi = depthedge_matchids[i][j];
+			unsigned long matchesi = matchidi.size();
 
 			Eigen::Affine3d rp = Eigen::Affine3d(poses[j].inverse()*poses[i]);
 			const double & m00 = rp(0,0); const double & m01 = rp(0,1); const double & m02 = rp(0,2); const double & m03 = rp(0,3);
@@ -1049,8 +1049,8 @@ Eigen::MatrixXd MassRegistrationPPR2::depthedge_getAllResiduals(std::vector<Eige
 			const double & m20 = rp(2,0); const double & m21 = rp(2,1); const double & m22 = rp(2,2); const double & m23 = rp(2,3);
 
 
-			for(unsigned int ki = 0; ki < nr_api; ++ki) {
-				int kj = matchidi[ki];
+			for(unsigned long ki = 0; ki < nr_api; ++ki) {
+				long kj = matchidi[ki];
 				if( kj < 0 ){continue;}
 				const double & src_x = api[3*ki+0];
 				const double & src_y = api[3*ki+1];
@@ -1080,16 +1080,16 @@ Eigen::MatrixXd MassRegistrationPPR2::depthedge_getAllResiduals(std::vector<Eige
 }
 
 Eigen::MatrixXd MassRegistrationPPR2::getAllKpResiduals(std::vector<Eigen::Matrix4d> poses){
-	unsigned int nr_frames = poses.size();
+	unsigned long nr_frames = poses.size();
 
 
 //    printf("is_ok size: %i\n",is_ok.size());
-	int total_matches = 0;
-	for(unsigned int i = 0; i < nr_frames; i++){
-        const unsigned int src_nr_ap = kp_nr_arraypoints[i];
+	long total_matches = 0;
+	for(unsigned long i = 0; i < nr_frames; i++){
+		const unsigned long src_nr_ap = kp_nr_arraypoints[i];
         if(src_nr_ap == 0){continue;}
-        for(unsigned int j = 0; j < nr_frames; j++){
-            const unsigned int dst_nr_ap = kp_nr_arraypoints[j];
+		for(unsigned long j = 0; j < nr_frames; j++){
+			const unsigned long dst_nr_ap = kp_nr_arraypoints[j];
             if(dst_nr_ap == 0){continue;}
 			total_matches += kp_matches[i][j].size();
 		}
@@ -1101,8 +1101,8 @@ Eigen::MatrixXd MassRegistrationPPR2::getAllKpResiduals(std::vector<Eigen::Matri
 
 
 //    total_matches = 0;
-//    for(unsigned int i = 0; i < nr_frames; i++){
-//        for(unsigned int j = 0; j < nr_frames; j++){
+//    for(unsigned long i = 0; i < nr_frames; i++){
+//        for(unsigned long j = 0; j < nr_frames; j++){
 //            total_matches += kp_matches[i][j].size();
 //        }
 //    }
@@ -1112,21 +1112,21 @@ Eigen::MatrixXd MassRegistrationPPR2::getAllKpResiduals(std::vector<Eigen::Matri
 
 //    exit(0);
 
-	int count = 0;
+	long count = 0;
 	Eigen::MatrixXd all_residuals = Eigen::Matrix3Xd::Zero(3,total_matches);
 //if(total_matches == 0){return all_residuals;}
 
-	int ignores = 0;
-	for(unsigned int i = 0; i < nr_frames; i++){
-		const unsigned int src_nr_ap = kp_nr_arraypoints[i];
+	long ignores = 0;
+	for(unsigned long i = 0; i < nr_frames; i++){
+		const unsigned long src_nr_ap = kp_nr_arraypoints[i];
 		if(src_nr_ap == 0){continue;}
 		double * src_ap = kp_arraypoints[i];
 		double * src_ai = kp_arrayinformations[i];
 
-		for(unsigned int j = 0; j < nr_frames; j++){
+		for(unsigned long j = 0; j < nr_frames; j++){
 			if(i == j){continue;}
 
-			const unsigned int dst_nr_ap = kp_nr_arraypoints[j];
+			const unsigned long dst_nr_ap = kp_nr_arraypoints[j];
 			if(dst_nr_ap == 0){continue;}
 
 //            printf("nr kp(%i %i): %i %i\n",i,j,src_nr_ap,dst_nr_ap);
@@ -1140,12 +1140,12 @@ Eigen::MatrixXd MassRegistrationPPR2::getAllKpResiduals(std::vector<Eigen::Matri
 			const double & m20 = rp(2,0); const double & m21 = rp(2,1); const double & m22 = rp(2,2); const double & m23 = rp(2,3);
 
 			std::vector< TestMatch > & matches = kp_matches[i][j];
-			unsigned int nr_matches = matches.size();
+			unsigned long nr_matches = matches.size();
 
-			for(unsigned int k = 0; k < nr_matches; ++k) {
+			for(unsigned long k = 0; k < nr_matches; ++k) {
 				TestMatch & tm = matches[k];
-				unsigned int src_k = tm.src;
-				unsigned int dst_k = tm.dst;
+				unsigned long src_k = tm.src;
+				unsigned long dst_k = tm.dst;
 
 				const double & src_x = src_ap[3*src_k+0];
 				const double & src_y = src_ap[3*src_k+1];
@@ -1363,7 +1363,7 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 	informations.push_back(			Eigen::VectorXd());
 
     nr_matches.push_back(	0);
-    matchids.push_back(		std::vector< std::vector<int> >() );
+	matchids.push_back(		std::vector< std::vector<long > >() );
     matchdists.push_back(	std::vector< std::vector<double> >() );
 
 	nr_arraypoints.push_back(0);
@@ -1375,7 +1375,7 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 	a3dv.push_back(0);
 
 	depthedge_nr_matches.push_back(	0);
-	depthedge_matchids.push_back(		std::vector< std::vector<int> >() );
+	depthedge_matchids.push_back(		std::vector< std::vector<long > >() );
 	depthedge_matchdists.push_back(	std::vector< std::vector<double> >() );
 
 	//depthedge_neighbours.push_back(0);
@@ -1388,7 +1388,7 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 
 	is_ok.push_back(false);
 
-    unsigned int i = points.size()-1;
+	unsigned long i = points.size()-1;
 
 	bool * maskvec					= mmask->maskvec;
 	unsigned char *  edgedata		= (unsigned char *)(frame->depthedges.data);
@@ -1397,18 +1397,18 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
     float		   * normalsdata	= (float			*)(frame->normals.data);
 
     Camera * camera				= frame->camera;
-	const unsigned int width	= camera->width;
-	const unsigned int height	= camera->height;
+	const unsigned long width	= camera->width;
+	const unsigned long height	= camera->height;
 	const float idepth			= camera->idepth_scale;
 	const float cx				= camera->cx;
 	const float cy				= camera->cy;
 	const float ifx				= 1.0/camera->fx;
 	const float ify				= 1.0/camera->fy;
 
-	int count = 0;
-	for(unsigned int w = 0; w < width; w+=maskstep){
-		for(unsigned int h = 0; h < height; h+=maskstep){
-			int ind = h*width+w;
+	long count = 0;
+	for(unsigned long w = 0; w < width; w+=maskstep){
+		for(unsigned long h = 0; h < height; h+=maskstep){
+			long ind = h*width+w;
             if(((w % maskstep == 0) && (h % maskstep == 0) && maskvec[ind]) || ( (w % nomaskstep == 0) && (h % nomaskstep == 0) && nomask)){
 				float z = idepth*float(depthdata[ind]);
 				float xn = normalsdata[3*ind+0];
@@ -1451,11 +1451,11 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 	Eigen::Matrix<double, 3, Eigen::Dynamic> & tXn	= transformed_normals[i];
 	Eigen::VectorXd information (count);
 
-	int c = 0;
-	for(unsigned int w = 0; w < width; w+=maskstep){
-		for(unsigned int h = 0; h < height;h+=maskstep){
+	long c = 0;
+	for(unsigned long w = 0; w < width; w+=maskstep){
+		for(unsigned long h = 0; h < height;h+=maskstep){
 			if(c == count){continue;}
-			int ind = h*width+w;
+			long ind = h*width+w;
             //if(maskvec[ind] || nomask){
             if(((w % maskstep == 0) && (h % maskstep == 0) && maskvec[ind]) || ( (w % nomaskstep == 0) && (h % nomaskstep == 0) && nomask)){
 				float z = idepth*float(depthdata[ind]);
@@ -1508,10 +1508,10 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 	trees3d[i]->buildIndex();
 
 
-	int depthedge_count = 0;
-    for(unsigned int w = 0; w < width; w++){
-        for(unsigned int h = 0; h < height; h++){
-			int ind = h*width+w;
+	long depthedge_count = 0;
+	for(unsigned long w = 0; w < width; w++){
+		for(unsigned long h = 0; h < height; h++){
+			long ind = h*width+w;
 			if(maskvec[ind] && edgedata[ind] == 255){
 				float z = idepth*float(depthdata[ind]);
 				if(z > 0.2){depthedge_count++;}
@@ -1523,17 +1523,17 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 	if(depthedge_count > 10){
 		double * depthedge_ap = new double[3*depthedge_count];
 		double * depthedge_ai = new double[3*depthedge_count];
-		//int * dn = new int[depthedge_nr_neighbours*depthedge_count];
+		//long * dn = new long[depthedge_nr_neighbours*depthedge_count];
 		//depthedge_neighbours[i] = dn;
 		depthedge_nr_arraypoints[i] = depthedge_count;
 		depthedge_arraypoints[i] = depthedge_ap;
 		depthedge_arrayinformations[i] = depthedge_ai;
 
 		c = 0;
-		for(unsigned int w = 0; w < width; w+=1){
-			for(unsigned int h = 0; h < height; h+=1){
+		for(unsigned long w = 0; w < width; w+=1){
+			for(unsigned long h = 0; h < height; h+=1){
 				if(c == depthedge_count){continue;}
-				int ind = h*width+w;
+				long ind = h*width+w;
 				if(maskvec[ind] && edgedata[ind] == 255){
 					float z = idepth*float(depthdata[ind]);
 					if(z > 0.2){
@@ -1556,19 +1556,19 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
         Tree3d * t3d                        = depthedge_trees3d[i];
 
 
-//        const int nrdn = depthedge_nr_neighbours+1;
+//        const long nrdn = depthedge_nr_neighbours+1;
 //
 
 //#if defdomultithread
 //	#pragma omp parallel for num_threads(8)
 //#endif
-//        for(int c = 0; c < depthedge_count; c++){
+//        for(long c = 0; c < depthedge_count; c++){
 //            size_t ret_index[nrdn];
 //            double out_dist_sqr[nrdn];
 //            nanoflann::KNNResultSet<double> resultSet(nrdn);
 //            resultSet.init(ret_index, out_dist_sqr );
 //            t3d->findNeighbors(resultSet, depthedge_ap+3*c, nanoflann::SearchParams(10));
-//            for(int k = 0; k < depthedge_nr_neighbours; k++){
+//            for(long k = 0; k < depthedge_nr_neighbours; k++){
 //                dn[depthedge_nr_neighbours*c + k] = ret_index[k+1];
 //            }
 //        }
@@ -1581,7 +1581,7 @@ void MassRegistrationPPR2::addData(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr 
 	double total_load_time_start = getTime();
 
     nr_matches.push_back(	0);
-    matchids.push_back(		std::vector< std::vector<int> >() );
+	matchids.push_back(		std::vector< std::vector<long > >() );
     matchdists.push_back(	std::vector< std::vector<double> >() );
 	nr_datas.push_back(		0);
 
@@ -1604,10 +1604,10 @@ void MassRegistrationPPR2::addData(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr 
 	a3dv.push_back(0);
 	is_ok.push_back(false);
 
-	unsigned int i = points.size()-1;
+	unsigned long i = points.size()-1;
 
-	int count = 0;
-    for(unsigned int j = 0; j < cloud->points.size(); j+=nomaskstep*nomaskstep){
+	long count = 0;
+	for(unsigned long j = 0; j < cloud->points.size(); j+=nomaskstep*nomaskstep){
 		if (isValidPoint(cloud->points[j])){count++;}
 	}
 
@@ -1647,8 +1647,8 @@ void MassRegistrationPPR2::addData(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr 
 
 	Eigen::VectorXd information (count);
 
-	int c = 0;
-    for(unsigned int j = 0; j < cloud->points.size(); j+=nomaskstep*nomaskstep){
+	long c = 0;
+	for(unsigned long j = 0; j < cloud->points.size(); j+=nomaskstep*nomaskstep){
 		pcl::PointXYZRGBNormal p = cloud->points[j];
 		if (isValidPoint(p)){
 
@@ -1714,45 +1714,45 @@ void MassRegistrationPPR2::addData(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr 
 
 std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::Matrix4d> poses){
 	bool onetoone = true;
-	unsigned int nr_frames = poses.size();
+	unsigned long nr_frames = poses.size();
 	Eigen::MatrixXd Xo1;
 
-	int optt = 2;
-    for(int outer=0; outer < 60; ++outer) {
+	long optt = 2;
+	for(long outer=0; outer < 60; ++outer) {
 		if(getTime()-total_time_start > timeout){break;}
 
 		//printf("outer: %i\n",outer);
 
 		std::vector<Eigen::Matrix4d> poses2 = poses;
 		if(type == PointToPlane && optt == 2){
-			for(unsigned int i = 0; i < nr_frames; i++){
+			for(unsigned long i = 0; i < nr_frames; i++){
 				if(getTime()-total_time_start > timeout){break;}
 				if(!is_ok[i]){continue;}
 
-				unsigned int count				= 0;
+				unsigned long count				= 0;
 				double * api					= arraypoints[i];
 				double * ani					= arraynormals[i];
 				double * aci					= arraycolors[i];
 				double * aii					= arrayinformations[i];
-				const unsigned int nr_api		= nr_arraypoints[i];
+				const unsigned long nr_api		= nr_arraypoints[i];
 
-				unsigned int kp_count			= 0;
+				unsigned long kp_count			= 0;
 //				double * kp_api					= kp_arraypoints[i];
 //				double * kp_ani					= kp_arraynormals[i];
 //				double * kp_aii					= kp_arrayinformations[i];
-//				const unsigned int kp_nr_api	= kp_nr_arraypoints[i];
+//				const unsigned long kp_nr_api	= kp_nr_arraypoints[i];
 
-				unsigned int depthedge_count			= 0;
+				unsigned long depthedge_count			= 0;
 				double * depthedge_api					= depthedge_arraypoints[i];
 				double * depthedge_aii					= depthedge_arrayinformations[i];
-				const unsigned int depthedge_nr_api		= depthedge_nr_arraypoints[i];
+				const unsigned long depthedge_nr_api		= depthedge_nr_arraypoints[i];
 
 				Eigen::Affine3d rpi = Eigen::Affine3d(poses[i]);
 				const double & mi00 = rpi(0,0); const double & mi01 = rpi(0,1); const double & mi02 = rpi(0,2); const double & mi03 = rpi(0,3);
 				const double & mi10 = rpi(1,0); const double & mi11 = rpi(1,1); const double & mi12 = rpi(1,2); const double & mi13 = rpi(1,3);
 				const double & mi20 = rpi(2,0); const double & mi21 = rpi(2,1); const double & mi22 = rpi(2,2); const double & mi23 = rpi(2,3);
 
-				for(unsigned int j = 0; j < nr_frames; j++){
+				for(unsigned long j = 0; j < nr_frames; j++){
 					if(!is_ok[j]){continue;}
 					if(i == j){continue;}
 
@@ -1760,16 +1760,16 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 					double * anj					= arraynormals[j];
 					double * acj					= arraycolors[j];
 					double * aij					= arrayinformations[j];
-					const unsigned int nr_apj		= nr_arraypoints[j];
+					const unsigned long nr_apj		= nr_arraypoints[j];
 
 					double * depthedge_apj					= depthedge_arraypoints[j];
 					double * depthedge_aij					= depthedge_arrayinformations[j];
-					const unsigned int depthedge_nr_apj		= depthedge_nr_arraypoints[j];
+					const unsigned long depthedge_nr_apj		= depthedge_nr_arraypoints[j];
 
 //					double * kp_apj					= kp_arraypoints[j];
 //					double * kp_anj					= kp_arraynormals[j];
 //					double * kp_aij					= kp_arrayinformations[j];
-//					const unsigned int kp_nr_apj	= kp_nr_arraypoints[j];
+//					const unsigned long kp_nr_apj	= kp_nr_arraypoints[j];
 
 					Eigen::Affine3d rpj = Eigen::Affine3d(poses[j]);
 					const double & mj00 = rpj(0,0); const double & mj01 = rpj(0,1); const double & mj02 = rpj(0,2); const double & mj03 = rpj(0,3);
@@ -1777,17 +1777,17 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 					const double & mj20 = rpj(2,0); const double & mj21 = rpj(2,1); const double & mj22 = rpj(2,2); const double & mj23 = rpj(2,3);
 
 					if(use_surface){
-						std::vector<int> & matchidj = matchids[j][i];
-						unsigned int matchesj = matchidj.size();
-						std::vector<int> & matchidi = matchids[i][j];
-						unsigned int matchesi = matchidi.size();
+						std::vector<long > & matchidj = matchids[j][i];
+						unsigned long matchesj = matchidj.size();
+						std::vector<long > & matchidi = matchids[i][j];
+						unsigned long matchesi = matchidi.size();
 
 
 						std::vector<double> & matchdistj = matchdists[j][i];
 						std::vector<double> & matchdisti = matchdists[i][j];
 
-						for(unsigned int ki = 0; true && ki < matchesi; ki++){
-							int kj = matchidi[ki];
+						for(unsigned long ki = 0; true && ki < matchesi; ki++){
+							long kj = matchidi[ki];
 							if( kj == -1 ){continue;}
 							if( kj >=  matchesj){continue;}
 							if(!onetoone || matchidj[kj] == ki){
@@ -1828,17 +1828,17 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 
 
 					if(use_depthedge){
-						std::vector<int> & matchidj = depthedge_matchids[j][i];
-						unsigned int matchesj = matchidj.size();
-						std::vector<int> & matchidi = depthedge_matchids[i][j];
-						unsigned int matchesi = matchidi.size();
+						std::vector<long > & matchidj = depthedge_matchids[j][i];
+						unsigned long matchesj = matchidj.size();
+						std::vector<long > & matchidi = depthedge_matchids[i][j];
+						unsigned long matchesi = matchidi.size();
 
 
 						std::vector<double> & matchdistj = depthedge_matchdists[j][i];
 						std::vector<double> & matchdisti = depthedge_matchdists[i][j];
 
-						for(unsigned int ki = 0; true && ki < matchesi; ki++){
-							int kj = matchidi[ki];
+						for(unsigned long ki = 0; true && ki < matchesi; ki++){
+							long kj = matchidi[ki];
 							if( kj == -1 ){continue;}
 							if( kj >=  matchesj){continue;}
 							if(!onetoone || matchidj[kj] == ki){
@@ -1867,11 +1867,11 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 /*
                     if(kp_matches.size() > 0 && kp_matches[i].size() > 0 && kp_matches[i][j].size() > 0){
                         std::vector< TestMatch > & matches = kp_matches[i][j];
-                        unsigned int nr_matches = matches.size();
-                        for(unsigned int k = 0; k < nr_matches; k++){
+						unsigned long nr_matches = matches.size();
+						for(unsigned long k = 0; k < nr_matches; k++){
                             TestMatch & m = matches[k];
-                            int ki = m.src;
-                            int kj = m.dst;
+							long ki = m.src;
+							long kj = m.dst;
 
                             kp_Xp_arr[3*kp_count+0] = kp_api[3*ki+0];
                             kp_Xp_arr[3*kp_count+1] = kp_api[3*ki+1];
@@ -1917,13 +1917,13 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 				Vector6d ATb;
 
 				//std::vector<Eigen::MatrixXd> Xv;
-				//if(visualizationLvl == 4){for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}sprintf(buf,"image%5.5i.png",imgcount++);show(Xv,false,std::string(buf),imgcount);}
+				//if(visualizationLvl == 4){for(unsigned long j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}sprintf(buf,"image%5.5i.png",imgcount++);show(Xv,false,std::string(buf),imgcount);}
 
 
 
 				Eigen::Affine3d p = rpi;
 				bool do_inner = true;
-				for(int inner=0; inner < 15 && do_inner; ++inner) {
+				for(long inner=0; inner < 15 && do_inner; ++inner) {
 
 					pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr scloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 					pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dcloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
@@ -1944,7 +1944,7 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 					double kpInfo = 1.0/(kpNoise*kpNoise);
 
 					if(use_surface){
-						for(unsigned int co = 0; co < count; co++){
+						for(unsigned long co = 0; co < count; co++){
 							const double & src_x = Xp_arr[3*co+0];
 							const double & src_y = Xp_arr[3*co+1];
 							const double & src_z = Xp_arr[3*co+2];
@@ -2044,7 +2044,7 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 //printf("%s::%i\n",__FUNCTION__,__LINE__);
 					if(use_depthedge){
 //printf("%s::%i\n",__FUNCTION__,__LINE__);
-						for(unsigned int co = 0; co < depthedge_count; co++){
+						for(unsigned long co = 0; co < depthedge_count; co++){
 //							printf("%s::%i\n",__FUNCTION__,__LINE__);
 							const double & src_x = depthedge_Xp_arr[3*co+0];
 							const double & src_y = depthedge_Xp_arr[3*co+1];
@@ -2152,7 +2152,7 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 						}
 					}
 
-					for(unsigned int co = 0; co < kp_count; co++){
+					for(unsigned long co = 0; co < kp_count; co++){
 						const double & src_x = kp_Xp_arr[3*co+0];
 						const double & src_y = kp_Xp_arr[3*co+1];
 						const double & src_z = kp_Xp_arr[3*co+2];
@@ -2301,7 +2301,7 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 					ATA.coeffRef (33) = ATA.coeff (23);
 					ATA.coeffRef (34) = ATA.coeff (29);
 
-                    for(int d = 0; d < 6; d++){
+					for(long d = 0; d < 6; d++){
                         ATA(d,d) += 1;
                     }
 
@@ -2312,9 +2312,9 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 
 					double change_t = 0;
 					double change_r = 0;
-					for(unsigned int k = 0; k < 3; k++){
+					for(unsigned long k = 0; k < 3; k++){
 						change_t += transformation(k,3)*transformation(k,3);
-						for(unsigned int l = 0; l < 3; l++){
+						for(unsigned long l = 0; l < 3; l++){
 							if(k == l){ change_r += fabs(1-transformation(k,l));}
 							else{		change_r += fabs(transformation(k,l));}
 						}
@@ -2344,10 +2344,10 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 				poses[i] = p.matrix();//newpose;
 			}
 		}else if(type == PointToPlane && optt == 1){
-			for(unsigned int i = 0; i < nr_frames; i++){
+			for(unsigned long i = 0; i < nr_frames; i++){
 				if(getTime()-total_time_start > timeout){break;}
 				if(!is_ok[i]){continue;}
-				unsigned int count = 0;
+				unsigned long count = 0;
 
 				Eigen::Matrix<double, 3, Eigen::Dynamic> & tXi    = transformed_points[i];
 				Eigen::Matrix<double, 3, Eigen::Dynamic> & Xi     = points[i];
@@ -2356,23 +2356,23 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 				Eigen::VectorXd & informationi                    = informations[i];
 
 
-				for(unsigned int j = 0; j < nr_frames; j++){
+				for(unsigned long j = 0; j < nr_frames; j++){
 					if(!is_ok[j]){continue;}
 					Eigen::Matrix<double, 3, Eigen::Dynamic> & tXj    = transformed_points[j];
 					Eigen::Matrix<double, 3, Eigen::Dynamic> & tXnj   = transformed_normals[j];
 					Eigen::VectorXd & informationj                    = informations[j];
 
-					std::vector<int> & matchidj = matchids[j][i];
-					unsigned int matchesj = matchidj.size();
-					std::vector<int> & matchidi = matchids[i][j];
-					unsigned int matchesi = matchidi.size();
+					std::vector<long > & matchidj = matchids[j][i];
+					unsigned long matchesj = matchidj.size();
+					std::vector<long > & matchidi = matchids[i][j];
+					unsigned long matchesi = matchidi.size();
 
                     std::vector<double> & matchdistj = matchdists[j][i];
                     std::vector<double> & matchdisti = matchdists[i][j];
 
 
-					for(unsigned int ki = 0; ki < matchesi; ki++){
-						int kj = matchidi[ki];
+					for(unsigned long ki = 0; ki < matchesi; ki++){
+						long kj = matchidi[ki];
 						if( kj == -1 ){continue;}
 						if( kj >=  matchesj){continue;}
 						if(!onetoone || matchidj[kj] == ki){
@@ -2407,13 +2407,13 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 
 				Eigen::Affine3d p = Eigen::Affine3d::Identity();
 				bool do_inner = true;
-				for(int inner=0; inner < 5 && do_inner; ++inner) {
+				for(long inner=0; inner < 5 && do_inner; ++inner) {
 					ATA.setZero ();
 					ATb.setZero ();
 					const double & m00 = p(0,0); const double & m01 = p(0,1); const double & m02 = p(0,2); const double & m03 = p(0,3);
 					const double & m10 = p(1,0); const double & m11 = p(1,1); const double & m12 = p(1,2); const double & m13 = p(1,3);
 					const double & m20 = p(2,0); const double & m21 = p(2,1); const double & m22 = p(2,2); const double & m23 = p(2,3);
-					for(unsigned int co = 0; co < count; co++){
+					for(unsigned long co = 0; co < count; co++){
 						const double & src_x = Xp_arr[3*co+0];
 						const double & src_y = Xp_arr[3*co+1];
 						const double & src_z = Xp_arr[3*co+2];
@@ -2502,9 +2502,9 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 
 					double change_t = 0;
 					double change_r = 0;
-					for(unsigned int k = 0; k < 3; k++){
+					for(unsigned long k = 0; k < 3; k++){
 						change_t += transformation(k,3)*transformation(k,3);
-						for(unsigned int l = 0; l < 3; l++){
+						for(unsigned long l = 0; l < 3; l++){
 							if(k == l){ change_r += fabs(1-transformation(k,l));}
 							else{		change_r += fabs(transformation(k,l));}
 						}
@@ -2520,25 +2520,25 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 			}
 		}else{
 
-			for(unsigned int i = 0; i < nr_frames; i++){
+			for(unsigned long i = 0; i < nr_frames; i++){
 				if(getTime()-total_time_start > timeout){break;}
 				if(!is_ok[i]){continue;}
-				unsigned int nr_match = 0;
+				unsigned long nr_match = 0;
 				{
-					for(unsigned int j = 0; j < nr_frames; j++){
+					for(unsigned long j = 0; j < nr_frames; j++){
 						if(!is_ok[j]){continue;}
-						std::vector<int> & matchidj = matchids[j][i];
-						unsigned int matchesj = matchidj.size();
-						std::vector<int> & matchidi = matchids[i][j];
-						unsigned int matchesi = matchidi.size();
+						std::vector<long > & matchidj = matchids[j][i];
+						unsigned long matchesj = matchidj.size();
+						std::vector<long > & matchidi = matchids[i][j];
+						unsigned long matchesi = matchidi.size();
 
 
                         std::vector<double> & matchdistj = matchdists[j][i];
                         std::vector<double> & matchdisti = matchdists[i][j];
 
 
-						for(unsigned int ki = 0; ki < matchesi; ki++){
-							int kj = matchidi[ki];
+						for(unsigned long ki = 0; ki < matchesi; ki++){
+							long kj = matchidi[ki];
 							if( kj == -1 ){continue;}
 							if( kj >=  matchesj){continue;}
 							if(!onetoone || matchidj[kj] == ki){	nr_match++;}
@@ -2554,7 +2554,7 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 				Eigen::Matrix3Xd Qn		= Eigen::Matrix3Xd::Zero(3,	nr_match);
 				Eigen::VectorXd  rangeW	= Eigen::VectorXd::Zero(	nr_match);
 
-				int count = 0;
+				long count = 0;
 
 				Eigen::Matrix<double, 3, Eigen::Dynamic> & tXi	= transformed_points[i];
 				Eigen::Matrix<double, 3, Eigen::Dynamic> & Xi	= points[i];
@@ -2562,23 +2562,23 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 				Eigen::Matrix<double, 3, Eigen::Dynamic> & Xni	= normals[i];
 				Eigen::VectorXd & informationi					= informations[i];
 
-				for(unsigned int j = 0; j < nr_frames; j++){
+				for(unsigned long j = 0; j < nr_frames; j++){
 					if(!is_ok[j]){continue;}
 					Eigen::Matrix<double, 3, Eigen::Dynamic> & tXj	= transformed_points[j];
 					Eigen::Matrix<double, 3, Eigen::Dynamic> & tXnj	= transformed_normals[j];
 					Eigen::VectorXd & informationj					= informations[j];
 
-					std::vector<int> & matchidj = matchids[j][i];
-					unsigned int matchesj = matchidj.size();
-					std::vector<int> & matchidi = matchids[i][j];
-					unsigned int matchesi = matchidi.size();
+					std::vector<long > & matchidj = matchids[j][i];
+					unsigned long matchesj = matchidj.size();
+					std::vector<long > & matchidi = matchids[i][j];
+					unsigned long matchesi = matchidi.size();
 
 
                     std::vector<double> & matchdistj = matchdists[j][i];
                     std::vector<double> & matchdisti = matchdists[i][j];
 
-					for(unsigned int ki = 0; ki < matchesi; ki++){
-						int kj = matchidi[ki];
+					for(unsigned long ki = 0; ki < matchesi; ki++){
+						long kj = matchidi[ki];
 						if( kj == -1 ){continue;}
 						if( kj >=  matchesj){continue;}
 						if(!onetoone || matchidj[kj] == ki){
@@ -2598,13 +2598,13 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 				if(count == 0){break;}
 
 				//showMatches(Xp,Qp);
-				for(int inner=0; inner < 5; ++inner) {
+				for(long inner=0; inner < 5; ++inner) {
 					Eigen::MatrixXd residuals;
 					switch(type) {
 					case PointToPoint:	{residuals = Xp-Qp;} 						break;
 					case PointToPlane:	{
 						residuals		= Eigen::MatrixXd::Zero(1,	Xp.cols());
-						for(int i=0; i<Xp.cols(); ++i) {
+						for(long i=0; i<Xp.cols(); ++i) {
 							float dx = Xp(0,i)-Qp(0,i);
 							float dy = Xp(1,i)-Qp(1,i);
 							float dz = Xp(2,i)-Qp(2,i);
@@ -2617,14 +2617,14 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 					}break;
 					default:			{printf("type not set\n");}					break;
 					}
-					for(unsigned int k=0; k < nr_match; ++k) {residuals.col(k) *= rangeW(k);}
+					for(unsigned long k=0; k < nr_match; ++k) {residuals.col(k) *= rangeW(k);}
 
 					Eigen::VectorXd  W;
 					switch(type) {
 					case PointToPoint:	{W = func->getProbs(residuals); } 					break;
 					case PointToPlane:	{
 						W = func->getProbs(residuals);
-						for(int k=0; k<nr_match; ++k) {W(k) = W(k)*float((Xn(0,k)*Qn(0,k) + Xn(1,k)*Qn(1,k) + Xn(2,k)*Qn(2,k)) > 0.0);}
+						for(long k=0; k<nr_match; ++k) {W(k) = W(k)*float((Xn(0,k)*Qn(0,k) + Xn(1,k)*Qn(1,k) + Xn(2,k)*Qn(2,k)) > 0.0);}
 					}	break;
 					default:			{printf("type not set\n");} break;
 					}
@@ -2635,7 +2635,7 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 					case PointToPoint:	{
 						//RigidMotionEstimator::point_to_point(Xp, Qp, W);
 						pcl::TransformationFromCorrespondences tfc1;
-						for(unsigned int c = 0; c < nr_match; c++){tfc1.add(Eigen::Vector3f(Xp(0,c), Xp(1,c),Xp(2,c)),Eigen::Vector3f(Qp(0,c),Qp(1,c),Qp(2,c)),W(c));}
+						for(unsigned long c = 0; c < nr_match; c++){tfc1.add(Eigen::Vector3f(Xp(0,c), Xp(1,c),Xp(2,c)),Eigen::Vector3f(Qp(0,c),Qp(1,c),Qp(2,c)),W(c));}
 						Eigen::Affine3d rot = tfc1.getTransformation().cast<double>();
 						Xp = rot*Xp;
 						Xn = rot.rotation()*Xn;
@@ -2652,13 +2652,13 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 				}
 				//exit(0);
 				pcl::TransformationFromCorrespondences tfc;
-				for(unsigned int c = 0; c < nr_match; c++){tfc.add(Eigen::Vector3f(Xp_ori(0,c),Xp_ori(1,c),Xp_ori(2,c)),Eigen::Vector3f(Xp(0,c),Xp(1,c),Xp(2,c)));}
+				for(unsigned long c = 0; c < nr_match; c++){tfc.add(Eigen::Vector3f(Xp_ori(0,c),Xp_ori(1,c),Xp_ori(2,c)),Eigen::Vector3f(Xp(0,c),Xp(1,c),Xp(2,c)));}
 				poses[i] = tfc.getTransformation().cast<double>().matrix();
 			}
 		}
 
 		Eigen::Matrix4d p0inv = poses[0].inverse();
-		for(unsigned int j = 0; j < nr_frames; j++){
+		for(unsigned long j = 0; j < nr_frames; j++){
 			if(!is_ok[j]){continue;}
 			poses[j] = p0inv*poses[j];
 
@@ -2672,7 +2672,7 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 			float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
 			float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
 
-			for(int c = 0; c < Xi.cols(); c++){
+			for(long c = 0; c < Xi.cols(); c++){
 				float x = Xi(0,c);
 				float y = Xi(1,c);
 				float z = Xi(2,c);
@@ -2697,7 +2697,7 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 	return poses;
 }
 
-int popcount_lauradoux(uint64_t *buf, uint32_t size) {
+long popcount_lauradoux(uint64_t *buf, uint32_t size) {
 	const uint64_t* data = (uint64_t*) buf;
 
 	const uint64_t m1	= UINT64_C(0x5555555555555555);
@@ -2750,10 +2750,10 @@ int popcount_lauradoux(uint64_t *buf, uint32_t size) {
 void MassRegistrationPPR2::rematchKeyPoints(std::vector<Eigen::Matrix4d> poses, std::vector<Eigen::Matrix4d> prev_poses, bool first){
 	printf("rematchKeyPoints\n");
 	double total_rematchKeyPoints_time_start = getTime();
-	unsigned int nr_frames = poses.size();
+	unsigned long nr_frames = poses.size();
 
-	int max_kps = 0;
-    for(unsigned int i = 0; i < nr_frames; i++){
+	long max_kps = 0;
+	for(unsigned long i = 0; i < nr_frames; i++){
         printf("max_kps: %i kp_nr_arraypoints: %i\n",max_kps, kp_nr_arraypoints[i]);
         max_kps = std::max(max_kps,kp_nr_arraypoints[i]);
     }
@@ -2765,44 +2765,44 @@ void MassRegistrationPPR2::rematchKeyPoints(std::vector<Eigen::Matrix4d> poses, 
     double *	best_src2	= new double[max_kps];
 	double *	best_src_e	= new double[max_kps];
 	double *	best_src_f	= new double[max_kps];
-	int *		best_src_id	= new int[max_kps];
+	long *		best_src_id	= new long[max_kps];
 
 	double *	best_dst	= new double[max_kps];
 	double *	best_dst_e	= new double[max_kps];
 	double *	best_dst_f	= new double[max_kps];
-	int *		best_dst_id	= new int[max_kps];
+	long *		best_dst_id	= new long[max_kps];
 
-	for(unsigned int i = 0; i < nr_frames; i++){
+	for(unsigned long i = 0; i < nr_frames; i++){
 		kp_matches.resize(nr_frames);
-		for(unsigned int j = 0; j < nr_frames; j++){
+		for(unsigned long j = 0; j < nr_frames; j++){
 			kp_matches[i].resize(nr_frames);
 		}
 	}
 
 
-	int ignores = 0;
+	long ignores = 0;
 bool useOrb = true;
 if(useOrb){
-	for(unsigned int i = 0; i < nr_frames; i++){
-		const unsigned int src_nr_ap = kp_nr_arraypoints[i];
+	for(unsigned long i = 0; i < nr_frames; i++){
+		const unsigned long src_nr_ap = kp_nr_arraypoints[i];
 		if(src_nr_ap == 0){continue;}
 		double * src_ap = kp_arraypoints[i];
 		double * src_an = kp_arraynormals[i];
 		double * src_ai = kp_arrayinformations[i];
 		uint64_t * src_data = kp_arraydescriptors[i];
 
-		for(unsigned int j = 0; j < nr_frames; j++){
+		for(unsigned long j = 0; j < nr_frames; j++){
 			if(i == j){continue;}
 
-			const unsigned int dst_nr_ap = kp_nr_arraypoints[j];
+			const unsigned long dst_nr_ap = kp_nr_arraypoints[j];
 			if(dst_nr_ap == 0){continue;}
 
-            for(int k = 0; k < src_nr_ap; k++){
+			for(long k = 0; k < src_nr_ap; k++){
                 best_src[k]		= 999999999999;
                 best_src2[k]		= 999999999999;
 				best_src_id[k]	= -1;
 			}
-            for(int k = 0; k < dst_nr_ap; k++){
+			for(long k = 0; k < dst_nr_ap; k++){
                 best_dst[k]		= 999999999999;
 				best_dst_id[k]	= -1;
 			}
@@ -2823,9 +2823,9 @@ if(useOrb){
 				double change_trans = 0;
 				double change_rot = 0;
 				double dt = 0;
-				for(unsigned int k = 0; k < 3; k++){
+				for(unsigned long k = 0; k < 3; k++){
 					dt += diff(k,3)*diff(k,3);
-					for(unsigned int l = 0; l < 3; l++){
+					for(unsigned long l = 0; l < 3; l++){
 						if(k == l){ change_rot += fabs(1-diff(k,l));}
 						else{		change_rot += fabs(diff(k,l));}
 					}
@@ -2847,7 +2847,7 @@ if(useOrb){
 #if defdomultithread
 	#pragma omp parallel for num_threads(8)
 #endif
-			for(unsigned int src_k = 0; src_k < src_nr_ap; ++src_k) {
+			for(unsigned long src_k = 0; src_k < src_nr_ap; ++src_k) {
 				const double & src_x = src_ap[3*src_k+0];
 				const double & src_y = src_ap[3*src_k+1];
 				const double & src_z = src_ap[3*src_k+2];
@@ -2856,21 +2856,21 @@ if(useOrb){
 				double sy = m10*src_x + m11*src_y + m12*src_z + m13;
 				double sz = m20*src_x + m21*src_y + m22*src_z + m23;
 
-				unsigned int src_k4 = src_k*4;
+				unsigned long src_k4 = src_k*4;
 				const uint64_t s1 = src_data[src_k4+0];
 				const uint64_t s2 = src_data[src_k4+1];
 				const uint64_t s3 = src_data[src_k4+2];
 				const uint64_t s4 = src_data[src_k4+3];
 
 				uint64_t xordata [4];
-				for(unsigned int dst_k = 0; dst_k < dst_nr_ap; ++dst_k) {
+				for(unsigned long dst_k = 0; dst_k < dst_nr_ap; ++dst_k) {
 					double dx = sx-dst_ap[3*dst_k+0];
 					double dy = sy-dst_ap[3*dst_k+1];
 					double dz = sz-dst_ap[3*dst_k+2];
 
                     double p_dist = sqrt(dx*dx+dy*dy+dz*dz);
 
-					unsigned int dst_k4 = dst_k*4;
+					unsigned long dst_k4 = dst_k*4;
 					const uint64_t d1 = dst_data[dst_k4+0];
 					const uint64_t d2 = dst_data[dst_k4+1];
 					const uint64_t d3 = dst_data[dst_k4+2];
@@ -2881,7 +2881,7 @@ if(useOrb){
 					xordata[2] = s3 ^ d3;
 					xordata[3] = s4 ^ d4;
 
-					int cnt = popcount_lauradoux(xordata, 4);
+					long cnt = popcount_lauradoux(xordata, 4);
 					double f_dist = float(cnt)/256.0f;
 
                     float d = f_dist*di + p_dist*pi;
@@ -2909,9 +2909,9 @@ if(useOrb){
             double threshold = 2.0;
             double ratiothreshold = 0.8;
 
-			int nr_matches = 0;
-			for(unsigned int src_k = 0; src_k < src_nr_ap; ++src_k) {
-				int dst_k = best_src_id[src_k];
+			long nr_matches = 0;
+			for(unsigned long src_k = 0; src_k < src_nr_ap; ++src_k) {
+				long dst_k = best_src_id[src_k];
 
                 if(best_dst_id[dst_k] != src_k){continue;}//One to one
                 if(best_src[src_k] > threshold){continue;}//threshold
@@ -2931,25 +2931,25 @@ if(useOrb){
 
 bool useSurf = false;
 if(useSurf){
-    for(unsigned int i = 0; i < nr_frames; i++){
-        const unsigned int src_nr_ap = kp_nr_arraypoints[i];
+	for(unsigned long i = 0; i < nr_frames; i++){
+		const unsigned long src_nr_ap = kp_nr_arraypoints[i];
         if(src_nr_ap == 0){continue;}
         double * src_ap = kp_arraypoints[i];
         double * src_an = kp_arraynormals[i];
         double * src_ai = kp_arrayinformations[i];
         float* src_data = (float*)(kp_arraydescriptors[i]);
 
-        for(unsigned int j = 0; j < nr_frames; j++){
+		for(unsigned long j = 0; j < nr_frames; j++){
             if(i == j){continue;}
 
-            const unsigned int dst_nr_ap = kp_nr_arraypoints[j];
+			const unsigned long dst_nr_ap = kp_nr_arraypoints[j];
             if(dst_nr_ap == 0){continue;}
 
-            for(int k = 0; k < src_nr_ap; k++){
+			for(long k = 0; k < src_nr_ap; k++){
                 best_src[k]		= 999999999999;
                 best_src_id[k]	= -1;
             }
-            for(int k = 0; k < dst_nr_ap; k++){
+			for(long k = 0; k < dst_nr_ap; k++){
                 best_dst[k]		= 999999999999;
                 best_dst_id[k]	= -1;
             }
@@ -2970,9 +2970,9 @@ if(useSurf){
                 double change_trans = 0;
                 double change_rot = 0;
                 double dt = 0;
-                for(unsigned int k = 0; k < 3; k++){
+				for(unsigned long k = 0; k < 3; k++){
                     dt += diff(k,3)*diff(k,3);
-                    for(unsigned int l = 0; l < 3; l++){
+					for(unsigned long l = 0; l < 3; l++){
                         if(k == l){ change_rot += fabs(1-diff(k,l));}
                         else{		change_rot += fabs(diff(k,l));}
                     }
@@ -2991,7 +2991,7 @@ if(useSurf){
 #if defdomultithread
 	#pragma omp parallel for num_threads(8)
 #endif
-            for(unsigned int src_k = 0; src_k < src_nr_ap; ++src_k) {
+			for(unsigned long src_k = 0; src_k < src_nr_ap; ++src_k) {
                 const double & src_x = src_ap[3*src_k+0];
                 const double & src_y = src_ap[3*src_k+1];
                 const double & src_z = src_ap[3*src_k+2];
@@ -3002,7 +3002,7 @@ if(useSurf){
 
 
 
-                for(unsigned int dst_k = 0; dst_k < dst_nr_ap; ++dst_k) {
+				for(unsigned long dst_k = 0; dst_k < dst_nr_ap; ++dst_k) {
                     double dx = sx-dst_ap[3*dst_k+0];
                     double dy = sy-dst_ap[3*dst_k+1];
                     double dz = sz-dst_ap[3*dst_k+2];
@@ -3010,7 +3010,7 @@ if(useSurf){
 
                     double f_dist = 0;
 
-                    for(unsigned int f_k = 0; f_k < 128; ++f_k) {
+					for(unsigned long f_k = 0; f_k < 128; ++f_k) {
                         double diff = src_data[src_k*128 + f_k] - dst_data[dst_k*128 + f_k];
                         f_dist += diff*diff;
                     }
@@ -3032,9 +3032,9 @@ if(useSurf){
 
             std::vector< TestMatch > matches;
             double threshold = 0.25;
-            int nr_matches = 0;
-            for(unsigned int src_k = 0; src_k < src_nr_ap; ++src_k) {
-                int dst_k = best_src_id[src_k];
+			long nr_matches = 0;
+			for(unsigned long src_k = 0; src_k < src_nr_ap; ++src_k) {
+				long dst_k = best_src_id[src_k];
 
                 if(best_dst_id[dst_k] != src_k || best_src[src_k] > threshold){continue;}//One to one
 
@@ -3049,9 +3049,9 @@ if(useSurf){
     }
 }
 if(false){
-    for(unsigned int i = 0; i < nr_frames; i++){
+	for(unsigned long i = 0; i < nr_frames; i++){
         if(frameid[i] == -1){continue;}
-        for(unsigned int j = 0; j < nr_frames; j++){
+		for(unsigned long j = 0; j < nr_frames; j++){
             if(frameid[j] == -1){continue;}
             if(kp_matches[i][j].size() == 0){continue;}
             unsigned char * src_data = (unsigned char *)(model->frames[frameid[i]]->rgb.data);
@@ -3060,12 +3060,12 @@ if(false){
             cv::Mat img;
             img.create(480,2*640,CV_8UC3);
             unsigned char * imgdata = (unsigned char *)img.data;
-            for(int w = 0; w < 640; w++){
-                for(int h = 0; h < 480; h++){
-                    int ind = h*640+w;
+			for(long w = 0; w < 640; w++){
+				for(long h = 0; h < 480; h++){
+					long ind = h*640+w;
 
-                    int ind2 = h*2*640+w;
-                    int ind3 = h*2*640+w+640;
+					long ind2 = h*2*640+w;
+					long ind3 = h*2*640+w+640;
 
                     imgdata[3*ind2+0] = src_data[3*ind+0];
                     imgdata[3*ind2+1] = src_data[3*ind+1];
@@ -3081,7 +3081,7 @@ if(false){
             std::vector<cv::KeyPoint> & dst_keypoints = model->all_keypoints[j];
 
             std::vector< TestMatch > matches = kp_matches[i][j];
-            for(unsigned int k = 0; k < matches.size(); ++k) {
+			for(unsigned long k = 0; k < matches.size(); ++k) {
                 cv::KeyPoint & spt = src_keypoints[matches[k].src];
                 cv::KeyPoint & dpt = dst_keypoints[matches[k].dst];
 
@@ -3093,7 +3093,7 @@ if(false){
             cv::imshow( "matches", img );
             cv::waitKey(0);
 
-            //for(int j = 0; j < width*height; j++){maskdata[j] = 255*maskvec[j];}
+			//for(long j = 0; j < width*height; j++){maskdata[j] = 255*maskvec[j];}
         }
     }
 }
@@ -3114,19 +3114,19 @@ if(false){
 void MassRegistrationPPR2::showEdges(std::vector<Eigen::Matrix4d> poses){
     printf("showEdges\n");
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-	for(unsigned int i = 0; i < poses.size(); i++){
+	for(unsigned long i = 0; i < poses.size(); i++){
         printf("%i/%i -> %i\n",i,poses.size(),depthedge_nr_arraypoints[i]);
 		Eigen::Matrix4d p = poses[i];
 		float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
 		float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
 		float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
 
-		int r,g,b;
+		long r,g,b;
 		r = 256*(1+(rand()%4))/4 - 1;//255*((xi+1) & 1);
 		g = 256*(1+(rand()%4))/4 - 1;//255*((xi+1) & 1);
 		b = 256*(1+(rand()%4))/4 - 1;//255*(xi & 1);
 
-		for(unsigned int c = 0; c < depthedge_nr_arraypoints[i]; c++){
+		for(unsigned long c = 0; c < depthedge_nr_arraypoints[i]; c++){
 			pcl::PointXYZRGBNormal p;
 
 			float x = depthedge_arraypoints.at(i)[3*c+0];
@@ -3153,7 +3153,7 @@ void MassRegistrationPPR2::showEdges(std::vector<Eigen::Matrix4d> poses){
 MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4d> poses){
 	if(visualizationLvl > 0){printf("start MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4d> poses)\n");}
 
-	unsigned int nr_frames = informations.size();
+	unsigned long nr_frames = informations.size();
 	if(poses.size() != nr_frames){
         printf("ERROR: poses.size()  = %i != informations.size() %i\n",poses.size(), informations.size());
 		return MassFusionResults();
@@ -3167,9 +3167,9 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 
 	matchscores.resize(nr_frames);
 
-	for(unsigned int i = 0; i < nr_frames; i++){
+	for(unsigned long i = 0; i < nr_frames; i++){
 		matchscores[i].resize(nr_frames);
-		for(unsigned int j = 0; j < nr_frames; j++){
+		for(unsigned long j = 0; j < nr_frames; j++){
             matchscores[i][j] = 1;
 		}
 
@@ -3190,8 +3190,8 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 		Eigen::Matrix<double, 3, Eigen::Dynamic> & Xn	= normals[i];
 		Eigen::Matrix<double, 3, Eigen::Dynamic> & tX	= transformed_points[i];
 		Eigen::Matrix<double, 3, Eigen::Dynamic> & tXn	= transformed_normals[i];
-		int count = nr_datas[i];
-		for(int c = 0; c < count; c++){
+		long count = nr_datas[i];
+		for(long c = 0; c < count; c++){
 			float x = X(0,c);
 			float y = X(1,c);
 			float z = X(2,c);
@@ -3213,13 +3213,13 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 	kpfunc->reset();
 	depthedge_func->reset();
 
-	int imgcount = 0;
+	long imgcount = 0;
 	char buf [1024];
 	if(visualizationLvl == 1){
 		if(use_depthedge){showEdges(poses);}
 		if(use_surface){
 			std::vector<Eigen::MatrixXd> Xv;
-			for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
+			for(unsigned long j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
 			sprintf(buf,"image%5.5i.png",imgcount++);
 			show(Xv,false,std::string(buf),imgcount);
 		}
@@ -3241,26 +3241,26 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 	std::vector<Eigen::Matrix4d> poses0 = poses;
 	//rematchKeyPoints(poses,poses0,first);
 
-    for(int funcupdate=0; funcupdate < 100; ++funcupdate) {
+	for(long funcupdate=0; funcupdate < 100; ++funcupdate) {
 		if(getTime()-total_time_start > timeout){break;}
-		//if(visualizationLvl == 2){if(use_depthedge){showEdges(poses);}std::vector<Eigen::MatrixXd> Xv;for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}sprintf(buf,"image%5.5i.png",imgcount++);show(Xv,false,std::string(buf),imgcount); showEdges(poses);}
+		//if(visualizationLvl == 2){if(use_depthedge){showEdges(poses);}std::vector<Eigen::MatrixXd> Xv;for(unsigned long j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}sprintf(buf,"image%5.5i.png",imgcount++);show(Xv,false,std::string(buf),imgcount); showEdges(poses);}
 		if(visualizationLvl == 2){
 			if(use_depthedge){showEdges(poses);}
 			if(use_surface){
 				std::vector<Eigen::MatrixXd> Xv;
-				for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
+				for(unsigned long j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
 				sprintf(buf,"image%5.5i.png",imgcount++);
 				show(Xv,false,std::string(buf),imgcount);
 			}
 		}
 
-        for(int rematching=0; rematching < 10; ++rematching) {
-			//if(visualizationLvl == 3){if(use_depthedge){showEdges(poses);}std::vector<Eigen::MatrixXd> Xv;for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}sprintf(buf,"image%5.5i.png",imgcount++);show(Xv,false,std::string(buf),imgcount);}
+		for(long rematching=0; rematching < 10; ++rematching) {
+			//if(visualizationLvl == 3){if(use_depthedge){showEdges(poses);}std::vector<Eigen::MatrixXd> Xv;for(unsigned long j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}sprintf(buf,"image%5.5i.png",imgcount++);show(Xv,false,std::string(buf),imgcount);}
 			if(visualizationLvl == 3){
 				if(use_depthedge){showEdges(poses);}
 				if(use_surface){
 					std::vector<Eigen::MatrixXd> Xv;
-					for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
+					for(unsigned long j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
 					sprintf(buf,"image%5.5i.png",imgcount++);
 					show(Xv,false,std::string(buf),imgcount);
 				}
@@ -3275,7 +3275,7 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 			poses0 = poses;
 			rematch_time += getTime()-rematch_time_start;
 
-            for(int lala = 0; lala < 10; lala++){
+			for(long lala = 0; lala < 10; lala++){
                 if(visualizationLvl > 0){
 					printf("funcupdate: %i rematching: %i lala: %i\n",funcupdate,rematching,lala);
 					printf("total_time:          %5.5f\n",getTime()-total_time_start);
@@ -3284,12 +3284,12 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 					printf("computeModel:        %5.5f\n",computeModel_time);
 					printf("opt_time:            %5.5f\n",opt_time);
 				}
-				//if(visualizationLvl == 4){if(use_depthedge){showEdges(poses);}std::vector<Eigen::MatrixXd> Xv;for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}sprintf(buf,"image%5.5i.png",imgcount++);show(Xv,false,std::string(buf),imgcount);}
+				//if(visualizationLvl == 4){if(use_depthedge){showEdges(poses);}std::vector<Eigen::MatrixXd> Xv;for(unsigned long j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}sprintf(buf,"image%5.5i.png",imgcount++);show(Xv,false,std::string(buf),imgcount);}
 				if(visualizationLvl == 4){
 					if(use_depthedge){showEdges(poses);}
 					if(use_surface){
 						std::vector<Eigen::MatrixXd> Xv;
-						for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
+						for(unsigned long j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
 						sprintf(buf,"image%5.5i.png",imgcount++);
 						show(Xv,false,std::string(buf),imgcount);
 					}
@@ -3390,13 +3390,13 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 		showEdges(poses);
 
 		std::vector<Eigen::MatrixXd> Xv;
-		for(unsigned int j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
+		for(unsigned long j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
 		sprintf(buf,"image%5.5i.png",imgcount++);
 		show(Xv,false,std::string(buf),imgcount);
 	}
 
 	Eigen::Matrix4d firstinv = poses.front().inverse();
-	for(int i = 0; i < nr_frames; i++){poses[i] = firstinv*poses[i];}
+	for(long i = 0; i < nr_frames; i++){poses[i] = firstinv*poses[i];}
 
 	printf("stop MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4d> guess)\n");
 	//exit(0);
