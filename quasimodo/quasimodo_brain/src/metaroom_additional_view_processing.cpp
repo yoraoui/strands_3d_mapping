@@ -79,17 +79,46 @@ std::string overall_folder = "~/.semanticMap/";
 boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 int visualization_lvl = 0;
 std::string outtopic = "/some/topic";
+
+std::string modelouttopic = "/model/out/topic";
 ros::Publisher out_pub;
-std::string posepath = "";
+ros::Publisher model_pub;
+std::string posepath = "testposes.xml";
 std::vector<Eigen::Matrix4d> sweepPoses;
 
-void remove_old_seg(std::string sweep_folder){
-	char buf [1024];
-	sprintf(buf,"rm %s/dynamic_*.png",sweep_folder.c_str());
-	printf("%s\n",buf);
+#include <sys/time.h>
+#include <sys/resource.h>
 
-	sprintf(buf,"rm %s/moving_*.png",sweep_folder.c_str());
-	printf("%s\n",buf);
+void remove_old_seg(std::string sweep_folder){
+	DIR *dir;
+	struct dirent *ent;
+	if ((dir = opendir (sweep_folder.c_str())) != NULL) {
+		/* print all the files and directories within directory */
+		while ((ent = readdir (dir)) != NULL) {
+			std::string file = std::string(ent->d_name);
+
+			if (file.find("dynamic_object") !=std::string::npos && file.find(".xml") !=std::string::npos){
+			  printf ("removing %s\n", ent->d_name);
+			  std::remove((sweep_folder+"/"+file).c_str());
+			}
+
+			if (file.find("dynamicmask") !=std::string::npos && file.find(".png") !=std::string::npos){
+			  printf ("removing %s\n", ent->d_name);
+			  std::remove((sweep_folder+"/"+file).c_str());
+			}
+
+			if (file.find("moving_object") !=std::string::npos && file.find(".xml") !=std::string::npos){
+			  printf ("removing %s\n", ent->d_name);
+			  std::remove((sweep_folder+"/"+file).c_str());
+			}
+
+			if (file.find("movingmask") !=std::string::npos && file.find(".png") !=std::string::npos){
+			  printf ("removing %s\n", ent->d_name);
+			  std::remove((sweep_folder+"/"+file).c_str());
+			}
+		}
+		closedir (dir);
+	}
 }
 
 void writePose(QXmlStreamWriter* xmlWriter, Eigen::Matrix4d pose){
@@ -561,6 +590,8 @@ std::vector<Eigen::Matrix4d> readPoseXML(std::string xmlFile){
 		}
 	}
 	delete xmlReader;
+	printf("done readPoseXML\n");
+	//exit(0);
 	return poses;
 }
 
@@ -572,9 +603,9 @@ void processMetaroom(std::string path){
 
 	reglib::Model * fullmodel = processAV(path);
 
-	savePoses(sweep_folder+"testposes.xml",fullmodel->relativeposes,17);
+	//savePoses(sweep_folder+"testposes.xml",fullmodel->relativeposes,17);
 
-	writeXml(path+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes);
+	writeXml(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes);
 
 	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( fullmodel, reg);
@@ -618,7 +649,7 @@ void processMetaroom(std::string path){
 		std::vector< std::vector< cv::Mat > > external;
 		std::vector< std::vector< cv::Mat > > dynamic;
 
-		quasimodo_brain::segment(bg,models,internal,external,dynamic,false);
+		quasimodo_brain::segment(bg,models,internal,external,dynamic,visualization_lvl > 0);
 
 		bg->fullDelete();
 		delete bg;
@@ -710,6 +741,12 @@ void processMetaroom(std::string path){
 						}
 					}
 				}
+			}
+
+			if(visualization_lvl > 0 && cloud->points.size() > 0){
+				viewer->removeAllPointClouds();
+				viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "scloud");
+				viewer->spin();
 			}
 
 			printf("dynamiccloud: %i\n",dynamiccloud->points.size());
@@ -840,13 +877,8 @@ void processMetaroom(std::string path){
 					delete xmlWriter;
 				}
 			}
-			if(visualization_lvl > 0){
-				viewer->removeAllPointClouds();
-				viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "scloud");
-				viewer->spin();
-			}
-		}
 
+		}
 	}
 
 
@@ -893,7 +925,7 @@ void trainMetaroom(std::string path){
 	bgmassreg->setData(fullmodel->frames,fullmodel->modelmasks);
 	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(fullmodel->relativeposes);
 
-	savePoses(posepath,bgmfr.poses,17);
+	savePoses(overall_folder+"/"+posepath,bgmfr.poses,17);
 	fullmodel->fullDelete();
 	delete fullmodel;
 	delete bgmassreg;
@@ -927,7 +959,6 @@ std::vector<reglib::Model *> loadModels(std::string path){
 		reglib::Model * mod = new reglib::Model();
 		QXmlStreamReader* xmlReader = new QXmlStreamReader(&file);
 
-/*
 		while (!xmlReader->atEnd() && !xmlReader->hasError())
 		{
 			QXmlStreamReader::TokenType token = xmlReader->readNext();
@@ -937,7 +968,7 @@ std::vector<reglib::Model *> loadModels(std::string path){
 			if (xmlReader->hasError())
 			{
 				ROS_ERROR("XML error: %s",xmlReader->errorString().toStdString().c_str());
-				return;
+				break;
 			}
 
 			QString elementName = xmlReader->name().toString();
@@ -945,271 +976,87 @@ std::vector<reglib::Model *> loadModels(std::string path){
 			if (token == QXmlStreamReader::StartElement)
 			{
 
-				if (xmlReader->name() == "View")
+				if (xmlReader->name() == "Mask")
 				{
-					cv::Mat rgb;
-					cv::Mat depth;
-					//printf("elementName: %s\n",elementName.toStdString().c_str());
+					int number = 0;
+					cv::Mat mask;
 					QXmlStreamAttributes attributes = xmlReader->attributes();
-					if (attributes.hasAttribute("RGB"))
-					{
-						QString rgbpath = attributes.value("RGB").toString();
-						//printf("rgb filename: %s\n",rgbpath.toStdString().c_str());
-						rgb = cv::imread(rgbpath.toStdString().c_str(), CV_LOAD_IMAGE_UNCHANGED);
+					if (attributes.hasAttribute("filename")){
+						QString maskpath = attributes.value("filename").toString();
+						printf("mask filename: %s\n",maskpath.toStdString().c_str());
+						mask = cv::imread(maskpath.toStdString().c_str(), CV_LOAD_IMAGE_UNCHANGED);
 					}else{break;}
 
 
-					if (attributes.hasAttribute("DEPTH"))
+					if (attributes.hasAttribute("image_number"))
 					{
-						QString depthpath = attributes.value("DEPTH").toString();
-						//printf("depth filename: %s\n",depthpath.toStdString().c_str());
-						depth = cv::imread(depthpath.toStdString().c_str(), CV_LOAD_IMAGE_UNCHANGED);
+						QString depthpath = attributes.value("image_number").toString();
+						number = atoi(depthpath.toStdString().c_str());
+						printf("number: %i\n",number);
+
+
 					}else{break;}
 
-
-					token = xmlReader->readNext();//Stamp
-					elementName = xmlReader->name().toString();
-
-					token = xmlReader->readNext();//sec
-					elementName = xmlReader->name().toString();
-					int sec = atoi(xmlReader->readElementText().toStdString().c_str());
-
-					token = xmlReader->readNext();//nsec
-					elementName = xmlReader->name().toString();
-					int nsec = atoi(xmlReader->readElementText().toStdString().c_str());
-					token = xmlReader->readNext();//end stamp
-
-					token = xmlReader->readNext();//Camera
-					elementName = xmlReader->name().toString();
-
-					reglib::Camera * cam = new reglib::Camera();
-
-					token = xmlReader->readNext();//fx
-					cam->fx = atof(xmlReader->readElementText().toStdString().c_str());
-
-					token = xmlReader->readNext();//fy
-					cam->fy = atof(xmlReader->readElementText().toStdString().c_str());
-
-					token = xmlReader->readNext();//cx
-					cam->cx = atof(xmlReader->readElementText().toStdString().c_str());
-
-					token = xmlReader->readNext();//cy
-					cam->cy = atof(xmlReader->readElementText().toStdString().c_str());
-
-					token = xmlReader->readNext();//Camera
-					elementName = xmlReader->name().toString();
-
-					double time = double(sec)+double(nsec)/double(1e9);
-
-					token = xmlReader->readNext();//RegisteredPose
-					elementName = xmlReader->name().toString();
-
-					Eigen::Matrix4d regpose = getPose(xmlReader);
-
-					token = xmlReader->readNext();//RegisteredPose
-					elementName = xmlReader->name().toString();
-
-
-					token = xmlReader->readNext();//Pose
-					elementName = xmlReader->name().toString();
-
-					Eigen::Matrix4d pose = getPose(xmlReader);
-
-					token = xmlReader->readNext();//Pose
-					elementName = xmlReader->name().toString();
-
-					reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb,depth, time, pose);
-					frames.push_back(frame);
-					poses.push_back(pose);
+					mod->frames.push_back(frames[number]->clone());
+					mod->relativeposes.push_back(poses[number]);
+					mod->modelmasks.push_back(new reglib::ModelMask(mask));
 				}
 			}
 		}
-*/
+
 		delete xmlReader;
-
-//		QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
-//		xmlWriter->setDevice(&file);
-
-//		xmlWriter->writeStartDocument();
-//		xmlWriter->writeStartElement("Object");
-//		xmlWriter->writeAttribute("object_number", QString::number(d));
-
-//		for(unsigned int j = 0; j < mod_fr.size(); j++){
-//			if(inds[j].size() == 0){continue;}
-//			reglib::RGBDFrame * frame = mod_fr[j];
-//			reglib::Camera * cam = frame->camera;
-//			cv::Mat mask;
-//			mask.create(cam->height,cam->width,CV_8UC1);
-//			unsigned char * maskdata = (unsigned char *)(mask.data);
-//			for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 0;}
-//			for(unsigned int k = 0; k < inds[j].size(); k++){maskdata[inds[j][k]] = 255;}
-
-//			char buf [1024];
-//			sprintf(buf,"%s/dynamicmask_%i_%i.png",sweep_folder.c_str(),d,j);
-//			cv::imwrite(buf, mask );
-//			xmlWriter->writeStartElement("Mask");
-//			xmlWriter->writeAttribute("filename", QString(buf));
-//			xmlWriter->writeAttribute("image_number", QString::number(j));
-//			xmlWriter->writeEndElement();
-//		}
-
-//		xmlWriter->writeEndElement();
-//		xmlWriter->writeEndDocument();
-//		delete xmlWriter;
-
 		models.push_back(mod);
-
 	}
 
-//	std::vector<cv::Mat> rgbs;
-//	std::vector<cv::Mat> depths;
-
-//	for(int imgnr = 0; true; imgnr++){
-//		char buf [1024];
-
-//		sprintf(buf,"%s/view_RGB%10.10i.png",sweep_folder.c_str(),imgnr);
-//		cv::Mat rgb = cv::imread(buf, CV_LOAD_IMAGE_UNCHANGED);
-
-//		sprintf(buf,"%s/view_DEPTH%10.10i.png",sweep_folder.c_str(),imgnr);
-//		cv::Mat depth = cv::imread(buf, CV_LOAD_IMAGE_UNCHANGED);
-//		if(!rgb.data || !depth.data){break;}
-
-//		rgbs.push_back(rgb);
-//		depths.push_back(depth);
-
-//		cv::namedWindow( "rgb",		cv::WINDOW_AUTOSIZE );	cv::imshow( "rgb",		rgb);
-//		cv::namedWindow( "depth",	cv::WINDOW_AUTOSIZE );	cv::imshow( "depth",	depth);
-//		cv::waitKey(0);
-//	}
+	for(unsigned int i = 0; i < frames.size(); i++){delete frames[i];}
 
 	return models;
-/*
+}
 
+void addModelToModelServer(reglib::Model * model){
+	model_pub.publish(quasimodo_brain::getModelMSG(model));
+	ros::spinOnce();
+}
 
-	std::vector<cv::Mat> viewrgbs;
-	std::vector<cv::Mat> viewdepths;
-	std::vector<tf::StampedTransform > viewtfs;
-
-	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("*object*.xml"));
-	for (auto objectFile : objectFiles){
-		auto object = loadDynamicObjectFromSingleSweep<PointType>(sweep_folder+objectFile.toStdString(),false);
-		for (unsigned int i=0; i<object.vAdditionalViews.size(); i++){
-			CloudPtr cloud = object.vAdditionalViews[i];
-
-			cv::Mat rgb;
-			rgb.create(cloud->height,cloud->width,CV_8UC3);
-			unsigned char * rgbdata = (unsigned char *)rgb.data;
-
-			cv::Mat depth;
-			depth.create(cloud->height,cloud->width,CV_16UC1);
-			unsigned short * depthdata = (unsigned short *)depth.data;
-
-			unsigned int nr_data = cloud->height * cloud->width;
-			for(unsigned int j = 0; j < nr_data; j++){
-				PointType p = cloud->points[j];
-				rgbdata[3*j+0]	= p.b;
-				rgbdata[3*j+1]	= p.g;
-				rgbdata[3*j+2]	= p.r;
-				depthdata[j]	= short(5000.0 * p.z);
-			}
-
-			viewrgbs.push_back(rgb);
-			viewdepths.push_back(depth);
-			viewtfs.push_back(object.vAdditionalViewsTransforms[i]);
-		}
+void sendMetaroomToServer(std::string path){
+	std::vector<reglib::Model *> mods = loadModels(path);
+	for(unsigned int i = 0; i < mods.size(); i++){
+		addModelToModelServer(mods[i]);
+		mods[i]->fullDelete();
+		delete mods[i];
 	}
+}
 
-	reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path);
-	for(unsigned int i = 0; (i < sweep->frames.size()) && (sweep->frames.size() == sweepPoses.size()) ; i++){
-		sweep->frames[i]->pose	= sweep->frames.front()->pose * sweepPoses[i];
-		sweep->relativeposes[i] = sweepPoses[i];
-	}
 
-	std::vector<reglib::RGBDFrame *> frames;
-	std::vector<reglib::ModelMask *> masks;
-	std::vector<Eigen::Matrix4d> unrefined;
-
-	std::vector<Eigen::Matrix4d> both_unrefined;
-	both_unrefined.push_back(Eigen::Matrix4d::Identity());
-	std::vector<double> times;
-	for(unsigned int i = 0; i < viewrgbs.size(); i++){
-		printf("additional view: %i\n",i);
-		geometry_msgs::TransformStamped msg;
-		tf::transformStampedTFToMsg(viewtfs[i], msg);
-		long sec = msg.header.stamp.sec;
-		long nsec = msg.header.stamp.nsec;
-		double time = double(sec)+1e-9*double(nsec);
-
-		Eigen::Matrix4d m = quasimodo_brain::getMat(viewtfs[i]);
-
-		cout << m << endl << endl;
-
-		unrefined.push_back(m);
-		times.push_back(time);
-
-		cv::Mat fullmask;
-		fullmask.create(480,640,CV_8UC1);
-		unsigned char * maskdata = (unsigned char *)fullmask.data;
-		for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
-		masks.push_back(new reglib::ModelMask(fullmask));
-
-		reglib::Camera * cam		= sweep->frames.front()->camera->clone();
-		reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],time, m);//a.matrix());
-		frames.push_back(frame);
-
-		//both_unrefined.push_back(sweep->frames.front()->pose.inverse()*a.matrix());
-		both_unrefined.push_back(sweep->frames.front()->pose.inverse()*m);
-	}
-
-	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
-	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( sweep, reg);
-	mu->occlusion_penalty               = 15;
-	mu->massreg_timeout                 = 60*4;
-	mu->viewer							= viewer;
-
-	sweep->points = mu->getSuperPoints(sweep->relativeposes,sweep->frames,sweep->modelmasks,1,false);
-
-	//Not needed if metaroom well calibrated
-	reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.01);
-	bgmassreg->timeout = 20;
-	bgmassreg->viewer = viewer;
-	bgmassreg->use_surface = true;
-	bgmassreg->use_depthedge = false;
-	bgmassreg->visualizationLvl = 0;
-	bgmassreg->maskstep = 5;
-	bgmassreg->nomaskstep = 5;
-	bgmassreg->nomask = true;
-	bgmassreg->stopval = 0.0005;
-	bgmassreg->addModel(sweep);
-	bgmassreg->setData(frames,masks);
-	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
-
-	for(unsigned int i = 0; i < frames.size(); i++){
-		frames[i]->pose = sweep->frames.front()->pose * bgmfr.poses[i+1];
-	}
-
-	reglib::Model * fullmodel = new reglib::Model();
-	fullmodel->frames = sweep->frames;
-	fullmodel->relativeposes = sweep->relativeposes;
-	fullmodel->modelmasks = sweep->modelmasks;
-	for(unsigned int i = 0; i < frames.size(); i++){
-		fullmodel->frames.push_back(frames[i]);
-		fullmodel->modelmasks.push_back(masks[i]);
-		fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
-	}
-
-	delete bgmassreg;
-	delete reg;
-	delete mu;
-	delete sweep;
-
-	return fullmodel;
-	*/
+void sendCallback(const std_msgs::String::ConstPtr& msg){
+	sendMetaroomToServer(msg->data);
 }
 
 int main(int argc, char** argv){
+
+	const rlim_t kStackSize = 256 * 1024 * 1024;   // min stack size = 256 MB
+	struct rlimit rl;
+	unsigned long result;
+
+	result = getrlimit(RLIMIT_STACK, &rl);
+	//printf("result: %ld mb and %ld mb\n",rl.rlim_cur/(1024*1024),rl.rlim_max/(1024*1024));
+	if (result == 0){
+		if (rl.rlim_cur < kStackSize){
+			rl.rlim_cur = kStackSize;
+			result = setrlimit(RLIMIT_STACK, &rl);
+			if (result != 0){
+				fprintf(stderr, "setrlimit returned result = %d\n", result);
+			}
+			//printf("result: %ld mb and %ld mb\n",rl.rlim_cur/(1024*1024),rl.rlim_max/(1024*1024));
+		}
+	}
+
+
 	ros::init(argc, argv, "metaroom_additional_view_processing");
 	ros::NodeHandle n;
+
+	std::vector<ros::Subscriber> segsubs;
+	std::vector<ros::Subscriber> sendsubs;
 
 	int inputstate = 0;
 	for(int i = 1; i < argc;i++){
@@ -1221,6 +1068,9 @@ int main(int argc, char** argv){
 		else if(std::string(argv[i]).compare("-train") == 0){		inputstate = 5;}
 		else if(std::string(argv[i]).compare("-posepath") == 0){	inputstate = 6;}
 		else if(std::string(argv[i]).compare("-loadposes") == 0){	inputstate = 7;}
+		else if(std::string(argv[i]).compare("-sendModel") == 0){	inputstate = 8;}
+		else if(std::string(argv[i]).compare("-sendSub") == 0)	{	inputstate = 9;}
+		else if(std::string(argv[i]).compare("-sendTopic") == 0){	inputstate = 10;}
 		else if(std::string(argv[i]).compare("-v") == 0){
 			viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
 			viewer->setBackgroundColor (0.5, 0, 0.5);
@@ -1230,8 +1080,7 @@ int main(int argc, char** argv){
 			inputstate = 3;
 		}else if(inputstate == 0){
 			out_pub = n.advertise<std_msgs::String>(outtopic, 1000);
-			ros::Subscriber sub = n.subscribe(std::string(argv[i]), 1000, chatterCallback);
-			ros::spin();
+			segsubs.push_back(n.subscribe(std::string(argv[i]), 1000, chatterCallback));
 		}else if(inputstate == 1){
 			outtopic = std::string(argv[i]);
 		}else if(inputstate == 3){
@@ -1245,12 +1094,21 @@ int main(int argc, char** argv){
 		}else if(inputstate == 7){
 			sweepPoses = readPoseXML(std::string(argv[i]));
 			//exit(0);
-		}else{
+		}else if(inputstate == 2){
 			out_pub = n.advertise<std_msgs::String>(outtopic, 1000);
-			std::vector<reglib::Model *> mods = loadModels(std::string(argv[i]));
-			exit(0);
 			processMetaroom(std::string(argv[i]));
+		}else if(inputstate == 8){
+			model_pub = n.advertise<quasimodo_msgs::model>(modelouttopic, 1000);
+			sendMetaroomToServer(std::string(argv[i]));
+		}else if(inputstate == 9){
+			model_pub = n.advertise<quasimodo_msgs::model>(modelouttopic, 1000);
+			sendsubs.push_back(n.subscribe(std::string(argv[i]), 1000, sendCallback));
+		}else if(inputstate == 10){
+			modelouttopic = std::string(argv[i]);
 		}
 	}
+
+	ros::spin();
+	printf("done...\n");
 	return 0;
 }

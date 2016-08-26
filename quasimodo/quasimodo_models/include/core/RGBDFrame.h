@@ -56,6 +56,7 @@ namespace reglib
         void savePCD(std::string path = "cloud.pcd", Eigen::Matrix4d pose = Eigen::Matrix4d::Identity());
 
         void save(std::string path = "");
+		RGBDFrame * clone();
 		static RGBDFrame * load(Camera * cam, std::string path);
 	};
 

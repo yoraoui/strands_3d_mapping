@@ -46,6 +46,7 @@ Eigen::Matrix4d getMat(tf::StampedTransform tf);
 reglib::Model * load_metaroom_model(std::string sweep_xml);
 
 void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vector< std::vector< cv::Mat > > & internal, std::vector< std::vector< cv::Mat > > & external, std::vector< std::vector< cv::Mat > > & dynamic, bool debugg = false);
+std::vector<reglib::Model *> loadModelsXML(std::string path);
 
 }
 

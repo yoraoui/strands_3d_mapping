@@ -289,6 +289,10 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 	return probs;
 }
 
+RGBDFrame * RGBDFrame::clone(){
+	return new RGBDFrame(camera->clone(), rgb.clone(),depth.clone(),capturetime, pose, true);
+}
+
 RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capturetime_, Eigen::Matrix4d pose_, bool compute_normals){
     keyval = "";
 

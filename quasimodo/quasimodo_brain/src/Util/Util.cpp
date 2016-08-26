@@ -157,6 +157,7 @@ reglib::Model * load_metaroom_model(std::string sweep_xml){
     std::vector<reglib::RGBDFrame * > current_room_frames;
     for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++)
     {
+		//if(i < 7 || i > 8){continue;}
 
         cv::Mat fullmask;
         fullmask.create(480,640,CV_8UC1);
@@ -199,7 +200,7 @@ reglib::Model * load_metaroom_model(std::string sweep_xml){
         reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,roomData.vIntermediateRGBImages[i],5.0*roomData.vIntermediateDepthImages[i],0, m);
 
         current_room_frames.push_back(frame);
-        if(i == 0){
+		if(sweepmodel == 0){
             sweepmodel = new reglib::Model(frame,fullmask);
         }else{
             sweepmodel->frames.push_back(frame);
