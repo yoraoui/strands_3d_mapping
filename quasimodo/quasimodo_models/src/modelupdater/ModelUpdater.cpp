@@ -1804,7 +1804,7 @@ void ModelUpdater::getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, d
 	}
 }
 
-std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int blursize = 5){
+std::vector< std::vector<float> > getImageProbs(reglib::RGBDFrame * frame, int blursize = 5){
 	cv::Mat src						= frame->rgb.clone();
 	unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
 	const float idepth				= frame->camera->idepth_scale;
@@ -1815,11 +1815,11 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 	unsigned int width = src.cols;
 	unsigned int height = src.rows;
 
-	std::vector<double> dxc;
+	std::vector<float> dxc;
 	dxc.resize(width*height);
 	for(unsigned int i = 0; i < width*height;i++){dxc[i] = 0;}
 
-	std::vector<double> dyc;
+	std::vector<float> dyc;
 	dyc.resize(width*height);
 	for(unsigned int i = 0; i < width*height;i++){dyc[i] = 0;}
 
@@ -2108,7 +2108,7 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 	}
 
 
-	std::vector< std::vector<double> > probs2;
+	std::vector< std::vector<float> > probs2;
 	probs2.push_back(dxc);
 	probs2.push_back(dyc);
 
@@ -2391,21 +2391,21 @@ void ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBD
 	printf("tot_nr_pixels: %i\n",tot_nr_pixels);
 
 	//Graph...
-	std::vector<double> prior;
-	std::vector< std::vector<int> > connectionId;
-	std::vector< std::vector<double> > connectionStrength;
+//	std::vector<double> prior;
+//	std::vector< std::vector<int> > connectionId;
+//	std::vector< std::vector<double> > connectionStrength;
 	std::vector< std::vector<int> > interframe_connectionId;
 	std::vector< std::vector<float> > interframe_connectionStrength;
 
-	prior.resize(tot_nr_pixels);
-	connectionId.resize(tot_nr_pixels);
-	connectionStrength.resize(tot_nr_pixels);
+//	prior.resize(tot_nr_pixels);
+//	connectionId.resize(tot_nr_pixels);
+//	connectionStrength.resize(tot_nr_pixels);
 	interframe_connectionId.resize(tot_nr_pixels);
 	interframe_connectionStrength.resize(tot_nr_pixels);
 
 
 	int current_point           = 0;
-	double * priors             = new double[3*tot_nr_pixels];
+	float * priors             = new float[3*tot_nr_pixels];
 	//	double * priors_weight      = new double[3*tot_nr_pixels];
 	//	double * estimates          = new double[3*tot_nr_pixels];
 	//	double * points             = new double[3*tot_nr_pixels];
@@ -2414,14 +2414,14 @@ void ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBD
 	//	double * normals            = new double[3*tot_nr_pixels];
 
 	int frameConnections = 0;
-	std::vector< std::vector< std::vector<double> > > pixel_weights;
+	std::vector< std::vector< std::vector<float> > > pixel_weights;
 
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud  (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 
 	for(unsigned int i = 0; i < frames.size(); i++){
 		int offset = offsets[i];
 		RGBDFrame * frame = frames[i];
-		std::vector< std::vector<double> > probs = getImageProbs(frame,9);
+		std::vector< std::vector<float> > probs = getImageProbs(frame,9);
 		pixel_weights.push_back(probs);
 		unsigned short * depthdata	= (unsigned short	*)(frame->depth.data);
 		unsigned char * rgbdata		= (unsigned char	*)(frame->rgb.data);
@@ -2552,13 +2552,13 @@ void ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBD
 		g -> add_tweights( i, weightFG, weightBG );
 	}
 
-	double maxprob_same = 0.999999;
+	float maxprob_same = 0.99999999999;
 	for(unsigned int i = 0; i < frames.size(); i++){
 		int offset = offsets[i];
 		Camera * camera				= frames[i]->camera;
 		const unsigned int width	= camera->width;
 		const unsigned int height	= camera->height;
-		std::vector< std::vector<double> > & probs = pixel_weights[i];
+		std::vector< std::vector<float> > & probs = pixel_weights[i];
 		for(unsigned int w = 0; w < width;w++){
 			for(unsigned int h = 0; h < height;h++){
 				int ind = h*width+w;
@@ -2590,7 +2590,7 @@ void ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBD
 	g -> maxflow();
 
 	int dynamic_label = 1;
-	std::vector<int> labels;
+	std::vector<unsigned char> labels;
 	std::vector<int> dyn_ind;
 	std::vector<int> stat_ind;
 	labels.resize(current_point);
@@ -2619,7 +2619,7 @@ void ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBD
 		Camera * camera				= frames[i]->camera;
 		const unsigned int width	= camera->width;
 		const unsigned int height	= camera->height;
-		std::vector< std::vector<double> > & probs = pixel_weights[i];
+		std::vector< std::vector<float> > & probs = pixel_weights[i];
 		for(unsigned int w = 0; w < width;w++){
 			for(unsigned int h = 0; h < height;h++){
 				int ind = h*width+w;
@@ -2652,10 +2652,10 @@ void ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBD
 
 	printf("dynamic_frameConnections:      %i\n",dynamic_frameConnections);
 	printf("dynamic_interframeConnections: %i\n",dynamic_interframeConnections);
-
+printf("LINE: %i\n",__LINE__);
 	start_inf = getTime();
 	gc::Graph<double,double,double> * dynamic_g = new gc::Graph<double,double,double>(nr_dynamic,dynamic_frameConnections+dynamic_interframeConnections);
-
+printf("LINE: %i\n",__LINE__);
 	for(unsigned long i = 0; i < dyn_ind.size();i++){
 		dynamic_g -> add_node();
 		double p_fg = priors[3*dyn_ind[i]+0];
@@ -2672,13 +2672,13 @@ void ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBD
 		double weightBG = -log(p_bg);
 		dynamic_g -> add_tweights( i, weightFG, weightBG );
 	}
-
+printf("LINE: %i\n",__LINE__);
 	for(unsigned long i = 0; i < frames.size(); i++){
 		int offset = offsets[i];
 		Camera * camera				= frames[i]->camera;
 		const unsigned int width	= camera->width;
 		const unsigned int height	= camera->height;
-		std::vector< std::vector<double> > & probs = pixel_weights[i];
+		std::vector< std::vector<float> > & probs = pixel_weights[i];
 		for(unsigned int w = 0; w < width;w++){
 			for(unsigned int h = 0; h < height;h++){
 				int ind = h*width+w;
@@ -2708,7 +2708,7 @@ void ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBD
 			}
 		}
 	}
-
+printf("LINE: %i\n",__LINE__);
 
 	for(unsigned long i = 0; i < current_point;i++){
 		if(labels[i] == dynamic_label){
@@ -2720,7 +2720,9 @@ void ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBD
 			}
 		}
 	}
-
+printf("LINE: %i\n",__LINE__);
+	interframe_connectionId.clear();
+	interframe_connectionStrength.clear();
 
 	dynamic_g -> maxflow();
 
@@ -2738,25 +2740,63 @@ void ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBD
 	delete dynamic_g;
 
 
-	std::vector<int> staticdata;
-	std::vector<int> dynamicdata;
-	std::vector<int> movingdata;
 
 
+//	std::vector<int> staticdata;
+//	std::vector<int> dynamicdata;
+//	std::vector<int> movingdata;
+//	pcl::PointCloud<pcl::PointXYZRGBNormal> staticcloud;
+//	pcl::PointCloud<pcl::PointXYZRGBNormal> dynamiccloud;
+//	pcl::PointCloud<pcl::PointXYZRGBNormal> movingcloud;
+//printf("LINE: %i\n",__LINE__);
 
-	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr staticcloud  (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-	for(unsigned int i = 0; i < current_point; i++){
-		if(labels[i] == 0){
-			staticdata.push_back(i)
-		}
+//{
 
-		if(labels[i] == 1){
+//}
 
-		}
+//	//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dynamiccloud  (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+//	//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr movingcloud  (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+//	for(unsigned int i = 0; i < current_point; i++){
+//		pcl::PointXYZRGBNormal p = cloud->points[i];
+//		if(labels[i] == 0){
+//			staticdata.push_back(i);
+//			//staticcloud.points.push_back(cloud->points[i]);
+//		}
 
-		if(labels[i] == 2){
-		}
-	}
+//		if(labels[i] == 1){
+//			dynamicdata.push_back(i);
+//			//dynamiccloud.points.push_back(cloud->points[i]);
+//		}
+
+//		if(labels[i] == 2){
+//			movingdata.push_back(i);
+//			//movingcloud.points.push_back(cloud->points[i]);
+//		}
+//	}
+
+//	pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr dynamictree (new pcl::search::KdTree<pcl::PointXYZRGBNormal>);
+//	dynamictree->setInputCloud (dynamiccloud);
+
+//	std::vector<pcl::PointIndices> dynamic_indices;
+//	pcl::EuclideanClusterExtraction<pcl::PointXYZRGBNormal> dynamic_ec;
+//	dynamic_ec.setClusterTolerance (0.02); // 2cm
+//	dynamic_ec.setMinClusterSize (500);
+//	dynamic_ec.setMaxClusterSize (250000000);
+//	dynamic_ec.setSearchMethod (dynamictree);
+//	dynamic_ec.setInputCloud (dynamiccloud);
+//	dynamic_ec.extract (dynamic_indices);
+
+//	for (unsigned int d = 0; d < dynamic_indices.size(); d++){
+//		std::vector< std::vector<int> > inds;
+//		inds.resize(mod_fr.size());
+
+//		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+//		for (unsigned int ind = 0; ind < dynamic_indices[d].indices.size(); ind++){
+//			int pid = dynamic_indices[d].indices[ind];
+//			inds[dynamic_frameid[pid]].push_back(dynamic_pixelid[pid]);
+//			cloud_cluster->points.push_back(dynamiccloud->points[pid]);
+//		}
+
 //	viewer->removeAllPointClouds();
 //	viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "cloud");
 //	viewer->spin();
@@ -2841,7 +2881,7 @@ delete[] priors;
 //	delete[] colors;
 //	delete[] normals;
 
-exit(0);
+	//return labels;
 }
 
 
@@ -2852,7 +2892,7 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 	{
 		//	double maxprob_same = 1-test;//0.99;
 
-		double maxprob_same = 0.999999;
+		float maxprob_same = 0.999999;
 
 		double maxprob = 0.7;
 
@@ -2924,7 +2964,7 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 				Eigen::Matrix4d p = poses[i].inverse() * cp[j];
 				getDynamicWeights(false,p.inverse(), frame, overlaps, occlusions, cf[j],mm[j],0,0,interframe_connectionId_tmp,interframe_connectionStrength_tmp,false);
 			}
-			std::vector< std::vector<double> > probs = getImageProbs(frames[i],9);
+			std::vector< std::vector<float> > probs = getImageProbs(frames[i],9);
 
 			std::vector<double> frame_prior;
 			std::vector< std::vector<int> > frame_connectionId;
@@ -3334,7 +3374,7 @@ std::vector<cv::Mat> ModelUpdater::computeDynamicObject(reglib::Model * bg,  Eig
 			Eigen::Matrix4d p = cp[i].inverse() * cp[j];
 			getDynamicWeights(false,p.inverse(), cf[i], overlaps, occlusions, cf[j],oldmasks[j],0,0,interframe_connectionId_tmp,interframe_connectionStrength_tmp);
 		}
-		std::vector< std::vector<double> > probs = getImageProbs(cf[i],5);
+		std::vector< std::vector<float> > probs = getImageProbs(cf[i],5);
 
 		printf("starting partition\n");
 		double start_part = getTime();
@@ -3362,7 +3402,7 @@ std::vector<cv::Mat> ModelUpdater::computeDynamicObject(reglib::Model * bg,  Eig
 			g -> add_tweights( j, weightFG, weightBG );
 		}
 
-		double maxprob_same = 0.999999999;
+		float maxprob_same = 0.999999999;
 		for(unsigned int w = 0; w < width;w++){
 			for(unsigned int h = 0; h < height;h++){
 				int ind = h*width+w;
@@ -3374,7 +3414,7 @@ std::vector<cv::Mat> ModelUpdater::computeDynamicObject(reglib::Model * bg,  Eig
 					ax *= pr;
 					bx *= 1.0-pr;
 				}
-				double px = ax/(ax+bx);
+				float px = ax/(ax+bx);
 
 				double ay = 0.5;
 				double by = 0.5;
@@ -3383,7 +3423,7 @@ std::vector<cv::Mat> ModelUpdater::computeDynamicObject(reglib::Model * bg,  Eig
 					ay *= pr;
 					by *= 1.0-pr;
 				}
-				double py = ay/(ay+by);
+				float py = ay/(ay+by);
 
 				if(w > 0){
 					int other = ind-1;

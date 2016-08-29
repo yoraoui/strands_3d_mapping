@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 2.8.3)
 project(quasimodo_models)
 
 #find_package(catkin REQUIRED)# quasimodo_msgs)# COMPONENTS quasimodo_msgs)
-set(CMAKE_CXX_FLAGS "-O4 -g -pg -Wunknown-pragmas -Wno-unknown-pragmas -Wsign-compare -fopenmp -fPIC -std=c++0x -o popcnt -mssse3")
-
+#set(CMAKE_CXX_FLAGS "-O4 -g -pg -Wunknown-pragmas -Wno-unknown-pragmas -Wsign-compare -fopenmp -fPIC -std=c++0x -o popcnt -mssse3")
+set(CMAKE_CXX_FLAGS "-O4 -Wunknown-pragmas -Wno-unknown-pragmas -Wsign-compare -fopenmp -fPIC -std=c++0x -o popcnt -mssse3")
 
 find_package(catkin REQUIRED COMPONENTS
 	#metaroom_xml_parser

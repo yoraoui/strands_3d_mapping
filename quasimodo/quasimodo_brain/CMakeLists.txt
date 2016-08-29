@@ -95,7 +95,7 @@ target_link_libraries(quasimodo_brain_util
 					  ${PCL_LIBRARIES}
 					  ${catkin_LIBRARIES})
 
-add_library(quasimodo_ModelDatabase src/ModelDatabase/ModelDatabase.cpp src/ModelDatabase/ModelDatabaseBasic.cpp  src/ModelDatabase/ModelDatabaseRGBHistogram.cpp)
+add_library(quasimodo_ModelDatabase src/ModelDatabase/ModelDatabase.cpp src/ModelDatabase/ModelDatabaseBasic.cpp  src/ModelDatabase/ModelDatabaseRGBHistogram.cpp src/ModelDatabase/ModelDatabaseRetrieval.cpp )
 target_link_libraries(quasimodo_ModelDatabase
 					  #${retrieval_libraries}
 					  #${benchmark_libraries}
