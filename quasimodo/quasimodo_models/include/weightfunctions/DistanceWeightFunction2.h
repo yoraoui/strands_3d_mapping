@@ -44,7 +44,11 @@ public:
 	DistanceWeightFunction2();
 	~DistanceWeightFunction2();
 
+	MatrixXd getMat(std::vector<double> & vec);
+
+	virtual void computeModel(std::vector<double> & vec);
 	virtual void computeModel(MatrixXd mat);
+	virtual VectorXd getProbs(std::vector<double> & vec);
 	virtual VectorXd getProbs(MatrixXd mat);
 	virtual double getProb(double d);
 	virtual double getNoise();

@@ -317,7 +317,9 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
 			masks.push_back(mask);
 		}
 
-		mu->computeMovingDynamicStatic(bgcp,bgcf,model->relativeposes,model->frames,debugg);//Determine self occlusions
+		std::vector<cv::Mat> movemask;
+		std::vector<cv::Mat> dynmask;
+		mu->computeMovingDynamicStatic(movemask,dynmask,bgcp,bgcf,model->relativeposes,model->frames,debugg);//Determine self occlusions
 		//        mu->computeMovingDynamicStatic(bgcp,bgcf,mod_po_vec[j],mod_fr_vec[j],debugg);//Determine self occlusions
 
 		std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,model->relativeposes,model->frames,masks,debugg);//Determine self occlusions

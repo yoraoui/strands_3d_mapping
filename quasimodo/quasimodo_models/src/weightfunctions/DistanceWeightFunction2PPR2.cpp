@@ -362,6 +362,71 @@ const double step_h = 0.00001;
 const unsigned int step_iter = 25;
 const double cutoff_exp = -14;
 
+double scoreCurrent3(double mul, double mean, double stddiv, double power, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen){
+	double sum = 0;
+	double invstd = 1.0/stddiv;
+	for(unsigned int i = 0; i < nr_data; i++){
+		double dx = fabs(X[i] - mean)*invstd;
+		double inp = -0.5*pow(dx,power);
+		if(inp < cutoff_exp){sum += Y[i];}
+		else{
+			double diff = Y[i]*Y[i]*(mul*exp(inp) - Y[i]);
+			if(diff > 0){	sum += costpen*diff;}
+			else{			sum -= diff;}
+		}
+	}
+	return sum;
+}
+
+double fitStdval3(double mul, double mean, double std_mid, double power, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen){
+	int iter = 25;
+	double h = 0.000000001;
+
+	double std_max = std_mid*2;
+	double std_min = 0;
+	for(int i = 0; i < iter; i++){
+		std_mid = (std_max+std_min)/2;
+		double std_neg = scoreCurrent3(mul,mean,std_mid-h,power,X,Y,nr_data,costpen);
+		double std_pos = scoreCurrent3(mul,mean,std_mid+h,power,X,Y,nr_data,costpen);
+		if(std_neg < std_pos){	std_max = std_mid;}
+		else{					std_min = std_mid;}
+	}
+	return std_mid;
+}
+
+double fitPower3(double mul, double mean, double std_mid, double power, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen){
+	int iter = 25;
+	double h = 0.000000001;
+
+	double power_max = power*2;
+	double power_min = 0.001;
+	for(int i = 0; i < iter; i++){
+		power = (power_max+power_min)/2;
+		double std_neg = scoreCurrent3(mul,mean,std_mid,power-h,X,Y,nr_data,costpen);
+		double std_pos = scoreCurrent3(mul,mean,std_mid,power+h,X,Y,nr_data,costpen);
+		if(std_neg < std_pos){	power_max = power;}
+		else{					power_min = power;}
+	}
+	power = (power_max+power_min)/2;
+	return power;
+}
+
+double fitMean3(double mul, double mean, double std_mid, double power, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen){
+	int iter = 10;
+	double h = 0.000000001;
+	double mean_max = mean+10;
+	double mean_min = mean-10;
+
+	for(int i = 0; i < iter; i++){
+		mean = (mean_max+mean_min)/2;
+		double std_neg = scoreCurrent3(mul,mean-h,std_mid,power,X,Y,nr_data,costpen);
+		double std_pos = scoreCurrent3(mul,mean+h,std_mid,power,X,Y,nr_data,costpen);
+		if(std_neg < std_pos){	mean_max = mean;}
+		else{					mean_min = mean;}
+	}
+	return mean;
+}
+
 
 double scoreCurrent2(double bias, double mul, double mean, double stddiv, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen){
 	double info = -0.5/(stddiv*stddiv);
@@ -413,10 +478,13 @@ double fitBias2(double bias, double mul, double mean, double std_mid, std::vecto
 }
 
 double fitMean2(double bias,double mul, double mean, double std_mid, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen){
-	int iter = 25;
+	int iter = 10;
 	double h = 0.000000001;
-	double mean_max = mean*2;
-	double mean_min = 0;
+	double mean_max = mean+1;
+	double mean_min = mean-1;
+
+	//	double mean_max = mean*2;
+	//	double mean_min = 0;
 
 	for(int i = 0; i < iter; i++){
 		mean = (mean_max+mean_min)/2;
@@ -490,8 +558,92 @@ Gaussian3 getModel(double & stdval,std::vector<float> & hist, bool uniform_bias,
 	}
 	return Gaussian3(mul,mean,stdval);
 }
+/*
+void getGGModel(std::vector<float> & hist, unsigned int nr_bins){
+
+
+	double mul = hist[0];
+	double mean = 0;
+	//unsigned int nr_bins = hist.size();
+
+	for(unsigned int k = 1; k < nr_bins; k++){
+		if(hist[k] > mul){
+			mul = hist[k];
+			mean = k;
+		}
+	}
+
+	double maxhist = mul;
+
+
+	std::vector<float> X;
+	std::vector<float> Y;
+	for(unsigned int k = 0; k < nr_bins; k++){
+		if(hist[k]  > mul*0.01){
+			X.push_back(k);
+			Y.push_back(hist[k]);
+		}
+	}
+
+	unsigned int nr_data_opt = X.size();
+
+	double ysum = 0;
+	for(unsigned int i = 0; i < nr_data_opt; i++){ysum += fabs(Y[i]);}
+
+	double std_mid = 0;
+	for(unsigned int i = 0; i < nr_data_opt; i++){std_mid += (X[i]-mean)*(X[i]-mean)*fabs(Y[i])/ysum;}
+	double stdval = sqrt(std_mid);
+
+	double power = 2;
+	//printf("mean: %10.10f mul: %10.10f\n",mean,mul,std_mid,power);
+
+	printf("hist = [");
+	for(unsigned int k = 0; k < nr_bins; k++){printf("%5.5f ",float(hist[k])/maxhist);}
+	printf("];\n");
+
+	char buf [1024*1024];
+	sprintf(buf,"ggd = [");
+	int nr_refineiters = 10;
+
+	double pre_mean = mean;
+	double pre_std = stdval;
+	double pre_power = power;
+
+	for(int i = 0; i < nr_refineiters; i++){
+		printf("ggd%i = [",i);
+		for(unsigned int k = 0; k < nr_bins; k++){
+			printf("%5.5f ",mul/maxhist * exp(-0.5*pow(fabs(double(k)-mean)/stdval,power)));
+		}
+		printf("];\n");
+
+		if(i != 0){sprintf(buf,";");}
+		sprintf(buf,"%10.10f, %10.10f, %10.10f, %10.10f",mul,mean,stdval,power);
+
+		stdval	= fitStdval3(	mul,mean,stdval,power,X,Y,nr_data_opt,3);
+		power	= fitPower3(	mul,mean,stdval,power,X,Y,nr_data_opt,3);
+		mean	= fitMean3(		mul,mean,stdval,power,X,Y,nr_data_opt,3);
+		if(fabs(mean - pre_mean) < 0.1 && fabs(stdval - pre_std) < 0.1 && fabs(power - pre_power) < 0.01){
+			break;
+		}
+		pre_mean = mean;
+		pre_std = stdval;
+		pre_power = power;
+	}
+	sprintf(buf,"];\n");
+	printf("%s\n",buf);
+
+	printf("mean: %10.10f mul: %10.10f std: %10.10f power: %10.10f\n",mean,mul,std_mid,power);
+	//return Gaussian3(mul,mean,stdval);
+}
+*/
 
 double DistanceWeightFunction2PPR2::getNoise(){return regularization+noiseval;}// + stdval*double(histogram_size)/maxd;}
+
+#include <stdio.h>
+#include <execinfo.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 void DistanceWeightFunction2PPR2::computeModel(MatrixXd mat){
 	//debugg_print = false;
@@ -558,10 +710,7 @@ if(!fixed_histogram_size){
 			double ind = fabs(mat(k,j))*histogram_mul;
 			double w2 = ind-int(ind);
 			double w1 = 1-w2;
-			if(ind >= 0 && (ind+0.5) < histogram_size){
-				histogram[int(ind+0.5)]++;
-			}
-			//if(j % 5000 == 0){printf("%i %i -> r:%f ind: %f \n",j,k,mat(k,j),ind);}
+			if(ind >= 0 && (ind+0.5) < histogram_size){histogram[int(ind+0.5)]++;}
 		}
 	}
 	histogram[0]*=2;
@@ -578,11 +727,32 @@ if(!fixed_histogram_size){
 		}
 	}
 }
+
+if(bidir){
+	printf("%i\n",__LINE__);
+	for(unsigned int j = 0; j < histogram_size; j++){histogram[j] = 0;}
+	for(unsigned int j = 0; j < nr_data; j++){
+		for(int k = 0; k < nr_dim; k++){
+			double ind = double(histogram_size)*(mat(k,j)+maxd)/(2.0*maxd);
+			if(ind >= 0 && (ind+0.00001) < histogram_size){
+				histogram[int(ind+0.00001)]++;
+			}
+		}
+	}
+
+	//if(debugg_print){
+	//}
+}
 	start_time = getCurrentTime3();
 	blurHistogram3(blur_histogram,histogram,blurval,histogram_size,debugg_print);
 	//blurHistogram2(blur_histogram,histogram,blurval,false);
+//if(bidir){
+//	getGGModel(blur_histogram,histogram_size);
+//	exit(0);
+//}
 
     Gaussian3 g = getModel(stdval,blur_histogram,uniform_bias,refine_mean,refine_mul,refine_std,nr_refineiters,costpen,zeromean);
+
 
 	//printf("found stdval: %f\n",stdval);
 	stdval2 = 0;
@@ -662,10 +832,23 @@ if(!fixed_histogram_size){
 		nr_inliers += d;
 	}
 
-	if(debugg_print){printf("hist = [");				for(int k = 0; k < 300 && k < histogram_size; k++){printf("%i ",int(histogram[k]));}		printf("];\n");}
-    if(debugg_print){printf("noise = [");				for(int k = 0; k < 300 && k < int(noise.size()); k++){printf("%i ",int(noise[k]));}			printf("];\n");}
-    if(debugg_print){printf("hist_smooth = [");			for(int k = 0; k < 300 && k < int(blur_histogram.size()); k++){printf("%i ",int(blur_histogram[k]));}	printf("];\n");}
-    if(debugg_print){printf("new_histogram = [");		for(int k = 0; k < 300 && k < int(new_histogram.size()); k++){printf("%i ",int(new_histogram[k]));}	printf("];\n");}
+
+
+	if(bidir){
+		if(debugg_print){printf("mul: %10.10f mean: %10.10f stdval: %10.10f\n",g.mul,g.mean,g.stdval);}
+		if(debugg_print){printf("hist = [");				for(int k = 0; k < 3000 && k < histogram_size; k++){				printf("%i ",int(histogram[k]));}		printf("];\n");}
+		if(debugg_print){printf("noise = [");				for(int k = 0; k < 3000 && k < int(noise.size()); k++){				printf("%i ",int(noise[k]));}			printf("];\n");}
+		if(debugg_print){printf("hist_smooth = [");			for(int k = 0; k < 3000 && k < int(blur_histogram.size()); k++){	printf("%i ",int(blur_histogram[k]));}	printf("];\n");}
+		if(debugg_print){printf("clf; hold on; plot(hist,'r'); plot(noise,'b'); plot(hist_smooth,'g');\n");}
+		exit(0);
+	}
+
+
+	if(debugg_print){printf("hist = [");				for(int k = 0; k < 300 && k < histogram_size; k++){				printf("%i ",int(histogram[k]));}		printf("];\n");}
+	if(debugg_print){printf("noise = [");				for(int k = 0; k < 300 && k < int(noise.size()); k++){			printf("%i ",int(noise[k]));}			printf("];\n");}
+	if(debugg_print){printf("hist_smooth = [");			for(int k = 0; k < 300 && k < int(blur_histogram.size()); k++){	printf("%i ",int(blur_histogram[k]));}	printf("];\n");}
+	//if(debugg_print){printf("new_histogram = [");		for(int k = 0; k < 300 && k < int(new_histogram.size()); k++){	printf("%i ",int(new_histogram[k]));}	printf("];\n");}
+	if(debugg_print){printf("clf; hold on; plot(hist,'r'); plot(noise,'b'); plot(hist_smooth,'g');\n");}
 	if(false){printf("meanoffset: %f stdval2: %f stdval: %f regularization: %f\n",meanval2,stdval2,noiseval,regularization);}
 	if(!fixed_histogram_size && update_size ){
 		double next_maxd  = meanval2 + (stdval2 + regularization)*target_length;

@@ -121,7 +121,7 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 		func->maxp					= 0.99;
 		func->startreg				= 0.0;
 		func->debugg_print			= false;
-		func->bidir					= true;
+		//func->bidir					= true;
 		func->maxd					= 256.0;
 		func->histogram_size		= 256;
 		func->fixed_histogram_size	= true;
@@ -198,7 +198,7 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 		funcZ->zeromean				= true;
 		funcZ->startreg				= 0.002;
 		funcZ->debugg_print			= false;
-		funcZ->bidir				= true;
+		funcZ->bidir				= false;
 		funcZ->maxp					= 0.999999;
 		funcZ->maxd					= 0.1;
 		funcZ->histogram_size		= 100;
@@ -416,7 +416,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	funcZ->zeromean				= true;
 	funcZ->startreg				= 0.002;
 	funcZ->debugg_print			= false;
-	funcZ->bidir				= true;
+	funcZ->bidir				= false;
 	funcZ->maxp					= 0.999999;
 	funcZ->maxd					= 0.1;
 	funcZ->histogram_size		= 100;
@@ -454,7 +454,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 
 
 
-	int dilation_size = 3;
+    int dilation_size = 4;
 	cv::dilate( det, det_dilate, getStructuringElement( cv::MORPH_RECT, cv::Size( 2*dilation_size + 1, 2*dilation_size+1 ), cv::Point( dilation_size, dilation_size ) ) );
 /*
 	cv::Mat det2;

@@ -3,7 +3,7 @@ project(quasimodo_models)
 
 #find_package(catkin REQUIRED)# quasimodo_msgs)# COMPONENTS quasimodo_msgs)
 #set(CMAKE_CXX_FLAGS "-O4 -g -pg -Wunknown-pragmas -Wno-unknown-pragmas -Wsign-compare -fopenmp -fPIC -std=c++0x -o popcnt -mssse3")
-set(CMAKE_CXX_FLAGS "-O4 -Wunknown-pragmas -Wno-unknown-pragmas -Wsign-compare -fopenmp -fPIC -std=c++0x -o popcnt -mssse3")
+set(CMAKE_CXX_FLAGS "-O2 -Wunknown-pragmas -Wno-unknown-pragmas -Wsign-compare -fopenmp -fPIC -std=c++0x -o popcnt -mssse3")
 
 find_package(catkin REQUIRED COMPONENTS
 	#metaroom_xml_parser
@@ -53,7 +53,7 @@ FIND_PACKAGE(Ceres REQUIRED)
 INCLUDE_DIRECTORIES(${CERES_INCLUDE_DIRS})
 
 add_library(quasimodo_weightlib src/weightfunctions/DistanceWeightFunction2.cpp src/weightfunctions/DistanceWeightFunction2PPR.cpp src/weightfunctions/DistanceWeightFunction2PPR2.cpp)
-target_link_libraries(quasimodo_weightlib ceres glog ${catkin_LIBRARIES})
+target_link_libraries(quasimodo_weightlib ceres glog ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 
 add_library(quasimodo_core src/core/Util.cpp src/core/Camera.cpp src/core/RGBDFrame.cpp)
 target_link_libraries(quasimodo_core quasimodo_weightlib ${CERES_LIBRARIES} ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})

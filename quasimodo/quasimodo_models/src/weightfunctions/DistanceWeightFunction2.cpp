@@ -10,6 +10,22 @@ DistanceWeightFunction2::DistanceWeightFunction2(){
 }
 DistanceWeightFunction2::~DistanceWeightFunction2(){}
 
+MatrixXd DistanceWeightFunction2::getMat(std::vector<double> & vec){
+	unsigned long nr_data = vec.size();
+	Eigen::VectorXd v (nr_data);
+	for(unsigned long i = 0; i < nr_data; i++){v(i) = vec[i];}
+	return v;
+}
+
+void DistanceWeightFunction2::computeModel(std::vector<double> & vec){
+	computeModel(getMat(vec));
+}
+
+
+VectorXd DistanceWeightFunction2::getProbs(std::vector<double> & vec){
+	return getProbs(getMat(vec));
+}
+
 void tukey_weight(Eigen::VectorXd& r, double p) {
 	for(int i=0; i<r.rows(); ++i) {
 		if(r(i) > p) r(i) = 0.0;

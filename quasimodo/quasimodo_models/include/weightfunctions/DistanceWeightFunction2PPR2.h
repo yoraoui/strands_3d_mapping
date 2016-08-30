@@ -11,6 +11,12 @@
 #include "gflags/gflags.h"
 #include "glog/logging.h"
 
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <iostream>
+#include <opencv2/opencv.hpp>
+#include <opencv2/features2d/features2d.hpp>
+
 using namespace Eigen;
 namespace reglib{
 

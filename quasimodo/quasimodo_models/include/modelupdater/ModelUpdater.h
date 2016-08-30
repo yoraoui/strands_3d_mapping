@@ -22,6 +22,18 @@
 
 #include <pcl/visualization/pcl_visualizer.h>
 
+#include <pcl/ModelCoefficients.h>
+#include <pcl/point_types.h>
+#include <pcl/io/pcd_io.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/features/normal_3d.h>
+#include <pcl/kdtree/kdtree.h>
+#include <pcl/sample_consensus/method_types.h>
+#include <pcl/sample_consensus/model_types.h>
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/segmentation/extract_clusters.h>
+
 //#include "../../densecrf/include/densecrf.h"
 
 namespace reglib
@@ -92,12 +104,12 @@ namespace reglib
         virtual void getAreaWeights(Matrix4d p, RGBDFrame* frame1, double * weights1, double * overlaps1, double * total1, RGBDFrame* frame2, double * weights2, double * overlaps2, double * total2);
 
         virtual void computeOcclusionAreas(vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<ModelMask*> cm);
-		virtual void getDynamicWeights(Matrix4d p, RGBDFrame* frame1, double * overlaps, double * occlusions, RGBDFrame* frame2,   int offset1, int offset2, std::vector< std::vector<int> > & interframe_connectionId, std::vector< std::vector<float> > & interframe_connectionStrength, double debugg);
+		virtual void getDynamicWeights(bool store_distance, std::vector<double> & dvec, std::vector<double> & nvec, DistanceWeightFunction2 * dfunc, DistanceWeightFunction2 * nfunc, Matrix4d p, RGBDFrame* frame1, double * overlaps, double * occlusions, RGBDFrame* frame2,   int offset1, int offset2, std::vector< std::vector<int> > & interframe_connectionId, std::vector< std::vector<float> > & interframe_connectionStrength, double debugg);
 		virtual void getDynamicWeights(bool isbg, Matrix4d p, RGBDFrame* frame1, double * overlaps, double * totalocclusions, RGBDFrame* frame2, cv::Mat mask, int offset1, int offset2, std::vector< std::vector<int> > & interframe_connectionId, std::vector< std::vector<double> > & interframe_connectionStrength,double debugg = false);
         virtual std::vector<cv::Mat> computeDynamicObject(reglib::Model * bg, Eigen::Matrix4d bgpose, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<cv::Mat> masks);
         virtual vector<Mat> computeDynamicObject(vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Mat> bgmm, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<Mat> mm, vector<Matrix4d> poses, vector<RGBDFrame*> frames, vector<Mat> masks, bool debugg = false);
 
-		virtual void computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Matrix4d> poses, vector<RGBDFrame*> frames, bool debugg);
+		virtual void computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, std::vector<cv::Mat> & dynmask, vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Matrix4d> poses, vector<RGBDFrame*> frames, bool debugg);
 
 		virtual OcclusionScore computeOcclusionScore(vector<superpoint> & spvec, Matrix4d cp, RGBDFrame* cf, ModelMask* cm, int step = 1,  bool debugg = false);
 		virtual OcclusionScore computeOcclusionScore(Model * mod, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<ModelMask*> cm, Matrix4d rp = Matrix4d::Identity(), int step = 1, bool debugg = false);

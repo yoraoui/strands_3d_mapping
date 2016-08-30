@@ -1032,8 +1032,16 @@ void sendCallback(const std_msgs::String::ConstPtr& msg){
 	sendMetaroomToServer(msg->data);
 }
 
-int main(int argc, char** argv){
+//double normalCFD(double value)
+//{
+//   return 0.5 * erfc(-value * M_SQRT1_2);
+//}
 
+int main(int argc, char** argv){
+//for(double v = -4; v <= 4; v+= 0.01){
+//    if(v >= 0){printf(" ");}
+//    printf("%6.6f : %6.6f\n",v,normalCFD(v));
+//}exit(0);
 	const rlim_t kStackSize = 256 * 1024 * 1024;   // min stack size = 256 MB
 	struct rlimit rl;
 	unsigned long result;
