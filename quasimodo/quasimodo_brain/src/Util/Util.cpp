@@ -320,41 +320,50 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
 		std::vector<cv::Mat> movemask;
 		std::vector<cv::Mat> dynmask;
 		mu->computeMovingDynamicStatic(movemask,dynmask,bgcp,bgcf,model->relativeposes,model->frames,debugg);//Determine self occlusions
-		//        mu->computeMovingDynamicStatic(bgcp,bgcf,mod_po_vec[j],mod_fr_vec[j],debugg);//Determine self occlusions
+		external.push_back(movemask);
+		internal.push_back(masks);
+		dynamic.push_back(dynmask);
 
-		std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,model->relativeposes,model->frames,masks,debugg);//Determine self occlusions
-		std::vector<cv::Mat> external_masks = mu->computeDynamicObject(model->relativeposes,model->frames,masks,bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,debugg);//Determine external occlusions
-		std::vector<cv::Mat> dynamic_masks;
-		for(unsigned int i = 0; i < model->frames.size(); i++){
-			reglib::RGBDFrame * frame = model->frames[i];
-			reglib::Camera * cam = frame->camera;
-			cv::Mat mask;
-			mask.create(cam->height,cam->width,CV_8UC1);
-			unsigned char * maskdata = (unsigned char *)(mask.data);
-			for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 255;}
+//		for(unsigned int i = 0; i < model->frames.size(); i++){
+//			cv::imshow( "rgb",		model->frames[i]->rgb );
+//			cv::imshow( "movemask",	movemask[i] );
+//			cv::imshow( "dynmask",	dynmask[i] );
+//			cv::waitKey(0);
+//		}
 
-			unsigned char * internalmaskdata = (unsigned char *)(internal_masks[i].data);
-			unsigned char * externalmaskdata = (unsigned char *)(external_masks[i].data);
-			for(unsigned int k = 0; k < cam->height * cam->width;k++){
-				if(externalmaskdata[k] == 0 && internalmaskdata[k] != 0 ){
-					maskdata[k] = 255;
-				}else{
-					maskdata[k] = 0;
-				}
-			}
+//		std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,model->relativeposes,model->frames,masks,debugg);//Determine self occlusions
+//		std::vector<cv::Mat> external_masks = mu->computeDynamicObject(model->relativeposes,model->frames,masks,bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,debugg);//Determine external occlusions
+//		std::vector<cv::Mat> dynamic_masks;
+//		for(unsigned int i = 0; i < model->frames.size(); i++){
+//			reglib::RGBDFrame * frame = model->frames[i];
+//			reglib::Camera * cam = frame->camera;
+//			cv::Mat mask;
+//			mask.create(cam->height,cam->width,CV_8UC1);
+//			unsigned char * maskdata = (unsigned char *)(mask.data);
+//			for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 255;}
 
-			dynamic_masks.push_back(mask);
+//			unsigned char * internalmaskdata = (unsigned char *)(internal_masks[i].data);
+//			unsigned char * externalmaskdata = (unsigned char *)(external_masks[i].data);
+//			for(unsigned int k = 0; k < cam->height * cam->width;k++){
+//				if(externalmaskdata[k] == 0 && internalmaskdata[k] != 0 ){
+//					maskdata[k] = 255;
+//				}else{
+//					maskdata[k] = 0;
+//				}
+//			}
 
-			//            cv::imshow( "rgb", frame->rgb );
-			//            cv::imshow( "internal_masks",	internal_masks[i] );
-			//            cv::imshow( "externalmask",		external_masks[i] );
-			//            cv::imshow( "dynamic_mask",		dynamic_masks[i] );
-			//            cv::waitKey(0);
-		}
+//			dynamic_masks.push_back(mask);
 
-		internal.push_back(internal_masks);
-		external.push_back(external_masks);
-		dynamic.push_back(dynamic_masks);
+//			//            cv::imshow( "rgb", frame->rgb );
+//			//            cv::imshow( "internal_masks",	internal_masks[i] );
+//			//            cv::imshow( "externalmask",		external_masks[i] );
+//			//            cv::imshow( "dynamic_mask",		dynamic_masks[i] );
+//			//            cv::waitKey(0);
+//		}
+
+//		internal.push_back(internal_masks);
+//		external.push_back(external_masks);
+//		dynamic.push_back(dynamic_masks);
 	}
 
 	delete reg;

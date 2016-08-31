@@ -644,41 +644,45 @@ void processMetaroom(std::string path){
 
 		std::vector< reglib::Model * > models;
 		models.push_back(fullmodel);
-
+printf("%s::%i\n",__FILE__,__LINE__);
 		std::vector< std::vector< cv::Mat > > internal;
 		std::vector< std::vector< cv::Mat > > external;
 		std::vector< std::vector< cv::Mat > > dynamic;
-
+printf("%s::%i\n",__FILE__,__LINE__);
 		quasimodo_brain::segment(bg,models,internal,external,dynamic,visualization_lvl > 0);
-
+printf("%s::%i\n",__FILE__,__LINE__);
 		bg->fullDelete();
+printf("%s::%i\n",__FILE__,__LINE__);
 		delete bg;
-
+printf("%s::%i\n",__FILE__,__LINE__);
 		remove_old_seg(sweep_folder);
-
+printf("%s::%i\n",__FILE__,__LINE__);
 		for(unsigned int i = 0; i < models.size(); i++){
+printf("%s::%i\n",__FILE__,__LINE__);
 			std::vector<cv::Mat> internal_masks = internal[i];
 			std::vector<cv::Mat> external_masks = external[i];
 			std::vector<cv::Mat> dynamic_masks	= dynamic[i];
+printf("%s::%i\n",__FILE__,__LINE__);
 			reglib::Model * model = models[i];
-
+printf("%s::%i\n",__FILE__,__LINE__);
 
 			std::vector<Eigen::Matrix4d> mod_po;
 			std::vector<reglib::RGBDFrame*> mod_fr;
 			std::vector<reglib::ModelMask*> mod_mm;
 			model->getData(mod_po, mod_fr, mod_mm);
-
+printf("%s::%i\n",__FILE__,__LINE__);
 			std::vector<int> dynamic_frameid;
 			std::vector<int> dynamic_pixelid;
-
+printf("%s::%i\n",__FILE__,__LINE__);
 			std::vector<int> moving_frameid;
 			std::vector<int> moving_pixelid;
-
+printf("%s::%i\n",__FILE__,__LINE__);
 			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dynamiccloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr movingcloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-
+printf("%s::%i\n",__FILE__,__LINE__);
 			for(unsigned int j = 0; j < mod_fr.size(); j++){
+printf("%s::%i\n",__FILE__,__LINE__);
 				reglib::RGBDFrame * frame = mod_fr[j];
 				Eigen::Matrix4d p = mod_po[j];
 				unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
@@ -742,19 +746,20 @@ void processMetaroom(std::string path){
 					}
 				}
 			}
-
-			if(visualization_lvl > 0 && cloud->points.size() > 0){
-				viewer->removeAllPointClouds();
-				viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "scloud");
-				viewer->spin();
-			}
-
+printf("%s::%i\n",__FILE__,__LINE__);
+//			if(visualization_lvl > 0 && cloud->points.size() > 0){
+//				viewer->removeAllPointClouds();
+//				viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "scloud");
+//				viewer->spin();
+//			}
+printf("%s::%i\n",__FILE__,__LINE__);
 			printf("dynamiccloud: %i\n",dynamiccloud->points.size());
 			if(dynamiccloud->points.size() > 0){
+				printf("%s::%i\n",__FILE__,__LINE__);
 				// Creating the KdTree object for the search method of the extraction
 				pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr dynamictree (new pcl::search::KdTree<pcl::PointXYZRGBNormal>);
 				dynamictree->setInputCloud (dynamiccloud);
-
+printf("%s::%i\n",__FILE__,__LINE__);
 				std::vector<pcl::PointIndices> dynamic_indices;
 				pcl::EuclideanClusterExtraction<pcl::PointXYZRGBNormal> dynamic_ec;
 				dynamic_ec.setClusterTolerance (0.02); // 2cm
@@ -763,7 +768,7 @@ void processMetaroom(std::string path){
 				dynamic_ec.setSearchMethod (dynamictree);
 				dynamic_ec.setInputCloud (dynamiccloud);
 				dynamic_ec.extract (dynamic_indices);
-
+printf("%s::%i\n",__FILE__,__LINE__);
 				for (unsigned int d = 0; d < dynamic_indices.size(); d++){
 					std::vector< std::vector<int> > inds;
 					inds.resize(mod_fr.size());
@@ -774,13 +779,13 @@ void processMetaroom(std::string path){
 						inds[dynamic_frameid[pid]].push_back(dynamic_pixelid[pid]);
 						cloud_cluster->points.push_back(dynamiccloud->points[pid]);
 					}
-
+printf("%s::%i\n",__FILE__,__LINE__);
 					char buf [1024];
 					sprintf(buf,"%s/dynamic_object%10.10i.xml",sweep_folder.c_str(),d);
 					QFile file(buf);
 					if (file.exists()){file.remove();}
 					if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save dynamic object as XML"<<std::endl;}
-
+printf("%s::%i\n",__FILE__,__LINE__);
 					QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
 					xmlWriter->setDevice(&file);
 
@@ -877,21 +882,29 @@ void processMetaroom(std::string path){
 					delete xmlWriter;
 				}
 			}
-
+			printf("%s::%i\n",__FILE__,__LINE__);
 		}
+		printf("%s::%i\n",__FILE__,__LINE__);
 	}
+	printf("%s::%i\n",__FILE__,__LINE__);
 
 
 	fullmodel->fullDelete();
+	printf("%s::%i\n",__FILE__,__LINE__);
 	delete fullmodel;
+	printf("%s::%i\n",__FILE__,__LINE__);
 	//	delete bgmassreg;
 	delete reg;
+	printf("%s::%i\n",__FILE__,__LINE__);
 	delete mu;
+	printf("%s::%i\n",__FILE__,__LINE__);
+	printf("publishing file %s to %s\n",path.c_str(),outtopic.c_str());
 
 	std_msgs::String msg;
 	msg.data = path;
 	out_pub.publish(msg);
 	ros::spinOnce();
+	printf("%s::%i\n",__FILE__,__LINE__);
 }
 
 void chatterCallback(const std_msgs::String::ConstPtr& msg){
@@ -1014,6 +1027,7 @@ std::vector<reglib::Model *> loadModels(std::string path){
 }
 
 void addModelToModelServer(reglib::Model * model){
+	printf("addModelToModelServer\n");
 	model_pub.publish(quasimodo_brain::getModelMSG(model));
 	ros::spinOnce();
 }
@@ -1032,16 +1046,9 @@ void sendCallback(const std_msgs::String::ConstPtr& msg){
 	sendMetaroomToServer(msg->data);
 }
 
-//double normalCFD(double value)
-//{
-//   return 0.5 * erfc(-value * M_SQRT1_2);
-//}
 
 int main(int argc, char** argv){
-//for(double v = -4; v <= 4; v+= 0.01){
-//    if(v >= 0){printf(" ");}
-//    printf("%6.6f : %6.6f\n",v,normalCFD(v));
-//}exit(0);
+
 	const rlim_t kStackSize = 256 * 1024 * 1024;   // min stack size = 256 MB
 	struct rlimit rl;
 	unsigned long result;
@@ -1069,16 +1076,9 @@ int main(int argc, char** argv){
 	int inputstate = 0;
 	for(int i = 1; i < argc;i++){
 		printf("input: %s\n",argv[i]);
-		if(std::string(argv[i]).compare("-file") == 0){				inputstate = 2;}
-		else if(std::string(argv[i]).compare("-intopic") == 0){		inputstate = 0;}
+		if(		std::string(argv[i]).compare("-intopic") == 0){		inputstate = 0;}
 		else if(std::string(argv[i]).compare("-outtopic") == 0){	inputstate = 1;}
-		else if(std::string(argv[i]).compare("-folder") == 0){		inputstate = 4;}
-		else if(std::string(argv[i]).compare("-train") == 0){		inputstate = 5;}
-		else if(std::string(argv[i]).compare("-posepath") == 0){	inputstate = 6;}
-		else if(std::string(argv[i]).compare("-loadposes") == 0){	inputstate = 7;}
-		else if(std::string(argv[i]).compare("-sendModel") == 0){	inputstate = 8;}
-		else if(std::string(argv[i]).compare("-sendSub") == 0)	{	inputstate = 9;}
-		else if(std::string(argv[i]).compare("-sendTopic") == 0){	inputstate = 10;}
+		else if(std::string(argv[i]).compare("-file") == 0){		inputstate = 2;}
 		else if(std::string(argv[i]).compare("-v") == 0){
 			viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
 			viewer->setBackgroundColor (0.5, 0, 0.5);
@@ -1086,11 +1086,32 @@ int main(int argc, char** argv){
 			viewer->initCameraParameters ();
 			visualization_lvl = 1;
 			inputstate = 3;
-		}else if(inputstate == 0){
+		}
+		else if(std::string(argv[i]).compare("-folder") == 0){		inputstate = 4;}
+		else if(std::string(argv[i]).compare("-train") == 0){		inputstate = 5;}
+		else if(std::string(argv[i]).compare("-posepath") == 0){	inputstate = 6;}
+		else if(std::string(argv[i]).compare("-loadposes") == 0){	inputstate = 7;}
+		else if(std::string(argv[i]).compare("-sendModel") == 0){	inputstate = 8;}
+		else if(std::string(argv[i]).compare("-sendSub") == 0)	{	inputstate = 9;}
+		else if(std::string(argv[i]).compare("-sendTopic") == 0){	inputstate = 10;}
+		else if(inputstate == 0){
+			if(sendsubs.size() == 0){
+				model_pub = n.advertise<quasimodo_msgs::model>(modelouttopic, 1000);
+				sendsubs.push_back(n.subscribe(std::string(argv[i]), 1000, sendCallback));
+			}
 			out_pub = n.advertise<std_msgs::String>(outtopic, 1000);
 			segsubs.push_back(n.subscribe(std::string(argv[i]), 1000, chatterCallback));
 		}else if(inputstate == 1){
 			outtopic = std::string(argv[i]);
+		}else if(inputstate == 2){
+			out_pub = n.advertise<std_msgs::String>(outtopic, 1000);
+			if(sendsubs.size() == 0){
+				printf("creating model pub: %s\n",modelouttopic.c_str());
+				model_pub = n.advertise<quasimodo_msgs::model>(modelouttopic, 1000);
+				printf("creating sendsubs %s\n",modelouttopic.c_str());
+				sendsubs.push_back(n.subscribe(outtopic, 1000, sendCallback));
+			}
+			processMetaroom(std::string(argv[i]));
 		}else if(inputstate == 3){
 			visualization_lvl = atoi(argv[i]);
 		}else if(inputstate == 4){
@@ -1101,10 +1122,6 @@ int main(int argc, char** argv){
 			posepath = std::string(argv[i]);
 		}else if(inputstate == 7){
 			sweepPoses = readPoseXML(std::string(argv[i]));
-			//exit(0);
-		}else if(inputstate == 2){
-			out_pub = n.advertise<std_msgs::String>(outtopic, 1000);
-			processMetaroom(std::string(argv[i]));
 		}else if(inputstate == 8){
 			model_pub = n.advertise<quasimodo_msgs::model>(modelouttopic, 1000);
 			sendMetaroomToServer(std::string(argv[i]));

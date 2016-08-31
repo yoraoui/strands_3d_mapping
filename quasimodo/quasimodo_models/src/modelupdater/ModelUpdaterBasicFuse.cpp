@@ -29,7 +29,9 @@ ModelUpdaterBasicFuse::ModelUpdaterBasicFuse(Model * model_, Registration * regi
     show_scoring = false;//fuse scoring show
 }
 
-ModelUpdaterBasicFuse::~ModelUpdaterBasicFuse(){}
+ModelUpdaterBasicFuse::~ModelUpdaterBasicFuse(){
+	printf("deleting ModelUpdaterBasicFuse\n");
+}
 
 FusionResults ModelUpdaterBasicFuse::registerModel(Model * model2, Eigen::Matrix4d guess, double uncertanity){
 	if(model->points.size() > 0 && model2->points.size() > 0){
