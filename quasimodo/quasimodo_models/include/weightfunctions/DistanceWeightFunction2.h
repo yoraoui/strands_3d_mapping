@@ -50,7 +50,9 @@ public:
 	virtual void computeModel(MatrixXd mat);
 	virtual VectorXd getProbs(std::vector<double> & vec);
 	virtual VectorXd getProbs(MatrixXd mat);
-	virtual double getProb(double d);
+
+	virtual double getProbInfront(double d, bool debugg = false);
+	virtual double getProb(double d, bool debugg = false);
 	virtual double getNoise();
 	virtual double getConvergenceThreshold();
 	virtual bool update();

@@ -165,10 +165,20 @@ reglib::Model * load_metaroom_model(std::string sweep_xml){
 		for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
 
 		reglib::Camera * cam		= new reglib::Camera();//TODO:: ADD TO CAMERAS
-		cam->fx = 532.158936;
-		cam->fy = 533.819214;
-		cam->cx = 310.514310;
-		cam->cy = 236.842039;
+//		cam->fx = 532.158936;
+//		cam->fy = 533.819214;
+//		cam->cx = 310.514310;
+//		cam->cy = 236.842039;
+
+		image_geometry::PinholeCameraModel aCameraModel = roomData.vIntermediateRoomCloudCamParamsCorrected[i];
+		//rc->initializeCamera(aCameraModel.fx(), aCameraModel.fy(), aCameraModel.cx(), aCameraModel.cy(), aCameraModel.fullResolution().width, aCameraModel.fullResolution().height);
+
+		cam->fx = aCameraModel.fx();
+		cam->fy = aCameraModel.fy();
+		cam->cx = aCameraModel.cx();
+		cam->cy = aCameraModel.cy();
+		cam->print();
+		//aCameraModel.fullResolution().width, aCameraModel.fullResolution().height);
 
 
 		//		cout<<"Intermediate cloud size "<<roomData.vIntermediateRoomClouds[i]->points.size()<<endl;

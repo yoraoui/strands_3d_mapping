@@ -50,6 +50,10 @@
 #include <string>
 #include <iostream>
 
+#include "Util/Util.h"
+
+using namespace quasimodo_brain;
+
 bool visualization = false;
 bool show_db = false;//Full database show
 int show_init_lvl = 0;//init show
@@ -93,13 +97,9 @@ double search_timeout = 30;
 
 int sweepid_counter = 0;
 
-bool myfunction (reglib::Model * i,reglib::Model * j) { return i->frames.size() > j->frames.size(); }
+int current_model_update = 0;
 
-double getTime(){
-	struct timeval start1;
-	gettimeofday(&start1, NULL);
-	return double(start1.tv_sec+(start1.tv_usec/1000000.0));
-}
+bool myfunction (reglib::Model * i,reglib::Model * j) { return i->frames.size() > j->frames.size(); }
 
 quasimodo_msgs::retrieval_result sresult;
 bool new_search_result = false;
@@ -149,31 +149,12 @@ void publishDatabasePCD(bool original_colors = false){
 }
 
 void publish_history(std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> history){
-
 	for(unsigned int i = 0; i < history.size(); i++){
 		sensor_msgs::PointCloud2 input;
 		pcl::toROSMsg (*history[i],input);//, *transformed_cloud);
         input.header.frame_id = "/map";
 		model_history_pub.publish(input);
 	}
-}
-
-void publish_places(reglib::Model * mod){
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = mod->getPCLcloud(1,false);
-    for(unsigned int i = 0; i < mod->submodels.size(); i++){
-        Eigen::Matrix4d pose = mod->submodels[i]->frames.front()->pose * mod->submodels_relativeposes[i].inverse();
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZRGB> ());
-        pcl::transformPointCloud (*cloud, *transformed_cloud, pose);
-
-        sensor_msgs::PointCloud2 input;
-        pcl::toROSMsg (*transformed_cloud,input);//, *transformed_cloud);
-        input.header.frame_id = "/map";
-        model_places_pub.publish(input);
-    }
-}
-
-void publishObject(int id){
-
 }
 
 void dumpDatabase(std::string path = "."){
@@ -232,6 +213,7 @@ void retrievalCallback(const quasimodo_msgs::retrieval_query_result & qr){
 
 int savecounter = 0;
 void show_sorted(){
+	printf("show_sorted\n");
     if(!show_db){return;}
 	if(!visualization){return;}
 	std::vector<reglib::Model *> results;
@@ -239,6 +221,9 @@ void show_sorted(){
 	std::sort (results.begin(), results.end(), myfunction);
 	viewer->removeAllPointClouds();
 	float maxx = 0;
+
+
+	printf("pre->loop\n");
 	for(unsigned int i = 0; i < results.size(); i++){
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = results[i]->getPCLcloud(1, false);
 		float meanx = 0;
@@ -273,90 +258,6 @@ void show_sorted(){
 	//sprintf(buf,"globalimg%i.png",savecounter++);
 	//viewer->saveScreenshot(std::string(buf));
 	//viewer->spinOnce();
-}
-
-void addToModelMSG(quasimodo_msgs::model & msg, reglib::Model * model, Eigen::Affine3d rp = Eigen::Affine3d::Identity()){
-	int startsize = msg.local_poses.size();
-	msg.local_poses.resize(startsize+model->relativeposes.size());
-	msg.frames.resize(startsize+model->frames.size());
-	msg.masks.resize(startsize+model->modelmasks.size());
-	for(unsigned int i = 0; i < model->relativeposes.size(); i++){
-		geometry_msgs::Pose		pose1;
-		tf::poseEigenToMsg (Eigen::Affine3d(model->relativeposes[i])*rp, pose1);
-		geometry_msgs::Pose		pose2;
-		tf::poseEigenToMsg (Eigen::Affine3d(model->frames[i]->pose)*rp, pose2);
-		cv_bridge::CvImage rgbBridgeImage;
-		rgbBridgeImage.image = model->frames[i]->rgb;
-		rgbBridgeImage.encoding = "bgr8";
-		cv_bridge::CvImage depthBridgeImage;
-		depthBridgeImage.image = model->frames[i]->depth;
-		depthBridgeImage.encoding = "mono16";
-		cv_bridge::CvImage maskBridgeImage;
-		maskBridgeImage.image			= model->modelmasks[i]->getMask();
-		maskBridgeImage.encoding		= "mono8";
-		msg.local_poses[startsize+i]			= pose1;
-		msg.frames[startsize+i].capture_time	= ros::Time();
-		msg.frames[startsize+i].pose			= pose2;
-		msg.frames[startsize+i].frame_id		= model->frames[i]->id;
-		msg.frames[startsize+i].rgb			= *(rgbBridgeImage.toImageMsg());
-		msg.frames[startsize+i].depth			= *(depthBridgeImage.toImageMsg());
-		msg.masks[startsize+i]				= *(maskBridgeImage.toImageMsg());//getMask()
-	}
-	for(unsigned int i = 0; i < model->submodels_relativeposes.size(); i++){
-		addToModelMSG(msg,model->submodels[i],Eigen::Affine3d(model->submodels_relativeposes[i])*rp);
-	}
-}
-
-quasimodo_msgs::model getModelMSG(reglib::Model * model){
-	quasimodo_msgs::model msg;
-	msg.model_id = model->id;
-	addToModelMSG(msg,model);
-
-
-	return msg;
-}
-
-reglib::Model * getModelFromMSG(quasimodo_msgs::model msg){
-	reglib::Model * model = new reglib::Model();
-
-	for(unsigned int i = 0; i < msg.local_poses.size(); i++){
-		sensor_msgs::CameraInfo		camera			= msg.frames[i].camera;
-		ros::Time					capture_time	= msg.frames[i].capture_time;
-		geometry_msgs::Pose			pose			= msg.frames[i].pose;
-
-		cv_bridge::CvImagePtr			rgb_ptr;
-		try{							rgb_ptr = cv_bridge::toCvCopy(msg.frames[i].rgb, sensor_msgs::image_encodings::BGR8);}
-		catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
-		cv::Mat rgb = rgb_ptr->image;
-
-		cv_bridge::CvImagePtr			depth_ptr;
-		try{							depth_ptr = cv_bridge::toCvCopy(msg.frames[i].depth, sensor_msgs::image_encodings::MONO16);}
-		catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
-		cv::Mat depth = depth_ptr->image;
-
-		Eigen::Affine3d epose;
-		tf::poseMsgToEigen(pose, epose);
-
-		reglib::RGBDFrame * frame = new reglib::RGBDFrame(cameras[0],rgb, depth, double(capture_time.sec)+double(capture_time.nsec)/1000000000.0, epose.matrix());
-		model->frames.push_back(frame);
-
-		geometry_msgs::Pose	pose1 = msg.local_poses[i];
-		Eigen::Affine3d epose1;
-		tf::poseMsgToEigen(pose1, epose1);
-		model->relativeposes.push_back(epose1.matrix());
-
-		cv_bridge::CvImagePtr			mask_ptr;
-		try{							mask_ptr = cv_bridge::toCvCopy(msg.masks[i], sensor_msgs::image_encodings::MONO8);}
-		catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
-		cv::Mat mask = mask_ptr->image;
-
-		model->modelmasks.push_back(new reglib::ModelMask(mask));
-		model->modelmasks.back()->sweepid = sweepid_counter;
-	}
-	model->recomputeModelPoints();
-	sweepid_counter++;
-
-	return model;
 }
 
 std::vector<soma2_msgs::SOMA2Object> getSOMA2ObjectMSGs(reglib::Model * model){
@@ -558,11 +459,6 @@ void call_from_thread(int i) {
 	delete reg;
 }
 
-/*
-bool show_db = false;//Full database show
-*/
-
-int current_model_update = 0;
 void addToDB(ModelDatabase * database, reglib::Model * model, bool add = true, bool deleteIfFail = false){
 	printf("addToDB %i %i\n",int(add),int(deleteIfFail));
 
@@ -590,7 +486,7 @@ show_sorted();
 	mod = model;
 	res = modeldatabase->search(model,3);
 
-	printf("results found: %i\n",res.size());
+	printf("results found: %i\n",int(res.size()));
 	fr_res.resize(res.size());
 
 	if(res.size() == 0){
@@ -742,15 +638,62 @@ show_sorted();
 
 
 void addNewModel(reglib::Model * model){
-	modeldatabase->add(model);
-	addToDB(modeldatabase, model,false);
+	printf("model: %i\n",model->frames.size());
+
+
+	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
+	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model, reg);
+	mu->occlusion_penalty               = occlusion_penalty;
+	mu->massreg_timeout                 = massreg_timeout;
+	mu->viewer							= viewer;
+
+	mu->show_init_lvl					= show_init_lvl;//init show
+	mu->show_refine_lvl					= show_refine_lvl;//refine show
+	mu->show_scoring					= show_scoring;//fuse scoring show
+	reg->visualizationLvl				= show_reg_lvl;
+
+	model->print();
+	mu->makeInitialSetup();
+	model->print();
+
+	delete mu;
+	delete reg;
+
+	reglib::Model * newmodelHolder = new reglib::Model();
+	newmodelHolder->submodels.push_back(model);
+	newmodelHolder->submodels_relativeposes.push_back(Eigen::Matrix4d::Identity());
+	newmodelHolder->last_changed = ++current_model_update;
+	newmodelHolder->recomputeModelPoints();
+
+	modeldatabase->add(newmodelHolder);
+	addToDB(modeldatabase, newmodelHolder,false);
 	for(unsigned int i = 0; i < modeldatabase->models.size(); i++){
 		publish_history(modeldatabase->models[i]->getHistory());
 	}
-
-	show_sorted();
 	publishDatabasePCD();
 	dumpDatabase(savepath);
+
+//	modeldatabase->add(newmodelHolder);
+//    addToDB(modeldatabase, newmodelHolder,false);
+//    for(unsigned int i = 0; i < modeldatabase->models.size(); i++){
+//        publish_history(modeldatabase->models[i]->getHistory());
+//    }
+//    /*
+//    for(unsigned int i = 0; i < modeldatabase->models.size(); i++){
+//        publish_history(modeldatabase->models[i]->getHistory());
+//    }*/
+//	show_sorted();
+//    publishDatabasePCD();
+//    dumpDatabase(savepath);
+
+
+//	modeldatabase->add(model);
+//	addToDB(modeldatabase, model,false);
+//	for(unsigned int i = 0; i < modeldatabase->models.size(); i++){
+//		publish_history(modeldatabase->models[i]->getHistory());
+//	}
+//	publishDatabasePCD();
+//	dumpDatabase(savepath);
 
 
 //	for(unsigned int m = 0; run_search && m < modeldatabase->models.size(); m++){
@@ -1053,7 +996,8 @@ void addNewModel(reglib::Model * model){
 }
 
 void modelCallback(const quasimodo_msgs::model & m){
-	addNewModel(getModelFromMSG(m));
+	quasimodo_msgs::model mod = m;
+	addNewModel(quasimodo_brain::getModelFromMSG(mod));
 }
 
 bool nextNew = true;
@@ -1531,7 +1475,7 @@ vector<vector < OcclusionScore > > ocs = computeOcclusionScore(models,rps);
 	return true;
 }
 
-bool fuseModels(quasimodo_msgs::fuse_models::Request  & req, quasimodo_msgs::fuse_models::Response & res){}
+//bool fuseModels(quasimodo_msgs::fuse_models::Request  & req, quasimodo_msgs::fuse_models::Response & res){}
 
 int getdir (std::string dir, std::vector<std::string> & files){
 	DIR *dp;
@@ -1596,8 +1540,8 @@ int main(int argc, char **argv){
 	ros::ServiceServer service2 = n.advertiseService("index_frame", indexFrame);
 	ROS_INFO("Ready to add use index_frame.");
 
-	ros::ServiceServer service3 = n.advertiseService("fuse_models", fuseModels);
-	ROS_INFO("Ready to add use fuse_models.");
+	//ros::ServiceServer service3 = n.advertiseService("fuse_models", fuseModels);
+	//ROS_INFO("Ready to add use fuse_models.");
 
 	ros::ServiceServer service4 = n.advertiseService("get_model", getModel);
 	ROS_INFO("Ready to add use get_model.");
@@ -1671,6 +1615,8 @@ int main(int argc, char **argv){
 			input_model_subs.push_back(n.subscribe(std::string(argv[i]), 100, modelCallback));
 		}
 	}
+
+	if(input_model_subs.size() == 0){input_model_subs.push_back(n.subscribe("/model/out/topic", 100, modelCallback));}
 
 	if(visualization){
 		viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("viewer"));

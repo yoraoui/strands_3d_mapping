@@ -118,10 +118,10 @@ RobotContainer::~RobotContainer(){
 
 void RobotContainer::initializeCamera(double fx, double fy, double cx, double cy, unsigned int w, unsigned int h)
 {
-    fx = 533.796412;//535;
-    fy = 533.112736;//fx;
-    cx = 314.863333;//double(w-1.0)/2.0;
-    cy = 241.271340;//double(h-1.0)/2.0;
+//    fx = fx;//533.796412;//535;
+//    fy = 533.112736;//fx;
+//    cx = 314.863333;//double(w-1.0)/2.0;
+//    cy = 241.271340;//double(h-1.0)/2.0;
     std::cout<<"Initializing camera with parameters "<<fx<<"  "<<fy<<"  "<<cx<<"  "<<cy<<"  "<<w<<"  "<<h<<std::endl;
     width = w;
     height = h;

@@ -68,8 +68,14 @@ VectorXd DistanceWeightFunction2::getProbs(MatrixXd mat){
 	return W;//VectorXf(mat.rows());
 }
 
-double DistanceWeightFunction2::getProb(double d){
+double DistanceWeightFunction2::getProb(double d, bool debugg){
 	printf("double DistanceWeightFunction2::getProbs(double d){ not implemented\n");
+	exit(0);
+	return 0;
+}
+
+double DistanceWeightFunction2::getProbInfront(double d, bool debugg){
+	printf("double DistanceWeightFunction2::getProbInfront(double d){ not implemented\n");
 	exit(0);
 	return 0;
 }

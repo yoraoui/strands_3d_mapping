@@ -619,50 +619,12 @@ void ModelUpdater::makeInitialSetup(){
 		return ;
 	}
 
-	int minHessian = 400;
-
-	//    cv::SurfFeatureDetector detector( minHessian );
-	//    cv::SurfDescriptorExtractor extractor;
-
-
-	//cv::ORB orb = cv::ORB(250);//,1.2f, 1, 3, 0,2, cv::ORB::HARRIS_SCORE, 31);
-	cv::ORB orb = cv::ORB(10);//,1.2f, 1, 3, 0,2, cv::ORB::HARRIS_SCORE, 31);
-	//	for(unsigned int i = 0; i < model->frames.size(); i++){
-	//        std::vector<cv::KeyPoint> keypoints;
-	//        cv::Mat descriptors;
-	//        //orb(model->frames[i]->rgb, model->modelmasks[i]->getMask(), keypoints, descriptors);
-	//        orb(model->frames[i]->rgb, cv::Mat(), keypoints, descriptors);
-	//        model->all_keypoints.push_back(keypoints);
-	//        model->all_descriptors.push_back(descriptors);
-
-	//        printf("keypoints: %i\n",keypoints.size());
-
-
-	//        cv::Mat descriptors_surf;
-	//        std::vector<cv::KeyPoint> keypoints_surf;
-
-	//        detector.detect(model->frames[i]->rgb, keypoints_surf, model->modelmasks[i]->getMask() );
-	//        extractor.compute( model->frames[i]->rgb, keypoints_surf, descriptors_surf );
-	//        model->all_keypoints.push_back(keypoints_surf);
-	//        model->all_descriptors.push_back(descriptors_surf);
-
-	////        printf("keypoints: %i\n",keypoints.size());
-	////        cv::Mat out;
-	////        cv::drawKeypoints(model->frames[i]->rgb, keypoints_surf, out, cv::Scalar::all(255));
-	////        cv::imshow("Kpts", out);
-	////        cv::waitKey(0);
-	//	}
-
-	//    show_refine     = false;//refine show
-	//    show_reg        = false;//registration show
-	//    show_scoring    = false;//fuse scoring sho
-
 	MassRegistrationPPR2 * massreg = new MassRegistrationPPR2(0.05);
 	massreg->timeout = 4*massreg_timeout;
 	massreg->viewer = viewer;
 	massreg->visualizationLvl = show_init_lvl;
 
-	massreg->maskstep = std::max(1,int(0.25*double(model->frames.size())));
+	massreg->maskstep = 1;//std::max(1,int(0.25*double(model->frames.size())));
 	massreg->nomaskstep = std::max(5,int(0.5+0.3*double(model->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
 	massreg->nomask = true;
 	massreg->stopval = 0.0005;
@@ -670,43 +632,7 @@ void ModelUpdater::makeInitialSetup(){
 	massreg->setData(model->frames,model->modelmasks);
 	MassFusionResults mfr = massreg->getTransforms(model->relativeposes);
 
-
-	/*
-	MassRegistrationPPR2 * massreg = new MassRegistrationPPR2(0.05);
-	massreg->timeout = 4*massreg_timeout;
-	massreg->viewer = viewer;
-	massreg->visualizationLvl = show_init_lvl;
-
-	massreg->maskstep = std::max(1,int(0.25*double(model->frames.size())));
-	massreg->nomaskstep = std::max(5,int(0.5+0.5*double(model->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
-	massreg->nomask = true;
-	massreg->stopval = 0.0001;
-
-	//massreg->setData(model->frames,model->modelmasks);
-	massreg->addModelData(model, false);
-	std::vector<Eigen::Matrix4d> p = model->submodels_relativeposes;
-	p.insert(p.end(), model->relativeposes.begin(), model->relativeposes.end());
-
-
-	//MassFusionResults mfr = massreg->getTransforms(model->relativeposes);
-	MassFusionResults mfr = massreg->getTransforms(p);
-*/
-
-	model->relativeposes.clear();// = mfr.poses;
-	model->relativeposes.insert( model->relativeposes.end(), mfr.poses.begin()+model->submodels.size(), mfr.poses.end());
-
-	vector<vector < OcclusionScore > > ocs = getOcclusionScores(model->relativeposes, model->frames, model->modelmasks, false, 1);
-	std::vector<std::vector < float > > scores = getScores(ocs);
-	std::vector<int> partition = getPartition(scores,2,5,2);
-
-	for(unsigned int i = 0; i < scores.size(); i++){
-		for(unsigned int j = 0; j < scores.size(); j++){
-			if(scores[i][j] >= 0){printf(" ");}
-			printf("%5.5f ",0.00001*scores[i][j]);
-		}
-		printf("\n");
-	}
-	printf("partition "); for(unsigned int i = 0; i < partition.size(); i++){printf("%i ", partition[i]);} printf("\n");
+	model->relativeposes = mfr.poses;
 
 
 
@@ -720,29 +646,14 @@ void ModelUpdater::makeInitialSetup(){
 		cf.push_back(model->frames[i]);
 		cm.push_back(model->modelmasks[i]);
 	}
-	//getGoodCompareFrames(cp,cf,cm);
 
-	computeOcclusionAreas(cp,cf,cm);
-	exit(0);
+	getGoodCompareFrames(cp,cf,cm);
+
 	model->rep_relativeposes = cp;
 	model->rep_frames = cf;
 	model->rep_modelmasks = cm;
-	model->save("latestModel");
 
-	//    vector<vector < OcclusionScore > > ocs2 = computeOcclusionScore(model->submodels,mfr.poses,1,false);
-	//	std::vector<std::vector < float > > scores2 = getScores(ocs2);
-
-	//	double sumscore_aft = 0;
-	//    for(unsigned int i = 0; i < scores2.size(); i++){
-	//        for(unsigned int j = 0; j < scores2.size(); j++){
-	//			sumscore_aft += scores2[i][j];
-	//		}
-	//	}
-
-	//	printf("bef %f after %f\n",sumscore_bef,sumscore_aft);
-	//	if(sumscore_aft >= sumscore_bef){
-	//		model->submodels_relativeposes = mfr.poses;
-	//	}
+	printf("model->rep_relativeposes: %i\n",model->rep_relativeposes.size());
 }
 
 void ModelUpdater::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* frame, ModelMask* modelmask, int type, bool debugg){
@@ -2247,7 +2158,7 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 					point.x = tx;
 					point.y = ty;
 					point.z = tz;
-					point.r = 255;
+					point.r = 0;
 					point.g = 0;
 					point.b = 0;
 					src_cloud->points[src_ind] = point;
@@ -2272,7 +2183,7 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 					point.x = dst_x;
 					point.y = dst_y;
 					point.z = dst_z;
-					point.r = 0;
+					point.r = 255;
 					point.g = 0;
 					point.b = 255;
 					dst_cloud->points[dst_ind] = point;
@@ -2280,6 +2191,9 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 			}
 		}
 	}
+
+	int testsum = 0;
+
 
 	for(unsigned int src_w = 0; src_w < src_width;src_w++){
 		for(unsigned int src_h = 0; src_h < src_height;src_h++){
@@ -2344,12 +2258,36 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 							dvec.push_back(d);
 							nvec.push_back(1-surface_angle);
 						}else{
-							double noise = 0.02;
-							double noise_angle = 0.025;
-							double p_overlap = exp(-0.5*(d*d)/(noise*noise));
-							double p_overlap_angle = exp(-0.5*((1-surface_angle)*(1-surface_angle))/(noise_angle*noise_angle));
-							p_overlap = std::min(0.9,p_overlap);
-							double p_occlusion = (1.0-p_overlap)*normalCFD(d/noise);
+
+
+
+//							double noise = 0.02;
+//							double noise_angle = 0.05;
+//							double p_overlap = exp(-0.5*(d*d)/(noise*noise));
+//							double p_overlap_angle = exp(-0.5*((1-surface_angle)*(1-surface_angle))/(noise_angle*noise_angle));
+//							p_overlap = std::min(0.9,p_overlap);
+//							double p_occlusion = (1.0-p_overlap)*normalCFD(d/noise);
+//							p_overlap *= p_overlap_angle;
+
+//							if(p_overlap > 0.001 && offset1 >= 0 && offset2 >= 0){
+//								interframe_connectionId[offset1+src_ind].push_back(offset2+dst_ind);
+//								interframe_connectionStrength[offset1+src_ind].push_back(-log(1-p_overlap));
+//							}
+//							if(debugg){
+//								src_cloud->points[src_ind].r = 255-255.0 * func_overlap_angle;
+//								src_cloud->points[src_ind].g = 255.0 * func_overlap_angle;
+//								src_cloud->points[src_ind].b = 0;
+//							}
+//							if(dst_detdata[dst_ind] != 0){continue;}
+//							if(src_detdata[src_ind] != 0){continue;}
+
+//							overlaps[src_ind] = std::max(overlaps[src_ind],p_overlap);
+//							occlusions[src_ind] = std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
+
+							double p_overlap_angle = nfunc->getProb(1-surface_angle);
+							double p_overlap = dfunc->getProb(d);
+							double p_occlusion = dfunc->getProbInfront(d);
+
 							p_overlap *= p_overlap_angle;
 
 							if(p_overlap > 0.001 && offset1 >= 0 && offset2 >= 0){
@@ -2357,12 +2295,22 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 								interframe_connectionStrength[offset1+src_ind].push_back(-log(1-p_overlap));
 							}
 
+							if(debugg){
+								src_cloud->points[src_ind].r = 255.0 * p_overlap;
+								src_cloud->points[src_ind].g = 255.0 * p_occlusion;
+								src_cloud->points[src_ind].b = 0;
+							}
+
+//							if(debugg){
+//								src_cloud->points[src_ind].r = 255-255.0 * func_overlap_angle;
+//								src_cloud->points[src_ind].g = 255.0 * func_overlap_angle;
+//								src_cloud->points[src_ind].b = 0;
+//							}
 							if(dst_detdata[dst_ind] != 0){continue;}
 							if(src_detdata[src_ind] != 0){continue;}
 
 							overlaps[src_ind] = std::max(overlaps[src_ind],p_overlap);
 							occlusions[src_ind] = std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
-
 						}
 //                        if(fabs(d) < 0.02){//If close, according noises, and angle of the surfaces similar: FUSE
 //                            if(surface_angle > 0.9){
@@ -2387,6 +2335,7 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 	}
 
 	if(debugg){
+		printf("testsum: %i\n",testsum);
 		viewer->removeAllPointClouds();
 		viewer->addPointCloud<pcl::PointXYZRGBNormal> (src_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(src_cloud), "scloud");
 		viewer->addPointCloud<pcl::PointXYZRGBNormal> (dst_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dst_cloud), "dcloud");
@@ -2415,6 +2364,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 	int current_point           = 0;
 	float * priors             = new float[3*tot_nr_pixels];
+	bool * valids             = new bool[tot_nr_pixels];
 
 	//bool store_distance = true;
 
@@ -2423,118 +2373,69 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	DistanceWeightFunction2 * dfunc;
 	DistanceWeightFunction2 * nfunc;
 
-//	for(unsigned int i = 0; i < frames.size(); i++){
-//		for(unsigned int j = 0; j < frames.size(); j++){
-//			if(i == j){continue;}
-//			Eigen::Matrix4d p = poses[i].inverse() * poses[j];
-//			getDynamicWeights(true,dvec,nvec,dfunc,nfunc,p.inverse(),frames[i], 0, 0, frames[j],offsets[i],offsets[j],interframe_connectionId,interframe_connectionStrength,false);
-//		}
+	for(unsigned int i = 0; i < frames.size(); i++){
+		for(unsigned int j = 0; j < frames.size(); j++){
+			if(i == j){continue;}
+			Eigen::Matrix4d p = poses[i].inverse() * poses[j];
+			getDynamicWeights(true,dvec,nvec,dfunc,nfunc,p.inverse(),frames[i], 0, 0, frames[j],offsets[i],offsets[j],interframe_connectionId,interframe_connectionStrength,false);
+		}
 
-//		for(unsigned int j = 0; j < bgcf.size(); j++){
-//			Eigen::Matrix4d p = poses[i].inverse() * bgcp[j];
-//			getDynamicWeights(true,dvec,nvec,dfunc,nfunc,p.inverse(),frames[i], 0, 0, bgcf[j],-1,-1,interframe_connectionId,interframe_connectionStrength,false);
-//		}
-//	}
-
-//	double dstdval = 0;
-//	for(unsigned int i = 0; i < dvec.size(); i++){
-//		dstdval += dvec[i]*dvec[i];
-//	}
-//	dstdval = sqrt(dstdval/double(dvec.size()-1));
+		for(unsigned int j = 0; j < bgcf.size(); j++){
+			//printf("%i , %i\n",i,j);
+			//Eigen::Matrix4d p = poses[i].inverse() * bgcp[j];
+			//getDynamicWeights(true,dvec,nvec,dfunc,nfunc,p.inverse(),frames[i], 0, 0, bgcf[j],-1,-1,interframe_connectionId,interframe_connectionStrength,debugg);
+		}
+	}
 
 
-//	DistanceWeightFunction2PPR2 * dfuncTMP = new DistanceWeightFunction2PPR2();
-//	dfunc = dfuncTMP;
-//	dfuncTMP->refine_mean			= true;
-//	dfuncTMP->zeromean				= false;
-//	dfuncTMP->startreg				= 0.0001;
-//	dfuncTMP->debugg_print			= true;
-//	dfuncTMP->bidir					= true;
-//	dfuncTMP->maxp					= 0.999999;
-//	dfuncTMP->maxd					= 0.03;
-//	dfuncTMP->histogram_size		= 1000;
-//	dfuncTMP->fixed_histogram_size	= true;
-//	dfuncTMP->startmaxd				= dfuncTMP->maxd;
-//	dfuncTMP->starthistogram_size	= dfuncTMP->histogram_size;
-//	dfuncTMP->blurval				= 0.5;
-//	dfuncTMP->stdval2				= dstdval;
-//	dfuncTMP->maxnoise				= dstdval;
-//	dfuncTMP->reset();
-//	dfunc->computeModel(dvec);
+
+	double dstdval = 0;
+	for(unsigned int i = 0; i < dvec.size(); i++){
+		dstdval += dvec[i]*dvec[i];
+	}
+	dstdval = sqrt(dstdval/double(dvec.size()-1));
 
 
-//	DistanceWeightFunction2PPR2 * nfuncTMP = new DistanceWeightFunction2PPR2();
-//	nfunc = nfuncTMP;
-//	nfuncTMP->startreg				= 0.0001;
-//	nfuncTMP->debugg_print			= true;
-//	nfuncTMP->bidir					= true;
-//	nfuncTMP->zeromean				= false;
-//	nfuncTMP->maxp					= 0.999999;
-//	nfuncTMP->maxd					= 1.0;
-//	nfuncTMP->histogram_size		= 1000;
-//	nfuncTMP->fixed_histogram_size	= true;
-//	nfuncTMP->startmaxd				= nfuncTMP->maxd;
-//	nfuncTMP->starthistogram_size	= nfuncTMP->histogram_size;
-//	nfuncTMP->blurval				= 0.5;
-//	nfuncTMP->stdval2				= 1;
-//	nfuncTMP->maxnoise				= 1;
-//	nfuncTMP->reset();
-//	nfunc->computeModel(nvec);
-
-////	for(unsigned int w = 1; w < width-1;w++){
-////		for(unsigned int h = 1; h < height-1;h++){
-////			int ind = h*width+w;
-////			float z = idepth*float(depthdata[ind]);
-
-////			if(w > 1){
-////				int dir = -1;
-////				int other2 = ind+2*dir;
-////				int other = ind+dir;
-
-////				float z3 = idepth*float(depthdata[other2]);
-////				float z2 = idepth*float(depthdata[other]);
-////				z2 = 2*z2-z3;
-
-////				if(z2 > 0 || z > 0){Xvec.push_back((z-z2)/(z*z+z2*z2));}
-////			}
-
-////			if(h > 1){
-////				int dir = -width;
-////				int other2 = ind+2*dir;
-////				int other = ind+dir;
-
-////				float z3 = idepth*float(depthdata[other2]);
-////				float z2 = idepth*float(depthdata[other]);
-////				z2 = 2*z2-z3;
-
-////				if(z2 > 0 || z > 0){Xvec.push_back((z-z2)/(z*z+z2*z2));}
-////			}
-////		}
-////	}
-
-////	std::vector<double> dx;  dx.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dx[i] = 0.5;}
-////	std::vector<double> dy;	 dy.resize(width*height);	for(unsigned int i = 0; i < width*height;i++){dy[i] = 0.5;}
-
-////	for(unsigned int w = 1; w < width-1;w++){
-////		for(unsigned int h = 1; h < height-1;h++){
-////			int ind = h*width+w;
-////			float z = idepth*float(depthdata[ind]);
-
-////			if(w > 1){
-////				int dir = -1;
-////				int other2 = ind+2*dir;
-////				int other = ind+dir;
+	DistanceWeightFunction2PPR2 * dfuncTMP = new DistanceWeightFunction2PPR2();
+	dfunc = dfuncTMP;
+	dfuncTMP->refine_mean			= true;
+	dfuncTMP->zeromean				= false;
+	dfuncTMP->startreg				= 0.0005;
+	dfuncTMP->debugg_print			= false;
+	dfuncTMP->bidir					= true;
+	dfuncTMP->maxp					= 0.9;
+	dfuncTMP->maxd					= 0.03;
+	dfuncTMP->histogram_size		= 1000;
+	dfuncTMP->fixed_histogram_size	= true;
+	dfuncTMP->max_under_mean		= false;
+	dfuncTMP->startmaxd				= dfuncTMP->maxd;
+	dfuncTMP->starthistogram_size	= dfuncTMP->histogram_size;
+	dfuncTMP->blurval				= 0.5;
+	dfuncTMP->stdval2				= dstdval;
+	dfuncTMP->maxnoise				= dstdval;
+	dfuncTMP->compute_infront		= true;
+	dfuncTMP->reset();
+	dfunc->computeModel(dvec);
 
 
-////				float z3 = idepth*float(depthdata[other2]);
-////				float z2 = idepth*float(depthdata[other]);
-
-////				float dz = fabs(z-z2);
-////				if(z3 > 0){dz = std::min(dz,fabs(z- (2*z2-z3)));}
-////				if(z2 > 0 || z > 0){dx[ind] = funcZ->getProb(dz/(z*z+z2*z2));}
-//delete dfuncTMP;
-
-//exit(0);
+	DistanceWeightFunction2PPR2 * nfuncTMP = new DistanceWeightFunction2PPR2();
+	nfunc = nfuncTMP;
+	nfuncTMP->startreg				= 0.01;
+	nfuncTMP->debugg_print			= false;
+	nfuncTMP->bidir					= false;
+	nfuncTMP->zeromean				= true;
+	nfuncTMP->maxp					= 0.999999;
+	nfuncTMP->maxd					= 1.0;
+	nfuncTMP->histogram_size		= 1000;
+	nfuncTMP->fixed_histogram_size	= true;
+	nfuncTMP->startmaxd				= nfuncTMP->maxd;
+	nfuncTMP->starthistogram_size	= nfuncTMP->histogram_size;
+	nfuncTMP->blurval				= 0.5;
+	nfuncTMP->stdval2				= 1;
+	nfuncTMP->maxnoise				= 1;
+	nfuncTMP->ggd					= true;
+	nfuncTMP->reset();
+	nfunc->computeModel(nvec);
 
 
 	int frameConnections = 0;
@@ -2586,10 +2487,15 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			getDynamicWeights(false,dvec,nvec,dfunc,nfunc,p.inverse(),frames[i], bg_overlaps, bg_occlusions, bgcf[j],-1,-1,interframe_connectionId,interframe_connectionStrength,false);
 		}
 
+
+		unsigned char * detdata = (unsigned char*)(frame->det_dilate.data);
 		float minprob = 0.01;
 		for(unsigned int h = 0; h < height;h++){
 			for(unsigned int w = 0; w < width;w++){
 				int ind = h*width+w;
+
+
+				valids[offset+ind] = detdata[ind] == 0;
 
 				float p_moving  = current_occlusions[ind];
 				float p_dynamic  =     std::max((bg_occlusions[ind]-p_moving)*current_overlaps[ind],0.0);
@@ -2602,17 +2508,32 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				float notMoving = current_overlaps[ind];
 
                 float bias = 0.0001;
+
+
+
 				float p_moving_leftover   = -bias+(1-notMoving)*leftover/4.0;
 				float p_dynamic_leftover  = -bias+0.5*leftover*notMoving + (1-notMoving)*leftover/4.0;
 				float p_static_leftover   = 2.0*bias+0.5*leftover*notMoving + (1-notMoving)*leftover/2.0;
 
-				float p_moving_tot	= (1.0-4.0*minprob)*(p_moving+p_moving_leftover)	+ minprob;
-				float p_dynamic_tot = (1.0-4.0*minprob)*(p_dynamic+p_dynamic_leftover)	+ minprob;
-				float p_static_tot	= (1.0-4.0*minprob)*(p_static+p_static_leftover)	+ 2.0*minprob;
+				float p_moving_tot	= (1.0-4.0*minprob)*(p_moving+p_moving_leftover);
+				float p_dynamic_tot = (1.0-4.0*minprob)*(p_dynamic+p_dynamic_leftover);
+				float p_static_tot	= (1.0-4.0*minprob)*(p_static+p_static_leftover);
 
 				priors[3*(offset+ind)+0]       = p_moving_tot;
 				priors[3*(offset+ind)+1]       = p_dynamic_tot;
 				priors[3*(offset+ind)+2]       = p_static_tot;
+
+//				float p_moving_leftover   = -bias+(1-notMoving)*leftover/4.0;
+//				float p_dynamic_leftover  = -bias+0.5*leftover*notMoving + (1-notMoving)*leftover/4.0;
+//				float p_static_leftover   = 2.0*bias+0.5*leftover*notMoving + (1-notMoving)*leftover/2.0;
+
+//				float p_moving_tot	= (1.0-4.0*minprob)*(p_moving+p_moving_leftover)	+ minprob;
+//				float p_dynamic_tot = (1.0-4.0*minprob)*(p_dynamic+p_dynamic_leftover)	+ minprob;
+//				float p_static_tot	= (1.0-4.0*minprob)*(p_static+p_static_leftover)	+ 2.0*minprob;
+
+//				priors[3*(offset+ind)+0]       = p_moving_tot;
+//				priors[3*(offset+ind)+1]       = p_dynamic_tot;
+//				priors[3*(offset+ind)+2]       = p_static_tot;
 
 				if(probs[0][ind] > 0.00000001){frameConnections++;}
 				if(probs[1][ind] > 0.00000001){frameConnections++;}
@@ -2648,6 +2569,9 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		delete[] bg_overlaps;
 	}
 
+	delete dfuncTMP;
+	delete nfuncTMP;
+
 	long interframeConnections = 0;
 	for(unsigned int i = 0; i < interframe_connectionId.size();i++){
 		for(unsigned int j = 0; j < interframe_connectionId[i].size();j++){
@@ -2664,6 +2588,9 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		g -> add_node();
 		double p_fg = priors[3*i+0]+priors[3*i+1];
 		double p_bg = priors[3*i+2];
+		double norm = p_fg + p_bg;
+		p_fg /= norm;
+		p_bg /= norm;
 		if(priors[3*i+0]+priors[3*i+1]+priors[3*i+2] <= 0){
 			g -> add_tweights( i, 0, 0 );
 			continue;
@@ -2907,37 +2834,72 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	for (unsigned int d = 0; d < dynamic_indices.size(); d++){
 		double score = 0;
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster2 (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 		double sum0 = 0;
 		double sum1 = 0;
 		double sum2 = 0;
+		double totsum = 0;
 		for (unsigned int ind = 0; ind < dynamic_indices[d].indices.size(); ind++){
 			int pid = dynamic_indices[d].indices[ind];
 			int dind = dynamicdata[pid];
-			score += priors[3*dind+1] -0.5*(priors[3*dind+0]+priors[3*dind+2]);
 
-			sum0 += priors[3*dind+0];
-			sum1 += priors[3*dind+1];
-			sum2 += priors[3*dind+2];
+			double p0 = priors[3*dind+0];
+			double p1 = priors[3*dind+1];
+			double p2 = priors[3*dind+2];
+
+			double s = 0;
+			if(valids[dind]){
+				if(p0 > p2){
+					s += p1 - p0;
+				}else{
+					s += p1 - p2;
+				}
+				score += s;
+
+				sum0 += priors[3*dind+0];
+				sum1 += priors[3*dind+1];
+				sum2 += priors[3*dind+2];
+				totsum++;
+			}
+
+
+
+
+
+
+			pcl::PointXYZRGBNormal p = cloud->points[dind];
+
+			p.r = 0;
+			p.g = 0;
+			p.b = 0;
+
+			if(s > 0){p.g = 255.0*s;}
+			if(s < 0){p.r = -255.0*s;}
 
 			cloud_cluster->points.push_back(dynamiccloud->points[pid]);
+			cloud_cluster2->points.push_back(p);
 		}
 
-		double avg = score/double(dynamic_indices[d].indices.size());
+		double avg = score/totsum;
 
-//		printf("score: %f avg: %f\n",score,avg);
-//		printf("sum0: %f sum1: %f sum2: %f\n",sum0,sum1,sum2);
-		if(score > 100 && avg > 0.075){
+		printf("score: %f avg: %f\n",score,avg);
+		printf("sum0: %f sum1: %f sum2: %f\n",sum0,sum1,sum2);
+		if(score > 100){
 			for (unsigned int ind = 0; ind < dynamic_indices[d].indices.size(); ind++){
 				labels[dynamicdata[dynamic_indices[d].indices[ind]]] = 3;
 			}
 		}
 
 
-//		if(cloud_cluster->points.size() > 500){
-//			viewer->removeAllPointClouds();
-//			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster), "cloud_cluster");
-//			viewer->spin();
-//		}
+		if(cloud_cluster->points.size() > 500){
+			viewer->removeAllPointClouds();
+			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster), "cloud_cluster");
+			viewer->spin();
+
+			viewer->removeAllPointClouds();
+			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster2, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster2), "cloud_cluster");
+			viewer->spin();
+		}
 	}
 
 	start_inf = getTime();
@@ -2977,7 +2939,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		double avg = score/double(moving_indices[d].indices.size());
 //		printf("score: %f avg: %f\n",score,avg);
 //		printf("sum0: %f sum1: %f sum2: %f\n",sum0,sum1,sum2);
-		if(score > 100 && avg > 0.075){
+		if(score > 100){
 			for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
 				labels[movingdata[moving_indices[d].indices[ind]]] = 4;
 			}
@@ -3014,14 +2976,23 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	}
 
 	if(debugg){
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_sample (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+
 		printf("3-class\n");
 		for(unsigned int i = 0; i < current_point; i++){
 			cloud->points[i].r = priors[3*i+0]*255.0;
 			cloud->points[i].g = priors[3*i+1]*255.0;
 			cloud->points[i].b = priors[3*i+2]*255.0;
 		}
+
+		cloud_sample->points.clear();
+		for(unsigned int i = 0; i < current_point; i++){
+			if(rand() % 4 == 0){
+				cloud_sample->points.push_back(cloud->points[i]);
+			}
+		}
 		viewer->removeAllPointClouds();
-		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "cloud");
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
 		viewer->spin();
 
 		printf("results-class\n");
@@ -3056,8 +3027,17 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				cloud->points[i].b = 0;
 			}
 		}
+
+
+
+		cloud_sample->points.clear();
+		for(unsigned int i = 0; i < current_point; i++){
+			if(rand() % 4 == 0){
+				cloud_sample->points.push_back(cloud->points[i]);
+			}
+		}
 		viewer->removeAllPointClouds();
-		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "cloud");
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
 		viewer->spin();
 
 	}
