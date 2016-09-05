@@ -235,6 +235,77 @@ struct sweep_summary {
     sweep_summary() : nbr_segments(0), segment_indices(), segment_annotations() {}
 };
 
+struct segment_uris {
+
+    //std::string noise_data_path;
+    std::vector<std::string> uris;
+
+    void load(const boost::filesystem::path& data_path)
+    {
+        std::ifstream in((data_path / boost::filesystem::path("segment_uris.json")).string());
+        {
+            cereal::JSONInputArchive archive_i(in);
+            archive_i(*this);
+        }
+        /*
+        if (!boost::filesystem::path(noise_data_path).is_absolute()) {
+            noise_data_path = boost::filesystem::canonical(noise_data_path, data_path.parent_path()).string();
+        }
+        */
+
+        // we can actually assume that 0 is a file since the first ones are used to train the vocabulary
+        if (!uris.empty() && !boost::filesystem::path(uris[0].substr(7, uris[0].size()-7)).is_absolute()) {
+            for (std::string& segment_path : uris) {
+                //segment_path = boost::filesystem::canonical(segment_path, data_path).string();
+                //HMMM, this will start with a slash?
+                if (segment_path.compare(0, 7, "file://") == 0) {
+                    segment_path = std::string("file://") + boost::filesystem::absolute(segment_path.substr(7, segment_path.size()-7), data_path.parent_path()).string();
+                }
+            }
+        }
+    }
+
+    void save(const boost::filesystem::path& data_path)
+    {
+        // we should just have some way of checking if the paths are childs of data_path, in that case replace with relative path
+        // but this is in general not true for this data_path, which is the vocabulary path!
+        // so, instead check if the data paths are children of the parent of data_path, i.e. if they are siblings
+        /*
+        if (is_sub_dir(boost::filesystem::path(noise_data_path), data_path.parent_path())) {
+            noise_data_path = make_relative(boost::filesystem::path(noise_data_path), data_path.parent_path()).string();
+        }
+        */
+
+        // we can actually assume that 0 is a file since the first ones are used to train the vocabulary
+        if (!uris.empty() && is_sub_dir(boost::filesystem::path(uris[0].substr(7, uris[0].size()-7)), data_path.parent_path())) {
+            for (std::string& segment_path : uris) {
+                if (segment_path.compare(0, 7, "file://") == 0) {
+                    segment_path = std::string("file://") + make_relative(boost::filesystem::path(segment_path.substr(7, segment_path.size()-7)), data_path.parent_path()).string();
+                }
+            }
+        }
+
+        std::ofstream out((data_path / boost::filesystem::path("segment_uris.json")).string());
+        {
+            cereal::JSONOutputArchive archive_o(out);
+            archive_o(*this);
+        }
+    }
+
+    template <class Archive>
+    void serialize(Archive& archive)
+    {
+//        archive(cereal::make_nvp("noise_data_path", noise_data_path),
+//                cereal::make_nvp("uris", uris));
+        archive(cereal::make_nvp("uris", uris));
+    }
+
+    segment_uris() : uris() //noise_data_path(""), uris()
+    {
+
+    }
+};
+
 } // namespace dynamic_object_retrieval
 
 #endif // SUMMARY_TYPES_H

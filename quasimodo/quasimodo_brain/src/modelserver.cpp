@@ -1526,7 +1526,8 @@ void clearMem(){
 int main(int argc, char **argv){
 	cameras[0]		= new reglib::Camera();
 	registration	= new reglib::RegistrationRandom();
-	modeldatabase	= new ModelDatabaseRGBHistogram(5);
+	modeldatabase	= 0;//new ModelDatabaseRGBHistogram(5);
+	//new ModelDatabaseRetrieval(n);
 
 	ros::init(argc, argv, "quasimodo_model_server");
 	ros::NodeHandle n;
@@ -1580,8 +1581,9 @@ int main(int argc, char **argv){
         else if(std::string(argv[i]).compare("-v_refine") == 0 || std::string(argv[i]).compare("-v_ref") == 0){	printf("visualization refinement turned on\n");     visualization = true; inputstate = 9;}
         else if(std::string(argv[i]).compare("-v_register") == 0 || std::string(argv[i]).compare("-v_reg") == 0){	printf("visualization registration turned on\n");	visualization = true; inputstate = 10;}
         else if(std::string(argv[i]).compare("-v_scoring") == 0 || std::string(argv[i]).compare("-v_score") == 0 || std::string(argv[i]).compare("-v_sco") == 0){	printf("visualization scoring turned on\n");        visualization = true; show_scoring = true;}
-        else if(std::string(argv[i]).compare("-v_db") == 0){        printf("visualization db turned on\n");             visualization = true; show_db = true;}
+		else if(std::string(argv[i]).compare("-v_db") == 0){        printf("visualization db turned on\n");             visualization = true; show_db = true;}
 		else if(std::string(argv[i]).compare("-intopic") == 0){	printf("intopic input state\n");	inputstate = 11;}
+		else if(std::string(argv[i]).compare("-mdb") == 0){	printf("intopic input state\n");	inputstate = 12;}
 		else if(inputstate == 1){
 			reglib::Camera * cam = reglib::Camera::load(std::string(argv[i]));
 			delete cameras[0];
@@ -1613,8 +1615,26 @@ int main(int argc, char **argv){
 		}else if(inputstate == 11){
 			printf("adding %s to input_model_subs\n",argv[i]);
 			input_model_subs.push_back(n.subscribe(std::string(argv[i]), 100, modelCallback));
+		}else if(inputstate == 12){
+			if(atoi(argv[i]) == 0){
+				if(modeldatabase != 0){delete modeldatabase;}
+				modeldatabase	= new ModelDatabaseBasic();
+			}
+
+			if(atoi(argv[i]) == 1){
+				if(modeldatabase != 0){delete modeldatabase;}
+				modeldatabase	= new ModelDatabaseRGBHistogram(5);
+			}
+
+			if(atoi(argv[i]) == 2){
+				if(modeldatabase != 0){delete modeldatabase;}
+				modeldatabase	= new ModelDatabaseRetrieval(n);
+			}
 		}
 	}
+
+	if(modeldatabase == 0){modeldatabase	= new ModelDatabaseRetrieval(n);}
+
 
 	if(input_model_subs.size() == 0){input_model_subs.push_back(n.subscribe("/model/out/topic", 100, modelCallback));}
 

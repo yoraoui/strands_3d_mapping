@@ -8,13 +8,14 @@
 #include <pcl/point_types.h>
 
 #include "model/Model.h"
+#include "../Util/Util.h"
 
 class ModelDatabase{
 	public:
 	std::vector<reglib::Model * > models;
 
 	//Add pointcloud to database, return index number in database, weight is the bias of the system to perfer this object when searching
-	virtual void add(reglib::Model * model);
+	virtual bool add(reglib::Model * model);
 		
 	// return true if successfull
 	// return false if fail

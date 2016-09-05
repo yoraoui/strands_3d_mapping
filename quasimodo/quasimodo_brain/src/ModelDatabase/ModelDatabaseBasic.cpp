@@ -4,8 +4,9 @@ ModelDatabaseBasic::ModelDatabaseBasic(){}
 ModelDatabaseBasic::~ModelDatabaseBasic(){}
 
 
-void ModelDatabaseBasic::add(reglib::Model * model){
+bool ModelDatabaseBasic::add(reglib::Model * model){
 	models.push_back(model);
+	return true;
 	//printf("number of models: %i\n",models.size());
 }
 

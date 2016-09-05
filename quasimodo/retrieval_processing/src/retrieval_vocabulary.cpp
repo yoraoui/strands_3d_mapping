@@ -12,6 +12,9 @@
 #include <metaroom_xml_parser/load_utilities.h>
 #include <dynamic_object_retrieval/definitions.h>
 
+#include <pcl_ros/point_cloud.h>
+#include <quasimodo_msgs/index_cloud.h>
+
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 
@@ -51,6 +54,7 @@ using AdjacencyT = vector<set<pair<int, int> > >;
 // does that mean we need to provide the querying
 // interface as well? maybe
 ros::Publisher pub;
+ros::ServiceServer service;
 int min_training_sweeps;
 size_t nbr_added_sweeps;
 boost::filesystem::path vocabulary_path;
@@ -124,6 +128,8 @@ void train_vocabulary(const boost::filesystem::path& data_path)
     AdjacencyT adjacencies;
     vector<IndexT> indices;
 
+    dynamic_object_retrieval::segment_uris uris;
+
     size_t counter = 0; // index among all segments
     size_t sweep_i; // index of sweep
     size_t last_sweep = 0; // last index of sweep
@@ -169,6 +175,9 @@ void train_vocabulary(const boost::filesystem::path& data_path)
             sweep_counter = 0;
         }
 
+        // here we insert in the uris
+        uris.uris.push_back(string("file://") + segment_path.string());
+
         if (features_i->size() < min_segment_features) {
             ++counter;
             ++sweep_counter;
@@ -211,6 +220,7 @@ void train_vocabulary(const boost::filesystem::path& data_path)
     summary.nbr_annotated_sweeps = 0;
 
     summary.save(vocabulary_path);
+    uris.save(vocabulary_path);
     dynamic_object_retrieval::save_vocabulary(*vt, vocabulary_path);
 }
 
@@ -241,14 +251,14 @@ pair<size_t, size_t> get_offsets_in_data(const boost::filesystem::path& sweep_pa
         // skips 0, that's ok
         if (sweep_i != last_sweep) {
             // this should actually work, right?
-            cout << sweep_path.string() << endl;
-            cout << segment_path.parent_path().parent_path().string() << endl;
+            //cout << sweep_path.string() << endl;
+            //cout << segment_path.parent_path().parent_path().string() << endl;
             if (sweep_path == segment_path.parent_path().parent_path()) {
                 cout << "Matching!" << endl;
                 return make_pair(sweep_i, counter);
             }
             else {
-                cout << "Not matching!" << endl;
+                //cout << "Not matching!" << endl;
             }
         }
 
@@ -258,6 +268,65 @@ pair<size_t, size_t> get_offsets_in_data(const boost::filesystem::path& sweep_pa
     cout << "Could not find any corresponding indices!" << endl;
     exit(0);
     return make_pair(0, 0);
+}
+
+bool vocabulary_service(quasimodo_msgs::index_cloud::Request& req, quasimodo_msgs::index_cloud::Response& resp)
+{
+    // let's just create a "ghost" indexing for now, to see if it actually works by comparing to the actual
+    // segments_summary.json, maybe even have a separate file for the segment uri:s
+
+    // maybe just skip this before we have actually trained the vocabulary, would make things a lot easier, yes, good idea
+
+    if (vt == NULL) {
+        cout << "Vocabulary not trained yet, can not add any object search observations yet, perform more sweeps first..." << endl;
+        return false;
+    }
+
+    HistCloudT::Ptr features(new HistCloudT);
+    pcl::fromROSMsg(req.cloud, *features);
+    vector<IndexT> indices;
+    // the question is what offsets we should assign these, I think in reality it doesn't matter, possibly the sweep offset might not get set automatically
+    // let's just try 0, 0 for now
+    //IndexT index(sweep_offset + sweep_i, offset, 0); // we only have one segment within these observations -> sweep_index = 0
+    dynamic_object_retrieval::vocabulary_summary summary;
+    summary.load(vocabulary_path);
+    IndexT index(100000, summary.nbr_noise_segments, 0); // this is a bit weird, did not think we relied on these, we only have one segment within these observations -> sweep_index = 0
+    for (size_t i = 0; i < features->size(); ++i) {
+        indices.push_back(index);
+    }
+    AdjacencyT adjacencies;
+
+    if (features->size() > 0) {
+        vt->append_cloud(features, indices, adjacencies, false);
+    }
+
+    {
+        dynamic_object_retrieval::segment_uris uris;
+        if (boost::filesystem::exists(vocabulary_path / "segment_uris.json")) {
+            cout << "Segment uris file already exists, loading..." << endl;
+            uris.load(vocabulary_path);
+        }
+        else {
+            // load all the segments summaries and push them as uris
+            dynamic_object_retrieval::data_summary segments_summary;
+            segments_summary.load(vocabulary_path.parent_path());
+            for (const string& segment_path : segments_summary.index_convex_segment_paths) {
+                uris.uris.push_back(string("file://") + segment_path);
+            }
+        }
+        uris.uris.push_back(string("mongodb://") + "world_state" + "/" + "quasimodo" + "/" + req.object_id);
+        uris.save(vocabulary_path);
+    }
+
+    // This part is new!
+
+    resp.id = summary.nbr_noise_segments;
+    summary.nbr_noise_segments += 1;
+    summary.nbr_noise_sweeps++;
+    summary.save(vocabulary_path);
+    dynamic_object_retrieval::save_vocabulary(*vt, vocabulary_path);
+
+    return true;
 }
 
 void vocabulary_callback(const std_msgs::String::ConstPtr& msg)
@@ -280,6 +349,9 @@ void vocabulary_callback(const std_msgs::String::ConstPtr& msg)
                 break;
             }
             ++nbr_segmented_sweeps;
+            if (boost::filesystem::path(xml) == sweep_xml) {
+                break;
+            }
         }
         if (nbr_segmented_sweeps >= min_training_sweeps + 1) {
             train_vocabulary(data_path);
@@ -289,6 +361,8 @@ void vocabulary_callback(const std_msgs::String::ConstPtr& msg)
         pub.publish(done_msg);
         return;
     }
+
+    cout << "After training: " << endl;
 
     size_t offset; // same thing here, index among segments, can't take this from vocab, instead parse everything?
     size_t sweep_offset;
@@ -305,11 +379,16 @@ void vocabulary_callback(const std_msgs::String::ConstPtr& msg)
     dynamic_object_retrieval::sweep_convex_segment_cloud_map clouds(sweep_xml.parent_path());
     dynamic_object_retrieval::sweep_convex_feature_cloud_map segment_features(sweep_xml.parent_path());
     dynamic_object_retrieval::sweep_convex_keypoint_cloud_map segment_keypoints(sweep_xml.parent_path());
-    for (auto tup : dynamic_object_retrieval::zip(segment_features, segment_keypoints, clouds)) {
+    dynamic_object_retrieval::sweep_convex_segment_map segment_paths(sweep_xml.parent_path());
+    // maybe also iterate over the segment paths?
+    vector<string> segment_strings;
+    for (auto tup : dynamic_object_retrieval::zip(segment_features, segment_keypoints, clouds, segment_paths)) {
         HistCloudT::Ptr features_i;
         CloudT::Ptr keypoints_i;
         CloudT::Ptr segment;
-        tie(features_i, keypoints_i, segment) = tup;
+        boost::filesystem::path segment_path;
+        tie(features_i, keypoints_i, segment, segment_path) = tup;
+        segment_strings.push_back(segment_path.string());
 
         features->insert(features->end(), features_i->begin(), features_i->end());
 
@@ -324,6 +403,16 @@ void vocabulary_callback(const std_msgs::String::ConstPtr& msg)
     if (features->size() > 0) {
         adjacencies.push_back(compute_group_adjacencies(segments_path));
         vt->append_cloud(features, indices, adjacencies, false);
+    }
+
+    {
+        dynamic_object_retrieval::segment_uris uris;
+        uris.load(vocabulary_path);
+        uris.uris.reserve(uris.uris.size() + segment_strings.size());
+        for (const string& segment_path : segment_strings) {
+            uris.uris.push_back(string("file://") + segment_path);
+        }
+        uris.save(vocabulary_path);
     }
 
     // This part is new!
@@ -374,12 +463,14 @@ int main(int argc, char** argv)
         vt = new VocT(vocabulary_path.string());
         vt->set_min_match_depth(3);
         dynamic_object_retrieval::load_vocabulary(*vt, vocabulary_path);
+        vt->set_cache_path(vocabulary_path.string());
     }
     else {
         vt = NULL;
     }
 
     pub = n.advertise<std_msgs::String>("/vocabulary_done", 1);
+    service = n.advertiseService("/retrieval_vocabulary_service", vocabulary_service);
 
     ros::Subscriber sub;
     if (bypass) {

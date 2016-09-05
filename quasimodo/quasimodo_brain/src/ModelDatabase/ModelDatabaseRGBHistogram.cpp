@@ -26,11 +26,12 @@ std::vector< double > getDescriptor(int res, reglib::Model * model){
 	return descriptor;
 }
 
-void ModelDatabaseRGBHistogram::add(reglib::Model * model){
+bool ModelDatabaseRGBHistogram::add(reglib::Model * model){
 	//std::vector< std::vector< double > > descriptors;
 	std::vector< double > descriptor = getDescriptor(res,model);
 	descriptors.push_back(descriptor);
 	models.push_back(model);
+	return true;
 	//printf("number of models: %i\n",models.size());
 }
 

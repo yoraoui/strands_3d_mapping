@@ -13,6 +13,11 @@
 
 #include <ros/ros.h>
 #include <std_msgs/String.h>
+#include <cv_bridge/cv_bridge.h>
+
+#include <quasimodo_msgs/mask_pointclouds.h>
+
+#include <sensor_msgs/image_encodings.h>
 
 #define VISUALIZE 1
 
@@ -57,9 +62,45 @@ int colormap[][3] = {
 
 ros::Publisher pub;
 ros::Publisher vis_cloud_pub;
+ros::ServiceServer service;
 double threshold;
 dynamic_object_retrieval::data_summary data_summary;
 boost::filesystem::path data_path;
+
+bool segmentation_service(quasimodo_msgs::mask_pointclouds::Request& req, quasimodo_msgs::mask_pointclouds::Response& resp)
+{
+    for (size_t i = 0; i < req.clouds.size(); ++i) {
+        CloudT::Ptr cloud(new CloudT);
+        pcl::fromROSMsg(req.clouds[i], *cloud);
+        cv_bridge::CvImagePtr cv_ptr;
+        try {
+            cv_ptr = cv_bridge::toCvCopy(req.masks[i], sensor_msgs::image_encodings::BGR8);
+        }
+        catch (cv_bridge::Exception& e) {
+            ROS_ERROR("cv_bridge exception: %s", e.what());
+            exit(-1);
+        }
+        cv::Mat mask;
+        cv::cvtColor(cv_ptr->image, mask, CV_BGR2GRAY);
+
+        for (size_t y = 0; y < mask.rows; ++y) {
+            for (size_t x = 0; x < mask.cols; ++x) {
+                size_t index = y*mask.cols + x;
+                if (int(mask.at<uchar>(y, x)) != 255) {
+                    cloud->points[index].x = std::numeric_limits<float>::infinity();
+                    cloud->points[index].y = std::numeric_limits<float>::infinity();
+                    cloud->points[index].z = std::numeric_limits<float>::infinity();
+                }
+            }
+        }
+
+        sensor_msgs::PointCloud2 masked_msg;
+        pcl::toROSMsg(*cloud, masked_msg);
+        resp.clouds.push_back(masked_msg);
+    }
+
+    return true;
+}
 
 void segmentation_callback(const std_msgs::String::ConstPtr& msg)
 {
@@ -192,6 +233,7 @@ int main(int argc, char** argv)
 
     pub = n.advertise<std_msgs::String>("/segmentation_done", 1);
     vis_cloud_pub = n.advertise<sensor_msgs::PointCloud2>("/retrieval_processing/segmentation_cloud", 1);
+    service = n.advertiseService("/retrieval_segmentation_service", segmentation_service);
 
     ros::Subscriber sub;
     if (bypass) {
