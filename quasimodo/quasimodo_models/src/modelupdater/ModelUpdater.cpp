@@ -2519,9 +2519,9 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				float p_dynamic_tot = (1.0-4.0*minprob)*(p_dynamic+p_dynamic_leftover);
 				float p_static_tot	= (1.0-4.0*minprob)*(p_static+p_static_leftover);
 
-				priors[3*(offset+ind)+0]       = p_moving_tot;
-				priors[3*(offset+ind)+1]       = p_dynamic_tot;
-				priors[3*(offset+ind)+2]       = p_static_tot;
+                priors[3*(offset+ind)+0]       = p_moving_tot;
+                priors[3*(offset+ind)+1]       = p_dynamic_tot;
+                priors[3*(offset+ind)+2]       = p_static_tot;
 
 //				float p_moving_leftover   = -bias+(1-notMoving)*leftover/4.0;
 //				float p_dynamic_leftover  = -bias+0.5*leftover*notMoving + (1-notMoving)*leftover/4.0;
@@ -2556,9 +2556,9 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				point.x = m00*x + m01*y + m02*z + m03;
 				point.y = m10*x + m11*y + m12*z + m13;
 				point.z = m20*x + m21*y + m22*z + m23;
-				point.r = priors[3*(offset+ind)+0]*255.0;
-				point.g = priors[3*(offset+ind)+1]*255.0;
-				point.b = priors[3*(offset+ind)+2]*255.0;
+                point.r = priors[3*(offset+ind)+0]*255.0;
+                point.g = priors[3*(offset+ind)+1]*255.0;
+                point.b = priors[3*(offset+ind)+2]*255.0;
 				cloud->points.push_back(point);
 			}
 		}
@@ -2586,12 +2586,12 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	gc::Graph<double,double,double> * g = new gc::Graph<double,double,double>(current_point,frameConnections+interframeConnections);
 	for(unsigned long i = 0; i < current_point;i++){
 		g -> add_node();
-		double p_fg = priors[3*i+0]+priors[3*i+1];
-		double p_bg = priors[3*i+2];
+        double p_fg = priors[3*i+0]+priors[3*i+1];
+        double p_bg = priors[3*i+2];
 		double norm = p_fg + p_bg;
 		p_fg /= norm;
 		p_bg /= norm;
-		if(priors[3*i+0]+priors[3*i+1]+priors[3*i+2] <= 0){
+        if(priors[3*i+0]+priors[3*i+1]+priors[3*i+2] <= 0){
 			g -> add_tweights( i, 0, 0 );
 			continue;
 		}
@@ -2702,8 +2702,8 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	gc::Graph<double,double,double> * dynamic_g = new gc::Graph<double,double,double>(nr_dynamic,dynamic_frameConnections+dynamic_interframeConnections);
 	for(unsigned long i = 0; i < dyn_ind.size();i++){
 		dynamic_g -> add_node();
-		double p_fg = priors[3*dyn_ind[i]+0];
-		double p_bg = priors[3*dyn_ind[i]+1];
+        double p_fg = priors[3*dyn_ind[i]+0];
+        double p_bg = priors[3*dyn_ind[i]+1];
 		double norm = p_fg+p_bg;
 		p_fg /= norm;
 		p_bg /= norm;
@@ -2832,47 +2832,29 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	end_inf = getTime();
 	printf("dynamic cluster time: %10.10fs\n",end_inf-start_inf);
 	for (unsigned int d = 0; d < dynamic_indices.size(); d++){
-		double score = 0;
+        double score = 0;
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster2 (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-		double sum0 = 0;
-		double sum1 = 0;
-		double sum2 = 0;
-		double totsum = 0;
+
+        double totsum = 0;
 		for (unsigned int ind = 0; ind < dynamic_indices[d].indices.size(); ind++){
 			int pid = dynamic_indices[d].indices[ind];
 			int dind = dynamicdata[pid];
 
-			double p0 = priors[3*dind+0];
-			double p1 = priors[3*dind+1];
-			double p2 = priors[3*dind+2];
+            double p0 = priors[3*dind+0];
+            double p1 = priors[3*dind+1];
+            double p2 = priors[3*dind+2];
 
 			double s = 0;
 			if(valids[dind]){
-				if(p0 > p2){
-					s += p1 - p0;
-				}else{
-					s += p1 - p2;
-				}
-				score += s;
-
-				sum0 += priors[3*dind+0];
-				sum1 += priors[3*dind+1];
-				sum2 += priors[3*dind+2];
+                if(p0 > p2){s += p1 - p0;}
+                else{       s += p1 - p2;}
+                score += s;
 				totsum++;
 			}
 
-
-
-
-
-
-			pcl::PointXYZRGBNormal p = cloud->points[dind];
-
-			p.r = 0;
-			p.g = 0;
-			p.b = 0;
-
+            pcl::PointXYZRGBNormal p = cloud->points[dind];
+            p.r = 0;p.g = 0;p.b = 0;
 			if(s > 0){p.g = 255.0*s;}
 			if(s < 0){p.r = -255.0*s;}
 
@@ -2880,21 +2862,17 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			cloud_cluster2->points.push_back(p);
 		}
 
-		double avg = score/totsum;
-
-		printf("score: %f avg: %f\n",score,avg);
-		printf("sum0: %f sum1: %f sum2: %f\n",sum0,sum1,sum2);
-		if(score > 100){
+//        printf("score: %f avg: %f\n",score,score/totsum);
+        if(score > 200){
 			for (unsigned int ind = 0; ind < dynamic_indices[d].indices.size(); ind++){
 				labels[dynamicdata[dynamic_indices[d].indices[ind]]] = 3;
 			}
 		}
 
-
-		if(cloud_cluster->points.size() > 500){
+        if(false && cloud_cluster->points.size() > 500){
 			viewer->removeAllPointClouds();
 			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster), "cloud_cluster");
-			viewer->spin();
+            viewer->spin();
 
 			viewer->removeAllPointClouds();
 			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster2, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster2), "cloud_cluster");
@@ -2918,38 +2896,93 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	end_inf = getTime();
 	printf("moving cluster time: %10.10fs\n",end_inf-start_inf);
 
-	for (unsigned int d = 0; d < moving_indices.size(); d++){
-		double score = 0;
-		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-		double sum0 = 0;
-		double sum1 = 0;
-		double sum2 = 0;
-		for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
-			int pid = moving_indices[d].indices[ind];
-			int dind = movingdata[pid];
-			score += priors[3*dind+0] -0.5*(priors[3*dind+1]+priors[3*dind+2]);
+    for (unsigned int d = 0; d < moving_indices.size(); d++){
+        double score = 0;
+        pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+        pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster2 (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 
-			sum0 += priors[3*dind+0];
-			sum1 += priors[3*dind+1];
-			sum2 += priors[3*dind+2];
+        double totsum = 0;
+        double sum0 = 0;
+        double sum1 = 0;
+        double sum2 = 0;
+        for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
+            int pid = moving_indices[d].indices[ind];
+            int dind = movingdata[pid];
 
-			cloud_cluster->points.push_back(movingcloud->points[pid]);
-		}
+            double p0 = priors[3*dind+0];
+            double p1 = priors[3*dind+1];
+            double p2 = priors[3*dind+2];
 
-		double avg = score/double(moving_indices[d].indices.size());
-//		printf("score: %f avg: %f\n",score,avg);
-//		printf("sum0: %f sum1: %f sum2: %f\n",sum0,sum1,sum2);
-		if(score > 100){
-			for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
-				labels[movingdata[moving_indices[d].indices[ind]]] = 4;
-			}
-		}
+            double s = 0;
+            if(valids[dind]){
+                if(p1 > p2){s += p0 - p1;}
+                else{       s += p0 - p2;}
+                score += s;
+                totsum++;
+                sum0 += p0;
+                sum1 += p1;
+                sum2 += p2;
+            }
 
-//		if(cloud_cluster->points.size() > 500){
-//			viewer->removeAllPointClouds();
-//			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster), "cloud_cluster");
-//			viewer->spin();
-//		}
+            pcl::PointXYZRGBNormal p = cloud->points[dind];
+            p.r = 0;p.g = 0;p.b = 0;
+            if(s > 0){p.g = 255.0*s;}
+            if(s < 0){p.r = -255.0*s;}
+
+            cloud_cluster->points.push_back(movingcloud->points[pid]);
+            cloud_cluster2->points.push_back(p);
+        }
+
+//        printf("score: %f avg: %f\n",score,score/totsum);
+//        printf("sum: %f %f %f\n",sum0,sum1,sum2);
+        if(score > 200){
+            for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
+                labels[movingdata[moving_indices[d].indices[ind]]] = 4;
+            }
+        }
+
+        if(false && cloud_cluster->points.size() > 500){
+            viewer->removeAllPointClouds();
+            viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster), "cloud_cluster");
+            viewer->spin();
+
+            viewer->removeAllPointClouds();
+            viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster2, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster2), "cloud_cluster");
+            viewer->spin();
+        }
+
+
+//        double score = 0;
+//        pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+//        double sum0 = 0;
+//        double sum1 = 0;
+//        double sum2 = 0;
+//        for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
+//            int pid = moving_indices[d].indices[ind];
+//            int dind = movingdata[pid];
+//            score += priors[3*dind+0] -0.5*(priors[3*dind+1]+priors[3*dind+2]);
+
+//            sum0 += priors[3*dind+0];
+//            sum1 += priors[3*dind+1];
+//            sum2 += priors[3*dind+2];
+
+//            cloud_cluster->points.push_back(movingcloud->points[pid]);
+//        }
+
+//        double avg = score/double(moving_indices[d].indices.size());
+////		printf("score: %f avg: %f\n",score,avg);
+////		printf("sum0: %f sum1: %f sum2: %f\n",sum0,sum1,sum2);
+//        if(score > 100){
+//            for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
+//                labels[movingdata[moving_indices[d].indices[ind]]] = 4;
+//            }
+//        }
+
+////		if(cloud_cluster->points.size() > 500){
+////			viewer->removeAllPointClouds();
+////			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster), "cloud_cluster");
+////			viewer->spin();
+////		}
 	}
 
 
