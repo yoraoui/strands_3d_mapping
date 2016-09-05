@@ -1049,6 +1049,7 @@ void sendCallback(const std_msgs::String::ConstPtr& msg){
 
 int main(int argc, char** argv){
 
+	bool once = false;
 	const rlim_t kStackSize = 256 * 1024 * 1024;   // min stack size = 256 MB
 	struct rlimit rl;
 	unsigned long result;
@@ -1094,6 +1095,7 @@ int main(int argc, char** argv){
 		else if(std::string(argv[i]).compare("-sendModel") == 0){	inputstate = 8;}
 		else if(std::string(argv[i]).compare("-sendSub") == 0)	{	inputstate = 9;}
 		else if(std::string(argv[i]).compare("-sendTopic") == 0){	inputstate = 10;}
+		else if(std::string(argv[i]).compare("-once") == 0){		once = true;}
 		else if(inputstate == 0){
 			if(sendsubs.size() == 0){
 				model_pub = n.advertise<quasimodo_msgs::model>(modelouttopic, 1000);
@@ -1133,7 +1135,7 @@ int main(int argc, char** argv){
 		}
 	}
 
-	ros::spin();
+	if(!once){ros::spin();}
 	printf("done...\n");
 	return 0;
 }

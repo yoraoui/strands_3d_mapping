@@ -340,7 +340,7 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 
 	DistanceWeightFunction2 * func = new DistanceWeightFunction2();
 	func->f = THRESHOLD;
-	func->p = 0.01;
+	func->p = 0.02;
 
 	Eigen::MatrixXd X = Eigen::MatrixXd::Zero(1,residuals.size());
 	for(unsigned int i = 0; i < residuals.size(); i++){X(0,i) = residuals[i];}
@@ -2515,9 +2515,13 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				float p_dynamic_leftover  = -bias+0.5*leftover*notMoving + (1-notMoving)*leftover/4.0;
 				float p_static_leftover   = 2.0*bias+0.5*leftover*notMoving + (1-notMoving)*leftover/2.0;
 
-				float p_moving_tot	= (1.0-4.0*minprob)*(p_moving+p_moving_leftover);
-				float p_dynamic_tot = (1.0-4.0*minprob)*(p_dynamic+p_dynamic_leftover);
-				float p_static_tot	= (1.0-4.0*minprob)*(p_static+p_static_leftover);
+//				float p_moving_tot	= (1.0-4.0*minprob)*(p_moving+p_moving_leftover);
+//				float p_dynamic_tot = (1.0-4.0*minprob)*(p_dynamic+p_dynamic_leftover);
+//				float p_static_tot	= (1.0-4.0*minprob)*(p_static+p_static_leftover);
+
+				float p_moving_tot	= (1.0-4.0*minprob)*(p_moving+p_moving_leftover)	+ minprob;
+				float p_dynamic_tot = (1.0-4.0*minprob)*(p_dynamic+p_dynamic_leftover)	+ minprob;
+				float p_static_tot	= (1.0-4.0*minprob)*(p_static+p_static_leftover)	+ 2.0*minprob;
 
                 priors[3*(offset+ind)+0]       = p_moving_tot;
                 priors[3*(offset+ind)+1]       = p_dynamic_tot;
@@ -2527,9 +2531,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 //				float p_dynamic_leftover  = -bias+0.5*leftover*notMoving + (1-notMoving)*leftover/4.0;
 //				float p_static_leftover   = 2.0*bias+0.5*leftover*notMoving + (1-notMoving)*leftover/2.0;
 
-//				float p_moving_tot	= (1.0-4.0*minprob)*(p_moving+p_moving_leftover)	+ minprob;
-//				float p_dynamic_tot = (1.0-4.0*minprob)*(p_dynamic+p_dynamic_leftover)	+ minprob;
-//				float p_static_tot	= (1.0-4.0*minprob)*(p_static+p_static_leftover)	+ 2.0*minprob;
+
 
 //				priors[3*(offset+ind)+0]       = p_moving_tot;
 //				priors[3*(offset+ind)+1]       = p_dynamic_tot;
@@ -3907,7 +3909,7 @@ OcclusionScore ModelUpdater::computeOcclusionScore(RGBDFrame * src, ModelMask * 
 
 	DistanceWeightFunction2 * func = new DistanceWeightFunction2();
 	func->f = THRESHOLD;
-	func->p = 0.01;
+	func->p = 0.02;
 
 	Eigen::MatrixXd X = Eigen::MatrixXd::Zero(1,residuals.size());
 	for(unsigned int i = 0; i < residuals.size(); i++){X(0,i) = residuals[i];}

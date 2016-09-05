@@ -78,7 +78,7 @@ printf("expectedCost: %f\n",expectedCost);
 			unsigned int nr_models1 = models.size();
 			addModelsToVector(models,rps,model2,pose);
 
-            vector<vector < OcclusionScore > > ocs = computeOcclusionScore(models,rps,step,false);
+			vector<vector < OcclusionScore > > ocs = computeOcclusionScore(models,rps,step,false);
 			std::vector<std::vector < float > > scores = getScores(ocs);
 			std::vector<int> partition = getPartition(scores,2,5,2);
 
