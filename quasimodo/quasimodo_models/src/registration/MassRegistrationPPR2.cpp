@@ -527,10 +527,12 @@ void MassRegistrationPPR2::setData(std::vector<RGBDFrame*> frames_,std::vector<M
 }
 
 double matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, long nr_ap, double * ap, std::vector<long > & matchid, std::vector<double> & matchdist, Tree3d * t3d, double & new_good_rematches, double & new_total_rematches){
+	printf("matchframes\n");
 	const double & m00 = rp(0,0); const double & m01 = rp(0,1); const double & m02 = rp(0,2); const double & m03 = rp(0,3);
 	const double & m10 = rp(1,0); const double & m11 = rp(1,1); const double & m12 = rp(1,2); const double & m13 = rp(1,3);
 	const double & m20 = rp(2,0); const double & m21 = rp(2,1); const double & m22 = rp(2,2); const double & m23 = rp(2,3);
 
+	//printf("nr_ap: %i\n",nr_ap);
 	matchid.resize(nr_ap);
 	matchdist.resize(nr_ap);
 
@@ -544,6 +546,8 @@ double matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, long nr_
 	#pragma omp parallel for num_threads(8)
 #endif
 	for(unsigned long k = 0; k < nr_ap; ++k) {
+
+		//printf("k: %i\n",k);
 		long prev = matchid[k];
 		double qp [3];
 		const double & src_x = ap[3*k+0];
@@ -553,6 +557,8 @@ double matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, long nr_
 		qp[0] = m00*src_x + m01*src_y + m02*src_z + m03;
 		qp[1] = m10*src_x + m11*src_y + m12*src_z + m13;
 		qp[2] = m20*src_x + m21*src_y + m22*src_z + m23;
+
+		//printf("qp: %f %f %f\n",qp[0],qp[1],qp[2]);
 
 		size_t ret_index; double out_dist_sqr;
 		nanoflann::KNNResultSet<double> resultSet(1);
@@ -665,7 +671,7 @@ double update_matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, l
 }
 
 void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vector<Eigen::Matrix4d> prev_poses, bool first){
-	//printf("rematch\n");
+	printf("start rematch\n");
 	double new_good_rematches = 0;
 	double new_total_rematches = 0;
 	unsigned long nr_frames = poses.size();
@@ -713,14 +719,16 @@ void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vect
 
 
                 double ratiosum = 0;
-				if(use_depthedge){
+				if(use_depthedge && depthedge_nr_arraypoints[i] > 10 && depthedge_nr_arraypoints[j] > 10){
 //					if(rand()%100 == 0){
 //						update_matchframes(depthedge_func,rp,depthedge_nr_arraypoints[i],depthedge_arraypoints[i],depthedge_matchids[i][j],depthedge_matchdists[i][j],depthedge_arraypoints[j],depthedge_nr_neighbours, depthedge_neighbours[j],depthedge_trees3d[j], new_good_rematches,new_total_rematches);
 //						exit(0);
 //					}
+					//printf("use_depthedge\n");
                     ratiosum += matchframes(depthedge_func,rp, depthedge_nr_arraypoints[i], depthedge_arraypoints[i], depthedge_matchids[i][j], depthedge_matchdists[i][j],depthedge_trees3d[j],	new_good_rematches,new_total_rematches);
                 }
-				if(use_surface){
+				if(use_surface && nr_arraypoints[i] > 10 && nr_arraypoints[j] > 10){
+					printf("use_surface\n");
                     ratiosum += matchframes(func,rp, nr_arraypoints[i], arraypoints[i], matchids[i][j], matchdists[i][j],trees3d[j],	new_good_rematches,new_total_rematches);
 				}
 

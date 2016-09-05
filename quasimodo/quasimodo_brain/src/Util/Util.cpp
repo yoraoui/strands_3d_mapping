@@ -56,7 +56,7 @@ reglib::Model * getModelFromMSG(quasimodo_msgs::model & msg){
 	return model;
 }
 
-void addToModelMSG(quasimodo_msgs::model & msg, reglib::Model * model, Eigen::Affine3d rp){
+void addToModelMSG(quasimodo_msgs::model & msg, reglib::Model * model, Eigen::Affine3d rp, bool addClouds){
 	int startsize = msg.local_poses.size();
 	msg.local_poses.resize(startsize+model->relativeposes.size());
 	msg.frames.resize(startsize+model->frames.size());
@@ -81,23 +81,27 @@ void addToModelMSG(quasimodo_msgs::model & msg, reglib::Model * model, Eigen::Af
 		msg.frames[startsize+i].frame_id		= model->frames[i]->id;
 		msg.frames[startsize+i].rgb				= *(rgbBridgeImage.toImageMsg());
 		msg.frames[startsize+i].depth			= *(depthBridgeImage.toImageMsg());
-		msg.masks[startsize+i]					= *(maskBridgeImage.toImageMsg());//getMask()
+		msg.masks[startsize+i]					= *(maskBridgeImage.toImageMsg());
 
 		msg.frames[startsize+i].camera.K[0] = model->frames[i]->camera->fx;
 		msg.frames[startsize+i].camera.K[4] = model->frames[i]->camera->fy;
 		msg.frames[startsize+i].camera.K[2] = model->frames[i]->camera->cx;
 		msg.frames[startsize+i].camera.K[5] = model->frames[i]->camera->cy;
 
+		sensor_msgs::PointCloud2 output;
+		pcl::toROSMsg(*(model->frames[i]->getPCLcloud()), output);
+
+		msg.clouds.push_back(output);
 	}
 	for(unsigned int i = 0; i < model->submodels_relativeposes.size(); i++){
-		addToModelMSG(msg,model->submodels[i],Eigen::Affine3d(model->submodels_relativeposes[i])*rp);
+		addToModelMSG(msg,model->submodels[i],Eigen::Affine3d(model->submodels_relativeposes[i])*rp,addClouds);
 	}
 }
 
-quasimodo_msgs::model getModelMSG(reglib::Model * model){
+quasimodo_msgs::model getModelMSG(reglib::Model * model, bool addClouds){
 	quasimodo_msgs::model msg;
 	msg.model_id = model->id;
-	addToModelMSG(msg,model);
+	addToModelMSG(msg,model,Eigen::Affine3d::Identity(),addClouds);
 
 
 	return msg;

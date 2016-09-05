@@ -32,13 +32,17 @@
 
 #include "metaroom_xml_parser/simple_xml_parser.h"
 
+#include <ros/ros.h>
+#include <pcl_ros/point_cloud.h>
+#include <pcl/point_types.h>
+
 namespace quasimodo_brain {
 
 double getTime();
 reglib::Model * getModelFromMSG(quasimodo_msgs::model & msg);
 
-void addToModelMSG(quasimodo_msgs::model & msg, reglib::Model * model, Eigen::Affine3d rp = Eigen::Affine3d::Identity());
-quasimodo_msgs::model getModelMSG(reglib::Model * model);
+void addToModelMSG(quasimodo_msgs::model & msg, reglib::Model * model, Eigen::Affine3d rp = Eigen::Affine3d::Identity(), bool addClouds = false);
+quasimodo_msgs::model getModelMSG(reglib::Model * model, bool addClouds = false);
 
 std::vector<Eigen::Matrix4f> getRegisteredViewPoses(const std::string& poses_file, const int& no_transforms);
 

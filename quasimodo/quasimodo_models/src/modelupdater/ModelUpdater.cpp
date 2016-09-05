@@ -239,6 +239,7 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 	unsigned char  * dst_rgbdata		= (unsigned char	*)(cf->rgb.data);
 	unsigned short * dst_depthdata		= (unsigned short	*)(cf->depth.data);
 	float		   * dst_normalsdata	= (float			*)(cf->normals.data);
+	unsigned char  * dst_detdata		= (unsigned char	*)(cf->det_dilate.data);
 
 	float m00 = cp(0,0); float m01 = cp(0,1); float m02 = cp(0,2); float m03 = cp(0,3);
 	float m10 = cp(1,0); float m11 = cp(1,1); float m12 = cp(1,2); float m13 = cp(1,3);
@@ -298,6 +299,7 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 			float dst_z = dst_idepth*float(dst_depthdata[dst_ind]);
 			float dst_nx = dst_normalsdata[3*dst_ind+0];
 			if(dst_z > 0 && dst_nx != 2){
+				if(dst_detdata[dst_ind] != 0){continue;}
 				float dst_ny = dst_normalsdata[3*dst_ind+1];
 				float dst_nz = dst_normalsdata[3*dst_ind+2];
 
@@ -2309,7 +2311,7 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 							if(dst_detdata[dst_ind] != 0){continue;}
 							if(src_detdata[src_ind] != 0){continue;}
 
-							overlaps[src_ind] = std::max(overlaps[src_ind],p_overlap);
+							overlaps[src_ind] = std::min(0.9,std::max(overlaps[src_ind],p_overlap));
 							occlusions[src_ind] = std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
 						}
 //                        if(fabs(d) < 0.02){//If close, according noises, and angle of the surfaces similar: FUSE
@@ -2864,14 +2866,14 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			cloud_cluster2->points.push_back(p);
 		}
 
-//        printf("score: %f avg: %f\n",score,score/totsum);
+		printf("score: %f avg: %f\n",score,score/totsum);
         if(score > 200){
 			for (unsigned int ind = 0; ind < dynamic_indices[d].indices.size(); ind++){
 				labels[dynamicdata[dynamic_indices[d].indices[ind]]] = 3;
 			}
 		}
 
-        if(false && cloud_cluster->points.size() > 500){
+		if(false && cloud_cluster->points.size() > 500){
 			viewer->removeAllPointClouds();
 			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster), "cloud_cluster");
             viewer->spin();

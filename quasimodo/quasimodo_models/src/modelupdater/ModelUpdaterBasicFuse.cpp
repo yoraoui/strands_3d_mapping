@@ -110,6 +110,8 @@ printf("expectedCost: %f\n",expectedCost);
 			printf("improvement: %f\n",improvement);
 
 			if(improvement > best){
+				computeOcclusionScore(models,rps,step,false);
+
 				best = improvement;
 				best_id = ca;
 			}
