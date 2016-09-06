@@ -13,10 +13,10 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/common/transformation_from_correspondences.h>
-#include <pcl_ros/transforms.h>
-#include <pcl_ros/point_cloud.h>
-#include <pcl/ros/conversions.h>
-#include <pcl_conversions/pcl_conversions.h>
+//#include <pcl_ros/transforms.h>
+//#include <pcl_ros/point_cloud.h>
+//#include <pcl/ros/conversions.h>
+//#include <pcl_conversions/pcl_conversions.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
 //#include "ICP.h"

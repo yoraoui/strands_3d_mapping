@@ -168,7 +168,7 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 
     #pragma omp parallel for num_threads(8)
 	for(unsigned int r = 0; r < nr_r; r++){
-        printf("registering: %i / %i\n",r+1,nr_r);
+		//printf("registering: %i / %i\n",r+1,nr_r);
 		double start = getTime();
 
 		double meantime = 999999999999;
