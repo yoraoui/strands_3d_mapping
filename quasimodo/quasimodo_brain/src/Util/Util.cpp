@@ -88,8 +88,10 @@ void addToModelMSG(quasimodo_msgs::model & msg, reglib::Model * model, Eigen::Af
 		msg.frames[startsize+i].camera.K[2] = model->frames[i]->camera->cx;
 		msg.frames[startsize+i].camera.K[5] = model->frames[i]->camera->cy;
 
+		if(addClouds){}
 		sensor_msgs::PointCloud2 output;
 		pcl::toROSMsg(*(model->frames[i]->getPCLcloud()), output);
+		printf("outputcloud: %i %i\n",output.point_step,output.row_step);
 
 		msg.clouds.push_back(output);
 	}

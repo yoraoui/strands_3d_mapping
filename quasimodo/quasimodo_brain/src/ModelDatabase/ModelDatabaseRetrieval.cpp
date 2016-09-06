@@ -14,7 +14,7 @@ ModelDatabaseRetrieval::~ModelDatabaseRetrieval(){}
 
 bool ModelDatabaseRetrieval::add(reglib::Model * model){
 	quasimodo_msgs::insert_model im;
-	im.request.model = quasimodo_brain::getModelMSG(model);
+	im.request.model = quasimodo_brain::getModelMSG(model,true);
 	im.request.action = im.request.INSERT;
 	if (insert_client.call(im)){
 		object_ids.push_back(im.response.object_id);
@@ -58,7 +58,7 @@ std::vector<reglib::Model *> ModelDatabaseRetrieval::search(reglib::Model * mode
 	std::vector<reglib::Model *> ret;
 
 	quasimodo_msgs::model_to_retrieval_query m2r;
-	m2r.request.model = quasimodo_brain::getModelMSG(model);
+	m2r.request.model = quasimodo_brain::getModelMSG(model,true);
 	if (conversion_client.call(m2r)){
 		quasimodo_msgs::query_cloud qc;
 		qc.request.query = m2r.response.query;
