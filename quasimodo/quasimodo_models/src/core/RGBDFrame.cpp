@@ -2102,7 +2102,7 @@ pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr RGBDFrame::getPCLcloud(){
 }
 
 void RGBDFrame::savePCD(std::string path, Eigen::Matrix4d pose){
-    printf("saving pcd: %s\n",path.c_str());
+   // printf("saving pcd: %s\n",path.c_str());
     unsigned char * rgbdata = (unsigned char *)rgb.data;
     unsigned short * depthdata = (unsigned short *)depth.data;
 

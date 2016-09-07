@@ -25,7 +25,7 @@
 #include <pcl/ModelCoefficients.h>
 #include <pcl/point_types.h>
 #include <pcl/io/pcd_io.h>
-#include <pcl/filters/extract_indices.h>
+//#include <pcl/filters/extract_indices.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/kdtree/kdtree.h>
@@ -41,6 +41,23 @@ namespace reglib
     using namespace std;
     using namespace Eigen;
     using namespace cv;
+
+
+	class ReprojectionResult{
+		public:
+		unsigned long	src_ind;
+		unsigned long	dst_ind;
+		double			residual;
+		double			angle;
+
+		ReprojectionResult(unsigned long si, unsigned long di, double r, double a){
+			src_ind = si;
+			dst_ind = di;
+			residual = r;
+			angle = a;
+		}
+	};
+
 	class UpdatedModels{
 		public:
 		std::vector< Model * > new_models;

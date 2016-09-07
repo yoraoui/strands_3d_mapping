@@ -7,8 +7,6 @@ namespace reglib
 unsigned int camera_id_count = 0;
 
 Camera::Camera(){
-	printf("new camera: %ld\n",this);
-
 	id = camera_id_count++;
 
 	width = 640;

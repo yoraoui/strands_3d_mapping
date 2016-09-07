@@ -60,6 +60,7 @@ int show_init_lvl = 0;//init show
 int show_refine_lvl = 0;//refine show
 int show_reg_lvl = 0;//registration show
 bool show_scoring = false;//fuse scoring show
+bool show_search = false;
 
 
 std::map<int , reglib::Camera *>		cameras;
@@ -161,11 +162,11 @@ void dumpDatabase(std::string path = "."){
 
     char command [1024];
     sprintf(command,"rm -r -f %s/database_tmp",path.c_str());
-    printf("%s\n",command);
+	//printf("%s\n",command);
     int r = system(command);
 
     sprintf(command,"mkdir %s/database_tmp",path.c_str());
-    printf("%s\n",command);
+	//printf("%s\n",command);
     r = system(command);
 
     for(unsigned int m = 0; m < modeldatabase->models.size(); m++){
@@ -210,22 +211,12 @@ void retrievalCallback(const quasimodo_msgs::retrieval_query_result & qr){
 	last_search_result_time = getTime();
 }
 
-
-int savecounter = 0;
-void show_sorted(){
-	printf("show_sorted\n");
-    if(!show_db){return;}
-	if(!visualization){return;}
-	std::vector<reglib::Model *> results;
-	for(unsigned int i = 0; i < modeldatabase->models.size(); i++){results.push_back(modeldatabase->models[i]);}
-	std::sort (results.begin(), results.end(), myfunction);
+void showModels(std::vector<reglib::Model *> mods){
 	viewer->removeAllPointClouds();
 	float maxx = 0;
 
-
-	printf("pre->loop\n");
-	for(unsigned int i = 0; i < results.size(); i++){
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = results[i]->getPCLcloud(1, false);
+	for(unsigned int i = 0; i < mods.size(); i++){
+		pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = mods[i]->getPCLcloud(1, false);
 		float meanx = 0;
 		float meany = 0;
 		float meanz = 0;
@@ -254,6 +245,52 @@ void show_sorted(){
 		viewer->addPointCloud<pcl::PointXYZRGB> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cloud), buf);
 	}
 	viewer->spin();
+}
+
+int savecounter = 0;
+void show_sorted(){
+	//printf("show_sorted\n");
+    if(!show_db){return;}
+	if(!visualization){return;}
+	std::vector<reglib::Model *> results;
+	for(unsigned int i = 0; i < modeldatabase->models.size(); i++){results.push_back(modeldatabase->models[i]);}
+	std::sort (results.begin(), results.end(), myfunction);
+	showModels(results);
+
+//	viewer->removeAllPointClouds();
+//	float maxx = 0;
+
+//	printf("pre->loop\n");
+//	for(unsigned int i = 0; i < results.size(); i++){
+//        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = results[i]->getPCLcloud(1, false);
+//		float meanx = 0;
+//		float meany = 0;
+//		float meanz = 0;
+//		for(unsigned int j = 0; j < cloud->points.size(); j++){
+//			meanx += cloud->points[j].x;
+//			meany += cloud->points[j].y;
+//			meanz += cloud->points[j].z;
+//		}
+//		meanx /= float(cloud->points.size());
+//		meany /= float(cloud->points.size());
+//		meanz /= float(cloud->points.size());
+
+//		for(unsigned int j = 0; j < cloud->points.size(); j++){
+//			cloud->points[j].x -= meanx;
+//			cloud->points[j].y -= meany;
+//			cloud->points[j].z -= meanz;
+//		}
+
+//		float minx = 100000000000;
+
+//		for(unsigned int j = 0; j < cloud->points.size(); j++){minx = std::min(cloud->points[j].x , minx);}
+//		for(unsigned int j = 0; j < cloud->points.size(); j++){cloud->points[j].x += maxx-minx + 0.15;}
+//		for(unsigned int j = 0; j < cloud->points.size(); j++){maxx = std::max(cloud->points[j].x,maxx);}
+//		char buf [1024];
+//		sprintf(buf,"cloud%i",i);
+//		viewer->addPointCloud<pcl::PointXYZRGB> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cloud), buf);
+//	}
+//	viewer->spin();
 	//char buf [1024];
 	//sprintf(buf,"globalimg%i.png",savecounter++);
 	//viewer->saveScreenshot(std::string(buf));
@@ -460,7 +497,7 @@ void call_from_thread(int i) {
 }
 
 void addToDB(ModelDatabase * database, reglib::Model * model, bool add = true, bool deleteIfFail = false){
-	printf("addToDB %i %i\n",int(add),int(deleteIfFail));
+	//printf("addToDB %i %i\n",int(add),int(deleteIfFail));
 
 	if(add){
 		if(model->submodels.size() > 2){
@@ -485,6 +522,7 @@ void addToDB(ModelDatabase * database, reglib::Model * model, bool add = true, b
 show_sorted();
 	mod = model;
 	res = modeldatabase->search(model,3);
+	if(show_search){showModels(res);}
 
 	printf("results found: %i\n",int(res.size()));
 	fr_res.resize(res.size());
@@ -545,9 +583,9 @@ show_sorted();
 			if(ud.deleted_models.size() > 0){changed = true; break;}
 		}
 	}else{
-		printf("TIME TO ITERATE THROUGH RESULTS\n");
+//		printf("TIME TO ITERATE THROUGH RESULTS\n");
 		for(unsigned int i = 0; i < res.size(); i++){
-			printf("TESTING %i\n",i);
+//			printf("TESTING %i\n",i);
 			reglib::Model * model2 = res[i];
 			reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 			reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model2, reg);
@@ -564,10 +602,10 @@ show_sorted();
 
 			if(fr.score > 100){
 				reglib::UpdatedModels ud = mu->fuseData(&fr, model2, model);
-				printf("merge %i to %i\n",int(model->id),int(model2->id));
-				printf("new_models:     %i\n",int(ud.new_models.size()));
-				printf("updated_models: %i\n",int(ud.updated_models.size()));
-				printf("deleted_models: %i\n",int(ud.deleted_models.size()));
+//				printf("merge %i to %i\n",int(model->id),int(model2->id));
+//				printf("new_models:     %i\n",int(ud.new_models.size()));
+//				printf("updated_models: %i\n",int(ud.updated_models.size()));
+//				printf("deleted_models: %i\n",int(ud.deleted_models.size()));
 
 				for(unsigned int j = 0; j < ud.new_models.size(); j++){		new_models[ud.new_models[j]->id]			= ud.new_models[j];}
 				for(unsigned int j = 0; j < ud.updated_models.size(); j++){	updated_models[ud.updated_models[j]->id]	= ud.updated_models[j];}
@@ -580,7 +618,7 @@ show_sorted();
 					changed = true;
 					delete mu;
 					delete reg;
-					printf("DONE TESTING %i\n",i);
+					//printf("DONE TESTING %i\n",i);
 					break;
 				}
 			}
@@ -588,7 +626,7 @@ show_sorted();
 			delete mu;
 			delete reg;
 
-			printf("DONE TESTING %i\n",i);
+			//printf("DONE TESTING %i\n",i);
 		}
 	}
 
@@ -617,7 +655,7 @@ show_sorted();
 		addToDB(database, it->second);
 	}
 
-	printf("end of addToDB: %i %i",int(add),int(deleteIfFail));
+	//printf("end of addToDB: %i %i",int(add),int(deleteIfFail));
 	if(deleteIfFail){
 		if(!changed){
 			printf("didnt manage to integrate searchresult\n");
@@ -638,7 +676,7 @@ show_sorted();
 
 
 void addNewModel(reglib::Model * model){
-	printf("model: %i\n",model->frames.size());
+	//printf("model: %i\n",model->frames.size());
 
 
 	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
@@ -652,9 +690,9 @@ void addNewModel(reglib::Model * model){
 	mu->show_scoring					= show_scoring;//fuse scoring show
 	reg->visualizationLvl				= show_reg_lvl;
 
-	model->print();
+	//model->print();
 	mu->makeInitialSetup();
-	model->print();
+	//model->print();
 
 	delete mu;
 	delete reg;
@@ -1053,9 +1091,9 @@ bool modelFromFrame(quasimodo_msgs::model_from_frame::Request  & req, quasimodo_
         mu->show_scoring = show_scoring;//fuse scoring show
         reg->visualizationLvl				= show_reg_lvl;
 
-newmodel->print();
+//newmodel->print();
 		mu->makeInitialSetup();
-newmodel->print();
+//newmodel->print();
 delete mu;
 delete reg;
 
@@ -1584,6 +1622,7 @@ int main(int argc, char **argv){
 		else if(std::string(argv[i]).compare("-v_db") == 0){        printf("visualization db turned on\n");             visualization = true; show_db = true;}
 		else if(std::string(argv[i]).compare("-intopic") == 0){	printf("intopic input state\n");	inputstate = 11;}
 		else if(std::string(argv[i]).compare("-mdb") == 0){	printf("intopic input state\n");	inputstate = 12;}
+		else if(std::string(argv[i]).compare("-show_search") == 0){	printf("show_search\n");	show_search = true;}
 		else if(inputstate == 1){
 			reglib::Camera * cam = reglib::Camera::load(std::string(argv[i]));
 			delete cameras[0];

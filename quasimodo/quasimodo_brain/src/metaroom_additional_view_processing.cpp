@@ -179,11 +179,14 @@ void writeXml(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames, st
 		xmlWriter->writeStartElement("View");
 		sprintf(buf,"%s/view_RGB%10.10i.png",sweep_folder.c_str(),i);
 		cv::imwrite(buf, frame->rgb );
+
+		sprintf(buf,"view_RGB%10.10i.png",i);
 		xmlWriter->writeAttribute("RGB", QString(buf));
 
 
 		sprintf(buf,"%s/view_DEPTH%10.10i.png",sweep_folder.c_str(),i);
 		cv::imwrite(buf, frame->depth );
+		sprintf(buf,"view_DEPTH%10.10i.png",i);
 		xmlWriter->writeAttribute("DEPTH", QString(buf));
 
 		long nsec = 1e9*((frame->capturetime)-std::floor(frame->capturetime));
@@ -289,7 +292,7 @@ void readViewXML(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames,
 
 	QString xmlFileQS(xmlFile.c_str());
 	int index = xmlFileQS.lastIndexOf('/');
-	QString roomFolder = xmlFileQS.left(index);
+	std::string roomFolder = xmlFileQS.left(index).toStdString();
 
 
 	file.open(QIODevice::ReadOnly);
@@ -323,17 +326,25 @@ void readViewXML(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames,
 				QXmlStreamAttributes attributes = xmlReader->attributes();
 				if (attributes.hasAttribute("RGB"))
 				{
-					QString rgbpath = attributes.value("RGB").toString();
-					//printf("rgb filename: %s\n",rgbpath.toStdString().c_str());
-					rgb = cv::imread(rgbpath.toStdString().c_str(), CV_LOAD_IMAGE_UNCHANGED);
+					std::string imgpath = attributes.value("RGB").toString().toStdString();
+					printf("rgb filename: %s\n",(roomFolder+"/"+imgpath).c_str());
+					rgb = cv::imread(roomFolder+"/"+imgpath, CV_LOAD_IMAGE_UNCHANGED);
+
+					//QString rgbpath = attributes.value("RGB").toString();
+					//rgb = cv::imread(roomFolder+"/"+(rgbpath.toStdString().c_str()), CV_LOAD_IMAGE_UNCHANGED);
+					//rgb = cv::imread((rgbpath.toStdString()).c_str(), CV_LOAD_IMAGE_UNCHANGED);
 				}else{break;}
 
 
 				if (attributes.hasAttribute("DEPTH"))
 				{
-					QString depthpath = attributes.value("DEPTH").toString();
+					std::string imgpath = attributes.value("DEPTH").toString().toStdString();
+					printf("depth filename: %s\n",(roomFolder+"/"+imgpath).c_str());
+					depth = cv::imread(roomFolder+"/"+imgpath, CV_LOAD_IMAGE_UNCHANGED);
+					//QString depthpath = attributes.value("DEPTH").toString();
 					//printf("depth filename: %s\n",depthpath.toStdString().c_str());
-					depth = cv::imread(depthpath.toStdString().c_str(), CV_LOAD_IMAGE_UNCHANGED);
+					//depth = cv::imread((roomFolder+"/"+depthpath.toStdString()).c_str(), CV_LOAD_IMAGE_UNCHANGED);
+					//depth = cv::imread(roomFolder+"/"+(depthpath.toStdString().c_str()), CV_LOAD_IMAGE_UNCHANGED);
 				}else{break;}
 
 
@@ -539,7 +550,7 @@ void savePoses(std::string xmlFile, std::vector<Eigen::Matrix4d> poses, int maxp
 	xmlWriter->writeStartDocument();
 	xmlWriter->writeStartElement("Poses");
 	//	xmlWriter->writeAttribute("number_of_poses", QString::number(poses.size()));
-	for(unsigned int i = 0; i < poses.size() && (i == -1 || i < maxposes); i++){
+	for(unsigned int i = 0; i < poses.size() && (maxposes == -1 || int(i) < maxposes); i++){
 		printf("saving %i\n",i);
 		xmlWriter->writeStartElement("Pose");
 		writePose(xmlWriter,poses[i]);
@@ -627,7 +638,7 @@ void processMetaroom(std::string path){
 
 	int prevind = -1;
 	std::vector<std::string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<pcl::PointXYZRGB>(overall_folder);
-	for (int i = 0; i < sweep_xmls.size(); i++){
+	for (unsigned int i = 0; i < sweep_xmls.size(); i++){
 		SimpleXMLParser<pcl::PointXYZRGB>::RoomData other_roomData  = parser.loadRoomFromXML(sweep_xmls[i],std::vector<std::string>(),false,false);
 		std::string other_waypointid = other_roomData.roomWaypointId;
 
@@ -753,7 +764,7 @@ printf("%s::%i\n",__FILE__,__LINE__);
 //				viewer->spin();
 //			}
 printf("%s::%i\n",__FILE__,__LINE__);
-			printf("dynamiccloud: %i\n",dynamiccloud->points.size());
+			printf("dynamiccloud: %i\n",int(dynamiccloud->points.size()));
 			if(dynamiccloud->points.size() > 0){
 				printf("%s::%i\n",__FILE__,__LINE__);
 				// Creating the KdTree object for the search method of the extraction
@@ -806,6 +817,8 @@ printf("%s::%i\n",__FILE__,__LINE__);
 						char buf [1024];
 						sprintf(buf,"%s/dynamicmask_%i_%i.png",sweep_folder.c_str(),d,j);
 						cv::imwrite(buf, mask );
+
+						sprintf(buf,"dynamicmask_%i_%i.png",d,j);
 						xmlWriter->writeStartElement("Mask");
 						xmlWriter->writeAttribute("filename", QString(buf));
 						xmlWriter->writeAttribute("image_number", QString::number(j));
@@ -819,7 +832,7 @@ printf("%s::%i\n",__FILE__,__LINE__);
 			}
 
 
-			printf("movingcloud: %i\n",movingcloud->points.size());
+			printf("movingcloud: %i\n",int(movingcloud->points.size()));
 			if(movingcloud->points.size() > 0){
 				// Creating the KdTree object for the search method of the extraction
 				pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr movingtree (new pcl::search::KdTree<pcl::PointXYZRGBNormal>);
@@ -996,8 +1009,9 @@ std::vector<reglib::Model *> loadModels(std::string path){
 					QXmlStreamAttributes attributes = xmlReader->attributes();
 					if (attributes.hasAttribute("filename")){
 						QString maskpath = attributes.value("filename").toString();
-						printf("mask filename: %s\n",maskpath.toStdString().c_str());
-						mask = cv::imread(maskpath.toStdString().c_str(), CV_LOAD_IMAGE_UNCHANGED);
+						//printf("mask filename: %s\n",(sweep_folder+maskpath.toStdString()).c_str());
+						mask = cv::imread(sweep_folder+"/"+(maskpath.toStdString().c_str()), CV_LOAD_IMAGE_UNCHANGED);
+						//mask = cv::imread((maskpath.toStdString()).c_str(), CV_LOAD_IMAGE_UNCHANGED);
 					}else{break;}
 
 
@@ -1006,8 +1020,6 @@ std::vector<reglib::Model *> loadModels(std::string path){
 						QString depthpath = attributes.value("image_number").toString();
 						number = atoi(depthpath.toStdString().c_str());
 						printf("number: %i\n",number);
-
-
 					}else{break;}
 
 					mod->frames.push_back(frames[number]->clone());
@@ -1061,7 +1073,7 @@ int main(int argc, char** argv){
 			rl.rlim_cur = kStackSize;
 			result = setrlimit(RLIMIT_STACK, &rl);
 			if (result != 0){
-				fprintf(stderr, "setrlimit returned result = %d\n", result);
+				fprintf(stderr, "setrlimit returned result = %d\n", int(result));
 			}
 			//printf("result: %ld mb and %ld mb\n",rl.rlim_cur/(1024*1024),rl.rlim_max/(1024*1024));
 		}

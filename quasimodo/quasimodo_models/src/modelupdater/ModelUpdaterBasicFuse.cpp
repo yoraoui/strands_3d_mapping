@@ -30,7 +30,7 @@ ModelUpdaterBasicFuse::ModelUpdaterBasicFuse(Model * model_, Registration * regi
 }
 
 ModelUpdaterBasicFuse::~ModelUpdaterBasicFuse(){
-	printf("deleting ModelUpdaterBasicFuse\n");
+	//printf("deleting ModelUpdaterBasicFuse\n");
 }
 
 FusionResults ModelUpdaterBasicFuse::registerModel(Model * model2, Eigen::Matrix4d guess, double uncertanity){
@@ -44,10 +44,10 @@ double register_setup_start = getTime();
 
 		CloudData * cd2	= model2->getCD(model2->points.size()/step2);
 		registration->setSrc(cd2);
-printf("register_setup_start:          %5.5f\n",getTime()-register_setup_start);
+//printf("register_setup_start:          %5.5f\n",getTime()-register_setup_start);
 double register_compute_start = getTime();
 		FusionResults fr = registration->getTransform(guess);
-printf("register_compute_start:          %5.5f\n",getTime()-register_compute_start);
+//printf("register_compute_start:          %5.5f\n",getTime()-register_compute_start);
         double best = -99999999999999;
         int best_id = -1;
 double register_evaluate_start = getTime();
@@ -59,7 +59,7 @@ addModelsToVector(testmodels,testrps,model2,Eigen::Matrix4d::Identity());
 
 int todo = fr.candidates.size();
 double expectedCost = double(todo)*computeOcclusionScoreCosts(testmodels);
-printf("expectedCost: %f\n",expectedCost);
+//printf("expectedCost: %f\n",expectedCost);
 
 
 		int step = 0.5 + expectedCost/11509168.5;// ~1 sec predicted
@@ -107,7 +107,7 @@ printf("expectedCost: %f\n",expectedCost);
 			}
 
 			double improvement = sumscore2-sumscore1;
-			printf("improvement: %f\n",improvement);
+			//printf("improvement: %f\n",improvement);
 
 			if(improvement > best){
 				computeOcclusionScore(models,rps,step,false);
@@ -117,7 +117,7 @@ printf("expectedCost: %f\n",expectedCost);
 			}
 		}
 
-printf("register_evaluate_start:          %5.5f\n",getTime()-register_evaluate_start);
+//printf("register_evaluate_start:          %5.5f\n",getTime()-register_evaluate_start);
 
         if(best_id != -1){
             fr.score = 9999999;
@@ -139,12 +139,12 @@ UpdatedModels ModelUpdaterBasicFuse::fuseData(FusionResults * f, Model * model1,
 	UpdatedModels retval = UpdatedModels();
 	Eigen::Matrix4d pose = f->guess;
 
-	printf("MODEL1 ");
-	model1->print();
-	printf("MODEL2 ");
-	model2->print();
-	printf("input pose\n");
-	std::cout << pose << std::endl << std::endl;
+//	printf("MODEL1 ");
+//	model1->print();
+//	printf("MODEL2 ");
+//	model2->print();
+//	printf("input pose\n");
+//	std::cout << pose << std::endl << std::endl;
 
 //	std::vector<Eigen::Matrix4d>	current_poses;
 //	std::vector<RGBDFrame*>			current_frames;
@@ -169,7 +169,7 @@ UpdatedModels ModelUpdaterBasicFuse::fuseData(FusionResults * f, Model * model1,
 	addModelsToVector(models,rps,model2,pose);
 
 	double expectedCost = computeOcclusionScoreCosts(models);
-	printf("expectedCost: %f\n",expectedCost);
+//	printf("expectedCost: %f\n",expectedCost);
 	int step = 0.5 + expectedCost/(10.0*11509168.5);// ~10 sec predicted max time
 	step = std::max(1,step);
 
@@ -177,14 +177,14 @@ UpdatedModels ModelUpdaterBasicFuse::fuseData(FusionResults * f, Model * model1,
 	std::vector<std::vector < float > > scores = getScores(ocs);
 	std::vector<int> partition = getPartition(scores,2,5,2);
 
-	for(unsigned int i = 0; i < scores.size(); i++){
-		for(unsigned int j = 0; j < scores.size(); j++){
-			if(scores[i][j] >= 0){printf(" ");}
-			printf("%5.5f ",0.00001*scores[i][j]);
-		}
-		printf("\n");
-	}
-	printf("partition "); for(unsigned int i = 0; i < partition.size(); i++){printf("%i ", partition[i]);} printf("\n");
+//	for(unsigned int i = 0; i < scores.size(); i++){
+//		for(unsigned int j = 0; j < scores.size(); j++){
+//			if(scores[i][j] >= 0){printf(" ");}
+//			printf("%5.5f ",0.00001*scores[i][j]);
+//		}
+//		printf("\n");
+//	}
+//	printf("partition "); for(unsigned int i = 0; i < partition.size(); i++){printf("%i ", partition[i]);} printf("\n");
 
 
 	double sumscore1 = 0;
@@ -204,17 +204,17 @@ UpdatedModels ModelUpdaterBasicFuse::fuseData(FusionResults * f, Model * model1,
 
 	double improvement = sumscore2-sumscore1;
 
-	for(unsigned int i = 0; i < scores.size(); i++){
-		for(unsigned int j = 0; j < scores.size(); j++){
-			if(scores[i][j] > 0){printf(" ");}
-			printf("%5.5f ",0.0001*scores[i][j]);
-		}
-		printf("\n");
-	}
-	printf("partition "); for(unsigned int i = 0; i < partition.size(); i++){printf("%i ", partition[i]);} printf("\n");
-	printf("sumscore before part: %f\n",sumscore1);
-	printf("sumscore after  part: %f\n",sumscore2);
-	printf("improvement:          %f\n",improvement);
+//	for(unsigned int i = 0; i < scores.size(); i++){
+//		for(unsigned int j = 0; j < scores.size(); j++){
+//			if(scores[i][j] > 0){printf(" ");}
+//			printf("%5.5f ",0.0001*scores[i][j]);
+//		}
+//		printf("\n");
+//	}
+//	printf("partition "); for(unsigned int i = 0; i < partition.size(); i++){printf("%i ", partition[i]);} printf("\n");
+//	printf("sumscore before part: %f\n",sumscore1);
+//	printf("sumscore after  part: %f\n",sumscore2);
+//	printf("improvement:          %f\n",improvement);
 //exit(0);
 	std::vector<int> count;
 	for(unsigned int i = 0; i < partition.size(); i++){

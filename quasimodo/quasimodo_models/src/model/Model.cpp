@@ -84,7 +84,7 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 	//bool * isfused = new bool[width*height];
 	for(unsigned int i = 0; i < width*height; i++){isfused[i] = false;}
 
-	printf("wh:%i %i\n",width,height);
+	//printf("wh:%i %i\n",width,height);
 
 	for(unsigned int ind = 0; ind < spvec.size();ind++){
 		superpoint & sp = spvec[ind];

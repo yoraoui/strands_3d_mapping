@@ -1,21 +1,23 @@
 #include "modelupdater/ModelUpdater.h"
 
-#include <boost/graph/incremental_components.hpp>
-#include <boost/graph/graphviz.hpp>
-#include <boost/graph/graph_utility.hpp>
-#include <boost/graph/adjacency_list.hpp>
-#include <boost/graph/iteration_macros.hpp>
-#include <boost/graph/graph_traits.hpp>
-#include <boost/graph/one_bit_color_map.hpp>
-#include <boost/graph/stoer_wagner_min_cut.hpp>
-#include <boost/range/adaptor/reversed.hpp>
-#include <boost/graph/copy.hpp>
+//#include <boost/graph/incremental_components.hpp>
+//#include <boost/graph/graphviz.hpp>
+//#include <boost/graph/graph_utility.hpp>
+//#include <boost/graph/adjacency_list.hpp>
+//#include <boost/graph/iteration_macros.hpp>
+//#include <boost/graph/graph_traits.hpp>
+//#include <boost/graph/one_bit_color_map.hpp>
+//#include <boost/graph/stoer_wagner_min_cut.hpp>
+//#include <boost/range/adaptor/reversed.hpp>
+//#include <boost/graph/copy.hpp>
 #include <unordered_map>
 
 #include "opencv2/core/core.hpp"
 #include "opencv2/features2d/features2d.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
+
+#include "core/Util.h"
 
 
 namespace gc
@@ -25,29 +27,18 @@ namespace gc
 }
 //#include "opencv2/nonfree/nonfree.hpp"
 
-typedef boost::property<boost::edge_weight_t, float> edge_weight_property;
-typedef boost::property<boost::vertex_name_t, size_t> vertex_name_property;
-using Graph = boost::adjacency_list<boost::vecS, boost::vecS, boost::undirectedS, vertex_name_property, edge_weight_property>;
-using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
-using VertexIndex = boost::graph_traits<Graph>::vertices_size_type;
-using Edge = boost::graph_traits<Graph>::edge_descriptor;
-using Components = boost::component_index<VertexIndex>;
+//typedef boost::property<boost::edge_weight_t, float> edge_weight_property;
+//typedef boost::property<boost::vertex_name_t, size_t> vertex_name_property;
+//using Graph = boost::adjacency_list<boost::vecS, boost::vecS, boost::undirectedS, vertex_name_property, edge_weight_property>;
+//using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
+//using VertexIndex = boost::graph_traits<Graph>::vertices_size_type;
+//using Edge = boost::graph_traits<Graph>::edge_descriptor;
+//using Components = boost::component_index<VertexIndex>;
 
 using namespace std;
 
 namespace reglib
 {
-
-double mysign(double v){
-	if(v < 0){return -1;}
-	return 1;
-}
-
-double getTime(){
-	struct timeval start1;
-	gettimeofday(&start1, NULL);
-	return double(start1.tv_sec+(start1.tv_usec/1000000.0));
-}
 
 float graph_cut(vector<Graph*>& graphs_out,vector<vector<int>>& second_graphinds, Graph& graph_in, std::vector<int> graph_inds){
 	using adjacency_iterator = boost::graph_traits<Graph>::adjacency_iterator;
@@ -230,6 +221,98 @@ bool ModelUpdater::isRefinementNeeded(){
 	printf("\n");
 	return failed;
 }
+
+//OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, Matrix4d cp, RGBDFrame* cf){
+//	unsigned char  * dst_rgbdata		= (unsigned char	*)(cf->rgb.data);
+//	unsigned short * dst_depthdata		= (unsigned short	*)(cf->depth.data);
+//	float		   * dst_normalsdata	= (float			*)(cf->normals.data);
+
+//	float m00 = cp(0,0); float m01 = cp(0,1); float m02 = cp(0,2); float m03 = cp(0,3);
+//	float m10 = cp(1,0); float m11 = cp(1,1); float m12 = cp(1,2); float m13 = cp(1,3);
+//	float m20 = cp(2,0); float m21 = cp(2,1); float m22 = cp(2,2); float m23 = cp(2,3);
+
+//	Camera * dst_camera				= cf->camera;
+//	const unsigned int dst_width	= dst_camera->width;
+//	const unsigned int dst_height	= dst_camera->height;
+//	const float dst_idepth			= dst_camera->idepth_scale;
+//	const float dst_cx				= dst_camera->cx;
+//	const float dst_cy				= dst_camera->cy;
+//	const float dst_fx				= dst_camera->fx;
+//	const float dst_fy				= dst_camera->fy;
+//	const float dst_ifx				= 1.0/dst_camera->fx;
+//	const float dst_ify				= 1.0/dst_camera->fy;
+//	const unsigned int dst_width2	= dst_camera->width  - 2;
+//	const unsigned int dst_height2	= dst_camera->height - 2;
+
+
+//	std::vector<int>	src_inds;
+//	std::vector<int>	dst_inds;
+//	std::vector<double> residuals;
+//	std::vector<double>	cameraSurfaceAngles;
+//	std::vector<double>	angles;
+//	src_inds.reserve(nr_data);
+//	dst_inds.reserve(nr_data);
+//	residuals.reserve(nr_data);
+//	cameraSurfaceAngles.reserve(nr_data);
+//	angles.reserve(nr_data);
+
+//	unsigned long nr_data = spvec.size();
+//	for(unsigned long ind = 0; ind < nr_data;ind++){
+//		superpoint & sp = spvec[ind];
+
+//		float src_x = sp.point(0);
+//		float src_y = sp.point(1);
+//		float src_z = sp.point(2);
+
+//		float src_nx = sp.normal(0);
+//		float src_ny = sp.normal(1);
+//		float src_nz = sp.normal(2);
+
+//		float point_information = sp.point_information;
+
+//		float tx	= m00*src_x + m01*src_y + m02*src_z + m03;
+//		float ty	= m10*src_x + m11*src_y + m12*src_z + m13;
+//		float tz	= m20*src_x + m21*src_y + m22*src_z + m23;
+
+//		float itz	= 1.0/tz;
+//		float dst_w	= dst_fx*tx*itz + dst_cx;
+//		float dst_h	= dst_fy*ty*itz + dst_cy;
+
+//		if((dst_w > 0) && (dst_h > 0) && (dst_w < dst_width2) && (dst_h < dst_height2)){
+//			unsigned int dst_ind = unsigned(dst_h+0.5) * dst_width + unsigned(dst_w+0.5);
+
+//			float dst_z = dst_idepth*float(dst_depthdata[dst_ind]);
+//			float dst_nx = dst_normalsdata[3*dst_ind+0];
+//			if(dst_z > 0 && dst_nx != 2){
+//				if(dst_detdata[dst_ind] != 0){continue;}
+//				float dst_ny = dst_normalsdata[3*dst_ind+1];
+//				float dst_nz = dst_normalsdata[3*dst_ind+2];
+
+//				float dst_x = (float(dst_w) - dst_cx) * dst_z * dst_ifx;
+//				float dst_y = (float(dst_h) - dst_cy) * dst_z * dst_ify;
+
+//				float tnx	= m00*src_nx + m01*src_ny + m02*src_nz;
+//				float tny	= m10*src_nx + m11*src_ny + m12*src_nz;
+//				float tnz	= m20*src_nx + m21*src_ny + m22*src_nz;
+
+//				double d = mysign(dst_z-tz)*fabs(tnx*(dst_x-tx) + tny*(dst_y-ty) + tnz*(dst_z-tz));
+//				double dst_noise = dst_z * dst_z;
+//				double point_noise = 1.0/sqrt(point_information);
+
+//				double compare_mul = sqrt(dst_noise*dst_noise + point_noise*point_noise);
+//				d *= compare_mul;
+
+//				double dist_dst = sqrt(dst_x*dst_x+dst_y*dst_y+dst_z*dst_z);
+//				double angle_dst = fabs((dst_x*dst_nx+dst_y*dst_ny+dst_z*dst_nz)/dist_dst);
+
+//				residuals.push_back(d);
+//				weights.push_back(angle_dst*angle_dst*angle_dst);
+//				src_inds.push_back(ind);
+//				dst_inds.push_back(dst_ind);
+//			}
+//		}
+//	}
+//}
 
 OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, Matrix4d cp, RGBDFrame* cf, ModelMask* cm, int step,  bool debugg){
 	//	printf("start:: %s::%i\n",__FILE__,__LINE__);
@@ -639,7 +722,7 @@ void ModelUpdater::makeInitialSetup(){
 
 
 	model->points = getSuperPoints(model->relativeposes,model->frames,model->modelmasks,1,false);
-	printf("getSuperPoints done\n");
+	//printf("getSuperPoints done\n");
 	vector<Matrix4d> cp;
 	vector<RGBDFrame*> cf;
 	vector<ModelMask*> cm;
@@ -655,7 +738,7 @@ void ModelUpdater::makeInitialSetup(){
 	model->rep_frames = cf;
 	model->rep_modelmasks = cm;
 
-	printf("model->rep_relativeposes: %i\n",model->rep_relativeposes.size());
+	//printf("model->rep_relativeposes: %i\n",model->rep_relativeposes.size());
 }
 
 void ModelUpdater::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* frame, ModelMask* modelmask, int type, bool debugg){
@@ -693,7 +776,7 @@ void ModelUpdater::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFr
 
 	//bool * isfused = new bool[width*height];
 	std::vector<bool> isfused;
-	printf("wh: %i %i -> %i\n",width,height,width*height);
+	//printf("wh: %i %i -> %i\n",width,height,width*height);
 	isfused.resize(width*height);
 	for(unsigned int i = 0; i < width*height; i++){isfused[i] = false;}
 
@@ -1019,7 +1102,6 @@ void ModelUpdater::getGoodCompareFrames(vector<Matrix4d> & cp, vector<RGBDFrame*
 		int worst_id = -1;
 		for(unsigned int i = 0; i < cp.size(); i++){
 			double score = getCompareUtility(cp[i], cf[i], cm[i], cp, cf, cm);
-			//printf("%3.3i -> %f\n",i,score);
 			if(score < worst){
 				worst = score;
 				worst_id = i;
@@ -1036,7 +1118,6 @@ void ModelUpdater::getGoodCompareFrames(vector<Matrix4d> & cp, vector<RGBDFrame*
 
 			cm[worst_id] = cm.back();
 			cm.pop_back();
-			//printf("removing %i\n",worst_id);
 		}else{break;}
 	}
 }

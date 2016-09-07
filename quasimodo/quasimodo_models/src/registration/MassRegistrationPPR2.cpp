@@ -1420,7 +1420,7 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 		}
 	}
 
-	printf("depthedge_count: %i\n",depthedge_count);
+	//printf("depthedge_count: %i\n",depthedge_count);
 	if(depthedge_count > 10){
 		double * depthedge_ap = new double[3*depthedge_count];
 		double * depthedge_ai = new double[3*depthedge_count];
@@ -1475,7 +1475,7 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 //        }
 	}
 
-	printf("total load time:          %5.5f\n",getTime()-total_load_time_start);
+	//printf("total load time:          %5.5f\n",getTime()-total_load_time_start);
 }
 
 void MassRegistrationPPR2::addData(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud){
@@ -3270,7 +3270,7 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
         func->regularization = std::max(reg1,reg2);
         kpfunc->regularization = std::max(reg1,reg2);
 
-		printf("func->noiseval: %f func->regularization: %f\n",func->noiseval,func->regularization);
+//		printf("func->noiseval: %f func->regularization: %f\n",func->noiseval,func->regularization);
 		//printf("ratio: %f kpratio: %f\n",ratio,kpratio);
         //if(func->noiseval >= kpfunc->noiseval && 0.01*func->noiseval   < func->regularization){break;}
         //if(func->noiseval < kpfunc->noiseval  && 0.01*kpfunc->noiseval < kpfunc->regularization){break;}
@@ -3278,11 +3278,12 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 		if(func->noiseval > 10.0*func->regularization && ratio > 0.75){break;}
 	}
 
-	printf("total_time:          %5.5f\n",getTime()-total_time_start);
-	printf("rematch_time:        %5.5f\n",rematch_time);
-	printf("compM residuals_time:%5.5f\n",residuals_time);
-	printf("computeModel:        %5.5f\n",computeModel_time);
-	printf("opt_time:            %5.5f\n",opt_time);
+//	printf("total_time:          %5.5f\n",getTime()-total_time_start);
+//	printf("rematch_time:        %5.5f\n",rematch_time);
+//	printf("compM residuals_time:%5.5f\n",residuals_time);
+//	printf("computeModel:        %5.5f\n",computeModel_time);
+//	printf("opt_time:            %5.5f\n",opt_time);
+
 //	printf("setup_matches_time:  %5.5f\n",setup_matches_time);
 //	printf("setup_equation_time: %5.5f\n",setup_equation_time);
 //	printf("solve_equation_time: %5.5f\n",solve_equation_time);
@@ -3299,7 +3300,7 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 	Eigen::Matrix4d firstinv = poses.front().inverse();
 	for(long i = 0; i < nr_frames; i++){poses[i] = firstinv*poses[i];}
 
-	printf("stop MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4d> guess)\n");
+//	printf("stop MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4d> guess)\n");
 	//exit(0);
 	return MassFusionResults(poses,-1);
 }
