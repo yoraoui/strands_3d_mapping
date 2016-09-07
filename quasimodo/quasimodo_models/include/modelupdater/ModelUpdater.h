@@ -43,20 +43,20 @@ namespace reglib
     using namespace cv;
 
 
-	class ReprojectionResult{
-		public:
-		unsigned long	src_ind;
-		unsigned long	dst_ind;
-		double			residual;
-		double			angle;
+//	class ReprojectionResult{
+//		public:
+//		unsigned long	src_ind;
+//		unsigned long	dst_ind;
+//		double			residual;
+//		double			angle;
 
-		ReprojectionResult(unsigned long si, unsigned long di, double r, double a){
-			src_ind = si;
-			dst_ind = di;
-			residual = r;
-			angle = a;
-		}
-	};
+//		ReprojectionResult(unsigned long si, unsigned long di, double r, double a){
+//			src_ind = si;
+//			dst_ind = di;
+//			residual = r;
+//			angle = a;
+//		}
+//	};
 
 	class UpdatedModels{
 		public:
@@ -68,22 +68,22 @@ namespace reglib
 		UpdatedModels(){}
 	};
 	
-	class OcclusionScore{
-		public:
-		double score;
-		double occlusions;
+//	class OcclusionScore{
+//		public:
+//		double score;
+//		double occlusions;
 
-		OcclusionScore(){score = 0;occlusions = 0;}
-		OcclusionScore(	double score_ ,double occlusions_){score = score_;occlusions = occlusions_;}
-		~OcclusionScore(){}
+//		OcclusionScore(){score = 0;occlusions = 0;}
+//		OcclusionScore(	double score_ ,double occlusions_){score = score_;occlusions = occlusions_;}
+//		~OcclusionScore(){}
 
-		void add(OcclusionScore oc){
-			score += oc.score;
-			occlusions += oc.occlusions;
-		}
+//		void add(OcclusionScore oc){
+//			score += oc.score;
+//			occlusions += oc.occlusions;
+//		}
 
-		void print(){printf("score: %5.5f occlusions: %5.5f\n",score,occlusions);}
-	};
+//		void print(){printf("score: %5.5f occlusions: %5.5f\n",score,occlusions);}
+//	};
 
 	class ModelUpdater{
         public:

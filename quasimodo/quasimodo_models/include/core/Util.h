@@ -31,6 +31,9 @@
 #include <boost/range/adaptor/reversed.hpp>
 #include <boost/graph/copy.hpp>
 
+#include <iostream>
+#include <unordered_map>
+
 using ceres::NumericDiffCostFunction;
 using ceres::SizedCostFunction;
 using ceres::CENTRAL;
@@ -51,6 +54,45 @@ using Components = boost::component_index<VertexIndex>;
 
 namespace reglib
 {
+
+
+class ReprojectionResult{
+	public:
+	unsigned long	src_ind;
+	unsigned long	dst_ind;
+	double			residual;
+	double			angle;
+
+	ReprojectionResult(unsigned long si, unsigned long di, double r, double a){
+		src_ind = si;
+		dst_ind = di;
+		residual = r;
+		angle = a;
+	}
+};
+
+class OcclusionScore{
+	public:
+	double score;
+	double occlusions;
+
+	OcclusionScore(){score = 0;occlusions = 0;}
+	OcclusionScore(	double score_ ,double occlusions_){score = score_;occlusions = occlusions_;}
+	~OcclusionScore(){}
+
+	void add(OcclusionScore oc){
+		score += oc.score;
+		occlusions += oc.occlusions;
+	}
+
+	void print(){printf("score: %5.5f occlusions: %5.5f\n",score,occlusions);}
+};
+
+float graph_cut(std::vector<Graph*>& graphs_out,std::vector<std::vector<int>>& second_graphinds, Graph& graph_in, std::vector<int> graph_inds);
+
+float recursive_split(std::vector<Graph*> * graphs_out,std::vector<std::vector<int>> * graphinds_out, Graph * graph, std::vector<int> graph_inds);
+
+std::vector<int> partition_graph(std::vector< std::vector< float > > & scores);
 
 /**
  * @brief Returns homogenous 4x4 transformation matrix for given rotation (quaternion) and translation components

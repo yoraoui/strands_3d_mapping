@@ -12,6 +12,112 @@ namespace reglib{
 		return double(start1.tv_sec+(start1.tv_usec/1000000.0));
 	}
 
+	float graph_cut(std::vector<Graph*>& graphs_out,std::vector<std::vector<int>>& second_graphinds, Graph& graph_in, std::vector<int> graph_inds){
+		using adjacency_iterator = boost::graph_traits<Graph>::adjacency_iterator;
+		typename boost::property_map<Graph, boost::vertex_index_t>::type vertex_id		= boost::get(boost::vertex_index, graph_in);
+		typename boost::property_map<Graph, boost::edge_weight_t>::type  edge_id		= boost::get(boost::edge_weight, graph_in);
+		typename boost::property_map<Graph, boost::vertex_name_t>::type  vertex_name	= boost::get(boost::vertex_name, graph_in);
+
+		BOOST_AUTO(parities, boost::make_one_bit_color_map(boost::num_vertices(graph_in), boost::get(boost::vertex_index, graph_in)));
+
+		float w = boost::stoer_wagner_min_cut(graph_in, boost::get(boost::edge_weight, graph_in), boost::parity_map(parities));
+
+		std::unordered_map<VertexIndex, VertexIndex> mappings;
+		VertexIndex counters[2] = {0, 0};
+
+		graphs_out.push_back(new Graph(1));
+		graphs_out.push_back(new Graph(1));
+		second_graphinds.push_back(std::vector<int>());
+		second_graphinds.push_back(std::vector<int>());
+		//std::cout << "One set of vertices consists of:" << std::endl;
+		bool flag;
+		Edge edge;
+		for (size_t i = 0; i < boost::num_vertices(graph_in); ++i) {
+			int first = boost::get(parities, i);
+			second_graphinds[first].push_back(graph_inds[i]);
+			// iterate adjacent edges
+			adjacency_iterator ai, ai_end;
+			for (tie(ai, ai_end) = boost::adjacent_vertices(i, graph_in);  ai != ai_end; ++ai) {
+				VertexIndex neighbor_index = boost::get(vertex_id, *ai);
+				int second = boost::get(parities, neighbor_index);
+				if (first == second && neighbor_index < i) {
+					tie(edge, flag) = boost::edge(i, neighbor_index, graph_in);
+					edge_weight_property weight = boost::get(edge_id, edge);
+					if (mappings.count(i) == 0) {
+						mappings[i] = counters[first]++;
+					}
+					if (mappings.count(neighbor_index) == 0) {
+						mappings[neighbor_index] = counters[first]++;
+					}
+					tie(edge, flag) = boost::add_edge(mappings[neighbor_index], mappings[i], weight, *graphs_out[first]);
+
+					typename boost::property_map<Graph, boost::vertex_name_t>::type vertex_name_first = boost::get(boost::vertex_name, *graphs_out[first]);
+					boost::get(vertex_name_first, mappings[i]) = boost::get(vertex_name, i);
+					boost::get(vertex_name_first, mappings[neighbor_index]) = boost::get(vertex_name, *ai);
+				}
+			}
+		}
+		return w;
+	}
+
+	float recursive_split(std::vector<Graph*> * graphs_out,std::vector<std::vector<int>> * graphinds_out, Graph * graph, std::vector<int> graph_inds){
+		if(boost::num_vertices(*graph) == 1){
+			graphs_out->push_back(graph);
+			graphinds_out->push_back(graph_inds);
+			return 0;
+		}
+
+		std::vector<Graph*> second_graphs;
+		std::vector<std::vector<int>> second_graphinds;
+		float w = graph_cut(second_graphs,second_graphinds,*graph,graph_inds);
+		if(w <= 0){
+			delete graph;
+			return 2*w + recursive_split(graphs_out, graphinds_out,second_graphs.front(),second_graphinds.front()) + recursive_split(graphs_out, graphinds_out, second_graphs.back(),second_graphinds.back());
+		}else{
+			graphs_out->push_back(graph);
+			graphinds_out->push_back(graph_inds);
+			delete second_graphs.front();
+			delete second_graphs.back();
+			return 0;
+		}
+	}
+
+	std::vector<int> partition_graph(std::vector< std::vector< float > > & scores){
+		int nr_data = scores.size();
+		Graph* graph = new Graph(nr_data);
+		std::vector<int> graph_inds;
+		graph_inds.resize(nr_data);
+
+		typename boost::property_map<Graph, boost::vertex_name_t>::type vertex_name = boost::get(boost::vertex_name, *graph);
+
+		float sum = 0;
+		for(int i = 0; i < nr_data; i++){
+			graph_inds[i] = i;
+			for(int j = i+1; j < nr_data; j++){
+				float weight = scores[i][j];
+				if(weight != 0){
+					sum += 2*weight;
+					edge_weight_property e = weight;
+					boost::add_edge(i, j, e, *graph);
+				}
+			}
+		}
+
+		std::vector<Graph*> * graphs_out = new std::vector<Graph*>();
+		std::vector<std::vector<int>> * graphinds_out = new std::vector<std::vector<int>>();
+		float best = sum-recursive_split(graphs_out,graphinds_out, graph,graph_inds );
+
+		std::vector<int> part;
+		part.resize(nr_data);
+		//int * part = new int[nr_data];
+		for(unsigned int i = 0; i < graphinds_out->size(); i++){
+			for(unsigned int j = 0; j < graphinds_out->at(i).size(); j++){
+				part[graphinds_out->at(i).at(j)] = i;
+			}
+		}
+		return part;
+	}
+
 	Eigen::Matrix4d getMatTest(const double * const camera, int mode){
 		Eigen::Matrix4d ret = Eigen::Matrix4d::Identity();
 		double rr [9];
@@ -203,4 +309,96 @@ namespace reglib{
 		if(change_trans < stopvalt && change_rot < stopvalr){return true;}
 		else{return false;}
 	}
+
+	//OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, Matrix4d cp, RGBDFrame* cf){
+	//	unsigned char  * dst_rgbdata		= (unsigned char	*)(cf->rgb.data);
+	//	unsigned short * dst_depthdata		= (unsigned short	*)(cf->depth.data);
+	//	float		   * dst_normalsdata	= (float			*)(cf->normals.data);
+
+	//	float m00 = cp(0,0); float m01 = cp(0,1); float m02 = cp(0,2); float m03 = cp(0,3);
+	//	float m10 = cp(1,0); float m11 = cp(1,1); float m12 = cp(1,2); float m13 = cp(1,3);
+	//	float m20 = cp(2,0); float m21 = cp(2,1); float m22 = cp(2,2); float m23 = cp(2,3);
+
+	//	Camera * dst_camera				= cf->camera;
+	//	const unsigned int dst_width	= dst_camera->width;
+	//	const unsigned int dst_height	= dst_camera->height;
+	//	const float dst_idepth			= dst_camera->idepth_scale;
+	//	const float dst_cx				= dst_camera->cx;
+	//	const float dst_cy				= dst_camera->cy;
+	//	const float dst_fx				= dst_camera->fx;
+	//	const float dst_fy				= dst_camera->fy;
+	//	const float dst_ifx				= 1.0/dst_camera->fx;
+	//	const float dst_ify				= 1.0/dst_camera->fy;
+	//	const unsigned int dst_width2	= dst_camera->width  - 2;
+	//	const unsigned int dst_height2	= dst_camera->height - 2;
+
+
+	//	std::vector<int>	src_inds;
+	//	std::vector<int>	dst_inds;
+	//	std::vector<double> residuals;
+	//	std::vector<double>	cameraSurfaceAngles;
+	//	std::vector<double>	angles;
+	//	src_inds.reserve(nr_data);
+	//	dst_inds.reserve(nr_data);
+	//	residuals.reserve(nr_data);
+	//	cameraSurfaceAngles.reserve(nr_data);
+	//	angles.reserve(nr_data);
+
+	//	unsigned long nr_data = spvec.size();
+	//	for(unsigned long ind = 0; ind < nr_data;ind++){
+	//		superpoint & sp = spvec[ind];
+
+	//		float src_x = sp.point(0);
+	//		float src_y = sp.point(1);
+	//		float src_z = sp.point(2);
+
+	//		float src_nx = sp.normal(0);
+	//		float src_ny = sp.normal(1);
+	//		float src_nz = sp.normal(2);
+
+	//		float point_information = sp.point_information;
+
+	//		float tx	= m00*src_x + m01*src_y + m02*src_z + m03;
+	//		float ty	= m10*src_x + m11*src_y + m12*src_z + m13;
+	//		float tz	= m20*src_x + m21*src_y + m22*src_z + m23;
+
+	//		float itz	= 1.0/tz;
+	//		float dst_w	= dst_fx*tx*itz + dst_cx;
+	//		float dst_h	= dst_fy*ty*itz + dst_cy;
+
+	//		if((dst_w > 0) && (dst_h > 0) && (dst_w < dst_width2) && (dst_h < dst_height2)){
+	//			unsigned int dst_ind = unsigned(dst_h+0.5) * dst_width + unsigned(dst_w+0.5);
+
+	//			float dst_z = dst_idepth*float(dst_depthdata[dst_ind]);
+	//			float dst_nx = dst_normalsdata[3*dst_ind+0];
+	//			if(dst_z > 0 && dst_nx != 2){
+	//				if(dst_detdata[dst_ind] != 0){continue;}
+	//				float dst_ny = dst_normalsdata[3*dst_ind+1];
+	//				float dst_nz = dst_normalsdata[3*dst_ind+2];
+
+	//				float dst_x = (float(dst_w) - dst_cx) * dst_z * dst_ifx;
+	//				float dst_y = (float(dst_h) - dst_cy) * dst_z * dst_ify;
+
+	//				float tnx	= m00*src_nx + m01*src_ny + m02*src_nz;
+	//				float tny	= m10*src_nx + m11*src_ny + m12*src_nz;
+	//				float tnz	= m20*src_nx + m21*src_ny + m22*src_nz;
+
+	//				double d = mysign(dst_z-tz)*fabs(tnx*(dst_x-tx) + tny*(dst_y-ty) + tnz*(dst_z-tz));
+	//				double dst_noise = dst_z * dst_z;
+	//				double point_noise = 1.0/sqrt(point_information);
+
+	//				double compare_mul = sqrt(dst_noise*dst_noise + point_noise*point_noise);
+	//				d *= compare_mul;
+
+	//				double dist_dst = sqrt(dst_x*dst_x+dst_y*dst_y+dst_z*dst_z);
+	//				double angle_dst = fabs((dst_x*dst_nx+dst_y*dst_ny+dst_z*dst_nz)/dist_dst);
+
+	//				residuals.push_back(d);
+	//				weights.push_back(angle_dst*angle_dst*angle_dst);
+	//				src_inds.push_back(ind);
+	//				dst_inds.push_back(dst_ind);
+	//			}
+	//		}
+	//	}
+	//}
 }
