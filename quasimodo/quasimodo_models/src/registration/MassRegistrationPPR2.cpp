@@ -570,7 +570,8 @@ double matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, long nr_
     return good/(good+bad+0.001);
 }
 
-void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vector<Eigen::Matrix4d> prev_poses, bool first){
+void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vector<Eigen::Matrix4d> prev_poses, bool rematch_surface, bool rematch_edges, bool first){
+	if(!rematch_surface && !rematch_edges){return;}
 	double new_good_rematches = 0;
 	double new_total_rematches = 0;
 	unsigned long nr_frames = poses.size();
@@ -618,10 +619,10 @@ void MassRegistrationPPR2::rematch(std::vector<Eigen::Matrix4d> poses, std::vect
 
 
                 double ratiosum = 0;
-				if(use_depthedge && depthedge_nr_arraypoints[i] > 10 && depthedge_nr_arraypoints[j] > 10){
+				if(rematch_edges && depthedge_nr_arraypoints[i] > 10 && depthedge_nr_arraypoints[j] > 10){
                     ratiosum += matchframes(depthedge_func,rp, depthedge_nr_arraypoints[i], depthedge_arraypoints[i], depthedge_matchids[i][j], depthedge_matchdists[i][j],depthedge_trees3d[j],	new_good_rematches,new_total_rematches);
 				}
-				if(use_surface && nr_arraypoints[i] > 10 && nr_arraypoints[j] > 10){
+				if(rematch_surface && nr_arraypoints[i] > 10 && nr_arraypoints[j] > 10){
                     ratiosum += matchframes(func,rp, nr_arraypoints[i], arraypoints[i], matchids[i][j], matchdists[i][j],trees3d[j],	new_good_rematches,new_total_rematches);
 				}
 
@@ -3170,14 +3171,14 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 			std::vector<Eigen::Matrix4d> poses1 = poses;
 
 			double rematch_time_start = getTime();
-            rematch(poses,poses0,first);
-			//rematchKeyPoints(poses,poses0,first);
+			//rematch(poses,poses0,use_surface,use_depthedge,first);
+			rematch(poses,poses0,use_surface,false,first);
 			first = false;
 			poses0 = poses;
 			rematch_time += getTime()-rematch_time_start;
 
 			for(long lala = 0; lala < 10; lala++){
-                if(visualizationLvl > 0){
+				if(visualizationLvl > 0){
 					printf("funcupdate: %i rematching: %i lala: %i\n",funcupdate,rematching,lala);
 					printf("total_time:          %5.5f\n",getTime()-total_time_start);
 					printf("rematch_time:        %5.5f\n",rematch_time);
@@ -3195,6 +3196,10 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 						show(Xv,false,std::string(buf),imgcount);
 					}
 				}
+
+				rematch_time_start = getTime();
+				rematch(poses,poses0,false,use_depthedge,first);
+				rematch_time += getTime()-rematch_time_start;
 
 				std::vector<Eigen::Matrix4d> poses2b = poses;
 
@@ -3278,11 +3283,11 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 		if(func->noiseval > 10.0*func->regularization && ratio > 0.75){break;}
 	}
 
-//	printf("total_time:          %5.5f\n",getTime()-total_time_start);
-//	printf("rematch_time:        %5.5f\n",rematch_time);
-//	printf("compM residuals_time:%5.5f\n",residuals_time);
-//	printf("computeModel:        %5.5f\n",computeModel_time);
-//	printf("opt_time:            %5.5f\n",opt_time);
+	printf("total_time:          %5.5f\n",getTime()-total_time_start);
+	printf("rematch_time:        %5.5f\n",rematch_time);
+	printf("compM residuals_time:%5.5f\n",residuals_time);
+	printf("computeModel:        %5.5f\n",computeModel_time);
+	printf("opt_time:            %5.5f\n",opt_time);
 
 //	printf("setup_matches_time:  %5.5f\n",setup_matches_time);
 //	printf("setup_equation_time: %5.5f\n",setup_equation_time);

@@ -55,6 +55,49 @@ using Components = boost::component_index<VertexIndex>;
 namespace reglib
 {
 
+class superpoint{
+	public:
+	Eigen::Vector3f point;
+	Eigen::Vector3f normal;
+	Eigen::VectorXf feature;
+	double point_information;
+	double feature_information;
+	int last_update_frame_id;
+
+	superpoint(Eigen::Vector3f p, Eigen::Vector3f n, Eigen::VectorXf f, double pi = 1, double fi = 1, int id = 0){
+		point = p;
+		normal = n;
+		feature = f;
+		point_information = pi;
+		feature_information = fi;
+		last_update_frame_id = id;
+	}
+
+	~superpoint(){}
+
+	void merge(superpoint p, double weight = 1){
+		double newpweight = weight*p.point_information		+ point_information;
+		double newfweight = weight*p.feature_information	+ feature_information;
+//printf("before: (%3.3f)(%3.3f) + (%3.3f)(%3.3f) -> (%3.3f)(%3.3f)\n",
+//feature_information,feature(0),p.feature_information,p.feature(0),(feature_information*feature(0)+p.feature_information*p.feature(0))/(feature_information+p.feature_information));
+
+		point	= weight*p.point_information*p.point		+ point_information*point;
+		normal	= weight*p.point_information*p.normal		+ point_information*normal;
+		//feature = weight*p.feature_information*p.feature	+ feature_information*feature;
+
+
+		normal.normalize();
+
+		point /= newpweight;
+		point_information = newpweight;
+
+		//feature /= newfweight;
+		//feature_information = newfweight;
+
+		last_update_frame_id = std::max(p.last_update_frame_id,last_update_frame_id);
+	}
+};
+
 
 class ReprojectionResult{
 	public:

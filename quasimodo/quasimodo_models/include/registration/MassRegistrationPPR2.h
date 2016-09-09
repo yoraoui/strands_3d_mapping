@@ -150,7 +150,7 @@ namespace reglib
 		void setData(std::vector< pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr > all_clouds);
 
 		void rematchKeyPoints(std::vector<Eigen::Matrix4d> poses, std::vector<Eigen::Matrix4d> prev_poses, bool first);
-		void rematch(std::vector<Eigen::Matrix4d> poses, std::vector<Eigen::Matrix4d> prev_poses, bool first);
+		void rematch(std::vector<Eigen::Matrix4d> poses, std::vector<Eigen::Matrix4d> prev_poses, bool rematch_surface, bool rematch_edges,bool first);
 		Eigen::MatrixXd getAllResiduals(std::vector<Eigen::Matrix4d> poses);
 		Eigen::MatrixXd depthedge_getAllResiduals(std::vector<Eigen::Matrix4d> poses);
 		Eigen::MatrixXd getAllKpResiduals(std::vector<Eigen::Matrix4d> poses);

@@ -58,8 +58,8 @@ namespace reglib
         void save(std::string path = "");
 		RGBDFrame * clone();
 		static RGBDFrame * load(Camera * cam, std::string path);
+		std::vector<ReprojectionResult> getReprojections(std::vector<superpoint> & spvec, Eigen::Matrix4d cp);
 	};
-
 }
 
 #endif // reglibRGBDFrame_H
