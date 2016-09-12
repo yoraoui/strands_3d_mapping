@@ -55,8 +55,18 @@ INCLUDE_DIRECTORIES(${CERES_INCLUDE_DIRS})
 add_library(quasimodo_weightlib src/weightfunctions/DistanceWeightFunction2.cpp src/weightfunctions/DistanceWeightFunction2PPR.cpp src/weightfunctions/DistanceWeightFunction2PPR2.cpp)
 target_link_libraries(quasimodo_weightlib ceres glog ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 
+add_library(quasimodo_superpoint src/core/superpoint.cpp)
+target_link_libraries(quasimodo_superpoint ${catkin_LIBRARIES})
+
+add_library(quasimodo_ReprojectionResult src/core/ReprojectionResult.cpp)
+target_link_libraries(quasimodo_ReprojectionResult quasimodo_superpoint ${catkin_LIBRARIES})
+
+add_library(quasimodo_OcclusionScore src/core/OcclusionScore.cpp)
+target_link_libraries(quasimodo_OcclusionScore ${catkin_LIBRARIES})
+
+
 add_library(quasimodo_core src/core/Util.cpp src/core/Camera.cpp src/core/RGBDFrame.cpp)
-target_link_libraries(quasimodo_core quasimodo_weightlib ${CERES_LIBRARIES} ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(quasimodo_core quasimodo_OcclusionScore quasimodo_ReprojectionResult quasimodo_superpoint quasimodo_weightlib ${CERES_LIBRARIES} ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
 add_library(quasimodo_reglib src/registration/Registration.cpp src/registration/RegistrationRandom.cpp src/registration/RegistrationRefinement.cpp)
 target_link_libraries(quasimodo_reglib quasimodo_weightlib ceres glog ${catkin_LIBRARIES})

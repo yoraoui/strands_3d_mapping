@@ -61,6 +61,7 @@ int show_refine_lvl = 0;//refine show
 int show_reg_lvl = 0;//registration show
 bool show_scoring = false;//fuse scoring show
 bool show_search = false;
+bool show_modelbuild = false;
 
 
 std::map<int , reglib::Camera *>		cameras;
@@ -660,7 +661,11 @@ void addNewModel(reglib::Model * model){
 	newmodelHolder->submodels.push_back(model);
 	newmodelHolder->submodels_relativeposes.push_back(Eigen::Matrix4d::Identity());
 	newmodelHolder->last_changed = ++current_model_update;
-	newmodelHolder->recomputeModelPoints();
+	if(show_modelbuild){
+		newmodelHolder->recomputeModelPoints(Eigen::Matrix4d::Identity(),viewer);
+	}else{
+		newmodelHolder->recomputeModelPoints();
+	}
 
 	modeldatabase->add(newmodelHolder);
 	addToDB(modeldatabase, newmodelHolder,false);
@@ -1615,6 +1620,7 @@ int main(int argc, char **argv){
 		else if(std::string(argv[i]).compare("-intopic") == 0){	printf("intopic input state\n");	inputstate = 11;}
 		else if(std::string(argv[i]).compare("-mdb") == 0){	printf("intopic input state\n");	inputstate = 12;}
 		else if(std::string(argv[i]).compare("-show_search") == 0){	printf("show_search\n");	show_search = true;}
+		else if(std::string(argv[i]).compare("-show_modelbuild") == 0){	printf("show_modelbuild\n");	visualization = true; show_modelbuild = true;}
 		else if(inputstate == 1){
 			reglib::Camera * cam = reglib::Camera::load(std::string(argv[i]));
 			delete cameras[0];
@@ -1677,12 +1683,12 @@ int main(int argc, char **argv){
 
 	ros::Duration(1.0).sleep();
 	chatter_pub = n.advertise<std_msgs::String>("modelserver", 1000);
-	sleep(1);
+//	sleep(1);
 	std_msgs::String msg;
 	msg.data = "starting";
 	chatter_pub.publish(msg);
 	ros::spinOnce();
-	sleep(1);
+//	sleep(1);
 
 	ros::spin();
 	return 0;

@@ -34,6 +34,13 @@
 #include <iostream>
 #include <unordered_map>
 
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+
+#include "superpoint.h"
+#include "ReprojectionResult.h"
+#include "OcclusionScore.h"
+
 using ceres::NumericDiffCostFunction;
 using ceres::SizedCostFunction;
 using ceres::CENTRAL;
@@ -55,87 +62,22 @@ using Components = boost::component_index<VertexIndex>;
 namespace reglib
 {
 
-class superpoint{
-	public:
-	Eigen::Vector3f point;
-	Eigen::Vector3f normal;
-	Eigen::VectorXf feature;
-	double point_information;
-	double feature_information;
-	int last_update_frame_id;
 
-	superpoint(Eigen::Vector3f p, Eigen::Vector3f n, Eigen::VectorXf f, double pi = 1, double fi = 1, int id = 0){
-		point = p;
-		normal = n;
-		feature = f;
-		point_information = pi;
-		feature_information = fi;
-		last_update_frame_id = id;
-	}
-
-	~superpoint(){}
-
-	void merge(superpoint p, double weight = 1){
-		double newpweight = weight*p.point_information		+ point_information;
-		double newfweight = weight*p.feature_information	+ feature_information;
-//printf("before: (%3.3f)(%3.3f) + (%3.3f)(%3.3f) -> (%3.3f)(%3.3f)\n",
-//feature_information,feature(0),p.feature_information,p.feature(0),(feature_information*feature(0)+p.feature_information*p.feature(0))/(feature_information+p.feature_information));
-
-		point	= weight*p.point_information*p.point		+ point_information*point;
-		normal	= weight*p.point_information*p.normal		+ point_information*normal;
-		//feature = weight*p.feature_information*p.feature	+ feature_information*feature;
-
-
-		normal.normalize();
-
-		point /= newpweight;
-		point_information = newpweight;
-
-		//feature /= newfweight;
-		//feature_information = newfweight;
-
-		last_update_frame_id = std::max(p.last_update_frame_id,last_update_frame_id);
-	}
-};
-
-
-class ReprojectionResult{
-	public:
-	unsigned long	src_ind;
-	unsigned long	dst_ind;
-	double			residual;
-	double			angle;
-
-	ReprojectionResult(unsigned long si, unsigned long di, double r, double a){
-		src_ind = si;
-		dst_ind = di;
-		residual = r;
-		angle = a;
-	}
-};
-
-class OcclusionScore{
-	public:
-	double score;
-	double occlusions;
-
-	OcclusionScore(){score = 0;occlusions = 0;}
-	OcclusionScore(	double score_ ,double occlusions_){score = score_;occlusions = occlusions_;}
-	~OcclusionScore(){}
-
-	void add(OcclusionScore oc){
-		score += oc.score;
-		occlusions += oc.occlusions;
-	}
-
-	void print(){printf("score: %5.5f occlusions: %5.5f\n",score,occlusions);}
-};
 
 float graph_cut(std::vector<Graph*>& graphs_out,std::vector<std::vector<int>>& second_graphinds, Graph& graph_in, std::vector<int> graph_inds);
 
 float recursive_split(std::vector<Graph*> * graphs_out,std::vector<std::vector<int>> * graphinds_out, Graph * graph, std::vector<int> graph_inds);
 
 std::vector<int> partition_graph(std::vector< std::vector< float > > & scores);
+
+inline double getNoise(double depth){return depth*depth;}
+inline double getInformation(double depth){
+	double n = getNoise(depth);
+	return 1.0/(n*n);
+}
+
+pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr getPointCloudFromVector(std::vector<superpoint> & spvec, int colortype = 0);
+
 
 /**
  * @brief Returns homogenous 4x4 transformation matrix for given rotation (quaternion) and translation components

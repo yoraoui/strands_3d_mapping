@@ -20,6 +20,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/features2d/features2d.hpp>
 
+#include "superpoint.h"
 #include "Util.h"
 #include "Camera.h"
 #include "../weightfunctions/DistanceWeightFunction2.h"
@@ -53,12 +54,15 @@ namespace reglib
 
 		void show(bool stop = false);
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr getPCLcloud();
+		pcl::PointCloud<pcl::PointXYZRGB>::Ptr getSmallPCLcloud();
         void savePCD(std::string path = "cloud.pcd", Eigen::Matrix4d pose = Eigen::Matrix4d::Identity());
 
         void save(std::string path = "");
 		RGBDFrame * clone();
 		static RGBDFrame * load(Camera * cam, std::string path);
-		std::vector<ReprojectionResult> getReprojections(std::vector<superpoint> & spvec, Eigen::Matrix4d cp);
+		std::vector<ReprojectionResult> getReprojections(std::vector<superpoint> & spvec, Eigen::Matrix4d cp, bool * maskvec,  bool useDet = true);
+
+		std::vector<superpoint> getSuperPoints(Eigen::Matrix4d cp = Eigen::Matrix4d::Identity());
 	};
 }
 

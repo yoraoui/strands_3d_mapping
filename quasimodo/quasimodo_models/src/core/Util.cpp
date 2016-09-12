@@ -1,6 +1,40 @@
 #include "core/Util.h"
 namespace reglib{
 
+	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr getPointCloudFromVector(std::vector<superpoint> & spvec, int colortype){
+		unsigned long nr_points = spvec.size();
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+		cloud_ptr->width	= nr_points;
+		cloud_ptr->height	= 1;
+		cloud_ptr->points.resize(nr_points);
+		for(unsigned long ind = 0; ind < nr_points; ind++){
+			superpoint & p				= spvec[ind];
+			pcl::PointXYZRGBNormal & p0	= cloud_ptr->points[ind];
+			p0.x		= p.point(0);
+			p0.y		= p.point(1);
+			p0.z		= p.point(2);
+			if(colortype == 0){
+				p0.r		= p.feature(0);
+				p0.g		= p.feature(1);
+				p0.b		= p.feature(2);
+			}
+			if(colortype == 1){
+				p0.r		= 255.0*fabs(p.normal(0));
+				p0.g		= 255.0*fabs(p.normal(1));
+				p0.b		= 255.0*fabs(p.normal(2));
+			}
+			if(colortype == 2){
+				p0.r		= 255.0*std::min(1.0,1.0/sqrt(p.point_information));
+				p0.g		= 255.0*std::min(1.0,std::max(0.0,1.0-sqrt(p.point_information)));
+				p0.b		= 0;
+			}
+			p0.normal_x	= p.normal(0);
+			p0.normal_y	= p.normal(1);
+			p0.normal_z	= p.normal(2);
+		}
+		return cloud_ptr;
+	}
+
 	double mysign(double v){
 		if(v < 0){return -1;}
 		return 1;

@@ -89,7 +89,6 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 	unsigned char  * dst_rgbdata		= (unsigned char	*)(cf->rgb.data);
 	unsigned short * dst_depthdata		= (unsigned short	*)(cf->depth.data);
 	float		   * dst_normalsdata	= (float			*)(cf->normals.data);
-	//unsigned char  * dst_detdata		= (unsigned char	*)(cf->det_dilate.data);
 
 	float m00 = cp(0,0); float m01 = cp(0,1); float m02 = cp(0,2); float m03 = cp(0,3);
 	float m10 = cp(1,0); float m11 = cp(1,1); float m12 = cp(1,2); float m13 = cp(1,3);
