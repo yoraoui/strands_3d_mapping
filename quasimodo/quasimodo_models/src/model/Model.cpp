@@ -48,7 +48,7 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 	Camera * camera				= frame->camera;
 	const unsigned int width	= camera->width;
 	const unsigned int height	= camera->height;
-	unsigned long nr_pixels = width*height;
+	unsigned long nr_pixels		= width*height;
 
 	std::vector<float> sumw;
 	sumw.resize(nr_pixels);
@@ -58,13 +58,11 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 	isfused.resize(nr_pixels);
 	for(unsigned int i = 0; i < width*height; i++){isfused[i] = false;}
 
-	bool * maskvec = modelmask->maskvec;
-	std::vector<ReprojectionResult> rr_vec = frame->getReprojections(spvec,p.inverse(),modelmask->maskvec,false);
-	std::vector<superpoint> framesp = frame->getSuperPoints(p);
-
+	bool * maskvec							= modelmask->maskvec;
+	std::vector<ReprojectionResult> rr_vec	= frame->getReprojections(spvec,p.inverse(),modelmask->maskvec,false);
+	std::vector<superpoint> framesp			= frame->getSuperPoints(p);
 
 	unsigned long nr_rr = rr_vec.size();
-	printf("nr_rr: %i\n",nr_rr);
 	if(nr_rr > 10){
 		std::vector<double> residualsZ;
 		double stdval = 0;
@@ -86,261 +84,64 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 		func->zeromean				= true;
 		func->maxp					= 0.99;
 		func->startreg				= 0.001;
-		func->debugg_print			= true;
-
+		func->debugg_print			= false;
 		func->maxd					= 0.1;
 		func->startmaxd				= func->maxd;
-
 		func->histogram_size		= 100;
 		func->starthistogram_size	= func->histogram_size;
-//		func->blurval				= 0.005;
 		func->stdval2				= stdval;
 		func->maxnoise				= stdval;
 		func->reset();
 		((DistanceWeightFunction2*)func)->computeModel(residualsZ);
-		Eigen::VectorXd probs = ((DistanceWeightFunction2*)func)->getProbs(residualsZ);
-		delete func;
-
-		//superpoint & src_p =   spvec[rr.src_ind];
-		//superpoint & dst_p = framesp[rr.dst_ind];
 
 		for(unsigned long ind = 0; ind < nr_rr;ind++){
-			printf("%5.5f -> %3.3f \n",double(ind+1)/double(nr_rr),probs(ind));
-			if(probs(ind) > 0.5){
-				sumw[rr_vec[ind].dst_ind] += probs(ind);
-			}
+			double p = func->getProb(residualsZ[ind]);
+			if(p > 0.5){sumw[rr_vec[ind].dst_ind] += p;}
 		}
 
-
 		for(unsigned long ind = 0; ind < nr_rr;ind++){
-			if(probs(ind) > 0.5){
-				printf("%5.5f -> %3.3f \n",double(ind+1)/double(nr_rr),probs(ind));
+			double p = func->getProb(residualsZ[ind]);
+			if(p > 0.5){
 				ReprojectionResult & rr = rr_vec[ind];
 				superpoint & src_p =   spvec[rr.src_ind];
 				superpoint & dst_p = framesp[rr.dst_ind];
-				float weight = probs(ind)/sumw[rr.dst_ind];
+				float weight = p/sumw[rr.dst_ind];
 				src_p.merge(dst_p,weight);
 			}
 		}
+		delete func;
 	}
 
 	for(unsigned long ind = 0; ind < nr_pixels;ind++){
 		if(maskvec[ind] != 0 && sumw[ind] < 0.5){
-			spvec.push_back(framesp[ind]);
+			superpoint & sp = framesp[ind];
+			if(sp.point_information > 0){
+				spvec.push_back(sp);
+			}
 		}
 	}
-
-
 
 	if(viewer != 0){
-		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr framecloud = getPointCloudFromVector(framesp,1);
-		viewer->removeAllPointClouds();
-		viewer->addPointCloud<pcl::PointXYZRGBNormal> (framecloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(framecloud), "framecloud");
-		viewer->spin();
-
-		viewer->removeAllPointClouds();
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud = getPointCloudFromVector(spvec,1);
-		for(unsigned long ind = 0; ind < cloud->points.size();ind++){
-			cloud->points[ind].z -= 1;
-		}
-
 		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "model");
 		viewer->spin();
-
-
 		viewer->removeAllPointClouds();
-		viewer->removeAllShapes();
-		for(unsigned long ind = 0; ind < nr_rr;ind++){
-			if(rand()%100 == 0){
-				char buf [1024];
-				sprintf(buf,"line%i",ind);
-				ReprojectionResult & rr = rr_vec[ind];
-				viewer->addLine<pcl::PointXYZRGBNormal> (	cloud->points[rr.src_ind],  framecloud->points[rr.dst_ind],255,0,255,buf);
-			}
-		}
+	}
+}
 
-		viewer->addPointCloud<pcl::PointXYZRGBNormal> (framecloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(framecloud), "framecloud");
-		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "model");
-
-		viewer->spin();
-		viewer->removeAllPointClouds();
-		viewer->removeAllShapes();
+void Model::addAllSuperPoints(std::vector<superpoint> & spvec, Eigen::Matrix4d pose, boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer){
+	for(unsigned int i = 0; i < frames.size(); i++){
+		addSuperPoints(spvec, pose*relativeposes[i], frames[i], modelmasks[i], viewer);
 	}
 
-/*
-	unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
-	//float  * rgbdata				= frame->rgbdata;
-	unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
-	float		   * normalsdata	= (float			*)(frame->normals.data);
-
-	unsigned int frameid = frame->id;
-
-	Matrix4d ip = p.inverse();
-
-	float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
-	float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
-	float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
-
-	float im00 = ip(0,0); float im01 = ip(0,1); float im02 = ip(0,2); float im03 = ip(0,3);
-	float im10 = ip(1,0); float im11 = ip(1,1); float im12 = ip(1,2); float im13 = ip(1,3);
-	float im20 = ip(2,0); float im21 = ip(2,1); float im22 = ip(2,2); float im23 = ip(2,3);
-
-
-
-	const unsigned int dst_width2	= camera->width  - 2;
-	const unsigned int dst_height2	= camera->height - 2;
-
-	const float idepth			= camera->idepth_scale;
-	const float cx				= camera->cx;
-	const float cy				= camera->cy;
-	const float fx				= camera->fx;
-	const float fy				= camera->fy;
-	const float ifx				= 1.0/camera->fx;
-	const float ify				= 1.0/camera->fy;
-
-	std::vector<bool> isfused;
-	isfused.resize(width*height);
-
-	//bool * isfused = new bool[width*height];
-	for(unsigned int i = 0; i < width*height; i++){isfused[i] = false;}
-
-	for(unsigned int ind = 0; ind < spvec.size();ind++){
-		superpoint & sp = spvec[ind];
-
-		float src_x = sp.point(0);
-		float src_y = sp.point(1);
-		float src_z = sp.point(2);
-
-		float src_nx = sp.normal(0);
-		float src_ny = sp.normal(1);
-		float src_nz = sp.normal(2);
-
-		float src_r = sp.feature(0);
-		float src_g = sp.feature(1);
-		float src_b = sp.feature(2);
-
-		double point_information = sp.point_information;
-		double feature_information = sp.feature_information;
-
-		float tx	= im00*src_x + im01*src_y + im02*src_z + im03;
-		float ty	= im10*src_x + im11*src_y + im12*src_z + im13;
-		float tz	= im20*src_x + im21*src_y + im22*src_z + im23;
-
-		float itz	= 1.0/tz;
-		float dst_w	= fx*tx*itz + cx;
-		float dst_h	= fy*ty*itz + cy;
-
-		if((dst_w > 0) && (dst_h > 0) && (dst_w < dst_width2) && (dst_h < dst_height2)){
-			unsigned int dst_ind = unsigned(dst_h+0.5) * width + unsigned(dst_w+0.5);
-
-			float dst_z = idepth*float(depthdata[dst_ind]);
-			float dst_nx = normalsdata[3*dst_ind+0];
-			if(!isfused[dst_ind] && dst_z > 0 && dst_nx != 2){
-				float dst_ny = normalsdata[3*dst_ind+1];
-				float dst_nz = normalsdata[3*dst_ind+2];
-
-				float dst_x = (float(dst_w) - cx) * dst_z * ifx;
-				float dst_y = (float(dst_h) - cy) * dst_z * ify;
-
-				double dst_noise = dst_z * dst_z;
-
-				double point_noise = 1.0/sqrt(point_information);
-
-				float tnx	= im00*src_nx + im01*src_ny + im02*src_nz;
-				float tny	= im10*src_nx + im11*src_ny + im12*src_nz;
-				float tnz	= im20*src_nx + im21*src_ny + im22*src_nz;
-
-				double d = fabs(tnx*(dst_x-tx) + tny*(dst_y-ty) + tnz*(dst_z-tz));
-
-				double compare_mul = sqrt(dst_noise*dst_noise + point_noise*point_noise);
-				d *= compare_mul;
-
-				double surface_angle = tnx*dst_nx+tny*dst_ny+tnz*dst_nz;
-
-				if(d < 0.01 && surface_angle > 0.5){//If close, according noises, and angle of the surfaces similar: FUSE
-					float px	= m00*dst_x + m01*dst_y + m02*dst_z + m03;
-					float py	= m10*dst_x + m11*dst_y + m12*dst_z + m13;
-					float pz	= m20*dst_x + m21*dst_y + m22*dst_z + m23;
-
-					float pnx	= m00*dst_nx + m01*dst_ny + m02*dst_nz;
-					float pny	= m10*dst_nx + m11*dst_ny + m12*dst_nz;
-					float pnz	= m20*dst_nx + m21*dst_ny + m22*dst_nz;
-
-					float pb = (float)(rgbdata[3*dst_ind+0]);
-					float pg = (float)(rgbdata[3*dst_ind+1]);
-					float pr = (float)(rgbdata[3*dst_ind+2]);
-
-					Vector3f	pxyz	(px	,py	,pz );
-					Vector3f	pnxyz	(pnx,pny,pnz);
-					Vector3f	prgb	(pr	,pg	,pb );
-					float		weight	= 1.0/(dst_noise*dst_noise);
-					superpoint sp2 = superpoint(pxyz,pnxyz,prgb, weight, weight, frameid);
-					sp.merge(sp2);
-					isfused[dst_ind] = true;
-				}
-			}
-		}
+	for(unsigned int i = 0; i < submodels.size(); i++){
+		submodels[i]->addAllSuperPoints(spvec, pose*submodels_relativeposes[i], viewer);
 	}
+}
 
-	int nr_fused = 0;
-	int nr_mask = 0;
-	for(unsigned int w = 0; w < width; w++){
-		for(unsigned int h = 0; h < height;h++){
-			int ind = h*width+w;
-			nr_fused += isfused[ind];
-			nr_mask += maskvec[ind] > 0;
-		}
-	}
-	for(unsigned int w = 0; w < width; w++){
-		for(unsigned int h = 0; h < height;h++){
-			int ind = h*width+w;
-			if(!isfused[ind] && maskvec[ind]){
-				float z = idepth*float(depthdata[ind]);
-				float nx = normalsdata[3*ind+0];
-
-				if(z > 0 && nx != 2){
-					float ny = normalsdata[3*ind+1];
-					float nz = normalsdata[3*ind+2];
-
-					float x = (w - cx) * z * ifx;
-					float y = (h - cy) * z * ify;
-
-					double noise = z * z;
-
-					float px	= m00*x + m01*y + m02*z + m03;
-					float py	= m10*x + m11*y + m12*z + m13;
-					float pz	= m20*x + m21*y + m22*z + m23;
-					float pnx	= m00*nx + m01*ny + m02*nz;
-					float pny	= m10*nx + m11*ny + m12*nz;
-					float pnz	= m20*nx + m21*ny + m22*nz;
-
-					float pb = rgbdata[3*ind+0];
-					float pg = rgbdata[3*ind+1];
-					float pr = rgbdata[3*ind+2];
-
-					Vector3f	pxyz	(px	,py	,pz );
-					Vector3f	pnxyz	(pnx,pny,pnz);
-					Vector3f	prgb	(pr	,pg	,pb );
-					float		weight	= 1.0/(noise*noise);
-					spvec.push_back(superpoint(pxyz,pnxyz,prgb, weight, weight, frameid));
-				}
-			}
-		}
-	}
-
-//	if(viewer != 0){
-////		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr framecloud = getPointCloudFromVector(framesp);
-////		viewer->removeAllPointClouds();
-////		viewer->addPointCloud<pcl::PointXYZRGBNormal> (framecloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(framecloud), "framecloud");
-////		viewer->spin();
-
-//		viewer->removeAllPointClouds();
-//		pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = getPCLcloud(1, false);
-//		viewer->addPointCloud<pcl::PointXYZRGB> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cloud), "model");
-//		viewer->spin();
-//	}
-	//delete[] isfused;
-	*/
+void Model::recomputeModelPoints(Eigen::Matrix4d pose, boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer){
+    points.clear();
+	addAllSuperPoints(points,pose,viewer);
 }
 
 void Model::showHistory(boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer){
@@ -501,21 +302,6 @@ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> ret;
 		ret.push_back(room_cloud);
 	}
 	return ret;
-}
-
-void Model::addAllSuperPoints(std::vector<superpoint> & spvec, Eigen::Matrix4d pose, boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer){
-	for(unsigned int i = 0; i < frames.size(); i++){
-		addSuperPoints(spvec, pose*relativeposes[i], frames[i], modelmasks[i], viewer);
-	}
-
-	for(unsigned int i = 0; i < submodels.size(); i++){
-		submodels[i]->addAllSuperPoints(spvec, pose*submodels_relativeposes[i], viewer);
-	}
-}
-
-void Model::recomputeModelPoints(Eigen::Matrix4d pose, boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer){
-    points.clear();
-	addAllSuperPoints(points,pose,viewer);
 }
 
 void Model::addPointsToModel(RGBDFrame * frame, ModelMask * modelmask, Eigen::Matrix4d p){

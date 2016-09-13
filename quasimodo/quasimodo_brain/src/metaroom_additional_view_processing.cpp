@@ -495,42 +495,47 @@ reglib::Model * processAV(std::string path){
 	mu->massreg_timeout                 = 60*4;
 	mu->viewer							= viewer;
 
-	sweep->points = mu->getSuperPoints(sweep->relativeposes,sweep->frames,sweep->modelmasks,1,false);
-
-	//Not needed if metaroom well calibrated
-	reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.15);
-	bgmassreg->timeout = 20;
-	bgmassreg->viewer = viewer;
-	bgmassreg->use_surface = true;
-	bgmassreg->use_depthedge = false;
-	bgmassreg->visualizationLvl = 0;
-	bgmassreg->maskstep = 5;
-	bgmassreg->nomaskstep = 5;
-	bgmassreg->nomask = true;
-	bgmassreg->stopval = 0.0005;
-	bgmassreg->addModel(sweep);
-	bgmassreg->setData(frames,masks);
-	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
-	delete bgmassreg;
-
-	for(unsigned int i = 0; i < frames.size(); i++){
-		frames[i]->pose = sweep->frames.front()->pose * bgmfr.poses[i+1];
-	}
+	//sweep->points = mu->getSuperPoints(sweep->relativeposes,sweep->frames,sweep->modelmasks,1,false);
+	sweep->recomputeModelPoints();
 
 	reglib::Model * fullmodel = new reglib::Model();
 	fullmodel->frames = sweep->frames;
 	fullmodel->relativeposes = sweep->relativeposes;
 	fullmodel->modelmasks = sweep->modelmasks;
-	for(unsigned int i = 0; i < frames.size(); i++){
-		fullmodel->frames.push_back(frames[i]);
-		fullmodel->modelmasks.push_back(masks[i]);
-		fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
-	}
 
+	if(frames.size() > 0){
+		reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.15);
+		bgmassreg->timeout = 20;
+		bgmassreg->viewer = viewer;
+		bgmassreg->use_surface = true;
+		bgmassreg->use_depthedge = false;
+		bgmassreg->visualizationLvl = 0;
+		bgmassreg->maskstep = 5;
+		bgmassreg->nomaskstep = 5;
+		bgmassreg->nomask = true;
+		bgmassreg->stopval = 0.0005;
+		bgmassreg->addModel(sweep);
+		bgmassreg->setData(frames,masks);
+
+		reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
+		delete bgmassreg;
+
+		for(unsigned int i = 0; i < frames.size(); i++){
+			frames[i]->pose = sweep->frames.front()->pose * bgmfr.poses[i+1];
+		}
+
+		for(unsigned int i = 0; i < frames.size(); i++){
+			fullmodel->frames.push_back(frames[i]);
+			fullmodel->modelmasks.push_back(masks[i]);
+			fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
+		}
+	}
 
 	delete reg;
 	delete mu;
 	delete sweep;
+
+	fullmodel->recomputeModelPoints();
 
 	return fullmodel;
 }
@@ -628,7 +633,8 @@ void processMetaroom(std::string path){
 	std::vector<reglib::RGBDFrame*> fr;
 	std::vector<reglib::ModelMask*> mm;
 	fullmodel->getData(po, fr, mm);
-	fullmodel->points = mu->getSuperPoints(po,fr,mm,1,false);
+	//fullmodel->points = mu->getSuperPoints(po,fr,mm,1,false);
+	fullmodel->recomputeModelPoints();
 
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData current_roomData  = parser.loadRoomFromXML(path);
@@ -651,7 +657,8 @@ void processMetaroom(std::string path){
 		printf("prev: %s\n",prev.c_str());
 
 		reglib::Model * bg = quasimodo_brain::load_metaroom_model(prev);
-		bg->points = mu->getSuperPoints(bg->relativeposes,bg->frames,bg->modelmasks,1,false);
+		//bg->points = mu->getSuperPoints(bg->relativeposes,bg->frames,bg->modelmasks,1,false);
+		bg->recomputeModelPoints();
 
 		std::vector< reglib::Model * > models;
 		models.push_back(fullmodel);

@@ -42,22 +42,6 @@ namespace reglib
     using namespace Eigen;
     using namespace cv;
 
-
-//	class ReprojectionResult{
-//		public:
-//		unsigned long	src_ind;
-//		unsigned long	dst_ind;
-//		double			residual;
-//		double			angle;
-
-//		ReprojectionResult(unsigned long si, unsigned long di, double r, double a){
-//			src_ind = si;
-//			dst_ind = di;
-//			residual = r;
-//			angle = a;
-//		}
-//	};
-
 	class UpdatedModels{
 		public:
 		std::vector< Model * > new_models;
@@ -68,23 +52,6 @@ namespace reglib
 		UpdatedModels(){}
 	};
 	
-//	class OcclusionScore{
-//		public:
-//		double score;
-//		double occlusions;
-
-//		OcclusionScore(){score = 0;occlusions = 0;}
-//		OcclusionScore(	double score_ ,double occlusions_){score = score_;occlusions = occlusions_;}
-//		~OcclusionScore(){}
-
-//		void add(OcclusionScore oc){
-//			score += oc.score;
-//			occlusions += oc.occlusions;
-//		}
-
-//		void print(){printf("score: %5.5f occlusions: %5.5f\n",score,occlusions);}
-//	};
-
 	class ModelUpdater{
         public:
         double occlusion_penalty;

@@ -1937,7 +1937,83 @@ double normalCFD(double value)
 }
 
 void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & dvec, std::vector<double> & nvec, DistanceWeightFunction2 * dfunc, DistanceWeightFunction2 * nfunc, Matrix4d p, RGBDFrame* frame1, double * overlaps, double * occlusions, RGBDFrame* frame2,  int offset1, int offset2, std::vector< std::vector<int> > & interframe_connectionId, std::vector< std::vector<float> > & interframe_connectionStrength, double debugg){
+	Camera * camera						= frame1->camera;
+	const unsigned int width			= camera->width;
+	const unsigned int height			= camera->height;
+	unsigned long nr_pixels				= width*height;
+	std::vector<superpoint> framesp1	= frame1->getSuperPoints(p);
+	std::vector<superpoint> framesp2	= frame2->getSuperPoints(p);
+//	std::vector<ReprojectionResult> rr_vec	= frame1->getReprojections(spvec,p.inverse(),0,true);
+//	std::vector<superpoint> framesp			= frame->getSuperPoints(p);
 
+//	unsigned long nr_rr = rr_vec.size();
+
+	printf("getDynamicWeights\n");// nr_rr: %i\n",nr_rr);
+	exit(0);
+	/*
+	if(nr_rr > 10){
+		std::vector<double> residualsZ;
+		double stdval = 0;
+		for(unsigned long ind = 0; ind < nr_rr;ind++){
+			ReprojectionResult & rr = rr_vec[ind];
+			superpoint & src_p =   spvec[rr.src_ind];
+			superpoint & dst_p = framesp[rr.dst_ind];
+			double src_variance = 1.0/src_p.point_information;
+			double dst_variance = 1.0/dst_p.point_information;
+			double total_variance = src_variance+dst_variance;
+			double total_stdiv = sqrt(total_variance);
+			double d = rr.residualZ;
+			residualsZ.push_back(d/total_stdiv);
+			stdval += residualsZ.back()*residualsZ.back();
+		}
+		stdval = sqrt(stdval/double(nr_rr));
+
+		DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
+		func->zeromean				= true;
+		func->maxp					= 0.99;
+		func->startreg				= 0.001;
+		func->debugg_print			= false;
+		func->maxd					= 0.1;
+		func->startmaxd				= func->maxd;
+		func->histogram_size		= 100;
+		func->starthistogram_size	= func->histogram_size;
+		func->stdval2				= stdval;
+		func->maxnoise				= stdval;
+		func->reset();
+		((DistanceWeightFunction2*)func)->computeModel(residualsZ);
+
+		for(unsigned long ind = 0; ind < nr_rr;ind++){
+			double p = func->getProb(residualsZ[ind]);
+			if(p > 0.5){sumw[rr_vec[ind].dst_ind] += p;}
+		}
+
+		for(unsigned long ind = 0; ind < nr_rr;ind++){
+			double p = func->getProb(residualsZ[ind]);
+			if(p > 0.5){
+				ReprojectionResult & rr = rr_vec[ind];
+				superpoint & src_p =   spvec[rr.src_ind];
+				superpoint & dst_p = framesp[rr.dst_ind];
+				float weight = p/sumw[rr.dst_ind];
+				src_p.merge(dst_p,weight);
+			}
+		}
+		delete func;
+	}
+
+	for(unsigned long ind = 0; ind < nr_pixels;ind++){
+		if(maskvec[ind] != 0 && sumw[ind] < 0.5){spvec.push_back(framesp[ind]);}
+	}
+
+	if(viewer != 0){
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud = getPointCloudFromVector(spvec,1);
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "model");
+		viewer->spin();
+		viewer->removeAllPointClouds();
+	}
+*/
+
+
+/*
 	unsigned char  * src_rgbdata		= (unsigned char	*)(frame1->rgb.data);
 	unsigned short * src_depthdata		= (unsigned short	*)(frame1->depth.data);
 	float		   * src_normalsdata	= (float			*)(frame1->normals.data);
@@ -2086,49 +2162,14 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 
 						double d = (tnx*(dst_x-tx) + tny*(dst_y-ty) + tnz*(dst_z-tz)) / sqrt(dst_noise*dst_noise + point_noise*point_noise);
 
-//						if(offset1 >= 0 && offset2 >= 0){
-//							if(fabs(d) < 0.02){
-//								interframe_connectionId[offset1+src_ind].push_back(offset2+dst_ind);
-//								interframe_connectionStrength[offset1+src_ind].push_back(2);
-//							}
-//						}
-
 						double surface_angle = tnx*dst_nx+tny*dst_ny+tnz*dst_nz;
 
-//						if(dst_detdata[dst_ind] != 0){continue;}
-//						if(src_detdata[src_ind] != 0){continue;}
-
-                        d = fabs(d);
+						d = fabs(d);
                         if(tz > dst_z){d = -d;}
 						if(store_distance){
 							dvec.push_back(d);
 							nvec.push_back(1-surface_angle);
 						}else{
-
-
-
-//							double noise = 0.02;
-//							double noise_angle = 0.05;
-//							double p_overlap = exp(-0.5*(d*d)/(noise*noise));
-//							double p_overlap_angle = exp(-0.5*((1-surface_angle)*(1-surface_angle))/(noise_angle*noise_angle));
-//							p_overlap = std::min(0.9,p_overlap);
-//							double p_occlusion = (1.0-p_overlap)*normalCFD(d/noise);
-//							p_overlap *= p_overlap_angle;
-
-//							if(p_overlap > 0.001 && offset1 >= 0 && offset2 >= 0){
-//								interframe_connectionId[offset1+src_ind].push_back(offset2+dst_ind);
-//								interframe_connectionStrength[offset1+src_ind].push_back(-log(1-p_overlap));
-//							}
-//							if(debugg){
-//								src_cloud->points[src_ind].r = 255-255.0 * func_overlap_angle;
-//								src_cloud->points[src_ind].g = 255.0 * func_overlap_angle;
-//								src_cloud->points[src_ind].b = 0;
-//							}
-//							if(dst_detdata[dst_ind] != 0){continue;}
-//							if(src_detdata[src_ind] != 0){continue;}
-
-//							overlaps[src_ind] = std::max(overlaps[src_ind],p_overlap);
-//							occlusions[src_ind] = std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
 
 							double p_overlap_angle = nfunc->getProb(1-surface_angle);
 							double p_overlap = dfunc->getProb(d);
@@ -2147,33 +2188,12 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 								src_cloud->points[src_ind].b = 0;
 							}
 
-//							if(debugg){
-//								src_cloud->points[src_ind].r = 255-255.0 * func_overlap_angle;
-//								src_cloud->points[src_ind].g = 255.0 * func_overlap_angle;
-//								src_cloud->points[src_ind].b = 0;
-//							}
 							if(dst_detdata[dst_ind] != 0){continue;}
 							if(src_detdata[src_ind] != 0){continue;}
 
 							overlaps[src_ind] = std::min(0.9,std::max(overlaps[src_ind],p_overlap));
 							occlusions[src_ind] = std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
 						}
-//                        if(fabs(d) < 0.02){//If close, according noises, and angle of the surfaces similar: FUSE
-//                            if(surface_angle > 0.9){
-//                                overlaps[src_ind] = std::max(overlaps[src_ind],0.9);
-//                                if(offset1 >= 0 && offset2 >= 0){
-//                                    interframe_connectionId[offset1+src_ind].push_back(offset2+dst_ind);
-//                                    interframe_connectionStrength[offset1+src_ind].push_back(-log(1-overlaps[src_ind]));
-//                                }
-//                            }
-//                        }else if(tz < dst_z){
-//                            occlusions[src_ind] = std::max(occlusions[src_ind],0.9);
-//                            if(debugg){
-//                                src_cloud->points[src_ind].r = 255;
-//                                src_cloud->points[src_ind].g = 0;
-//                                src_cloud->points[src_ind].b = 255;
-//                            }
-//                        }
 					}
 				}
 			}
@@ -2187,6 +2207,7 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 		viewer->addPointCloud<pcl::PointXYZRGBNormal> (dst_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dst_cloud), "dcloud");
 		viewer->spin();
 	}
+*/
 }
 
 void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, std::vector<cv::Mat> & dynmask, vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Matrix4d> poses, vector<RGBDFrame*> frames, bool debugg){
@@ -2211,8 +2232,6 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	int current_point           = 0;
 	float * priors             = new float[3*tot_nr_pixels];
 	bool * valids             = new bool[tot_nr_pixels];
-
-	//bool store_distance = true;
 
 	std::vector<double> dvec;
 	std::vector<double> nvec;

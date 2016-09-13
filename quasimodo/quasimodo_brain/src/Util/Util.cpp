@@ -156,58 +156,22 @@ reglib::Model * load_metaroom_model(std::string sweep_xml){
 	cout << m2 << endl << endl;
 
 	std::vector<reglib::RGBDFrame * > current_room_frames;
-	for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++)
-	{
-		//if(i < 7 || i > 8){continue;}
+	for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++){
 
 		cv::Mat fullmask;
 		fullmask.create(480,640,CV_8UC1);
 		unsigned char * maskdata = (unsigned char *)fullmask.data;
 		for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
 
-		reglib::Camera * cam		= new reglib::Camera();//TODO:: ADD TO CAMERAS
-//		cam->fx = 532.158936;
-//		cam->fy = 533.819214;
-//		cam->cx = 310.514310;
-//		cam->cy = 236.842039;
-
 		image_geometry::PinholeCameraModel aCameraModel = roomData.vIntermediateRoomCloudCamParamsCorrected[i];
-		//rc->initializeCamera(aCameraModel.fx(), aCameraModel.fy(), aCameraModel.cx(), aCameraModel.cy(), aCameraModel.fullResolution().width, aCameraModel.fullResolution().height);
-
+		reglib::Camera * cam		= new reglib::Camera();
 		cam->fx = aCameraModel.fx();
 		cam->fy = aCameraModel.fy();
 		cam->cx = aCameraModel.cx();
 		cam->cy = aCameraModel.cy();
 		cam->print();
-		//aCameraModel.fullResolution().width, aCameraModel.fullResolution().height);
-
-
-		//		cout<<"Intermediate cloud size "<<roomData.vIntermediateRoomClouds[i]->points.size()<<endl;
-
-		//		printf("%i / %i\n",i,roomData.vIntermediateRoomClouds.size());
-
-
-
-
-
-
-		//		//Transform
-		//		tf::StampedTransform tf	= roomData.vIntermediateRoomCloudTransformsRegistered[i];
-		//		geometry_msgs::TransformStamped tfstmsg;
-		//		tf::transformStampedTFToMsg (tf, tfstmsg);
-		//		geometry_msgs::Transform tfmsg = tfstmsg.transform;
-		//		geometry_msgs::Pose		pose;
-		//		pose.orientation		= tfmsg.rotation;
-		//		pose.position.x		= tfmsg.translation.x;
-		//		pose.position.y		= tfmsg.translation.y;
-		//		pose.position.z		= tfmsg.translation.z;
-		//		Eigen::Affine3d epose;
-		//		tf::poseMsgToEigen(pose, epose);
 
 		Eigen::Matrix4d m = m2*getMat(roomData.vIntermediateRoomCloudTransformsRegistered[i]);
-
-		//		cout << m << endl << endl;
-
 		reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,roomData.vIntermediateRGBImages[i],5.0*roomData.vIntermediateDepthImages[i],0, m);
 
 		current_room_frames.push_back(frame);
@@ -220,8 +184,8 @@ reglib::Model * load_metaroom_model(std::string sweep_xml){
 		}
 	}
 
-	//sweepmodel->recomputeModelPoints();
-	printf("nr points: %i\n",sweepmodel->points.size());
+	sweepmodel->recomputeModelPoints();
+	printf("sweep nr points: %i\n",sweepmodel->points.size());
 
 	return sweepmodel;
 }
@@ -243,28 +207,33 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
 	massregmod->nomask = true;
 	massregmod->stopval = 0.0001;
 
+printf("%s::%i\n",__FILE__,__LINE__);
 
 	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( models.front(), reg);
 	mu->occlusion_penalty               = 15;
 	mu->massreg_timeout                 = 60*4;
 	mu->viewer							= viewer;
+printf("%s::%i\n",__FILE__,__LINE__);
 
 	if(models.size() > 0 && bg->frames.size() > 0){
 		std::vector<Eigen::Matrix4d> cpmod;
-
-		bg->points = mu->getSuperPoints(bg->relativeposes,bg->frames,bg->modelmasks,1,false);
-
+printf("%s::%i\n",__FILE__,__LINE__);
+		//bg->points = mu->getSuperPoints(bg->relativeposes,bg->frames,bg->modelmasks,1,false);
+		bg->recomputeModelPoints();
+printf("%s::%i\n",__FILE__,__LINE__);
 		cpmod.push_back(Eigen::Matrix4d::Identity());//,models.front()->relativeposes.front().inverse() * bg->relativeposes.front());
 		massregmod->addModel(bg);
 		printf("bg->points = %i\n",bg->points.size());
-
+printf("%s::%i\n",__FILE__,__LINE__);
 		for(int j = 0; j < models.size(); j++){
-			models[j]->points			= mu->getSuperPoints(models[j]->relativeposes,models[j]->frames,models[j]->modelmasks,1,false);
+			printf("%s::%i\n",__FILE__,__LINE__);
+			//models[j]->points			= mu->getSuperPoints(models[j]->relativeposes,models[j]->frames,models[j]->modelmasks,1,false);
+			models[j]->recomputeModelPoints();
 			cpmod.push_back(bg->frames.front()->pose.inverse() * models[j]->frames.front()->pose);//bg->relativeposes.front().inverse() * models[j]->relativeposes.front());
 			massregmod->addModel(models[j]);
 		}
-
+printf("%s::%i\n",__FILE__,__LINE__);
 
 		reglib::MassFusionResults mfrmod = massregmod->getTransforms(cpmod);
 		for(int j = 0; j < models.size(); j++){
@@ -278,19 +247,22 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
 				models[j]->submodels_relativeposes[k] = change*models[j]->submodels_relativeposes[k];
 			}
 		}
+		printf("%s::%i\n",__FILE__,__LINE__);
 	}else if(models.size() > 1){
 		std::vector<Eigen::Matrix4d> cpmod;
-
+printf("%s::%i\n",__FILE__,__LINE__);
 		Eigen::Matrix4d first = Eigen::Matrix4d::Identity();
 		//Eigen::Matrix4d first = mod_po_vec.front().front();
 		for(int j = 0; j < models.size(); j++){
-			models[j]->points	= mu->getSuperPoints(models[j]->relativeposes,models[j]->frames,models[j]->modelmasks,1,false);
+			//models[j]->points	= mu->getSuperPoints(models[j]->relativeposes,models[j]->frames,models[j]->modelmasks,1,false);
+			models[j]->recomputeModelPoints();
 			cpmod.push_back(models.front()->relativeposes.front().inverse() * models[j]->relativeposes.front());
 			massregmod->addModel(models[j]);
 		}
-
+printf("%s::%i\n",__FILE__,__LINE__);
 		reglib::MassFusionResults mfrmod = massregmod->getTransforms(cpmod);
 		for(int j = 0; j < models.size(); j++){
+			printf("%s::%i\n",__FILE__,__LINE__);
 			Eigen::Matrix4d change = mfrmod.poses[j] * cpmod[j].inverse();
 
 			for(unsigned int k = 0; k < models[j]->relativeposes.size(); k++){
@@ -301,8 +273,9 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
 				models[j]->submodels_relativeposes[k] = change*models[j]->submodels_relativeposes[k];
 			}
 		}
+		printf("%s::%i\n",__FILE__,__LINE__);
 	}
-
+printf("%s::%i\n",__FILE__,__LINE__);
 	delete massregmod;
 
 	std::vector<Eigen::Matrix4d> bgcp;
@@ -313,7 +286,7 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
 		bgcf.push_back(bg->frames[k]);
 		bgmask.push_back(bg->modelmasks[k]->getMask());
 	}
-
+printf("%s::%i\n",__FILE__,__LINE__);
 	for(int j = 0; j < models.size(); j++){
 		reglib::Model * model = models[j];
 
@@ -327,54 +300,13 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
 			for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 255;}
 			masks.push_back(mask);
 		}
-
+printf("%s::%i\n",__FILE__,__LINE__);
 		std::vector<cv::Mat> movemask;
 		std::vector<cv::Mat> dynmask;
 		mu->computeMovingDynamicStatic(movemask,dynmask,bgcp,bgcf,model->relativeposes,model->frames,debugg);//Determine self occlusions
 		external.push_back(movemask);
 		internal.push_back(masks);
 		dynamic.push_back(dynmask);
-
-//		for(unsigned int i = 0; i < model->frames.size(); i++){
-//			cv::imshow( "rgb",		model->frames[i]->rgb );
-//			cv::imshow( "movemask",	movemask[i] );
-//			cv::imshow( "dynmask",	dynmask[i] );
-//			cv::waitKey(0);
-//		}
-
-//		std::vector<cv::Mat> internal_masks = mu->computeDynamicObject(bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,model->relativeposes,model->frames,masks,debugg);//Determine self occlusions
-//		std::vector<cv::Mat> external_masks = mu->computeDynamicObject(model->relativeposes,model->frames,masks,bgcp,bgcf,bgmask,model->relativeposes,model->frames,masks,debugg);//Determine external occlusions
-//		std::vector<cv::Mat> dynamic_masks;
-//		for(unsigned int i = 0; i < model->frames.size(); i++){
-//			reglib::RGBDFrame * frame = model->frames[i];
-//			reglib::Camera * cam = frame->camera;
-//			cv::Mat mask;
-//			mask.create(cam->height,cam->width,CV_8UC1);
-//			unsigned char * maskdata = (unsigned char *)(mask.data);
-//			for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 255;}
-
-//			unsigned char * internalmaskdata = (unsigned char *)(internal_masks[i].data);
-//			unsigned char * externalmaskdata = (unsigned char *)(external_masks[i].data);
-//			for(unsigned int k = 0; k < cam->height * cam->width;k++){
-//				if(externalmaskdata[k] == 0 && internalmaskdata[k] != 0 ){
-//					maskdata[k] = 255;
-//				}else{
-//					maskdata[k] = 0;
-//				}
-//			}
-
-//			dynamic_masks.push_back(mask);
-
-//			//            cv::imshow( "rgb", frame->rgb );
-//			//            cv::imshow( "internal_masks",	internal_masks[i] );
-//			//            cv::imshow( "externalmask",		external_masks[i] );
-//			//            cv::imshow( "dynamic_mask",		dynamic_masks[i] );
-//			//            cv::waitKey(0);
-//		}
-
-//		internal.push_back(internal_masks);
-//		external.push_back(external_masks);
-//		dynamic.push_back(dynamic_masks);
 	}
 
 	delete reg;
