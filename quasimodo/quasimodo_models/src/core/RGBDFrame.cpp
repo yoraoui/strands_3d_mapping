@@ -2265,6 +2265,7 @@ std::vector<ReprojectionResult> RGBDFrame::getReprojections(std::vector<superpoi
 	unsigned long nr_data = spvec.size();
 	for(unsigned long src_ind = 0; src_ind < nr_data;src_ind++){
 		superpoint & sp = spvec[src_ind];
+		if(sp.point_information == 0){continue;}
 
 		float src_x = sp.point(0);
 		float src_y = sp.point(1);

@@ -1,7 +1,7 @@
 #include "core/Util.h"
 namespace reglib{
 
-	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr getPointCloudFromVector(std::vector<superpoint> & spvec, int colortype){
+	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr getPointCloudFromVector(std::vector<superpoint> & spvec, int colortype, int r, int g, int b){
 		unsigned long nr_points = spvec.size();
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 		cloud_ptr->width	= nr_points;
@@ -27,6 +27,13 @@ namespace reglib{
 				p0.r		= 255.0*std::min(1.0,1.0/sqrt(p.point_information));
 				p0.g		= 255.0*std::min(1.0,std::max(0.0,1.0-sqrt(p.point_information)));
 				p0.b		= 0;
+			}
+			if(colortype == 3){
+				if(r >= 0){
+					p0.r		= r;
+					p0.g		= g;
+					p0.b		= b;
+				}
 			}
 			p0.normal_x	= p.normal(0);
 			p0.normal_y	= p.normal(1);

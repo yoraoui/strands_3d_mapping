@@ -64,6 +64,7 @@ public:
 
 	double startmaxd;
 	double maxd;
+	double mind;
 	int histogram_size;
 	int starthistogram_size;
 	double blurval;

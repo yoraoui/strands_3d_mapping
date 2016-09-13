@@ -76,7 +76,7 @@ inline double getInformation(double depth){
 	return 1.0/(n*n);
 }
 
-pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr getPointCloudFromVector(std::vector<superpoint> & spvec, int colortype = 0);
+pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr getPointCloudFromVector(std::vector<superpoint> & spvec, int colortype = 0, int r = -1, int g = -1, int b = -1);
 
 
 /**

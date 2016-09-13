@@ -1933,23 +1933,282 @@ std::vector<int> doInference(std::vector<double> & prior, std::vector< std::vect
 
 double normalCFD(double value)
 {
-   return 0.5 * erfc(-value * M_SQRT1_2);
+	return 0.5 * erfc(-value * M_SQRT1_2);
 }
 
 void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & dvec, std::vector<double> & nvec, DistanceWeightFunction2 * dfunc, DistanceWeightFunction2 * nfunc, Matrix4d p, RGBDFrame* frame1, double * overlaps, double * occlusions, RGBDFrame* frame2,  int offset1, int offset2, std::vector< std::vector<int> > & interframe_connectionId, std::vector< std::vector<float> > & interframe_connectionStrength, double debugg){
-	Camera * camera						= frame1->camera;
-	const unsigned int width			= camera->width;
-	const unsigned int height			= camera->height;
-	unsigned long nr_pixels				= width*height;
-	std::vector<superpoint> framesp1	= frame1->getSuperPoints(p);
-	std::vector<superpoint> framesp2	= frame2->getSuperPoints(p);
-//	std::vector<ReprojectionResult> rr_vec	= frame1->getReprojections(spvec,p.inverse(),0,true);
-//	std::vector<superpoint> framesp			= frame->getSuperPoints(p);
+	//	Camera * camera							= frame1->camera;
+	//	const unsigned int width				= camera->width;
+	//	const unsigned int height				= camera->height;
+	//	unsigned long nr_pixels					= width*height;
 
-//	unsigned long nr_rr = rr_vec.size();
+	unsigned char * src_detdata = (unsigned char*)(frame1->det_dilate.data);
+	unsigned char * dst_detdata = (unsigned char*)(frame2->det_dilate.data);
 
-	printf("getDynamicWeights\n");// nr_rr: %i\n",nr_rr);
+	std::vector<superpoint> framesp1		= frame1->getSuperPoints(p);
+	std::vector<superpoint> framesp2		= frame2->getSuperPoints();//p);
+	std::vector<ReprojectionResult> rr_vec	= frame2->getReprojections(framesp1,Eigen::Matrix4d::Identity(),0,false);
+
+
+	unsigned long nr_rr = rr_vec.size();
+	printf("getDynamicWeights nr_rr: %i\n",nr_rr);
+
+	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr src_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dst_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+	if(debugg){
+		src_cloud = getPointCloudFromVector(framesp1,3,255,0,255);
+		dst_cloud = getPointCloudFromVector(framesp2,3,0,0,255);
+	}
+
+	int totsum = 0;
+	for(unsigned long ind = 0; ind < nr_rr;ind++){
+		ReprojectionResult & rr = rr_vec[ind];
+		unsigned int src_ind = rr.src_ind;
+		superpoint & src_p = framesp1[src_ind];
+		if(src_p.point(2) < 0.0){continue;}
+
+		totsum++;
+		unsigned int dst_ind = rr.dst_ind;
+		superpoint & dst_p = framesp2[dst_ind];
+		double src_variance = 1.0/src_p.point_information;
+		double dst_variance = 1.0/dst_p.point_information;
+		double total_variance = src_variance+dst_variance;
+		double total_stdiv = sqrt(total_variance);
+		double d = rr.residualZ/total_stdiv;
+		double surface_angle = rr.angle;
+		if(store_distance){
+			dvec.push_back(d);
+			nvec.push_back(1-surface_angle);
+		}else{
+			double p_overlap_angle = nfunc->getProb(1-surface_angle);
+			double p_overlap = dfunc->getProb(d);
+			double p_occlusion = dfunc->getProbInfront(d);
+
+			p_overlap *= p_overlap_angle;
+
+			if(p_overlap > 0.001 && offset1 >= 0 && offset2 >= 0){
+				interframe_connectionId[offset1+src_ind].push_back(offset2+dst_ind);
+				interframe_connectionStrength[offset1+src_ind].push_back(-log(1-p_overlap));
+			}
+
+			if(debugg){
+				src_cloud->points[src_ind].r = 255.0 * p_overlap;
+				src_cloud->points[src_ind].g = 255.0 * p_occlusion;
+				src_cloud->points[src_ind].b = 0;
+			}
+
+			if(dst_detdata[dst_ind] != 0){continue;}
+			if(src_detdata[src_ind] != 0){continue;}
+
+			overlaps[src_ind] = std::min(0.9,std::max(overlaps[src_ind],p_overlap));
+			occlusions[src_ind] = std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
+		}
+	}
+
+	if(debugg && totsum > 0){
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr src_cloud = getPointCloudFromVector(framesp1,3,255,0,255);
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dst_cloud = getPointCloudFromVector(framesp2,3,0,0,255);
+		viewer->removeAllPointClouds();
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (src_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(src_cloud), "scloud");
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (dst_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dst_cloud), "dcloud");
+		viewer->spin();
+	}
+
+	//		std::vector<double> residualsZ;
+	//		double stdval = 0;
+	//			residualsZ.push_back(d);
+	//			stdval += residualsZ.back()*residualsZ.back();
+	//		stdval = sqrt(stdval/double(nr_rr));
+
+	//		DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
+	//		func->zeromean				= true;
+	//		func->maxp					= 0.99;
+	//		func->startreg				= 0.0001;
+	//		func->debugg_print			= true;
+	//		func->maxd					= 0.1;
+	//		func->startmaxd				= func->maxd;
+	//		func->histogram_size		= 100;
+	//		func->starthistogram_size	= func->histogram_size;
+	//		func->stdval2				= stdval;
+	//		func->maxnoise				= stdval;
+	//		func->reset();
+	//		((DistanceWeightFunction2*)func)->computeModel(residualsZ);
+
+
+	//		double surface_angle = tnx*dst_nx+tny*dst_ny+tnz*dst_nz;
+
+	//		d = fabs(d);
+	//        if(tz > dst_z){d = -d;}
+	//		if(store_distance){
+	//			dvec.push_back(d);
+	//			nvec.push_back(1-surface_angle);
+	//		}else{
+
+	//			double p_overlap_angle = nfunc->getProb(1-surface_angle);
+	//			double p_overlap = dfunc->getProb(d);
+	//			double p_occlusion = dfunc->getProbInfront(d);
+
+	//			p_overlap *= p_overlap_angle;
+
+	//			if(p_overlap > 0.001 && offset1 >= 0 && offset2 >= 0){
+	//				interframe_connectionId[offset1+src_ind].push_back(offset2+dst_ind);
+	//				interframe_connectionStrength[offset1+src_ind].push_back(-log(1-p_overlap));
+	//			}
+
+	//			if(debugg){
+	//				src_cloud->points[src_ind].r = 255.0 * p_overlap;
+	//				src_cloud->points[src_ind].g = 255.0 * p_occlusion;
+	//				src_cloud->points[src_ind].b = 0;
+	//			}
+
+	//			if(dst_detdata[dst_ind] != 0){continue;}
+	//			if(src_detdata[src_ind] != 0){continue;}
+
+	//			overlaps[src_ind] = std::min(0.9,std::max(overlaps[src_ind],p_overlap));
+	//			occlusions[src_ind] = std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
+	//		}
+	//	}
+	//}
+
+	//		for(unsigned long ind = 0; ind < nr_rr;ind++){
+	//			double p = func->getProb(residualsZ[ind]);
+	//			if(p > 0.5){sumw[rr_vec[ind].dst_ind] += p;}
+	//		}
+
+	//		for(unsigned long ind = 0; ind < nr_rr;ind++){
+	//			double p = func->getProb(residualsZ[ind]);
+	//			if(p > 0.5){
+	//				ReprojectionResult & rr = rr_vec[ind];
+	//				superpoint & src_p =   spvec[rr.src_ind];
+	//				superpoint & dst_p = framesp[rr.dst_ind];
+	//				float weight = p/sumw[rr.dst_ind];
+	//				src_p.merge(dst_p,weight);
+	//			}
+	//		}
+	//delete func;
+
+	//	for(unsigned long ind = 0; ind < nr_pixels;ind++){
+	//		if(maskvec[ind] != 0 && sumw[ind] < 0.5){
+	//			superpoint & sp = framesp[ind];
+	//			if(sp.point_information > 0){
+	//				spvec.push_back(sp);
+	//			}
+	//		}
+	//	}
+
+
+	/*
+
+
+	unsigned char  * src_rgbdata		= (unsigned char	*)(frame1->rgb.data);
+	unsigned short * src_depthdata		= (unsigned short	*)(frame1->depth.data);
+	float		   * src_normalsdata	= (float			*)(frame1->normals.data);
+
+
+	unsigned char * src_detdata = (unsigned char*)(frame1->det_dilate.data);
+	unsigned char * dst_detdata = (unsigned char*)(frame2->det_dilate.data);
+
+	Camera * src_camera				= frame1->camera;
+	const unsigned int src_width	= src_camera->width;
+	const unsigned int src_height	= src_camera->height;
+	const float src_idepth			= src_camera->idepth_scale;
+	const float src_cx				= src_camera->cx;
+	const float src_cy				= src_camera->cy;
+	const float src_ifx				= 1.0/src_camera->fx;
+	const float src_ify				= 1.0/src_camera->fy;
+
+	unsigned char  * dst_rgbdata		= (unsigned char	*)(frame2->rgb.data);
+	unsigned short * dst_depthdata		= (unsigned short	*)(frame2->depth.data);
+	float		   * dst_normalsdata	= (float			*)(frame2->normals.data);
+
+	Camera * dst_camera				= frame2->camera;
+	const unsigned int dst_width	= dst_camera->width;
+	const unsigned int dst_height	= dst_camera->height;
+	const float dst_idepth			= dst_camera->idepth_scale;
+	const float dst_cx				= dst_camera->cx;
+	const float dst_cy				= dst_camera->cy;
+	const float dst_ifx				= 1.0/dst_camera->fx;
+	const float dst_ify				= 1.0/dst_camera->fy;
+	const float dst_fx				= dst_camera->fx;
+	const float dst_fy				= dst_camera->fy;
+
+	const unsigned int dst_width2	= dst_camera->width  - 2;
+	const unsigned int dst_height2	= dst_camera->height - 2;
+
+	float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
+	float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
+	float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
+
+	//bool debugg = true;
+	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr src_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dst_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+	if(debugg){
+		src_cloud->points.resize(src_width*src_height);
+		for(unsigned int src_w = 0; src_w < src_width;src_w++){
+			for(unsigned int src_h = 0; src_h < src_height;src_h++){
+				int src_ind = src_h*src_width+src_w;
+				float src_z = src_idepth*float(src_depthdata[src_ind]);
+				float src_nx = src_normalsdata[3*src_ind+0];
+				if(src_z > 0 && src_nx != 2){
+					float src_ny = src_normalsdata[3*src_ind+1];
+					float src_nz = src_normalsdata[3*src_ind+2];
+
+					float src_x = (float(src_w) - src_cx) * src_z * src_ifx;
+					float src_y = (float(src_h) - src_cy) * src_z * src_ify;
+
+
+					float tx	= m00*src_x + m01*src_y + m02*src_z + m03;
+					float ty	= m10*src_x + m11*src_y + m12*src_z + m13;
+					float tz	= m20*src_x + m21*src_y + m22*src_z + m23;
+
+					pcl::PointXYZRGBNormal point;
+					point.x = tx;
+					point.y = ty;
+					point.z = tz;
+					point.r = 0;
+					point.g = 0;
+					point.b = 0;
+					src_cloud->points[src_ind] = point;
+				}
+			}
+		}
+
+		dst_cloud->points.resize(dst_width*dst_height);
+		for(unsigned int dst_w = 0; dst_w < dst_width;dst_w++){
+			for(unsigned int dst_h = 0; dst_h < dst_height;dst_h++){
+				int dst_ind = dst_h*dst_width+dst_w;
+				float dst_z = dst_idepth*float(dst_depthdata[dst_ind]);
+				float dst_nx = dst_normalsdata[3*dst_ind+0];
+				if(dst_z > 0 && dst_nx != 2){
+					float dst_ny = dst_normalsdata[3*dst_ind+1];
+					float dst_nz = dst_normalsdata[3*dst_ind+2];
+
+					float dst_x = (float(dst_w) - dst_cx) * dst_z * dst_ifx;
+					float dst_y = (float(dst_h) - dst_cy) * dst_z * dst_ify;
+
+					pcl::PointXYZRGBNormal point;
+					point.x = dst_x;
+					point.y = dst_y;
+					point.z = dst_z;
+					point.r = 255;
+					point.g = 0;
+					point.b = 255;
+					dst_cloud->points[dst_ind] = point;
+				}
+			}
+		}
+	}
+
+	if(debugg){
+		viewer->removeAllPointClouds();
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (src_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(src_cloud), "scloud");
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (dst_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dst_cloud), "dcloud");
+		viewer->spin();
+	}
+
+
 	exit(0);
+	*/
 	/*
 	if(nr_rr > 10){
 		std::vector<double> residualsZ;
@@ -2013,7 +2272,7 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 */
 
 
-/*
+	/*
 	unsigned char  * src_rgbdata		= (unsigned char	*)(frame1->rgb.data);
 	unsigned short * src_depthdata		= (unsigned short	*)(frame1->depth.data);
 	float		   * src_normalsdata	= (float			*)(frame1->normals.data);
@@ -2145,7 +2404,7 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 					unsigned int dst_ind = unsigned(dst_h+0.5) * dst_width + unsigned(dst_w+0.5);
 
 					float dst_z = dst_idepth*float(dst_depthdata[dst_ind]);
-                    float dst_nx = dst_normalsdata[3*dst_ind+0];
+					float dst_nx = dst_normalsdata[3*dst_ind+0];
 					if(dst_z > 0 && dst_nx != 2){
 						float dst_ny = dst_normalsdata[3*dst_ind+1];
 						float dst_nz = dst_normalsdata[3*dst_ind+2];
@@ -2165,7 +2424,7 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 						double surface_angle = tnx*dst_nx+tny*dst_ny+tnz*dst_nz;
 
 						d = fabs(d);
-                        if(tz > dst_z){d = -d;}
+						if(tz > dst_z){d = -d;}
 						if(store_distance){
 							dvec.push_back(d);
 							nvec.push_back(1-surface_angle);
@@ -2265,13 +2524,15 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	dfunc = dfuncTMP;
 	dfuncTMP->refine_mean			= true;
 	dfuncTMP->zeromean				= false;
-	dfuncTMP->startreg				= 0.0005;
-	dfuncTMP->debugg_print			= false;
+	//dfuncTMP->startreg				= 0.0005;
+	dfuncTMP->startreg				= 0.0;
+	dfuncTMP->debugg_print			= true;
 	dfuncTMP->bidir					= true;
+	//dfuncTMP->bidir					= false;
 	dfuncTMP->maxp					= 0.9;
-	dfuncTMP->maxd					= 0.03;
+	dfuncTMP->maxd					= 0.5;
 	dfuncTMP->histogram_size		= 1000;
-	dfuncTMP->fixed_histogram_size	= true;
+	dfuncTMP->fixed_histogram_size	= false;//true;
 	dfuncTMP->max_under_mean		= false;
 	dfuncTMP->startmaxd				= dfuncTMP->maxd;
 	dfuncTMP->starthistogram_size	= dfuncTMP->histogram_size;
@@ -2302,7 +2563,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	nfuncTMP->reset();
 	nfunc->computeModel(nvec);
 
-
+//exit(0);
 	int frameConnections = 0;
 	std::vector< std::vector< std::vector<float> > > pixel_weights;
 
@@ -2372,7 +2633,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				float leftover = 1-p_moving-p_dynamic-p_static;
 				float notMoving = current_overlaps[ind];
 
-                float bias = 0.0001;
+				float bias = 0.0001;
 
 
 
@@ -2380,27 +2641,27 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				float p_dynamic_leftover  = -bias+0.5*leftover*notMoving + (1-notMoving)*leftover/4.0;
 				float p_static_leftover   = 2.0*bias+0.5*leftover*notMoving + (1-notMoving)*leftover/2.0;
 
-//				float p_moving_tot	= (1.0-4.0*minprob)*(p_moving+p_moving_leftover);
-//				float p_dynamic_tot = (1.0-4.0*minprob)*(p_dynamic+p_dynamic_leftover);
-//				float p_static_tot	= (1.0-4.0*minprob)*(p_static+p_static_leftover);
+				//				float p_moving_tot	= (1.0-4.0*minprob)*(p_moving+p_moving_leftover);
+				//				float p_dynamic_tot = (1.0-4.0*minprob)*(p_dynamic+p_dynamic_leftover);
+				//				float p_static_tot	= (1.0-4.0*minprob)*(p_static+p_static_leftover);
 
 				float p_moving_tot	= (1.0-4.0*minprob)*(p_moving+p_moving_leftover)	+ minprob;
 				float p_dynamic_tot = (1.0-4.0*minprob)*(p_dynamic+p_dynamic_leftover)	+ minprob;
 				float p_static_tot	= (1.0-4.0*minprob)*(p_static+p_static_leftover)	+ 2.0*minprob;
 
-                priors[3*(offset+ind)+0]       = p_moving_tot;
-                priors[3*(offset+ind)+1]       = p_dynamic_tot;
-                priors[3*(offset+ind)+2]       = p_static_tot;
+				priors[3*(offset+ind)+0]       = p_moving_tot;
+				priors[3*(offset+ind)+1]       = p_dynamic_tot;
+				priors[3*(offset+ind)+2]       = p_static_tot;
 
-//				float p_moving_leftover   = -bias+(1-notMoving)*leftover/4.0;
-//				float p_dynamic_leftover  = -bias+0.5*leftover*notMoving + (1-notMoving)*leftover/4.0;
-//				float p_static_leftover   = 2.0*bias+0.5*leftover*notMoving + (1-notMoving)*leftover/2.0;
+				//				float p_moving_leftover   = -bias+(1-notMoving)*leftover/4.0;
+				//				float p_dynamic_leftover  = -bias+0.5*leftover*notMoving + (1-notMoving)*leftover/4.0;
+				//				float p_static_leftover   = 2.0*bias+0.5*leftover*notMoving + (1-notMoving)*leftover/2.0;
 
 
 
-//				priors[3*(offset+ind)+0]       = p_moving_tot;
-//				priors[3*(offset+ind)+1]       = p_dynamic_tot;
-//				priors[3*(offset+ind)+2]       = p_static_tot;
+				//				priors[3*(offset+ind)+0]       = p_moving_tot;
+				//				priors[3*(offset+ind)+1]       = p_dynamic_tot;
+				//				priors[3*(offset+ind)+2]       = p_static_tot;
 
 				if(probs[0][ind] > 0.00000001){frameConnections++;}
 				if(probs[1][ind] > 0.00000001){frameConnections++;}
@@ -2423,9 +2684,9 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				point.x = m00*x + m01*y + m02*z + m03;
 				point.y = m10*x + m11*y + m12*z + m13;
 				point.z = m20*x + m21*y + m22*z + m23;
-                point.r = priors[3*(offset+ind)+0]*255.0;
-                point.g = priors[3*(offset+ind)+1]*255.0;
-                point.b = priors[3*(offset+ind)+2]*255.0;
+				point.r = priors[3*(offset+ind)+0]*255.0;
+				point.g = priors[3*(offset+ind)+1]*255.0;
+				point.b = priors[3*(offset+ind)+2]*255.0;
 				cloud->points.push_back(point);
 			}
 		}
@@ -2453,12 +2714,12 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	gc::Graph<double,double,double> * g = new gc::Graph<double,double,double>(current_point,frameConnections+interframeConnections);
 	for(unsigned long i = 0; i < current_point;i++){
 		g -> add_node();
-        double p_fg = priors[3*i+0]+priors[3*i+1];
-        double p_bg = priors[3*i+2];
+		double p_fg = priors[3*i+0]+priors[3*i+1];
+		double p_bg = priors[3*i+2];
 		double norm = p_fg + p_bg;
 		p_fg /= norm;
 		p_bg /= norm;
-        if(priors[3*i+0]+priors[3*i+1]+priors[3*i+2] <= 0){
+		if(priors[3*i+0]+priors[3*i+1]+priors[3*i+2] <= 0){
 			g -> add_tweights( i, 0, 0 );
 			continue;
 		}
@@ -2468,7 +2729,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		g -> add_tweights( i, weightFG, weightBG );
 	}
 
-    double maxprob_same = 0.99999999999;
+	double maxprob_same = 0.99999999999;
 	for(unsigned int i = 0; i < frames.size(); i++){
 		int offset = offsets[i];
 		Camera * camera				= frames[i]->camera;
@@ -2480,7 +2741,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				int ind = h*width+w;
 				if(w > 0 && probs[0][ind] > 0.00000001){
 					int other = ind-1;
-                    double p_same = std::min(double(probs[0][ind]),maxprob_same);
+					double p_same = std::min(double(probs[0][ind]),maxprob_same);
 					double not_p_same = 1-p_same;
 					double weight = -log(not_p_same);
 					g -> add_edge( ind+offset, other+offset, weight, weight );
@@ -2488,7 +2749,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 				if(h > 0 && probs[1][ind] > 0.00000001){
 					int other = ind-width;
-                    double p_same = std::min(double(probs[1][ind]),maxprob_same);
+					double p_same = std::min(double(probs[1][ind]),maxprob_same);
 					double not_p_same = 1-p_same;
 					double weight = -log(not_p_same);
 					g -> add_edge( ind+offset, other+offset, weight, weight );
@@ -2569,8 +2830,8 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	gc::Graph<double,double,double> * dynamic_g = new gc::Graph<double,double,double>(nr_dynamic,dynamic_frameConnections+dynamic_interframeConnections);
 	for(unsigned long i = 0; i < dyn_ind.size();i++){
 		dynamic_g -> add_node();
-        double p_fg = priors[3*dyn_ind[i]+0];
-        double p_bg = priors[3*dyn_ind[i]+1];
+		double p_fg = priors[3*dyn_ind[i]+0];
+		double p_bg = priors[3*dyn_ind[i]+1];
 		double norm = p_fg+p_bg;
 		p_fg /= norm;
 		p_bg /= norm;
@@ -2598,7 +2859,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 						int other = ind-1;
 						if(labels[ind+offset] == labels[other+offset]){
 							//dynamic_frameConnections++;
-                            double p_same = std::min(double(probs[0][ind]),maxprob_same);
+							double p_same = std::min(double(probs[0][ind]),maxprob_same);
 							double not_p_same = 1-p_same;
 							double weight = -log(not_p_same);
 							dynamic_g -> add_edge( stat_ind[ind+offset], stat_ind[other+offset], weight, weight );
@@ -2609,7 +2870,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 						int other = ind-width;
 						if(labels[ind+offset] == labels[other+offset]){
 							//dynamic_frameConnections++;
-                            double p_same = std::min(double(probs[0][ind]),maxprob_same);
+							double p_same = std::min(double(probs[0][ind]),maxprob_same);
 							double not_p_same = 1-p_same;
 							double weight = -log(not_p_same);
 							dynamic_g -> add_edge( stat_ind[ind+offset], stat_ind[other+offset], weight, weight );
@@ -2699,29 +2960,29 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	end_inf = getTime();
 	printf("dynamic cluster time: %10.10fs\n",end_inf-start_inf);
 	for (unsigned int d = 0; d < dynamic_indices.size(); d++){
-        double score = 0;
+		double score = 0;
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster2 (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 
-        double totsum = 0;
+		double totsum = 0;
 		for (unsigned int ind = 0; ind < dynamic_indices[d].indices.size(); ind++){
 			int pid = dynamic_indices[d].indices[ind];
 			int dind = dynamicdata[pid];
 
-            double p0 = priors[3*dind+0];
-            double p1 = priors[3*dind+1];
-            double p2 = priors[3*dind+2];
+			double p0 = priors[3*dind+0];
+			double p1 = priors[3*dind+1];
+			double p2 = priors[3*dind+2];
 
 			double s = 0;
 			if(valids[dind]){
-                if(p0 > p2){s += p1 - p0;}
-                else{       s += p1 - p2;}
-                score += s;
+				if(p0 > p2){s += p1 - p0;}
+				else{       s += p1 - p2;}
+				score += s;
 				totsum++;
 			}
 
-            pcl::PointXYZRGBNormal p = cloud->points[dind];
-            p.r = 0;p.g = 0;p.b = 0;
+			pcl::PointXYZRGBNormal p = cloud->points[dind];
+			p.r = 0;p.g = 0;p.b = 0;
 			if(s > 0){p.g = 255.0*s;}
 			if(s < 0){p.r = -255.0*s;}
 
@@ -2730,7 +2991,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		}
 
 		printf("score: %f avg: %f\n",score,score/totsum);
-        if(score > 200){
+		if(score > 200){
 			for (unsigned int ind = 0; ind < dynamic_indices[d].indices.size(); ind++){
 				labels[dynamicdata[dynamic_indices[d].indices[ind]]] = 3;
 			}
@@ -2739,7 +3000,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		if(false && cloud_cluster->points.size() > 500){
 			viewer->removeAllPointClouds();
 			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster), "cloud_cluster");
-            viewer->spin();
+			viewer->spin();
 
 			viewer->removeAllPointClouds();
 			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster2, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster2), "cloud_cluster");
@@ -2763,93 +3024,93 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	end_inf = getTime();
 	printf("moving cluster time: %10.10fs\n",end_inf-start_inf);
 
-    for (unsigned int d = 0; d < moving_indices.size(); d++){
-        double score = 0;
-        pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-        pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster2 (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+	for (unsigned int d = 0; d < moving_indices.size(); d++){
+		double score = 0;
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster2 (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 
-        double totsum = 0;
-        double sum0 = 0;
-        double sum1 = 0;
-        double sum2 = 0;
-        for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
-            int pid = moving_indices[d].indices[ind];
-            int dind = movingdata[pid];
+		double totsum = 0;
+		double sum0 = 0;
+		double sum1 = 0;
+		double sum2 = 0;
+		for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
+			int pid = moving_indices[d].indices[ind];
+			int dind = movingdata[pid];
 
-            double p0 = priors[3*dind+0];
-            double p1 = priors[3*dind+1];
-            double p2 = priors[3*dind+2];
+			double p0 = priors[3*dind+0];
+			double p1 = priors[3*dind+1];
+			double p2 = priors[3*dind+2];
 
-            double s = 0;
-            if(valids[dind]){
-                if(p1 > p2){s += p0 - p1;}
-                else{       s += p0 - p2;}
-                score += s;
-                totsum++;
-                sum0 += p0;
-                sum1 += p1;
-                sum2 += p2;
-            }
+			double s = 0;
+			if(valids[dind]){
+				if(p1 > p2){s += p0 - p1;}
+				else{       s += p0 - p2;}
+				score += s;
+				totsum++;
+				sum0 += p0;
+				sum1 += p1;
+				sum2 += p2;
+			}
 
-            pcl::PointXYZRGBNormal p = cloud->points[dind];
-            p.r = 0;p.g = 0;p.b = 0;
-            if(s > 0){p.g = 255.0*s;}
-            if(s < 0){p.r = -255.0*s;}
+			pcl::PointXYZRGBNormal p = cloud->points[dind];
+			p.r = 0;p.g = 0;p.b = 0;
+			if(s > 0){p.g = 255.0*s;}
+			if(s < 0){p.r = -255.0*s;}
 
-            cloud_cluster->points.push_back(movingcloud->points[pid]);
-            cloud_cluster2->points.push_back(p);
-        }
+			cloud_cluster->points.push_back(movingcloud->points[pid]);
+			cloud_cluster2->points.push_back(p);
+		}
 
-//        printf("score: %f avg: %f\n",score,score/totsum);
-//        printf("sum: %f %f %f\n",sum0,sum1,sum2);
-        if(score > 200){
-            for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
-                labels[movingdata[moving_indices[d].indices[ind]]] = 4;
-            }
-        }
+		//        printf("score: %f avg: %f\n",score,score/totsum);
+		//        printf("sum: %f %f %f\n",sum0,sum1,sum2);
+		if(score > 200){
+			for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
+				labels[movingdata[moving_indices[d].indices[ind]]] = 4;
+			}
+		}
 
-        if(false && cloud_cluster->points.size() > 500){
-            viewer->removeAllPointClouds();
-            viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster), "cloud_cluster");
-            viewer->spin();
+		if(false && cloud_cluster->points.size() > 500){
+			viewer->removeAllPointClouds();
+			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster), "cloud_cluster");
+			viewer->spin();
 
-            viewer->removeAllPointClouds();
-            viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster2, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster2), "cloud_cluster");
-            viewer->spin();
-        }
+			viewer->removeAllPointClouds();
+			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster2, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster2), "cloud_cluster");
+			viewer->spin();
+		}
 
 
-//        double score = 0;
-//        pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-//        double sum0 = 0;
-//        double sum1 = 0;
-//        double sum2 = 0;
-//        for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
-//            int pid = moving_indices[d].indices[ind];
-//            int dind = movingdata[pid];
-//            score += priors[3*dind+0] -0.5*(priors[3*dind+1]+priors[3*dind+2]);
+		//        double score = 0;
+		//        pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+		//        double sum0 = 0;
+		//        double sum1 = 0;
+		//        double sum2 = 0;
+		//        for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
+		//            int pid = moving_indices[d].indices[ind];
+		//            int dind = movingdata[pid];
+		//            score += priors[3*dind+0] -0.5*(priors[3*dind+1]+priors[3*dind+2]);
 
-//            sum0 += priors[3*dind+0];
-//            sum1 += priors[3*dind+1];
-//            sum2 += priors[3*dind+2];
+		//            sum0 += priors[3*dind+0];
+		//            sum1 += priors[3*dind+1];
+		//            sum2 += priors[3*dind+2];
 
-//            cloud_cluster->points.push_back(movingcloud->points[pid]);
-//        }
+		//            cloud_cluster->points.push_back(movingcloud->points[pid]);
+		//        }
 
-//        double avg = score/double(moving_indices[d].indices.size());
-////		printf("score: %f avg: %f\n",score,avg);
-////		printf("sum0: %f sum1: %f sum2: %f\n",sum0,sum1,sum2);
-//        if(score > 100){
-//            for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
-//                labels[movingdata[moving_indices[d].indices[ind]]] = 4;
-//            }
-//        }
+		//        double avg = score/double(moving_indices[d].indices.size());
+		////		printf("score: %f avg: %f\n",score,avg);
+		////		printf("sum0: %f sum1: %f sum2: %f\n",sum0,sum1,sum2);
+		//        if(score > 100){
+		//            for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
+		//                labels[movingdata[moving_indices[d].indices[ind]]] = 4;
+		//            }
+		//        }
 
-////		if(cloud_cluster->points.size() > 500){
-////			viewer->removeAllPointClouds();
-////			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster), "cloud_cluster");
-////			viewer->spin();
-////		}
+		////		if(cloud_cluster->points.size() > 500){
+		////			viewer->removeAllPointClouds();
+		////			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_cluster, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_cluster), "cloud_cluster");
+		////			viewer->spin();
+		////		}
 	}
 
 
@@ -2953,7 +3214,7 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 	{
 		//	double maxprob_same = 1-test;//0.99;
 
-        double maxprob_same = 0.999999;
+		double maxprob_same = 0.999999;
 
 		double maxprob = 0.7;
 
@@ -3063,7 +3324,7 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 					int ind = h*width+w;
 					if(w > 0 && w < width-1){
 						int other = ind-1;
-                        double p_same = std::min(double(probs[0][ind]),maxprob_same);
+						double p_same = std::min(double(probs[0][ind]),maxprob_same);
 						double not_p_same = 1-p_same;
 						double weight = -log(not_p_same);
 						if(!std::isnan(weight) && weight > 0){
@@ -3077,7 +3338,7 @@ vector<Mat> ModelUpdater::computeDynamicObject(vector<Matrix4d> bgcp, vector<RGB
 
 					if(h > 0 && h < height-1){
 						int other = ind-width;
-                        double p_same = std::min(double(probs[1][ind]),maxprob_same);
+						double p_same = std::min(double(probs[1][ind]),maxprob_same);
 						double not_p_same = 1-p_same;
 						double weight = -log(not_p_same);
 
