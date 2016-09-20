@@ -4,7 +4,6 @@
 namespace reglib
 {
 
-
 GeneralizedGaussianDistribution::GeneralizedGaussianDistribution(bool refine_std_, bool refine_power_, bool zeromean_, bool refine_mean_, bool refine_mul_, double costpen_, int nr_refineiters_ ,double mul_, double mean_,double stdval_,double power_){
     refine_std  = refine_std_;
     zeromean    = zeromean_;
@@ -22,54 +21,6 @@ GeneralizedGaussianDistribution::GeneralizedGaussianDistribution(bool refine_std
 }
 
 GeneralizedGaussianDistribution::~GeneralizedGaussianDistribution(){}
-
-//double GeneralizedGaussianDistribution::scoreCurrent2(double mul, double mean, double stddiv, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen){
-//    double info = -0.5/(stddiv*stddiv);
-//    double sum = 0;
-//    for(unsigned int i = 0; i < nr_data; i++){
-//        double dx = X[i] - mean;
-//        double inp = info*dx*dx;
-//        if(inp < cutoff_exp){sum += Y[i];}
-//        else{
-//            double diff = mul*exp(info*dx*dx) - Y[i];
-//            if(diff > 0){	sum += costpen*diff;}
-//            else{			sum -= diff;}
-//        }
-//    }
-//    return sum;
-//}
-
-//double GeneralizedGaussianDistribution::fitStdval2(double mul, double mean, double std_mid, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen){
-//    int iter = 25;
-//    double h = 0.000000001;
-
-//    double std_max = std_mid*2;
-//    double std_min = 0;
-//    for(int i = 0; i < iter; i++){
-//        std_mid = (std_max+std_min)/2;
-//        double std_neg = scoreCurrent2(mul,mean,std_mid-h,X,Y,nr_data,costpen);
-//        double std_pos = scoreCurrent2(mul,mean,std_mid+h,X,Y,nr_data,costpen);
-//        if(std_neg < std_pos){	std_max = std_mid;}
-//        else{					std_min = std_mid;}
-//    }
-//    return std_mid;
-//}
-
-//double GeneralizedGaussianDistribution::fitMean2(double mul, double mean, double std_mid, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen){
-//    int iter = 10;
-//    double h = 0.000000001;
-//    double mean_max = mean+1;
-//    double mean_min = mean-1;
-
-//    for(int i = 0; i < iter; i++){
-//        mean = (mean_max+mean_min)/2;
-//        double std_neg = scoreCurrent2(mul,mean-h,std_mid,X,Y,nr_data,costpen);
-//        double std_pos = scoreCurrent2(mul,mean+h,std_mid,X,Y,nr_data,costpen);
-//        if(std_neg < std_pos){	mean_max = mean;}
-//        else{					mean_min = mean;}
-//    }
-//    return mean;
-//}
 
 double GeneralizedGaussianDistribution::fitMul3(double mul, double mean, double std_mid, double power, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen){
     int iter = 25;
@@ -154,7 +105,6 @@ double GeneralizedGaussianDistribution::fitMean3(double mul, double mean, double
 }
 
 void GeneralizedGaussianDistribution::train(std::vector<float> & hist, unsigned int nr_bins){
-    //printf("%s in %s\n",__PRETTY_FUNCTION__,__FILE__);
     if(nr_bins == 0){nr_bins = hist.size();}
     mul = hist[0];
     mean = 0;
@@ -193,7 +143,7 @@ void GeneralizedGaussianDistribution::train(std::vector<float> & hist, unsigned 
         if(refine_power){	power	= fitPower3(	mul,mean,stdval,power,X,Y,nr_data_opt,costpen);}
     }
 
-    print();
+	//print();
 }
 
 void GeneralizedGaussianDistribution::update(){
@@ -218,10 +168,6 @@ double GeneralizedGaussianDistribution::getcdf(double x){
     unsigned int id1 = id0+1;
     double w0 = double(id1)-part;
     double w1 = part-double(id0);
-    //printf("x: %f start: %f stop: %f part: %f\n",x,start,stop,part);
-    //printf("id: %5.5i %5.5i w: %5.5f %5.5f part: %5.5f\n",id0,id1,w0,w1,part);
-    //double gt = 0.5 * erfc(-((x-mean)/(stdval+regularization)) * M_SQRT1_2);
-    //printf("gt: %f est: %f err: %f\n",gt,cdfx,cdfx-gt);
     double cdfx = numcdf_vec[id0]*w0 + numcdf_vec[id1]*w1;
     return cdfx;
 }
@@ -238,19 +184,9 @@ void GeneralizedGaussianDistribution::print(){
 double GeneralizedGaussianDistribution::getNoise(){return stdval+regularization;}
 
 void GeneralizedGaussianDistribution::update_numcdf_vec(unsigned int bins, double prob){
-//	printf("%s in %s\n",__PRETTY_FUNCTION__,__FILE__);
-//  start    = mean;
-//	while(getval(start) > prob){start -= 0.01;}
-
-//    stop    = mean;
-//	while(getval(stop) > prob){stop += 0.01;}
-//	printf("num: %10.10f %10.10f\n",start,stop);
-
 	start = mean - pow(-2.0*log(prob),1.0/power)*stdval;
 	stop  = mean + pow(-2.0*log(prob),1.0/power)*stdval;
 
-//	printf("ana: %10.10f %10.10f\n",start,stop);
-//	exit(0);
     double step     = (stop-start)/(bins-1);
     double sum      = 0;
     numcdf_vec.resize(bins);
@@ -260,17 +196,6 @@ void GeneralizedGaussianDistribution::update_numcdf_vec(unsigned int bins, doubl
         sum += getval(x);
     }
     for(unsigned int i = 0; i < bins; i++){numcdf_vec[i] /= sum;}
-//    for(unsigned int i = 0; i < bins; i++){
-//        double x = start+double(i)*step;
-//        printf("------------------\n%i -> ",i);
-//        double cdfx = getcdf(x);
-//        double gt = 0.5 * erfc(-((x-mean)/(stdval+regularization)) * M_SQRT1_2);
-//        printf("gt: %f est: %f err: %f\n",gt,cdfx,cdfx-gt);
-//    }
-//exit(0);
-//    for(unsigned int i = 0; i < bins; i++){
-//        printf("%5.5i -> %5.5f -> %10.10f\n",i,start+double(i)*step,numcdf_vec[i]);
-//    }
 }
 
 

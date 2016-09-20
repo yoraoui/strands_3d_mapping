@@ -1955,7 +1955,7 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 	//printf("inlierratio: %f nr_points: %i nr rep: %i\n",inlierratio,framesp1.size(),rr_vec.size());
 
 	unsigned long nr_rr = rr_vec.size();
-	printf("getDynamicWeights nr_rr: %i\n",nr_rr);
+	//printf("getDynamicWeights nr_rr: %i\n",nr_rr);
 
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr src_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dst_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
@@ -2116,7 +2116,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	nfunc->computeModel(nvec);
 
 //exit(0);
-	int frameConnections = 0;
+	long frameConnections = 0;
 	std::vector< std::vector< std::vector<float> > > pixel_weights;
 
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud  (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
@@ -2171,7 +2171,6 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		for(unsigned int h = 0; h < height;h++){
 			for(unsigned int w = 0; w < width;w++){
 				int ind = h*width+w;
-
 
 				valids[offset+ind] = detdata[ind] == 0;
 

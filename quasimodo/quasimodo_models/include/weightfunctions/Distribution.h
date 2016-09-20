@@ -19,6 +19,7 @@ public:
 
     Distribution();
     ~Distribution();
+	virtual void reset();
     virtual void train(std::vector<float> & hist, unsigned int nr_bins = 0);
     virtual void update();
 
