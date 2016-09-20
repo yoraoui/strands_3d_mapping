@@ -3,7 +3,6 @@
 namespace reglib
 {
 
-
 unsigned int camera_id_count = 0;
 
 Camera::Camera(){
@@ -19,21 +18,9 @@ Camera::Camera(){
 
 	pixel_weights = 0;
 	pixel_sums = 0;
-
-//	bias = 500;
-//	pixel_weights = new double[width*height];
-//	pixel_sums = new double[width*height];
-//	for(unsigned int i = 0; i < width*height; i++){
-//		pixel_weights[i]	= bias;
-//		pixel_sums[i]		= bias;
-//	}
-
 }
 
-Camera::~Camera(){
-//	delete[] pixel_weights;
-//	delete[] pixel_sums;
-}
+Camera::~Camera(){}
 
 void Camera::save(std::string path){
 	printf("save camera to %s\n",path.c_str());

@@ -10,7 +10,7 @@ void    Distribution::update(){                                                 
 double  Distribution::getval(double x){                                         printf("%s in %s not implemented, stopping\n",__PRETTY_FUNCTION__,__FILE__);exit(0);}
 double  Distribution::getcdf(double x){                                         printf("%s in %s not implemented, stopping\n",__PRETTY_FUNCTION__,__FILE__);exit(0);}
 void    Distribution::print(){                                                  printf("%s in %s not implemented, stopping\n",__PRETTY_FUNCTION__,__FILE__);exit(0);}
-void    Distribution::setRegularization(double x){printf("%s in %s\n",__PRETTY_FUNCTION__,__FILE__);                    regularization = x;update();}
+void    Distribution::setRegularization(double x){regularization = x;update();}
 double  Distribution::getNoise(){return 1;}
 void    Distribution::setNoise(double x){                                       printf("%s in %s not implemented, stopping\n",__PRETTY_FUNCTION__,__FILE__);exit(0);}
 void    Distribution::getMaxdMind(double & maxd, double & mind, double prob){

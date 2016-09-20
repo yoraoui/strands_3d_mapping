@@ -2029,7 +2029,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		unsigned int nr_pixels = frames[i]->camera->width * frames[i]->camera->height;
 		tot_nr_pixels += nr_pixels;
 	}
-	printf("tot_nr_pixels: %i\n",tot_nr_pixels);
+	//printf("tot_nr_pixels: %i\n",tot_nr_pixels);
 
 	//Graph...
 	std::vector< std::vector<int> > interframe_connectionId;
@@ -2076,7 +2076,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	dfuncTMP->zeromean				= false;
 	//dfuncTMP->startreg				= 0.0005;
 	dfuncTMP->startreg				= 0.0;
-	dfuncTMP->debugg_print			= true;
+	dfuncTMP->debugg_print			= false;
 	dfuncTMP->bidir					= true;
 	//dfuncTMP->bidir					= false;
 	dfuncTMP->maxp					= 0.9;
@@ -2099,7 +2099,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	DistanceWeightFunction2PPR3 * nfuncTMP		= new DistanceWeightFunction2PPR3(ggdnfunc);
 	nfunc = nfuncTMP;
 	nfuncTMP->startreg				= 0.00;
-    nfuncTMP->debugg_print			= true;
+	nfuncTMP->debugg_print			= false;
 	nfuncTMP->bidir					= false;
 	nfuncTMP->zeromean				= true;
 	nfuncTMP->maxp					= 0.999;

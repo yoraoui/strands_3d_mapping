@@ -460,7 +460,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
     DistanceWeightFunction2PPR3 * funcZ = new DistanceWeightFunction2PPR3();
 	funcZ->zeromean				= true;
     funcZ->startreg				= 0.001;
-    funcZ->debugg_print			= true;
+	funcZ->debugg_print			= false;
 	funcZ->bidir				= false;
 	funcZ->maxp					= 0.999999;
 	funcZ->maxd					= 0.1;
@@ -2248,7 +2248,7 @@ void RGBDFrame::save(std::string path){
 }
 
 RGBDFrame * RGBDFrame::load(Camera * cam, std::string path){
-    printf("RGBDFrame * RGBDFrame::load(Camera * cam, std::string path)\n");
+	//printf("RGBDFrame * RGBDFrame::load(Camera * cam, std::string path)\n");
 
     std::streampos size;
     char * buffer;
