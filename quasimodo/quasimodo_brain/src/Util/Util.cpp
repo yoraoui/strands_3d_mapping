@@ -189,6 +189,7 @@ reglib::Model * load_metaroom_model(std::string sweep_xml){
 }
 
 void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vector< std::vector< cv::Mat > > & internal, std::vector< std::vector< cv::Mat > > & external, std::vector< std::vector< cv::Mat > > & dynamic, bool debugg){
+	printf("running segment method\n");
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 	if(debugg){
 		viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("viewer"));
@@ -230,6 +231,7 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
 			massregmod->addModel(models[j]);
 		}
 
+		printf("registering new data to background\n");
 		reglib::MassFusionResults mfrmod = massregmod->getTransforms(cpmod);
 		for(int j = 0; j < models.size(); j++){
 			Eigen::Matrix4d change = mfrmod.poses[j+1];// * cpmod[j+1].inverse();
@@ -290,6 +292,7 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
 		}
 		std::vector<cv::Mat> movemask;
 		std::vector<cv::Mat> dynmask;
+		printf("computeMovingDynamicStatic\n");
 		mu->computeMovingDynamicStatic(movemask,dynmask,bgcp,bgcf,model->relativeposes,model->frames,debugg);//Determine self occlusions
 		external.push_back(movemask);
 		internal.push_back(masks);

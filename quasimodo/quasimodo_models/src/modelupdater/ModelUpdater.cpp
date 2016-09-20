@@ -2047,6 +2047,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	DistanceWeightFunction2 * dfunc;
 	DistanceWeightFunction2 * nfunc;
 
+	printf("computing all residuals\n");
 	for(unsigned int i = 0; i < frames.size(); i++){
 		for(unsigned int j = 0; j < frames.size(); j++){
 			if(i == j){continue;}
@@ -2063,6 +2064,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 
 
+	printf("training ppr\n");
 	double dstdval = 0;
 	for(unsigned int i = 0; i < dvec.size(); i++){
 		dstdval += dvec[i]*dvec[i];
@@ -2121,6 +2123,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud  (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 
+	printf("adding constraints\n");
 	for(unsigned int i = 0; i < frames.size(); i++){
 		int offset = offsets[i];
 		RGBDFrame * frame = frames[i];
@@ -2250,6 +2253,8 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 	delete dfuncTMP;
 	delete nfuncTMP;
+
+	printf("running inference\n");
 
 	long interframeConnections = 0;
 	for(unsigned int i = 0; i < interframe_connectionId.size();i++){
@@ -2541,8 +2546,9 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			cloud_cluster2->points.push_back(p);
 		}
 
-		printf("score: %f avg: %f\n",score,score/totsum);
 		if(score > 200){
+			printf("score: %f avg: %f\n",score,score/totsum);
+			printf("dynamic group found\n");
 			for (unsigned int ind = 0; ind < dynamic_indices[d].indices.size(); ind++){
 				labels[dynamicdata[dynamic_indices[d].indices[ind]]] = 3;
 			}
