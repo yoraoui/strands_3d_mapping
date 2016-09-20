@@ -119,6 +119,11 @@ class Gaussian3 {
 	{
 	   return 0.5 * erfc(-((x-mean)/stdval) * M_SQRT1_2);
 	}
+
+
+    void print(){
+        printf("Gaussian3:: mul = %5.5f mean = %5.5f stdval = %5.5f\n",mul,mean,stdval);
+    }
 };
 
 class gaussian2 {
@@ -803,6 +808,13 @@ void DistanceWeightFunction2PPR2::computeModel(MatrixXd mat){
 
 
 	Gaussian3 g  = getModel(stdval, blur_histogram,	uniform_bias,refine_mean,refine_mul,refine_std,nr_refineiters,costpen,zeromean);
+//    g.print();
+
+//    GaussianDistribution * gd = new GaussianDistribution(refine_std,zeromean,refine_mean,refine_mul,costpen,nr_refineiters);
+//    gd->train(blur_histogram,histogram_size);
+//    gd->print();
+//    delete gd;
+
 	g.stdval = std::max(0.0001*double(histogram_size)/(maxd),std::min(g.stdval,maxnoise*double(histogram_size)/maxd));
 
 	//noiseval = maxd*g.stdval/float(histogram_size);

@@ -64,4 +64,5 @@ public:
 
 #include "DistanceWeightFunction2PPR.h"
 #include "DistanceWeightFunction2PPR2.h"
+#include "DistanceWeightFunction2PPR3.h"
 #endif // DistanceWeightFunction2_H

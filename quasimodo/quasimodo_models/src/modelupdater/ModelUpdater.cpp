@@ -1937,18 +1937,22 @@ double normalCFD(double value)
 }
 
 void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & dvec, std::vector<double> & nvec, DistanceWeightFunction2 * dfunc, DistanceWeightFunction2 * nfunc, Matrix4d p, RGBDFrame* frame1, double * overlaps, double * occlusions, RGBDFrame* frame2,  int offset1, int offset2, std::vector< std::vector<int> > & interframe_connectionId, std::vector< std::vector<float> > & interframe_connectionStrength, double debugg){
-	//	Camera * camera							= frame1->camera;
-	//	const unsigned int width				= camera->width;
-	//	const unsigned int height				= camera->height;
-	//	unsigned long nr_pixels					= width*height;
-
 	unsigned char * src_detdata = (unsigned char*)(frame1->det_dilate.data);
 	unsigned char * dst_detdata = (unsigned char*)(frame2->det_dilate.data);
+
+	std::vector<superpoint> framesp1_test		= frame1->getSuperPoints(p,10,false);
+	std::vector<ReprojectionResult> rr_vec_test	= frame2->getReprojections(framesp1_test,Eigen::Matrix4d::Identity(),0,false);
+
+	double inlierratio = double(rr_vec_test.size())/double(framesp1_test.size());
+	//printf("inlierratio: %f nr_points: %i nr rep: %i\n",inlierratio,framesp1_test.size(),rr_vec_test.size());
+	if( inlierratio < 0.01 ){return ;}
 
 	std::vector<superpoint> framesp1		= frame1->getSuperPoints(p);
 	std::vector<superpoint> framesp2		= frame2->getSuperPoints();//p);
 	std::vector<ReprojectionResult> rr_vec	= frame2->getReprojections(framesp1,Eigen::Matrix4d::Identity(),0,false);
 
+	inlierratio = double(rr_vec.size())/double(framesp1.size());
+	//printf("inlierratio: %f nr_points: %i nr rep: %i\n",inlierratio,framesp1.size(),rr_vec.size());
 
 	unsigned long nr_rr = rr_vec.size();
 	printf("getDynamicWeights nr_rr: %i\n",nr_rr);
@@ -2013,460 +2017,6 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 		viewer->addPointCloud<pcl::PointXYZRGBNormal> (dst_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dst_cloud), "dcloud");
 		viewer->spin();
 	}
-
-	//		std::vector<double> residualsZ;
-	//		double stdval = 0;
-	//			residualsZ.push_back(d);
-	//			stdval += residualsZ.back()*residualsZ.back();
-	//		stdval = sqrt(stdval/double(nr_rr));
-
-	//		DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
-	//		func->zeromean				= true;
-	//		func->maxp					= 0.99;
-	//		func->startreg				= 0.0001;
-	//		func->debugg_print			= true;
-	//		func->maxd					= 0.1;
-	//		func->startmaxd				= func->maxd;
-	//		func->histogram_size		= 100;
-	//		func->starthistogram_size	= func->histogram_size;
-	//		func->stdval2				= stdval;
-	//		func->maxnoise				= stdval;
-	//		func->reset();
-	//		((DistanceWeightFunction2*)func)->computeModel(residualsZ);
-
-
-	//		double surface_angle = tnx*dst_nx+tny*dst_ny+tnz*dst_nz;
-
-	//		d = fabs(d);
-	//        if(tz > dst_z){d = -d;}
-	//		if(store_distance){
-	//			dvec.push_back(d);
-	//			nvec.push_back(1-surface_angle);
-	//		}else{
-
-	//			double p_overlap_angle = nfunc->getProb(1-surface_angle);
-	//			double p_overlap = dfunc->getProb(d);
-	//			double p_occlusion = dfunc->getProbInfront(d);
-
-	//			p_overlap *= p_overlap_angle;
-
-	//			if(p_overlap > 0.001 && offset1 >= 0 && offset2 >= 0){
-	//				interframe_connectionId[offset1+src_ind].push_back(offset2+dst_ind);
-	//				interframe_connectionStrength[offset1+src_ind].push_back(-log(1-p_overlap));
-	//			}
-
-	//			if(debugg){
-	//				src_cloud->points[src_ind].r = 255.0 * p_overlap;
-	//				src_cloud->points[src_ind].g = 255.0 * p_occlusion;
-	//				src_cloud->points[src_ind].b = 0;
-	//			}
-
-	//			if(dst_detdata[dst_ind] != 0){continue;}
-	//			if(src_detdata[src_ind] != 0){continue;}
-
-	//			overlaps[src_ind] = std::min(0.9,std::max(overlaps[src_ind],p_overlap));
-	//			occlusions[src_ind] = std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
-	//		}
-	//	}
-	//}
-
-	//		for(unsigned long ind = 0; ind < nr_rr;ind++){
-	//			double p = func->getProb(residualsZ[ind]);
-	//			if(p > 0.5){sumw[rr_vec[ind].dst_ind] += p;}
-	//		}
-
-	//		for(unsigned long ind = 0; ind < nr_rr;ind++){
-	//			double p = func->getProb(residualsZ[ind]);
-	//			if(p > 0.5){
-	//				ReprojectionResult & rr = rr_vec[ind];
-	//				superpoint & src_p =   spvec[rr.src_ind];
-	//				superpoint & dst_p = framesp[rr.dst_ind];
-	//				float weight = p/sumw[rr.dst_ind];
-	//				src_p.merge(dst_p,weight);
-	//			}
-	//		}
-	//delete func;
-
-	//	for(unsigned long ind = 0; ind < nr_pixels;ind++){
-	//		if(maskvec[ind] != 0 && sumw[ind] < 0.5){
-	//			superpoint & sp = framesp[ind];
-	//			if(sp.point_information > 0){
-	//				spvec.push_back(sp);
-	//			}
-	//		}
-	//	}
-
-
-	/*
-
-
-	unsigned char  * src_rgbdata		= (unsigned char	*)(frame1->rgb.data);
-	unsigned short * src_depthdata		= (unsigned short	*)(frame1->depth.data);
-	float		   * src_normalsdata	= (float			*)(frame1->normals.data);
-
-
-	unsigned char * src_detdata = (unsigned char*)(frame1->det_dilate.data);
-	unsigned char * dst_detdata = (unsigned char*)(frame2->det_dilate.data);
-
-	Camera * src_camera				= frame1->camera;
-	const unsigned int src_width	= src_camera->width;
-	const unsigned int src_height	= src_camera->height;
-	const float src_idepth			= src_camera->idepth_scale;
-	const float src_cx				= src_camera->cx;
-	const float src_cy				= src_camera->cy;
-	const float src_ifx				= 1.0/src_camera->fx;
-	const float src_ify				= 1.0/src_camera->fy;
-
-	unsigned char  * dst_rgbdata		= (unsigned char	*)(frame2->rgb.data);
-	unsigned short * dst_depthdata		= (unsigned short	*)(frame2->depth.data);
-	float		   * dst_normalsdata	= (float			*)(frame2->normals.data);
-
-	Camera * dst_camera				= frame2->camera;
-	const unsigned int dst_width	= dst_camera->width;
-	const unsigned int dst_height	= dst_camera->height;
-	const float dst_idepth			= dst_camera->idepth_scale;
-	const float dst_cx				= dst_camera->cx;
-	const float dst_cy				= dst_camera->cy;
-	const float dst_ifx				= 1.0/dst_camera->fx;
-	const float dst_ify				= 1.0/dst_camera->fy;
-	const float dst_fx				= dst_camera->fx;
-	const float dst_fy				= dst_camera->fy;
-
-	const unsigned int dst_width2	= dst_camera->width  - 2;
-	const unsigned int dst_height2	= dst_camera->height - 2;
-
-	float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
-	float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
-	float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
-
-	//bool debugg = true;
-	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr src_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dst_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-	if(debugg){
-		src_cloud->points.resize(src_width*src_height);
-		for(unsigned int src_w = 0; src_w < src_width;src_w++){
-			for(unsigned int src_h = 0; src_h < src_height;src_h++){
-				int src_ind = src_h*src_width+src_w;
-				float src_z = src_idepth*float(src_depthdata[src_ind]);
-				float src_nx = src_normalsdata[3*src_ind+0];
-				if(src_z > 0 && src_nx != 2){
-					float src_ny = src_normalsdata[3*src_ind+1];
-					float src_nz = src_normalsdata[3*src_ind+2];
-
-					float src_x = (float(src_w) - src_cx) * src_z * src_ifx;
-					float src_y = (float(src_h) - src_cy) * src_z * src_ify;
-
-
-					float tx	= m00*src_x + m01*src_y + m02*src_z + m03;
-					float ty	= m10*src_x + m11*src_y + m12*src_z + m13;
-					float tz	= m20*src_x + m21*src_y + m22*src_z + m23;
-
-					pcl::PointXYZRGBNormal point;
-					point.x = tx;
-					point.y = ty;
-					point.z = tz;
-					point.r = 0;
-					point.g = 0;
-					point.b = 0;
-					src_cloud->points[src_ind] = point;
-				}
-			}
-		}
-
-		dst_cloud->points.resize(dst_width*dst_height);
-		for(unsigned int dst_w = 0; dst_w < dst_width;dst_w++){
-			for(unsigned int dst_h = 0; dst_h < dst_height;dst_h++){
-				int dst_ind = dst_h*dst_width+dst_w;
-				float dst_z = dst_idepth*float(dst_depthdata[dst_ind]);
-				float dst_nx = dst_normalsdata[3*dst_ind+0];
-				if(dst_z > 0 && dst_nx != 2){
-					float dst_ny = dst_normalsdata[3*dst_ind+1];
-					float dst_nz = dst_normalsdata[3*dst_ind+2];
-
-					float dst_x = (float(dst_w) - dst_cx) * dst_z * dst_ifx;
-					float dst_y = (float(dst_h) - dst_cy) * dst_z * dst_ify;
-
-					pcl::PointXYZRGBNormal point;
-					point.x = dst_x;
-					point.y = dst_y;
-					point.z = dst_z;
-					point.r = 255;
-					point.g = 0;
-					point.b = 255;
-					dst_cloud->points[dst_ind] = point;
-				}
-			}
-		}
-	}
-
-	if(debugg){
-		viewer->removeAllPointClouds();
-		viewer->addPointCloud<pcl::PointXYZRGBNormal> (src_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(src_cloud), "scloud");
-		viewer->addPointCloud<pcl::PointXYZRGBNormal> (dst_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dst_cloud), "dcloud");
-		viewer->spin();
-	}
-
-
-	exit(0);
-	*/
-	/*
-	if(nr_rr > 10){
-		std::vector<double> residualsZ;
-		double stdval = 0;
-		for(unsigned long ind = 0; ind < nr_rr;ind++){
-			ReprojectionResult & rr = rr_vec[ind];
-			superpoint & src_p =   spvec[rr.src_ind];
-			superpoint & dst_p = framesp[rr.dst_ind];
-			double src_variance = 1.0/src_p.point_information;
-			double dst_variance = 1.0/dst_p.point_information;
-			double total_variance = src_variance+dst_variance;
-			double total_stdiv = sqrt(total_variance);
-			double d = rr.residualZ;
-			residualsZ.push_back(d/total_stdiv);
-			stdval += residualsZ.back()*residualsZ.back();
-		}
-		stdval = sqrt(stdval/double(nr_rr));
-
-		DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
-		func->zeromean				= true;
-		func->maxp					= 0.99;
-		func->startreg				= 0.001;
-		func->debugg_print			= false;
-		func->maxd					= 0.1;
-		func->startmaxd				= func->maxd;
-		func->histogram_size		= 100;
-		func->starthistogram_size	= func->histogram_size;
-		func->stdval2				= stdval;
-		func->maxnoise				= stdval;
-		func->reset();
-		((DistanceWeightFunction2*)func)->computeModel(residualsZ);
-
-		for(unsigned long ind = 0; ind < nr_rr;ind++){
-			double p = func->getProb(residualsZ[ind]);
-			if(p > 0.5){sumw[rr_vec[ind].dst_ind] += p;}
-		}
-
-		for(unsigned long ind = 0; ind < nr_rr;ind++){
-			double p = func->getProb(residualsZ[ind]);
-			if(p > 0.5){
-				ReprojectionResult & rr = rr_vec[ind];
-				superpoint & src_p =   spvec[rr.src_ind];
-				superpoint & dst_p = framesp[rr.dst_ind];
-				float weight = p/sumw[rr.dst_ind];
-				src_p.merge(dst_p,weight);
-			}
-		}
-		delete func;
-	}
-
-	for(unsigned long ind = 0; ind < nr_pixels;ind++){
-		if(maskvec[ind] != 0 && sumw[ind] < 0.5){spvec.push_back(framesp[ind]);}
-	}
-
-	if(viewer != 0){
-		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud = getPointCloudFromVector(spvec,1);
-		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "model");
-		viewer->spin();
-		viewer->removeAllPointClouds();
-	}
-*/
-
-
-	/*
-	unsigned char  * src_rgbdata		= (unsigned char	*)(frame1->rgb.data);
-	unsigned short * src_depthdata		= (unsigned short	*)(frame1->depth.data);
-	float		   * src_normalsdata	= (float			*)(frame1->normals.data);
-
-
-	unsigned char * src_detdata = (unsigned char*)(frame1->det_dilate.data);
-	unsigned char * dst_detdata = (unsigned char*)(frame2->det_dilate.data);
-
-	Camera * src_camera				= frame1->camera;
-	const unsigned int src_width	= src_camera->width;
-	const unsigned int src_height	= src_camera->height;
-	const float src_idepth			= src_camera->idepth_scale;
-	const float src_cx				= src_camera->cx;
-	const float src_cy				= src_camera->cy;
-	const float src_ifx				= 1.0/src_camera->fx;
-	const float src_ify				= 1.0/src_camera->fy;
-
-	unsigned char  * dst_rgbdata		= (unsigned char	*)(frame2->rgb.data);
-	unsigned short * dst_depthdata		= (unsigned short	*)(frame2->depth.data);
-	float		   * dst_normalsdata	= (float			*)(frame2->normals.data);
-
-	Camera * dst_camera				= frame2->camera;
-	const unsigned int dst_width	= dst_camera->width;
-	const unsigned int dst_height	= dst_camera->height;
-	const float dst_idepth			= dst_camera->idepth_scale;
-	const float dst_cx				= dst_camera->cx;
-	const float dst_cy				= dst_camera->cy;
-	const float dst_ifx				= 1.0/dst_camera->fx;
-	const float dst_ify				= 1.0/dst_camera->fy;
-	const float dst_fx				= dst_camera->fx;
-	const float dst_fy				= dst_camera->fy;
-
-	const unsigned int dst_width2	= dst_camera->width  - 2;
-	const unsigned int dst_height2	= dst_camera->height - 2;
-
-	float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
-	float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
-	float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
-
-	//bool debugg = true;
-	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr src_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dst_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-	if(debugg){
-
-		src_cloud->points.resize(src_width*src_height);
-		for(unsigned int src_w = 0; src_w < src_width;src_w++){
-			for(unsigned int src_h = 0; src_h < src_height;src_h++){
-				int src_ind = src_h*src_width+src_w;
-				float src_z = src_idepth*float(src_depthdata[src_ind]);
-				float src_nx = src_normalsdata[3*src_ind+0];
-				if(src_z > 0 && src_nx != 2){
-					float src_ny = src_normalsdata[3*src_ind+1];
-					float src_nz = src_normalsdata[3*src_ind+2];
-
-					float src_x = (float(src_w) - src_cx) * src_z * src_ifx;
-					float src_y = (float(src_h) - src_cy) * src_z * src_ify;
-
-
-					float tx	= m00*src_x + m01*src_y + m02*src_z + m03;
-					float ty	= m10*src_x + m11*src_y + m12*src_z + m13;
-					float tz	= m20*src_x + m21*src_y + m22*src_z + m23;
-
-					pcl::PointXYZRGBNormal point;
-					point.x = tx;
-					point.y = ty;
-					point.z = tz;
-					point.r = 0;
-					point.g = 0;
-					point.b = 0;
-					src_cloud->points[src_ind] = point;
-				}
-			}
-		}
-
-		dst_cloud->points.resize(dst_width*dst_height);
-		for(unsigned int dst_w = 0; dst_w < dst_width;dst_w++){
-			for(unsigned int dst_h = 0; dst_h < dst_height;dst_h++){
-				int dst_ind = dst_h*dst_width+dst_w;
-				float dst_z = dst_idepth*float(dst_depthdata[dst_ind]);
-				float dst_nx = dst_normalsdata[3*dst_ind+0];
-				if(dst_z > 0 && dst_nx != 2){
-					float dst_ny = dst_normalsdata[3*dst_ind+1];
-					float dst_nz = dst_normalsdata[3*dst_ind+2];
-
-					float dst_x = (float(dst_w) - dst_cx) * dst_z * dst_ifx;
-					float dst_y = (float(dst_h) - dst_cy) * dst_z * dst_ify;
-
-					pcl::PointXYZRGBNormal point;
-					point.x = dst_x;
-					point.y = dst_y;
-					point.z = dst_z;
-					point.r = 255;
-					point.g = 0;
-					point.b = 255;
-					dst_cloud->points[dst_ind] = point;
-				}
-			}
-		}
-	}
-
-	int testsum = 0;
-
-
-	for(unsigned int src_w = 0; src_w < src_width;src_w++){
-		for(unsigned int src_h = 0; src_h < src_height;src_h++){
-			int src_ind = src_h*src_width+src_w;
-
-
-			float src_z = src_idepth*float(src_depthdata[src_ind]);
-			float src_nx = src_normalsdata[3*src_ind+0];
-			if(src_z > 0 && src_nx != 2){
-				float src_ny = src_normalsdata[3*src_ind+1];
-				float src_nz = src_normalsdata[3*src_ind+2];
-
-				float src_x = (float(src_w) - src_cx) * src_z * src_ifx;
-				float src_y = (float(src_h) - src_cy) * src_z * src_ify;
-
-
-				float tz	= m20*src_x + m21*src_y + m22*src_z + m23;
-				if(tz <= 0){continue;}
-
-				float tx	= m00*src_x + m01*src_y + m02*src_z + m03;
-				float ty	= m10*src_x + m11*src_y + m12*src_z + m13;
-				float itz	= 1.0/tz;
-				float dst_w	= dst_fx*tx*itz + dst_cx;
-				float dst_h	= dst_fy*ty*itz + dst_cy;
-
-				if((dst_w > 0) && (dst_h > 0) && (dst_w < dst_width2) && (dst_h < dst_height2)){
-					unsigned int dst_ind = unsigned(dst_h+0.5) * dst_width + unsigned(dst_w+0.5);
-
-					float dst_z = dst_idepth*float(dst_depthdata[dst_ind]);
-					float dst_nx = dst_normalsdata[3*dst_ind+0];
-					if(dst_z > 0 && dst_nx != 2){
-						float dst_ny = dst_normalsdata[3*dst_ind+1];
-						float dst_nz = dst_normalsdata[3*dst_ind+2];
-
-						float dst_x = (float(dst_w) - dst_cx) * dst_z * dst_ifx;
-						float dst_y = (float(dst_h) - dst_cy) * dst_z * dst_ify;
-
-						double dst_noise = dst_z * dst_z;
-						double point_noise = src_z * src_z;
-
-						float tnx	= m00*src_nx + m01*src_ny + m02*src_nz;
-						float tny	= m10*src_nx + m11*src_ny + m12*src_nz;
-						float tnz	= m20*src_nx + m21*src_ny + m22*src_nz;
-
-						double d = (tnx*(dst_x-tx) + tny*(dst_y-ty) + tnz*(dst_z-tz)) / sqrt(dst_noise*dst_noise + point_noise*point_noise);
-
-						double surface_angle = tnx*dst_nx+tny*dst_ny+tnz*dst_nz;
-
-						d = fabs(d);
-						if(tz > dst_z){d = -d;}
-						if(store_distance){
-							dvec.push_back(d);
-							nvec.push_back(1-surface_angle);
-						}else{
-
-							double p_overlap_angle = nfunc->getProb(1-surface_angle);
-							double p_overlap = dfunc->getProb(d);
-							double p_occlusion = dfunc->getProbInfront(d);
-
-							p_overlap *= p_overlap_angle;
-
-							if(p_overlap > 0.001 && offset1 >= 0 && offset2 >= 0){
-								interframe_connectionId[offset1+src_ind].push_back(offset2+dst_ind);
-								interframe_connectionStrength[offset1+src_ind].push_back(-log(1-p_overlap));
-							}
-
-							if(debugg){
-								src_cloud->points[src_ind].r = 255.0 * p_overlap;
-								src_cloud->points[src_ind].g = 255.0 * p_occlusion;
-								src_cloud->points[src_ind].b = 0;
-							}
-
-							if(dst_detdata[dst_ind] != 0){continue;}
-							if(src_detdata[src_ind] != 0){continue;}
-
-							overlaps[src_ind] = std::min(0.9,std::max(overlaps[src_ind],p_overlap));
-							occlusions[src_ind] = std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if(debugg){
-		printf("testsum: %i\n",testsum);
-		viewer->removeAllPointClouds();
-		viewer->addPointCloud<pcl::PointXYZRGBNormal> (src_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(src_cloud), "scloud");
-		viewer->addPointCloud<pcl::PointXYZRGBNormal> (dst_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dst_cloud), "dcloud");
-		viewer->spin();
-	}
-*/
 }
 
 void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, std::vector<cv::Mat> & dynmask, vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Matrix4d> poses, vector<RGBDFrame*> frames, bool debugg){
@@ -2520,7 +2070,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	dstdval = sqrt(dstdval/double(dvec.size()-1));
 
 
-	DistanceWeightFunction2PPR2 * dfuncTMP = new DistanceWeightFunction2PPR2();
+    DistanceWeightFunction2PPR2 * dfuncTMP = new DistanceWeightFunction2PPR2();
 	dfunc = dfuncTMP;
 	dfuncTMP->refine_mean			= true;
 	dfuncTMP->zeromean				= false;
@@ -2544,13 +2094,15 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	dfunc->computeModel(dvec);
 
 
-	DistanceWeightFunction2PPR2 * nfuncTMP = new DistanceWeightFunction2PPR2();
+	GeneralizedGaussianDistribution * ggdnfunc	= new GeneralizedGaussianDistribution(true,true);
+	ggdnfunc->nr_refineiters					= 4;
+	DistanceWeightFunction2PPR3 * nfuncTMP		= new DistanceWeightFunction2PPR3(ggdnfunc);
 	nfunc = nfuncTMP;
-	nfuncTMP->startreg				= 0.01;
-	nfuncTMP->debugg_print			= false;
+	nfuncTMP->startreg				= 0.00;
+    nfuncTMP->debugg_print			= true;
 	nfuncTMP->bidir					= false;
 	nfuncTMP->zeromean				= true;
-	nfuncTMP->maxp					= 0.999999;
+	nfuncTMP->maxp					= 0.999;
 	nfuncTMP->maxd					= 1.0;
 	nfuncTMP->histogram_size		= 1000;
 	nfuncTMP->fixed_histogram_size	= true;

@@ -62,7 +62,7 @@ namespace reglib
 		static RGBDFrame * load(Camera * cam, std::string path);
 		std::vector<ReprojectionResult> getReprojections(std::vector<superpoint> & spvec, Eigen::Matrix4d cp, bool * maskvec,  bool useDet = true);
 
-		std::vector<superpoint> getSuperPoints(Eigen::Matrix4d cp = Eigen::Matrix4d::Identity());
+		std::vector<superpoint> getSuperPoints(Eigen::Matrix4d cp = Eigen::Matrix4d::Identity(), unsigned int step = 1, bool zeroinclude = true);
 	};
 }
 

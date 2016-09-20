@@ -41,6 +41,8 @@
 #include <pcl/PCLPointCloud2.h>
 
 
+
+
 namespace reglib
 {
 unsigned long RGBDFrame_id_counter;
@@ -53,9 +55,6 @@ RGBDFrame::RGBDFrame(){
 
 bool updated = true;
 void on_trackbar( int, void* ){updated = true;}
-
-//void update(cv::Mat & err, cv::Mat & est, cv::Mat & dx, int dir){
-//}
 
 float pred(float targetW, float targetH, int sourceW, int sourceH, int width, float * est, float * dx, float * dy){
     int ind = sourceH * width + sourceW;
@@ -116,15 +115,16 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 		for(unsigned int i = 0; i < Xvec.size();i++){stdval += X(0,i)*X(0,i);}
 		stdval = sqrt(stdval/double(Xvec.size()));
 
-		DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
+        DistanceWeightFunction2PPR3 * func = new DistanceWeightFunction2PPR3();
 		func->zeromean				= true;
 		func->maxp					= 0.99;
 		func->startreg				= 0.0;
-		func->debugg_print			= false;
-		//func->bidir					= true;
+        func->debugg_print			= false;
 		func->maxd					= 256.0;
 		func->histogram_size		= 256;
-		func->fixed_histogram_size	= true;
+        //func->fixed_histogram_size	= true;
+        func->fixed_histogram_size	= false;
+        func->update_size       	= true;
 		func->startmaxd				= func->maxd;
 		func->starthistogram_size	= func->histogram_size;
 		func->blurval				= 0.005;
@@ -294,6 +294,14 @@ RGBDFrame * RGBDFrame::clone(){
 }
 
 RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capturetime_, Eigen::Matrix4d pose_, bool compute_normals){
+//    GeneralizedGaussianDistribution * ggd = new GeneralizedGaussianDistribution();
+//    ggd->update_numcdf_vec();
+//    printf("update_numcdf_vec done\n");
+//    for(double x = -4; x <= 4; x+=0.1){
+//        ggd->getcdf(x);
+//    }
+//    printf("cdf loop done\n");
+//    exit(0);
     keyval = "";
 
     sweepid = -1;
@@ -366,42 +374,79 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 
 	std::vector<double> Xvec;
 
-	for(unsigned int w = 1; w < width-1;w++){
-		for(unsigned int h = 1; h < height-1;h++){
-			int ind = h*width+w;
-			float z = idepth*float(depthdata[ind]);
+//	for(unsigned int w = 1; w < width-1;w++){
+//		for(unsigned int h = 1; h < height-1;h++){
+//			int ind = h*width+w;
+//			float z = idepth*float(depthdata[ind]);
 
-			if(w > 1){
-				int dir = -1;
-				int other2 = ind+2*dir;
-				int other = ind+dir;
+//			if(w > 1){
+//				int dir = -1;
+//				int other2 = ind+2*dir;
+//				int other = ind+dir;
 
-				float z3 = idepth*float(depthdata[other2]);
-				float z2 = idepth*float(depthdata[other]);
-				z2 = 2*z2-z3;
+//				float z3 = idepth*float(depthdata[other2]);
+//				float z2 = idepth*float(depthdata[other]);
+//				z2 = 2*z2-z3;
 
-				if(z2 > 0 || z > 0){
-					dedata[3*ind+1] = fabs((z-z2)/(z*z+z2*z2));
-					Xvec.push_back(dedata[3*ind+1]);
-				}
-			}
+//                double noise1 = z*z;
+//                double noise2 = z2*z2;
+//                double noise3 = sqrt(noise1*noise1+noise2*noise2);
 
-			if(h > 1){
-				int dir = -width;
-				int other2 = ind+2*dir;
-				int other = ind+dir;
+//				if(z2 > 0 || z > 0){
+//                    dedata[3*ind+1] = fabs((z-z2)/noise3);//(z*z+z2*z2));
+//					Xvec.push_back(dedata[3*ind+1]);
+//				}
+//			}
 
-				float z3 = idepth*float(depthdata[other2]);
-				float z2 = idepth*float(depthdata[other]);
-				z2 = 2*z2-z3;
+//			if(h > 1){
+//				int dir = -width;
+//				int other2 = ind+2*dir;
+//				int other = ind+dir;
 
-				if(z2 > 0 || z > 0){
-					dedata[3*ind+2] = fabs((z-z2)/(z*z+z2*z2));
-					Xvec.push_back(dedata[3*ind+2]);
-				}
-			}
-		}
-	}
+//				float z3 = idepth*float(depthdata[other2]);
+//				float z2 = idepth*float(depthdata[other]);
+//				z2 = 2*z2-z3;
+
+//                double noise1 = z*z;
+//                double noise2 = z2*z2;
+//                double noise3 = sqrt(noise1*noise1+noise2*noise2);
+//				if(z2 > 0 || z > 0){
+//                    dedata[3*ind+2] = fabs((z-z2)/noise3);//(z*z+z2*z2));
+//					Xvec.push_back(dedata[3*ind+2]);
+//				}
+//			}
+//		}
+//	}
+
+    int step = 1;
+    for(unsigned int w = step; w < width-step;w++){
+        for(unsigned int h = step; h < height-step;h++){
+            int ind = h*width+w;
+            float z = idepth*float(depthdata[ind]);
+
+            if(w > 1){
+                float z2 = 0.5*idepth*float(depthdata[ind-step]+depthdata[ind+step]);
+                double noise1 = z*z;
+                double noise2 = z2*z2;
+                double noise3 = sqrt(noise1*noise1+noise2*noise2);
+                if(z2 > 0 || z > 0){
+                    dedata[3*ind+1] = fabs((z-z2)/noise3);
+                    Xvec.push_back(dedata[3*ind+1]);
+                }
+            }
+
+            if(h > 1){
+                float z2 = 0.5*idepth*float(depthdata[ind-step*width]+depthdata[ind+step*width]);
+                double noise1 = z*z;
+                double noise2 = z2*z2;
+                double noise3 = sqrt(noise1*noise1+noise2*noise2);
+                if(z2 > 0 || z > 0){
+                    dedata[3*ind+2] = fabs((z-z2)/noise3);
+                    Xvec.push_back(dedata[3*ind+2]);
+                }
+            }
+        }
+    }
 
 
 
@@ -412,10 +457,10 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	for(unsigned int i = 0; i < Xvec.size();i++){stdval += X(0,i)*X(0,i);}
 	stdval = sqrt(stdval/double(Xvec.size()));
 
-	DistanceWeightFunction2PPR2 * funcZ = new DistanceWeightFunction2PPR2();
+    DistanceWeightFunction2PPR3 * funcZ = new DistanceWeightFunction2PPR3();
 	funcZ->zeromean				= true;
-	funcZ->startreg				= 0.002;
-	funcZ->debugg_print			= false;
+    funcZ->startreg				= 0.001;
+    funcZ->debugg_print			= true;
 	funcZ->bidir				= false;
 	funcZ->maxp					= 0.999999;
 	funcZ->maxd					= 0.1;
@@ -444,6 +489,9 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 
 	delete funcZ;
 
+
+
+
 	cv::Mat det;
 	det.create(height,width,CV_8UC1);
 	unsigned char * detdata = (unsigned char*)det.data;
@@ -452,6 +500,8 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	}
 
 
+//    cv::namedWindow( "det", cv::WINDOW_AUTOSIZE );			cv::imshow( "det",	det);
+//    cv::waitKey(0);
 
 
     int dilation_size = 4;
@@ -2313,7 +2363,7 @@ std::vector<ReprojectionResult> RGBDFrame::getReprojections(std::vector<superpoi
 	return ret;
 }
 
-std::vector<superpoint> RGBDFrame::getSuperPoints(Eigen::Matrix4d cp){
+std::vector<superpoint> RGBDFrame::getSuperPoints(Eigen::Matrix4d cp, unsigned int step, bool zeroinclude){
 	unsigned char  * rgbdata		= (unsigned char	*)(rgb.data);
 	unsigned short * depthdata		= (unsigned short	*)(depth.data);
 	float		   * normalsdata	= (float			*)(normals.data);
@@ -2332,8 +2382,10 @@ std::vector<superpoint> RGBDFrame::getSuperPoints(Eigen::Matrix4d cp){
 
 	std::vector<superpoint> ret;
 	ret.resize(width*height);
-	for(unsigned long h = 0; h < height;h++){
-		for(unsigned long w = 0; w < width;w++){
+	unsigned long count = 0;
+
+	for(unsigned long h = 0; h < height;h += step){
+		for(unsigned long w = 0; w < width;w += step){
 			unsigned int ind = h * width + w;
 			//superpoint & p = ret[ind];
 			Eigen::Vector3f rgb (rgbdata[3*ind+0],rgbdata[3*ind+1],rgbdata[3*ind+2]);
@@ -2353,12 +2405,17 @@ std::vector<superpoint> RGBDFrame::getSuperPoints(Eigen::Matrix4d cp){
 				float tny	= m10*nx + m11*ny + m12*nz;
 				float tnz	= m20*nx + m21*ny + m22*nz;
 
-				ret[ind]	= superpoint(Vector3f(tx,ty,tz),Vector3f(tnx,tny,tnz),rgb, getInformation(z), 1, 0);
+				//ret[ind]	= superpoint(Vector3f(tx,ty,tz),Vector3f(tnx,tny,tnz),rgb, getInformation(z), 1, 0);
+				ret[count++]	= superpoint(Vector3f(tx,ty,tz),Vector3f(tnx,tny,tnz),rgb, getInformation(z), 1, 0);
 			}else{
-				ret[ind]	= superpoint(Eigen::Vector3f(0,0,0),Eigen::Vector3f(0,0,0),rgb, 0, 1, 0);
+				//ret[ind]	= superpoint(Eigen::Vector3f(0,0,0),Eigen::Vector3f(0,0,0),rgb, 0, 1, 0);
+				if(zeroinclude){
+					ret[count++]	= superpoint(Eigen::Vector3f(0,0,0),Eigen::Vector3f(0,0,0),rgb, 0, 1, 0);
+				}
 			}
 		}
 	}
+	ret.resize(count);
 	return ret;
 }
 

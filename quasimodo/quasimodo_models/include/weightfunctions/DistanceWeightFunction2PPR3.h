@@ -1,5 +1,5 @@
-#ifndef DistanceWeightFunction2PPR2test_H
-#define DistanceWeightFunction2PPR2test_H
+#ifndef DistanceWeightFunction2PPR3_H
+#define DistanceWeightFunction2PPR3_H
 
 #include <cmath>
 #include <sys/time.h>
@@ -18,29 +18,20 @@
 #include <opencv2/features2d/features2d.hpp>
 
 #include "weightfunctions/Distribution.h"
+#include "core/Util.h"
+#include "weightfunctions/SignalProcessing.h"
 
 
 using namespace Eigen;
 namespace reglib{
 
-using ceres::AutoDiffCostFunction;
-using ceres::CostFunction;
-using ceres::Problem;
-using ceres::Solver;
-using ceres::Solve;
-
-class distributionFunction {
-	public:
-
-	virtual void train(std::vector<float> & hist, int nr_bins = -1);
-	virtual void update();
-	virtual double getval(double x);
-	virtual double getcdf(double x);
-};
-
-class DistanceWeightFunction2PPR2 : public DistanceWeightFunction2
+class DistanceWeightFunction2PPR3 : public DistanceWeightFunction2
 {
 public:
+
+    SignalProcessing * sp;
+    Distribution * dist;
+
     bool fixed_histogram_size;
 
 	double stdval;
@@ -108,8 +99,15 @@ public:
 	double histogram_mul;
 	double histogram_mul2;
 
-	DistanceWeightFunction2PPR2(	double maxd_	= 0.25, int histogram_size_ = 25000);
-	~DistanceWeightFunction2PPR2();
+
+    DistanceWeightFunction2PPR3(Distribution * dist,	double maxd_	= 0.25, int histogram_size_ = 25000);
+
+    DistanceWeightFunction2PPR3(	double maxd_	= 0.25, int histogram_size_ = 25000);
+    ~DistanceWeightFunction2PPR3();
+
+    virtual void recomputeHistogram(std::vector<float> & hist, MatrixXd & mat);
+    virtual void recomputeProbs();
+
 	virtual void computeModel(MatrixXd mat);
 	virtual VectorXd getProbs(MatrixXd mat);
 	virtual double getProb(double d, bool debugg = false);
@@ -124,4 +122,4 @@ public:
 
 }
 
-#endif // DistanceWeightFunction2PPR2test_H
+#endif // DistanceWeightFunction2PPR3test_H

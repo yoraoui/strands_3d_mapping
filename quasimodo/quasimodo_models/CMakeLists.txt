@@ -52,8 +52,14 @@ include_directories(/usr/local/include/)
 FIND_PACKAGE(Ceres REQUIRED)
 INCLUDE_DIRECTORIES(${CERES_INCLUDE_DIRS})
 
-add_library(quasimodo_weightlib src/weightfunctions/DistanceWeightFunction2.cpp src/weightfunctions/DistanceWeightFunction2PPR.cpp src/weightfunctions/DistanceWeightFunction2PPR2.cpp)
-target_link_libraries(quasimodo_weightlib ceres glog ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+add_library(quasimodo_SignalProcessing src/weightfunctions/SignalProcessing.cpp)
+target_link_libraries(quasimodo_SignalProcessing ${catkin_LIBRARIES})
+
+add_library(quasimodo_distribution src/weightfunctions/Distribution.cpp src/weightfunctions/GaussianDistribution.cpp src/weightfunctions/GeneralizedGaussianDistribution.cpp)
+target_link_libraries(quasimodo_distribution ceres glog ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+
+add_library(quasimodo_weightlib src/weightfunctions/DistanceWeightFunction2.cpp src/weightfunctions/DistanceWeightFunction2PPR.cpp src/weightfunctions/DistanceWeightFunction2PPR2.cpp src/weightfunctions/DistanceWeightFunction2PPR3.cpp)
+target_link_libraries(quasimodo_weightlib quasimodo_SignalProcessing quasimodo_distribution ceres glog ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 
 add_library(quasimodo_superpoint src/core/superpoint.cpp)
 target_link_libraries(quasimodo_superpoint ${catkin_LIBRARIES})
