@@ -22,6 +22,7 @@ class ReprojectionResult{
 	ReprojectionResult();
 	ReprojectionResult(unsigned long si, unsigned long di, double rz, double a, double rr, double rg, double rb, double nz, double nrgb);
 	~ReprojectionResult();
+	void print();
 };
 }
 

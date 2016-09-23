@@ -529,13 +529,16 @@ reglib::Model * processAV(std::string path){
 			fullmodel->modelmasks.push_back(masks[i]);
 			fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
 		}
+		fullmodel->recomputeModelPoints();
+	}else{
+		fullmodel->points = sweep->points;
 	}
 
 	delete reg;
 	delete mu;
 	delete sweep;
 
-	fullmodel->recomputeModelPoints();
+
 
 	return fullmodel;
 }
@@ -634,7 +637,7 @@ void processMetaroom(std::string path){
 	std::vector<reglib::ModelMask*> mm;
 	fullmodel->getData(po, fr, mm);
 	//fullmodel->points = mu->getSuperPoints(po,fr,mm,1,false);
-	fullmodel->recomputeModelPoints();
+	//fullmodel->recomputeModelPoints();
 
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData current_roomData  = parser.loadRoomFromXML(path);
@@ -658,7 +661,7 @@ void processMetaroom(std::string path){
 
 		reglib::Model * bg = quasimodo_brain::load_metaroom_model(prev);
 		//bg->points = mu->getSuperPoints(bg->relativeposes,bg->frames,bg->modelmasks,1,false);
-		bg->recomputeModelPoints();
+		//bg->recomputeModelPoints();
 
 		std::vector< reglib::Model * > models;
 		models.push_back(fullmodel);

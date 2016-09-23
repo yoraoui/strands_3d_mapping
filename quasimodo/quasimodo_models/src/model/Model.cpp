@@ -140,8 +140,10 @@ void Model::addAllSuperPoints(std::vector<superpoint> & spvec, Eigen::Matrix4d p
 }
 
 void Model::recomputeModelPoints(Eigen::Matrix4d pose, boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer){
-    points.clear();
+	double startTime = getTime();
+	points.clear();
 	addAllSuperPoints(points,pose,viewer);
+	printf("recomputeModelPoints time: %5.5fs\n",getTime()-startTime);
 }
 
 void Model::showHistory(boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer){

@@ -16,5 +16,8 @@ ReprojectionResult::ReprojectionResult(unsigned long si, unsigned long di, doubl
 }
 ReprojectionResult::~ReprojectionResult(){}
 
+void ReprojectionResult::print(){
+	printf("src_ind	= %i, dst_ind = %i, angle = %f, residualZ = %f, residualR = %f, residualG = %f, residualB = %f\n",src_ind, dst_ind, angle, residualZ, residualR, residualG, residualB);
+}
 }
 

@@ -42,6 +42,9 @@ namespace reglib
 		cv::Mat depth;
 		cv::Mat normals;
 		cv::Mat depthedges;
+
+		cv::Mat de;
+		cv::Mat ce;
 		int * labels;
 		int nr_labels;
 
