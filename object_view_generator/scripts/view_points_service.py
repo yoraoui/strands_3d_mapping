@@ -105,7 +105,7 @@ class TrajectoryGenerator(object):
         try:
             rospy.loginfo("Getting a map...")
             msg = rospy.wait_for_message(self.map_frame, OccupancyGrid ,
-                                         timeout=10.0)
+										 timeout=90.0)
             rospy.loginfo("got map.")
             self.process_map(msg)
         except rospy.ROSException, e:

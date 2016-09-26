@@ -2029,8 +2029,8 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 }
 
 
-SegmentationResults ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Matrix4d> poses, vector<RGBDFrame*> frames, bool debugg){
-//void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, std::vector<cv::Mat> & dynmask, vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Matrix4d> poses, vector<RGBDFrame*> frames, bool debugg){
+//SegmentationResults ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Matrix4d> poses, vector<RGBDFrame*> frames, bool debugg){
+void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, std::vector<cv::Mat> & dynmask, vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Matrix4d> poses, vector<RGBDFrame*> frames, bool debugg){
 	double computeMovingDynamicStatic_startTime = getTime();
 
 	SegmentationResults sr;
@@ -2101,7 +2101,7 @@ SegmentationResults ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bg
 	dfuncTMP->refine_mean			= true;
 	dfuncTMP->zeromean				= false;
 	//dfuncTMP->startreg				= 0.0005;
-	dfuncTMP->startreg				= 0.0;
+	dfuncTMP->startreg				= 0.0001;
 	dfuncTMP->debugg_print			= false;
 	dfuncTMP->bidir					= true;
 	//dfuncTMP->bidir					= false;
@@ -2366,7 +2366,12 @@ SegmentationResults ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bg
 	delete g;
 
 	double end_inf = getTime();
-	printf("static inference time: %10.10fs\n",end_inf-start_inf);
+	printf("static inference time: %10.10fs\n",end_inf-start_inf);	std::vector< std::vector< unsigned long > > component_dynamic;
+	std::vector< double > scores_dynamic;
+	std::vector< double > total_dynamic;
+	std::vector< std::vector< unsigned long > > component_moving;
+	std::vector< double > scores_moving;
+	std::vector< double > total_moving;
 
 	long dynamic_frameConnections = 0;
 
@@ -2490,16 +2495,13 @@ SegmentationResults ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bg
 	const unsigned int pixels_per_image	= width*height;
 	const unsigned int nr_pixels		= nr_frames*pixels_per_image;
 
-	std::vector< std::vector< unsigned long > > component_dynamic;
-	std::vector< double > scores_dynamic;
-	std::vector< double > total_dynamic;
-	std::vector< std::vector< unsigned long > > component_moving;
-	std::vector< double > scores_moving;
-	std::vector< double > total_moving;
-
 	double probthresh = 0.5;
 	unsigned int number_of_dynamics = 0;
+	unsigned int nr_obj_dyn = 0;
+	unsigned int nr_obj_mov = 0;
 	std::vector<unsigned int> objectlabel;
+	std::vector<int> labelID;
+	labelID.push_back(0);
 	objectlabel.resize(nr_pixels);
 	for(unsigned long i = 0; i < nr_pixels; i++){objectlabel[i] = 0;}
 	for(unsigned long ind = 0; ind < nr_pixels; ind++){
@@ -2525,65 +2527,107 @@ SegmentationResults ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bg
 				double p1 = priors[3*cind+1];
 				double p2 = priors[3*cind+2];
 
-				double s = 0;
-				if(p0 > p2){s += p1 - p0;}
-				else{       s += p1 - p2;}
-				score += s;
-				totsum++;
+				if(valids[cind]){
+					double s = 0;
+					if(p0 > p2){s += p1 - p0;}
+					else{       s += p1 - p2;}
+					score += s;
+					totsum++;
+				}
 
 				float * dedata = (float*)(frames[frameind]->de.data);
 
 				int dir;
 				dir = -1;
-				if(valids[cind+dir] && w > 0 && objectlabel[cind+dir] == 0 && labels[cind+dir] == current_label && (dedata[3*(iind+dir)+1]+dedata[3*(iind+dir)+2]) < probthresh){
+				if( w > 0 && objectlabel[cind+dir] == 0 && labels[cind+dir] == current_label && (dedata[3*(iind+dir)+1]+dedata[3*(iind+dir)+2]) < probthresh){
 					objectlabel[cind+dir] = number_of_dynamics;
 					todo.push_back(cind+dir);
 				}
 
 				dir = 1;
-				if(valids[cind+dir] && w < (width-1) && objectlabel[cind+dir] == 0 && labels[cind+dir] == current_label && (dedata[3*(iind+dir)+1]+dedata[3*(iind+dir)+2]) < probthresh){
+				if( w < (width-1) && objectlabel[cind+dir] == 0 && labels[cind+dir] == current_label && (dedata[3*(iind+dir)+1]+dedata[3*(iind+dir)+2]) < probthresh){
 					objectlabel[cind+dir] = number_of_dynamics;
 					todo.push_back(cind+dir);
 				}
 
 				dir = -width;
-				if(valids[cind+dir] && h > 0 && objectlabel[cind+dir] == 0 && labels[cind+dir] == current_label && (dedata[3*(iind+dir)+1]+dedata[3*(iind+dir)+2]) < probthresh){
+				if( h > 0 && objectlabel[cind+dir] == 0 && labels[cind+dir] == current_label && (dedata[3*(iind+dir)+1]+dedata[3*(iind+dir)+2]) < probthresh){
 					objectlabel[cind+dir] = number_of_dynamics;
 					todo.push_back(cind+dir);
 				}
 
 				dir = width;
-				if(valids[cind+dir] && h < (height-1) && objectlabel[cind+dir] == 0 && labels[cind+dir] == current_label && (dedata[3*(iind+dir)+1]+dedata[3*(iind+dir)+2]) < probthresh){
+				if( h < (height-1) && objectlabel[cind+dir] == 0 && labels[cind+dir] == current_label && (dedata[3*(iind+dir)+1]+dedata[3*(iind+dir)+2]) < probthresh){
 					objectlabel[cind+dir] = number_of_dynamics;
 					todo.push_back(cind+dir);
 				}
 
 				for(unsigned long j = 0; j < interframe_connectionId[cind].size();j++){
 					unsigned long other = interframe_connectionId[cind][j];
-					if(valids[other] && objectlabel[other] == 0 && labels[other] == current_label){
+					if( objectlabel[other] == 0 && labels[other] == current_label){
 						objectlabel[other] = number_of_dynamics;
 						todo.push_back(other);
 					}
 				}
 			}
+
+
+
+			labelID.push_back(0);
+			if(score < 0){continue;}
 			if(current_label == 1){
+				labelID.back() = ++nr_obj_dyn;
 				printf("Dynamic: %f -> %f\n",score,totsum);
-				component_dynamic.push_back(todo);
-				scores_dynamic.push_back(score);
-				total_dynamic.push_back(totsum);
+				sr.component_dynamic.push_back(todo);
+				sr.scores_dynamic.push_back(score);
+				sr.total_dynamic.push_back(totsum);
 			}
 			if(current_label == 2){
+				labelID.back() = --nr_obj_mov;
 				printf("Moving: %f -> %f\n",score,totsum);
-				component_moving.push_back(todo);
-				scores_moving.push_back(score);
-				total_moving.push_back(totsum);
+				sr.component_moving.push_back(todo);
+				sr.scores_moving.push_back(score);
+				sr.total_moving.push_back(totsum);
 			}
+			printf("back: %i\n",labelID.back());
 		}
 	}
 	interframe_connectionId.clear();
 	interframe_connectionStrength.clear();
 
 	printf("connectedComponent: %5.5fs\n",getTime()-start_inf);
+
+	int current = 0;
+	for(unsigned long i = 0; i < frames.size(); i++){
+		Camera * camera				= frames[i]->camera;
+		const unsigned int width	= camera->width;
+		const unsigned int height	= camera->height;
+
+		cv::Mat m;
+		m.create(height,width,CV_8UC1);
+		unsigned char * mdata = (unsigned char*)m.data;
+
+		cv::Mat d;
+		d.create(height,width,CV_8UC1);
+		unsigned char * ddata = (unsigned char*)d.data;
+		for(int j = 0; j < width*height; j++){
+			mdata[j] = 0;
+			ddata[j] = 0;
+			unsigned int label = labels[current];
+			int lid = labelID[label];
+			if(lid >  0){
+				ddata[j] = lid;
+			}else if(lid < 0){
+				mdata[j] = -lid;
+			}
+			current++;
+		}
+		movemask.push_back(m);
+		dynmask.push_back(d);
+	}
+
+
+
 /*
 	std::vector<int> staticdata;
 	std::vector<int> dynamicdata;
@@ -2603,7 +2647,7 @@ SegmentationResults ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bg
 			if(depthdata[j] != 0){
 				if(labels[current] == 0){
 					staticdata.push_back(current);
-					staticcloud->points.push_back(cloud->points[current]);
+					staticcloud->points.push_back(cloud->pointmovemask,dynmask,s[current]);
 				}
 
 				if(labels[current] == 1){
@@ -2694,7 +2738,7 @@ SegmentationResults ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bg
 	moving_ec.setClusterTolerance (0.05); // 5cm
 	moving_ec.setMinClusterSize (1);
 	moving_ec.setMaxClusterSize (250000000);
-	moving_ec.setSearchMethod (movingtree);
+	moving_ec.setSearchMethod (movingtree);movemask,dynmask,
 	moving_ec.setInputCloud (movingcloud);
 	moving_ec.extract (moving_indices);
 
@@ -2812,7 +2856,7 @@ SegmentationResults ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bg
 		movemask.push_back(m);
 		dynmask.push_back(d);
 	}
-
+*/
 	if(debugg){
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_sample (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 
@@ -2833,50 +2877,6 @@ SegmentationResults ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bg
 		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
 		viewer->spin();
 
-		printf("results-class\n");
-		for(unsigned int i = 0; i < current_point; i++){
-			if(labels[i] == 0){
-				cloud->points[i].r = 0;
-				cloud->points[i].g = 0;
-				cloud->points[i].b = 255;
-			}
-
-			if(labels[i] == 1){
-				cloud->points[i].r = 0;
-				cloud->points[i].g = 0;
-				cloud->points[i].b = 0;
-			}
-
-			if(labels[i] == 2){
-				cloud->points[i].r = 0;
-				cloud->points[i].g = 0;
-				cloud->points[i].b = 0;
-			}
-
-			if(labels[i] == 3){
-				cloud->points[i].r = 0;
-				cloud->points[i].g = 255;
-				cloud->points[i].b = 0;
-			}
-
-			if(labels[i] == 4){
-				cloud->points[i].r = 255;
-				cloud->points[i].g = 0;
-				cloud->points[i].b = 0;
-			}
-		}
-
-
-
-		cloud_sample->points.clear();
-		for(unsigned int i = 0; i < current_point; i++){
-			if(rand() % 4 == 0){
-				cloud_sample->points.push_back(cloud->points[i]);
-			}
-		}
-		viewer->removeAllPointClouds();
-		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
-		viewer->spin();
 
 		cloud_sample->points.clear();
 		for(unsigned int i = 0; i < current_point; i++){
@@ -2888,24 +2888,24 @@ SegmentationResults ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bg
 			}
 		}
 
-		for(unsigned int c = 0; c < component_dynamic.size(); c++){
+		for(unsigned int c = 0; c < sr.component_dynamic.size(); c++){
 			int randr = rand()%256;
 			int randg = rand()%256;
 			int randb = rand()%256;
-			for(unsigned int i = 0; i < component_dynamic[c].size(); i++){
-				cloud_sample->points.push_back(cloud->points[component_dynamic[c][i]]);
+			for(unsigned int i = 0; i < sr.component_dynamic[c].size(); i++){
+				cloud_sample->points.push_back(cloud->points[sr.component_dynamic[c][i]]);
 				cloud_sample->points.back().r = randr;
 				cloud_sample->points.back().g = randg;
 				cloud_sample->points.back().b = randb;
 			}
 		}
 
-		for(unsigned int c = 0; c < component_moving.size(); c++){
+		for(unsigned int c = 0; c < sr.component_moving.size(); c++){
 			int randr = rand()%256;
 			int randg = rand()%256;
 			int randb = rand()%256;
-			for(unsigned int i = 0; i < component_moving[c].size(); i++){
-				cloud_sample->points.push_back(cloud->points[component_moving[c][i]]);
+			for(unsigned int i = 0; i < sr.component_moving[c].size(); i++){
+				cloud_sample->points.push_back(cloud->points[sr.component_moving[c][i]]);
 				cloud_sample->points.back().r = randr;
 				cloud_sample->points.back().g = randg;
 				cloud_sample->points.back().b = randb;
@@ -2915,9 +2915,10 @@ SegmentationResults ModelUpdater::computeMovingDynamicStatic(vector<Matrix4d> bg
 		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
 		viewer->spin();
 	}
-*/
+
 	delete[] priors;
 	printf("computeMovingDynamicStatic total time: %5.5fs\n",getTime()-computeMovingDynamicStatic_startTime);
+	//return sr;
 }
 
 

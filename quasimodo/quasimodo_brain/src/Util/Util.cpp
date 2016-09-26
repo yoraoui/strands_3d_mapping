@@ -272,31 +272,31 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
 	for(int j = 0; j < models.size(); j++){
 		reglib::Model * model = models[j];
 
-//		std::vector<cv::Mat> masks;
-//		for(unsigned int i = 0; i < model->frames.size(); i++){
-//			reglib::RGBDFrame * frame = model->frames[i];
-//			reglib::Camera * cam = frame->camera;
-//			cv::Mat mask;
-//			mask.create(cam->height,cam->width,CV_8UC1);
-//			unsigned char * maskdata = (unsigned char *)(mask.data);
-//			for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 255;}
-//			masks.push_back(mask);
-//		}
-//		std::vector<cv::Mat> movemask;
-//		std::vector<cv::Mat> dynmask;
-//		printf("computeMovingDynamicStatic\n");
-//		mu->computeMovingDynamicStatic(movemask,dynmask,bgcp,bgcf,model->relativeposes,model->frames,debugg);//Determine self occlusions
-//		external.push_back(movemask);
-//		internal.push_back(masks);
-//		dynamic.push_back(dynmask);
+		std::vector<cv::Mat> masks;
+		for(unsigned int i = 0; i < model->frames.size(); i++){
+			reglib::RGBDFrame * frame = model->frames[i];
+			reglib::Camera * cam = frame->camera;
+			cv::Mat mask;
+			mask.create(cam->height,cam->width,CV_8UC1);
+			unsigned char * maskdata = (unsigned char *)(mask.data);
+			for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 255;}
+			masks.push_back(mask);
+		}
+		std::vector<cv::Mat> movemask;
+		std::vector<cv::Mat> dynmask;
+		printf("computeMovingDynamicStatic\n");
+		mu->computeMovingDynamicStatic(movemask,dynmask,bgcp,bgcf,model->relativeposes,model->frames,debugg);//Determine self occlusions
+		external.push_back(movemask);
+		internal.push_back(masks);
+		dynamic.push_back(dynmask);
 
-		SegmentationResults sr = mu->computeMovingDynamicStatic(movemask,dynmask,bgcp,bgcf,model->relativeposes,model->frames,debugg);//Determine self occlusions
+		//SegmentationResults sr = mu->computeMovingDynamicStatic(movemask,dynmask,bgcp,bgcf,model->relativeposes,model->frames,debugg);//Determine self occlusions
 	}
 
 	delete reg;
 	delete mu;
 	printf("total segment time: %5.5fs\n",getTime()-startTime);
-	exit(0);
+	//exit(0);
 }
 
 }

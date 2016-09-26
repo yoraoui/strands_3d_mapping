@@ -132,7 +132,7 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 		for(unsigned int j = 0; j < models[i]->frames.size(); j++){
 			cv_bridge::CvImage dynamicmaskBridgeImage;
 			dynamicmaskBridgeImage.image			= dynamic[i][j];
-			dynamicmaskBridgeImage.encoding		= "mono8";
+			dynamicmaskBridgeImage.encoding			= "mono8";
 			res.dynamicmasks[i].images.push_back( *(dynamicmaskBridgeImage.toImageMsg()) );
 
 			cv_bridge::CvImage internalmaskBridgeImage;
@@ -140,7 +140,6 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 			internalmaskBridgeImage.encoding		= "mono8";
 			res.movingmasks[i].images.push_back( *(internalmaskBridgeImage.toImageMsg()) );
 		}
-
 		res.models.push_back(quasimodo_brain::getModelMSG(models[i]));
 	}
 

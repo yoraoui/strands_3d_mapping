@@ -297,6 +297,7 @@ void SemanticMapNode<PointType>::processRoomObservation(std::string xml_file_nam
         meta_parser.saveMetaRoomAsXML(*metaroom);
     }
 
+	CloudPtr dynamicClusters(new Cloud());
 	CloudPtr difference(new Cloud());
     if(segmentationtype == 1){
         std::string previousObservationXml;
@@ -366,7 +367,8 @@ void SemanticMapNode<PointType>::processRoomObservation(std::string xml_file_nam
 				unsigned char * maskdata = mask.data;
 				for(unsigned int j = 0; j < currentcloudTMP->points.size(); j++){
 					if(maskdata[j] > 0){
-						difference->points.push_back(currentcloudTMP->points[j]);
+						//difference->points.push_back(currentcloudTMP->points[j]);
+						dynamicClusters->points.push_back(currentcloudTMP->points[j]);
 					}
 				}
 			}
@@ -530,7 +532,7 @@ void SemanticMapNode<PointType>::processRoomObservation(std::string xml_file_nam
             ROS_INFO_STREAM("Comparison cloud "<<metaroomCloud->points.size()<<"  room cloud "<<room_interior_cloud->points.size());
 
     }
-}
+//}
     ROS_INFO_STREAM("Raw difference "<<difference->points.size());
 
 /*
@@ -553,35 +555,36 @@ void SemanticMapNode<PointType>::processRoomObservation(std::string xml_file_nam
     ROS_INFO_STREAM("Clustered differences. "<<vClusters.size()<<" different clusters.");
 
     // Check cluster planarity and discard the absolutely planar ones (usually parts of walls, floor, ceiling).
-    CloudPtr dynamicClusters(new Cloud());
+	//CloudPtr dynamicClusters(new Cloud());
 	/*
-    for (size_t i=0; i<vClusters.size(); i++)
-    {
-        pcl::SACSegmentation<PointType> seg;
-        pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
-        pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+	for (size_t i=0; i<vClusters.size(); i++)
+	{
+		pcl::SACSegmentation<PointType> seg;
+		pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+		pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
 
-        seg.setOptimizeCoefficients (true);
-        seg.setModelType (pcl::SACMODEL_PLANE);
-        seg.setMethodType (pcl::SAC_RANSAC);
-        seg.setMaxIterations (100);
-        seg.setDistanceThreshold (0.02);
+		seg.setOptimizeCoefficients (true);
+		seg.setModelType (pcl::SACMODEL_PLANE);
+		seg.setMethodType (pcl::SAC_RANSAC);
+		seg.setMaxIterations (100);
+		seg.setDistanceThreshold (0.02);
 
-        seg.setInputCloud (vClusters[i]);
-        seg.segment (*inliers, *coefficients);
-        if (inliers->indices.size () > 0.9 * vClusters[i]->points.size())
-        {
-            ROS_INFO_STREAM("Discarding planar dynamic cluster");
-        } else {
-            *dynamicClusters += *vClusters[i];
-        }
-    }
+		seg.setInputCloud (vClusters[i]);
+		seg.segment (*inliers, *coefficients);
+		if (inliers->indices.size () > 0.9 * vClusters[i]->points.size())
+		{
+			ROS_INFO_STREAM("Discarding planar dynamic cluster");
+		} else {
+			*dynamicClusters += *vClusters[i];
+		}
+	}
 */
 
 	for (size_t i=0; i<vClusters.size(); i++)
 	{
 		*dynamicClusters += *vClusters[i];
 	}
+}
 
     // publish dynamic clusters
     // transform back into the sweep frame of ref (before metaroom registration, to align with the previously published sweep point cloud)
