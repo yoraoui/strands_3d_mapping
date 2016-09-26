@@ -9,6 +9,12 @@
 
   <arg name="user"   	default="" />
   <arg name="newest_dynamic_clusters" default="false" />
+
+  <node machine="$(arg machine)" pkg="quasimodo_brain" type="segmentationserver" name="segmentationserver" output="screen" respawn="true">
+  </node>
+
+  <node machine="$(arg machine)" pkg="quasimodo_brain" type="segment_room_pairs" name="segment_room_pairs" output="screen" respawn="true">
+  </node>
  
   <machine name="$(arg machine)" address="$(arg machine)" env-loader="$(optenv ROS_ENV_LOADER )" user="$(arg user)"/>
 
