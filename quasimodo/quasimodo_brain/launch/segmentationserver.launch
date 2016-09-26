@@ -1,0 +1,7 @@
+<launch>
+	<node pkg="quasimodo_brain" type="segmentationserver" name="segmentationserver" output="screen" respawn="false"  args="">
+    </node>
+
+	<node pkg="quasimodo_brain" type="segment_room_pairs" name="segment_room_pairs" output="screen" respawn="false"  args="">
+	</node>
+</launch>
