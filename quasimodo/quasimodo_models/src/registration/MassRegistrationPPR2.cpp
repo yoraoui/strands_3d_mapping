@@ -293,7 +293,7 @@ void MassRegistrationPPR2::addModel(Model * model){
         depthedge_trees3d[i]->buildIndex();
     }
 */
-	printf("addModel total load time:          %5.5f points: %6.6i\n",getTime()-total_load_time_start,count);
+	//printf("addModel total load time:          %5.5f points: %6.6i\n",getTime()-total_load_time_start,count);
 }
 
 void MassRegistrationPPR2::addModelData(Model * model_, bool submodels){
@@ -3310,11 +3310,11 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 		if(func->noiseval > 10.0*func->regularization && ratio > 0.75){break;}
 	}
 
-	printf("total_time:          %5.5f\n",getTime()-total_time_start);
-	printf("rematch_time:        %5.5f\n",rematch_time);
-	printf("compM residuals_time:%5.5f\n",residuals_time);
-	printf("computeModel:        %5.5f\n",computeModel_time);
-	printf("opt_time:            %5.5f\n",opt_time);
+//	printf("total_time:          %5.5f\n",getTime()-total_time_start);
+//	printf("rematch_time:        %5.5f\n",rematch_time);
+//	printf("compM residuals_time:%5.5f\n",residuals_time);
+//	printf("computeModel:        %5.5f\n",computeModel_time);
+//	printf("opt_time:            %5.5f\n",opt_time);
 
 //	printf("setup_matches_time:  %5.5f\n",setup_matches_time);
 //	printf("setup_equation_time: %5.5f\n",setup_equation_time);

@@ -52,9 +52,10 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 	std::vector< std::vector< cv::Mat > > external;
 	std::vector< std::vector< cv::Mat > > dynamic;
 
-	quasimodo_brain::segment(bg,models,internal,external,dynamic);
+	quasimodo_brain::segment(bg,models,internal,external,dynamic,visualization);
+	printf("visualization: %i\n",visualization);
 
-	for(unsigned int i = 0; visualization && i < models.size(); i++){
+	for(unsigned int i = 0; false && visualization && i < models.size(); i++){
 		std::vector<cv::Mat> internal_masks = internal[i];
 		std::vector<cv::Mat> external_masks = external[i];
 		std::vector<cv::Mat> dynamic_masks	= dynamic[i];
@@ -85,7 +86,6 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 			const unsigned int width	= camera->width;
 			const unsigned int height	= camera->height;
 
-
 			for(unsigned int w = 0; w < width;w++){
 				for(unsigned int h = 0; h < height;h++){
 					int ind = h*width+w;
@@ -93,16 +93,13 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 					if(z > 0){
 						float x = (float(w) - cx) * z * ifx;
 						float y = (float(h) - cy) * z * ify;
-
 						pcl::PointXYZRGBNormal point;
 						point.x = m00*x + m01*y + m02*z + m03;
 						point.y = m10*x + m11*y + m12*z + m13;
 						point.z = m20*x + m21*y + m22*z + m23;
-
 						point.b = rgbdata[3*ind+0];
 						point.g = rgbdata[3*ind+1];
 						point.r = rgbdata[3*ind+2];
-
 						if(dynamicmaskdata[ind] != 0){
 							point.b = 0;
 							point.g = 255;
@@ -112,7 +109,6 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 							point.g = 0;
 							point.r = 255;
 						}
-
 						cloud->points.push_back(point);
 					}
 				}
@@ -121,9 +117,20 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 		viewer->removeAllPointClouds();
 		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "scloud");
 		viewer->spin();
-		//while(cv::waitKey(50)!='q'){viewer->spinOnce();}
 	}
 
+//	for(unsigned int i = 0; visualization && i < models.size(); i++){
+//		std::vector<cv::Mat> internal_masks = internal[i];
+//		std::vector<cv::Mat> external_masks = external[i];
+//		std::vector<cv::Mat> dynamic_masks	= dynamic[i];
+//		reglib::Model * model = models[i];
+//		for(unsigned int j = 0; j < model->frames.size(); j++){
+//			cv::namedWindow( "rgb", cv::WINDOW_AUTOSIZE );		cv::imshow( "rgb",		models[i]->frames[j]->rgb);
+//			cv::namedWindow( "moving", cv::WINDOW_AUTOSIZE );	cv::imshow( "moving",	255*(internal[i][j] > 0));
+//			cv::namedWindow( "dynamic", cv::WINDOW_AUTOSIZE );	cv::imshow( "dynamic",	255*(dynamic[i][j] > 0));
+//			cv::waitKey(0);
+//		}
+//	}
 	res.backgroundmodel = req.backgroundmodel;
 
 	res.dynamicmasks.resize(models.size());
@@ -139,6 +146,11 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 			internalmaskBridgeImage.image			= internal[i][j];
 			internalmaskBridgeImage.encoding		= "mono8";
 			res.movingmasks[i].images.push_back( *(internalmaskBridgeImage.toImageMsg()) );
+
+//			cv::namedWindow( "rgb", cv::WINDOW_AUTOSIZE );		cv::imshow( "rgb",		models[i]->frames[j]->rgb);
+//			cv::namedWindow( "moving", cv::WINDOW_AUTOSIZE );	cv::imshow( "moving",	255*(internal[i][j] > 0));
+//			cv::namedWindow( "dynamic", cv::WINDOW_AUTOSIZE );	cv::imshow( "dynamic",	255*(dynamic[i][j] > 0));
+//			cv::waitKey(0);
 		}
 		res.models.push_back(quasimodo_brain::getModelMSG(models[i]));
 	}
@@ -157,11 +169,9 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 }
 
 int main(int argc, char** argv){
-
+ROS_INFO("starting segmentserver.");
 	ros::init(argc, argv, "segmentationserver");
 	ros::NodeHandle n;
-
-	int inputstate = -1;
 	for(int i = 1; i < argc;i++){
 		printf("input: %s\n",argv[i]);
 		if(std::string(argv[i]).compare("-v") == 0){           printf("visualization turned on\n");                visualization = true;}
@@ -173,9 +183,8 @@ int main(int argc, char** argv){
 		viewer->setBackgroundColor(0.0,0.0,0.0);
 	}
 
-
 	ros::ServiceServer service = n.advertiseService("segment_model", segment_model);
-	ROS_INFO("Ready to add use segment_model.");
+ROS_INFO("Ready to add use segment_model.");
 
 	ros::spin();
 }

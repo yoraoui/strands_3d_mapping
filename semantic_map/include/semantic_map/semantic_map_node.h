@@ -373,6 +373,7 @@ void SemanticMapNode<PointType>::processRoomObservation(std::string xml_file_nam
 				}
 			}
 
+
 //			std::vector<CloudPtr> vClusters = MetaRoom<PointType>::clusterPointCloud(dynamiccloud,0.03,100,1000000);
 //			ROS_INFO_STREAM("Clustered differences. "<<vClusters.size()<<" different clusters.");
 		}else{
@@ -586,6 +587,7 @@ void SemanticMapNode<PointType>::processRoomObservation(std::string xml_file_nam
 	}
 }
 
+	printf("dynamicClusters->points.size() = %i\n",dynamicClusters->points.size());
     // publish dynamic clusters
     // transform back into the sweep frame of ref (before metaroom registration, to align with the previously published sweep point cloud)
     Eigen::Matrix4f inverseRoomTransform = aRoom.getRoomTransform().inverse();

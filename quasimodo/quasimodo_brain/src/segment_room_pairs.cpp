@@ -100,11 +100,13 @@ bool segment_metaroom(quasimodo_msgs::metaroom_pair::Request  & req, quasimodo_m
 }
 
 int main(int argc, char** argv){
+	ROS_INFO("starting segment_room_pairs");
 	ros::init(argc, argv, "segmentationserver_metaroom");
 	ros::NodeHandle n;
 	segmentation_client = n.serviceClient<quasimodo_msgs::segment_model>("segment_model");
 	ros::ServiceServer service = n.advertiseService("segment_metaroom", segment_metaroom);
 
+	ROS_INFO("running segment_room_pairs");
 	ros::spin();
 	/*
     reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();

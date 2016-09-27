@@ -2101,7 +2101,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	dfuncTMP->refine_mean			= true;
 	dfuncTMP->zeromean				= false;
 	//dfuncTMP->startreg				= 0.0005;
-	dfuncTMP->startreg				= 0.0001;
+	dfuncTMP->startreg				= 0.00001;
 	dfuncTMP->debugg_print			= false;
 	dfuncTMP->bidir					= true;
 	//dfuncTMP->bidir					= false;
@@ -2574,7 +2574,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 
 			labelID.push_back(0);
-			if(score < 0){continue;}
+			if(score < 200){continue;}
 			if(current_label == 1){
 				labelID.back() = ++nr_obj_dyn;
 				printf("Dynamic: %f -> %f\n",score,totsum);
@@ -2589,7 +2589,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				sr.scores_moving.push_back(score);
 				sr.total_moving.push_back(totsum);
 			}
-			printf("back: %i\n",labelID.back());
+			//printf("back: %i\n",labelID.back());
 		}
 	}
 	interframe_connectionId.clear();
@@ -2610,10 +2610,16 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		cv::Mat d;
 		d.create(height,width,CV_8UC1);
 		unsigned char * ddata = (unsigned char*)d.data;
+
+		cv::Mat d2;
+		d2.create(height,width,CV_8UC1);
+		unsigned char * ddata2 = (unsigned char*)d2.data;
+
 		for(int j = 0; j < width*height; j++){
 			mdata[j] = 0;
 			ddata[j] = 0;
-			unsigned int label = labels[current];
+			ddata2[j] = labels[current];
+			unsigned int label = objectlabel[current];
 			int lid = labelID[label];
 			if(lid >  0){
 				ddata[j] = lid;
@@ -2624,6 +2630,12 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		}
 		movemask.push_back(m);
 		dynmask.push_back(d);
+
+//		cv::namedWindow( "rgb", cv::WINDOW_AUTOSIZE );		cv::imshow( "rgb",		frames[i]->rgb);
+//		cv::namedWindow( "moving", cv::WINDOW_AUTOSIZE );	cv::imshow( "moving",	255*(m > 0));
+//		cv::namedWindow( "dynamic", cv::WINDOW_AUTOSIZE );	cv::imshow( "dynamic",	255*(d > 0));
+//		cv::namedWindow( "dynamic2", cv::WINDOW_AUTOSIZE );	cv::imshow( "dynamic2",	255*(d2 > 0));
+//		cv::waitKey(0);
 	}
 
 
