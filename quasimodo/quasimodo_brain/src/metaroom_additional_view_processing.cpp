@@ -78,6 +78,7 @@
 #include <object_manager_msgs/DynamicObjectTrackingData.h>
 
 ros::ServiceServer m_DynamicObjectsServiceServer;
+ros::ServiceServer m_GetDynamicObjectServiceServer;
 
 typedef typename object_manager_msgs::DynamicObjectsService::Request DynamicObjectsServiceRequest;
 typedef typename object_manager_msgs::DynamicObjectsService::Response DynamicObjectsServiceResponse;
@@ -1080,6 +1081,11 @@ bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObj
 	return false;
 }
 
+bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDynamicObjectServiceResponse &res){
+	printf("bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDynamicObjectServiceResponse &res)\n");
+	return false;
+}
+
 
 int main(int argc, char** argv){
 
@@ -1170,7 +1176,7 @@ int main(int argc, char** argv){
 	}
 
 	m_DynamicObjectsServiceServer = n.advertiseService("/object_manager_node/ObjectManager/DynamicObjectsService", dynamicObjectsServiceCallback);
-
+	m_GetDynamicObjectServiceServer = n.advertiseService("/object_manager_node/ObjectManager/GetDynamicObjectService", getDynamicObjectServiceCallback);
 	if(!once){ros::spin();}
 	printf("done...\n");
 	return 0;
