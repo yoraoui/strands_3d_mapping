@@ -828,8 +828,8 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	for(unsigned int w = 1; w < width-1;w++){
 		for(unsigned int h = 1; h < height-1;h++){
 			int ind = h*width+w;
-			maxima_dxdata[ind] = (src_dxdata[ind] >= src_dxdata[ind-1]     && src_dxdata[ind] > src_dxdata[ind+1]);
-			maxima_dydata[ind] = (src_dydata[ind] >= src_dydata[ind-width] && src_dydata[ind] > src_dydata[ind+width]);
+			maxima_dxdata[ind] = (src_dxdata[ind] >= src_dxdata[ind-1]     && src_dxdata[ind] >= src_dxdata[ind+1]);
+			maxima_dydata[ind] = (src_dydata[ind] >= src_dydata[ind-width] && src_dydata[ind] >= src_dydata[ind+width]);
 		}
 	}
 
@@ -928,18 +928,18 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 		detdata[i] = 255*((dedata[3*i+1] > 0.5) || (dedata[3*i+2] > 0.5));
 	}
 
-	//	cv::namedWindow( "de", cv::WINDOW_AUTOSIZE );			cv::imshow( "de",	de);
-	//	cv::namedWindow( "re", cv::WINDOW_AUTOSIZE );			cv::imshow( "re",	re);
-	//	cv::namedWindow( "ge", cv::WINDOW_AUTOSIZE );			cv::imshow( "ge",	ge);
-	//	cv::namedWindow( "be", cv::WINDOW_AUTOSIZE );			cv::imshow( "be",	be);
-	//	cv::namedWindow( "ce", cv::WINDOW_AUTOSIZE );			cv::imshow( "ce",	ce);
-	//	cv::namedWindow( "cenms", cv::WINDOW_AUTOSIZE );			cv::imshow( "cenms",	cenms);
-	//	cv::namedWindow( "rgb", cv::WINDOW_AUTOSIZE );			cv::imshow( "rgb",	rgb);
-	//	cv::namedWindow( "blur", cv::WINDOW_AUTOSIZE );			cv::imshow( "blur",	blur_rgb);
-	//	//cv::namedWindow( "maximas", cv::WINDOW_AUTOSIZE );			cv::imshow( "blur",	blur_rgb);
-	//	cv::waitKey(0);
-	//    cv::namedWindow( "det", cv::WINDOW_AUTOSIZE );			cv::imshow( "det",	det);
-	//    cv::waitKey(0);
+//		cv::namedWindow( "depth", cv::WINDOW_AUTOSIZE );		cv::imshow( "depth",	de);
+//		cv::namedWindow( "re", cv::WINDOW_AUTOSIZE );			cv::imshow( "re",	re);
+//		cv::namedWindow( "ge", cv::WINDOW_AUTOSIZE );			cv::imshow( "ge",	ge);
+//		cv::namedWindow( "be", cv::WINDOW_AUTOSIZE );			cv::imshow( "be",	be);
+//		cv::namedWindow( "colour", cv::WINDOW_AUTOSIZE );		cv::imshow( "colour",	ce);
+//		cv::namedWindow( "colour+nms", cv::WINDOW_AUTOSIZE );	cv::imshow( "colour+nms",	cenms);
+//		cv::namedWindow( "rgb", cv::WINDOW_AUTOSIZE );			cv::imshow( "rgb",	rgb);
+//		cv::namedWindow( "blur", cv::WINDOW_AUTOSIZE );			cv::imshow( "blur",	blur_rgb);
+//		//cv::namedWindow( "maximas", cv::WINDOW_AUTOSIZE );			cv::imshow( "blur",	blur_rgb);
+//		cv::waitKey(0);
+//	//    cv::namedWindow( "det", cv::WINDOW_AUTOSIZE );			cv::imshow( "det",	det);
+//	//    cv::waitKey(0);
 
 
     int dilation_size = 4;

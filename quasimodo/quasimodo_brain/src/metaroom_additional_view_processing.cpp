@@ -697,8 +697,7 @@ void processMetaroom(std::string path){
 		std::vector< std::vector< cv::Mat > > dynamic;
 
 		quasimodo_brain::segment(bg,models,internal,external,dynamic,visualization_lvl > 0);
-		bg->fullDelete();
-		delete bg;
+
 
 		remove_old_seg(sweep_folder);
 
@@ -725,7 +724,8 @@ void processMetaroom(std::string path){
 
 			for(unsigned int j = 0; j < mod_fr.size(); j++){
 				reglib::RGBDFrame * frame = mod_fr[j];
-				Eigen::Matrix4d p = mod_po[j];
+				std::cout << mod_po[j] << std::endl;
+				Eigen::Matrix4d p = mod_po[j]*bg.front()->pose;
 				unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
 				unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
 				float		   * normalsdata	= (float			*)(frame->normals.data);
@@ -813,12 +813,23 @@ void processMetaroom(std::string path){
 					std::vector< std::vector<int> > inds;
 					inds.resize(mod_fr.size());
 
+					double sumx = 0;
+					double sumy = 0;
+					double sumz = 0;
 					pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 					for (unsigned int ind = 0; ind < dynamic_indices[d].indices.size(); ind++){
 						int pid = dynamic_indices[d].indices[ind];
 						inds[dynamic_frameid[pid]].push_back(dynamic_pixelid[pid]);
 						cloud_cluster->points.push_back(dynamiccloud->points[pid]);
+						sumx += cloud_cluster->points.back().x;
+						sumy += cloud_cluster->points.back().y;
+						sumz += cloud_cluster->points.back().z;
 					}
+
+					sumx /= double(cloud_cluster->points.size());
+					sumy /= double(cloud_cluster->points.size());
+					sumz /= double(cloud_cluster->points.size());
+
 					char buf [1024];
 					sprintf(buf,"%s/dynamic_object%10.10i.xml",sweep_folder.c_str(),d);
 					QFile file(buf);
@@ -830,6 +841,22 @@ void processMetaroom(std::string path){
 					xmlWriter->writeStartDocument();
 					xmlWriter->writeStartElement("Object");
 					xmlWriter->writeAttribute("object_number", QString::number(d));
+					xmlWriter->writeStartElement("Mean");
+					xmlWriter->writeAttribute("x", QString::number(sumx));
+					xmlWriter->writeAttribute("y", QString::number(sumy));
+					xmlWriter->writeAttribute("z", QString::number(sumz));
+					xmlWriter->writeEndElement();
+
+//					token = xmlReader->readNext();
+//					double x = atof(xmlReader->readElementText().toStdString().c_str());
+
+//					token = xmlReader->readNext();
+//					double y = atof(xmlReader->readElementText().toStdString().c_str());
+
+//					token = xmlReader->readNext();
+//					double z = atof(xmlReader->readElementText().toStdString().c_str());
+
+//					printf("mean: %f %f %f\n",x,y,z);
 
 					for(unsigned int j = 0; j < mod_fr.size(); j++){
 						if(inds[j].size() == 0){continue;}
@@ -925,6 +952,8 @@ void processMetaroom(std::string path){
 		}
 	}
 
+	bg->fullDelete();
+	delete bg;
 	fullmodel->fullDelete();
 	delete fullmodel;
 	//	delete bgmassreg;
@@ -1076,8 +1105,77 @@ void sendCallback(const std_msgs::String::ConstPtr& msg){
 	sendMetaroomToServer(msg->data);
 }
 
+//string waypoint_id
+//---
+//string[] object_id
+//sensor_msgs/PointCloud2[] objects
+//geometry_msgs/Point[] centroids
+
+
 bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res){
 	printf("bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res)\n");
+	std::string path = req.waypoint_id;
+	processMetaroom(path);
+
+	printf("path: %s\n",path.c_str());
+	int slash_pos = path.find_last_of("/");
+	std::string sweep_folder = path.substr(0, slash_pos) + "/";
+
+	printf("sweep_folder: %s\n",sweep_folder.c_str());
+
+
+	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("dynamic_object*.xml"));
+	for (auto objectFile : objectFiles){
+		std::string object = sweep_folder+objectFile.toStdString();
+		printf("object: %s\n",object.c_str());
+
+		QFile file(object.c_str());
+
+		if (!file.exists()){
+			ROS_ERROR("Could not open file %s to masks.",object.c_str());
+			continue;
+		}
+
+		file.open(QIODevice::ReadOnly);
+		ROS_INFO_STREAM("Parsing xml file: "<<object.c_str());
+
+		QXmlStreamReader* xmlReader = new QXmlStreamReader(&file);
+
+		while (!xmlReader->atEnd() && !xmlReader->hasError())
+		{
+			QXmlStreamReader::TokenType token = xmlReader->readNext();
+			if (token == QXmlStreamReader::StartDocument)
+				continue;
+
+			if (xmlReader->hasError())
+			{
+				ROS_ERROR("XML error: %s",xmlReader->errorString().toStdString().c_str());
+				break;
+			}
+
+			QString elementName = xmlReader->name().toString();
+
+			if (token == QXmlStreamReader::StartElement)
+			{
+
+				if (xmlReader->name() == "Mean")
+				{
+					token = xmlReader->readNext();
+					double x = atof(xmlReader->readElementText().toStdString().c_str());
+
+					token = xmlReader->readNext();
+					double y = atof(xmlReader->readElementText().toStdString().c_str());
+
+					token = xmlReader->readNext();
+					double z = atof(xmlReader->readElementText().toStdString().c_str());
+
+					printf("mean: %f %f %f\n",x,y,z);
+				}
+			}
+		}
+		delete xmlReader;
+	}
+
 	return false;
 }
 
