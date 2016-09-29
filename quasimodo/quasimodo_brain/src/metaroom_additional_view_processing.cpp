@@ -1169,7 +1169,7 @@ int main(int argc, char** argv){
 		}
 	}
 
-	m_DynamicObjectsServiceServer = m_NodeHandle.advertiseService("ObjectManager/DynamicObjectsService", &ObjectManager::dynamicObjectsServiceCallback, this);
+	m_DynamicObjectsServiceServer = n.advertiseService("ObjectManager/DynamicObjectsService", dynamicObjectsServiceCallback);
 
 	if(!once){ros::spin();}
 	printf("done...\n");
