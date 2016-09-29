@@ -51,13 +51,13 @@
     <node machine="$(arg machine)" pkg="calibrate_sweeps" type="calibrate_sweep_as" name="calibrate_sweep_as" output="screen" respawn="true"/>
     
     <node machine="$(arg machine)" pkg="semantic_map_publisher" type="semantic_map_publisher" name="semantic_map_publisher" output="screen" respawn="true"/>
-    
+<!--
     <node machine="$(arg machine)" pkg="object_manager" type="object_manager_node" name="object_manager_node" output="screen" respawn="true">
         <param name="log_objects_to_db" value="$(arg log_objects_to_db)"/>
         <param name="min_object_size" value="$(arg min_object_size)"/>
         <param name="save_mask" value="$(arg save_mask)"/>
     </node>
-
+-->
         <node name="do_sweep" pkg="cloud_merge" type="do_sweep.py" output="screen" respawn="true">
         </node>
 
