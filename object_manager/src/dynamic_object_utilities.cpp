@@ -5,6 +5,7 @@ using namespace std;
 
 std::vector<DynamicObject::Ptr> dynamic_object_utilities::loadDynamicObjects(std::string folder, bool verbose)
 {
+	printf("loadDynamicObjects\n");
     std::vector<DynamicObject::Ptr>  objects;
 
     folder+=std::string("/");

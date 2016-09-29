@@ -4,7 +4,7 @@ project(object_manager)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS roscpp std_msgs sensor_msgs geometry_msgs pcl_ros message_generation qt_build cv_bridge semantic_map metaroom_xml_parser convex_segmentation k_means_tree observation_registration_services)
+find_package(catkin REQUIRED COMPONENTS roscpp std_msgs sensor_msgs geometry_msgs object_manager_msgs pcl_ros message_generation qt_build cv_bridge semantic_map metaroom_xml_parser convex_segmentation k_means_tree observation_registration_services)
 
 set(CMAKE_CXX_FLAGS "-O4 -fPIC -std=c++0x -fpermissive ${CMAKE_CXX_FLAGS}")
 
@@ -24,27 +24,6 @@ message (STATUS “OpenMP not found”)
 endif()
 
 rosbuild_prepare_qt4(QtCore QtXml)
-
-add_service_files(
-   FILES
-   DynamicObjectsService.srv
-   GetDynamicObjectService.srv
-   DynamicObjectComputeMaskService.srv
-   ProcessDynamicObjectService.srv
-)
-
-add_message_files(
-  FILES
-  DynamicObjectTracks.msg
-  DynamicObjectTrackingData.msg
-)
-
-generate_messages(
-  DEPENDENCIES
-  std_msgs
-  sensor_msgs
-  geometry_msgs
-)
 
 catkin_package(
    INCLUDE_DIRS include
@@ -76,13 +55,13 @@ include_directories(include
 add_library(dynamic_object ${HDRS} ${SRCS})
 
 add_executable(object_manager_node   ${HDRS} ${SRCS} include/object_manager/object_manager.h src/object_manager.cpp src/object_manager_main.cpp)
-add_dependencies(object_manager_node object_manager_node_generate_messages_cpp)
+add_dependencies(object_manager_node quasimodo_msgs_generate_messages_cpp object_manager_node_generate_messages_cpp)
 
 add_executable(load_objects_from_mongo ${HDRS} ${SRCS} src/load_objects_from_mongo.cpp)
-add_dependencies(load_objects_from_mongo load_objects_from_mongo_generate_messages_cpp)
+add_dependencies(load_objects_from_mongo quasimodo_msgs_generate_messages_cpp load_objects_from_mongo_generate_messages_cpp)
 
 add_executable(dynamic_object_compute_mask_server ${HDRS} ${SRCS} src/dynamic_object_compute_mask_server.cpp)
-add_dependencies(dynamic_object_compute_mask_server object_manager_generate_messages_cpp observation_registration_services_generate_messages_cpp)
+add_dependencies(dynamic_object_compute_mask_server quasimodo_msgs_generate_messages_cpp object_manager_generate_messages_cpp observation_registration_services_generate_messages_cpp)
 
  target_link_libraries(dynamic_object
    ${catkin_LIBRARIES}

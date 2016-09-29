@@ -28,8 +28,10 @@
   <build_depend>convex_segmentation</build_depend>
   <build_depend>k_means_tree</build_depend>
   <build_depend>observation_registration_services</build_depend>
+  <build_depend>object_manager_msgs</build_depend>
 
 
+  <run_depend>object_manager_msgs</run_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>std_msgs</run_depend>
   <run_depend>sensor_msgs</run_depend>
