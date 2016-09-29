@@ -62,6 +62,32 @@
 #include "core/RGBDFrame.h"
 #include "Util/Util.h"
 
+// Services
+#include <object_manager_msgs/DynamicObjectsService.h>
+#include <object_manager_msgs/GetDynamicObjectService.h>
+#include <object_manager_msgs/ProcessDynamicObjectService.h>
+
+// Registration service
+#include <observation_registration_services/ObjectAdditionalViewRegistrationService.h>
+
+// Additional view mask service
+#include <object_manager_msgs/DynamicObjectComputeMaskService.h>
+
+// Custom messages
+#include <object_manager_msgs/DynamicObjectTracks.h>
+#include <object_manager_msgs/DynamicObjectTrackingData.h>
+
+ros::ServiceServer m_DynamicObjectsServiceServer;
+
+typedef typename object_manager_msgs::DynamicObjectsService::Request DynamicObjectsServiceRequest;
+typedef typename object_manager_msgs::DynamicObjectsService::Response DynamicObjectsServiceResponse;
+
+typedef typename object_manager_msgs::GetDynamicObjectService::Request GetDynamicObjectServiceRequest;
+typedef typename object_manager_msgs::GetDynamicObjectService::Response GetDynamicObjectServiceResponse;
+
+typedef typename object_manager_msgs::ProcessDynamicObjectService::Request ProcessDynamicObjectServiceRequest;
+typedef typename object_manager_msgs::ProcessDynamicObjectService::Response ProcessDynamicObjectServiceResponse;
+
 ros::ServiceClient segmentation_client;
 using namespace std;
 using namespace semantic_map_load_utilties;
@@ -610,7 +636,6 @@ std::vector<Eigen::Matrix4d> readPoseXML(std::string xmlFile){
 	}
 	delete xmlReader;
 	printf("done readPoseXML\n");
-	//exit(0);
 	return poses;
 }
 
@@ -1050,6 +1075,11 @@ void sendCallback(const std_msgs::String::ConstPtr& msg){
 	sendMetaroomToServer(msg->data);
 }
 
+bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res){
+	printf("bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res)\n");
+	return false;
+}
+
 
 int main(int argc, char** argv){
 
@@ -1138,6 +1168,8 @@ int main(int argc, char** argv){
 			modelouttopic = std::string(argv[i]);
 		}
 	}
+
+	m_DynamicObjectsServiceServer = m_NodeHandle.advertiseService("ObjectManager/DynamicObjectsService", &ObjectManager::dynamicObjectsServiceCallback, this);
 
 	if(!once){ros::spin();}
 	printf("done...\n");

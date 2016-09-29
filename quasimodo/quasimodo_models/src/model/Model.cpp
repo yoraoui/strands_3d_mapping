@@ -517,8 +517,7 @@ void Model::fullDelete(){
     all_keypoints.clear();
     all_descriptors.clear();
     relativeposes.clear();
-    for(size_t i = 0; i < frames.size(); i++){
-        printf("delete camera: %ld\n",frames[i]->camera);
+	for(size_t i = 0; i < frames.size(); i++){
         delete frames[i]->camera;
         delete frames[i];
     }
