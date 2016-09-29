@@ -20,19 +20,19 @@
 #include <sensor_msgs/image_encodings.h>
 
 // Services
-#include <object_manager/DynamicObjectsService.h>
-#include <object_manager/GetDynamicObjectService.h>
-#include <object_manager/ProcessDynamicObjectService.h>
+#include <object_manager_msgs/DynamicObjectsService.h>
+#include <object_manager_msgs/GetDynamicObjectService.h>
+#include <object_manager_msgs/ProcessDynamicObjectService.h>
 
 // Registration service
 #include <observation_registration_services/ObjectAdditionalViewRegistrationService.h>
 
 // Additional view mask service
-#include <object_manager/DynamicObjectComputeMaskService.h>
+#include <object_manager_msgs/DynamicObjectComputeMaskService.h>
 
 // Custom messages
-#include <object_manager/DynamicObjectTracks.h>
-#include <object_manager/DynamicObjectTrackingData.h>
+#include <object_manager_msgs/DynamicObjectTracks.h>
+#include <object_manager_msgs/DynamicObjectTrackingData.h>
 
 // PCL includes
 #include <pcl_ros/point_cloud.h>
@@ -69,14 +69,14 @@ public:
     typedef typename Cloud::Ptr CloudPtr;
     typedef semantic_map_load_utilties::DynamicObjectData<PointType> ObjectData;
 
-    typedef typename object_manager::DynamicObjectsService::Request DynamicObjectsServiceRequest;
-    typedef typename object_manager::DynamicObjectsService::Response DynamicObjectsServiceResponse;
+    typedef typename object_manager_msgs::DynamicObjectsService::Request DynamicObjectsServiceRequest;
+    typedef typename object_manager_msgs::DynamicObjectsService::Response DynamicObjectsServiceResponse;
 
-    typedef typename object_manager::GetDynamicObjectService::Request GetDynamicObjectServiceRequest;
-    typedef typename object_manager::GetDynamicObjectService::Response GetDynamicObjectServiceResponse;
+    typedef typename object_manager_msgs::GetDynamicObjectService::Request GetDynamicObjectServiceRequest;
+    typedef typename object_manager_msgs::GetDynamicObjectService::Response GetDynamicObjectServiceResponse;
 
-    typedef typename object_manager::ProcessDynamicObjectService::Request ProcessDynamicObjectServiceRequest;
-    typedef typename object_manager::ProcessDynamicObjectService::Response ProcessDynamicObjectServiceResponse;
+    typedef typename object_manager_msgs::ProcessDynamicObjectService::Request ProcessDynamicObjectServiceRequest;
+    typedef typename object_manager_msgs::ProcessDynamicObjectService::Response ProcessDynamicObjectServiceResponse;
 
     struct GetObjStruct
     {
@@ -98,7 +98,7 @@ public:
     bool returnObjectMask(std::string waypoint, std::string object_id, std::string observation_xml, GetObjStruct& returned_object);
     void additionalViewsCallback(const sensor_msgs::PointCloud2::ConstPtr& msg);
     void additionalViewsStatusCallback(const std_msgs::String& msg);
-    void dynamicObjectTracksCallback(const object_manager::DynamicObjectTracksConstPtr& msg);
+    void dynamicObjectTracksCallback(const object_manager_msgs::DynamicObjectTracksConstPtr& msg);
 
     static CloudPtr filterGroundClusters(CloudPtr dynamic, double min_height)
     {
@@ -167,7 +167,7 @@ ObjectManager<PointType>::ObjectManager(ros::NodeHandle nh) : m_TransformListene
     m_PublisherRequestedObjectCloud = m_NodeHandle.advertise<sensor_msgs::PointCloud2>("/object_manager/requested_object", 1, true);
     m_PublisherRequestedObjectImage = m_NodeHandle.advertise<sensor_msgs::Image>("/object_manager/requested_object_mask", 1, true);
     m_PublisherLearnedObjectXml = m_NodeHandle.advertise<std_msgs::String>("/object_learning/learned_object_xml", 1, false);
-    m_PublisherLearnedObjectTrackingData = m_NodeHandle.advertise<object_manager::DynamicObjectTrackingData>("/object_learning/learned_object_tracking_data", 1, false);
+    m_PublisherLearnedObjectTrackingData = m_NodeHandle.advertise<object_manager_msgs::DynamicObjectTrackingData>("/object_learning/learned_object_tracking_data", 1, false);
     m_PublisherLearnedObjectModel = m_NodeHandle.advertise<sensor_msgs::PointCloud2>("/object_learning/learned_object_model", 1, false);
 
     m_DynamicObjectsServiceServer = m_NodeHandle.advertiseService("ObjectManager/DynamicObjectsService", &ObjectManager::dynamicObjectsServiceCallback, this);
@@ -297,8 +297,8 @@ void ObjectManager<PointType>::additionalViewsStatusCallback(const std_msgs::Str
         }
 
         // create additional view masks
-        ros::ServiceClient client_masks = m_NodeHandle.serviceClient<object_manager::DynamicObjectComputeMaskService>("/dynamic_object_compute_mask_server");
-        object_manager::DynamicObjectComputeMaskService srv_masks;
+        ros::ServiceClient client_masks = m_NodeHandle.serviceClient<object_manager_msgs::DynamicObjectComputeMaskService>("/dynamic_object_compute_mask_server");
+        object_manager_msgs::DynamicObjectComputeMaskService srv_masks;
         srv_masks.request.observation_xml = m_objectTrackedObservation;
         srv_masks.request.object_xml = xml_file;
 
@@ -320,7 +320,7 @@ void ObjectManager<PointType>::additionalViewsStatusCallback(const std_msgs::Str
 
         // re-load object and publish tracks data
         ObjectData object = semantic_map_load_utilties::loadDynamicObjectFromSingleSweep<PointType>(xml_file);
-        object_manager::DynamicObjectTrackingData tracking_data_msg;
+        object_manager_msgs::DynamicObjectTrackingData tracking_data_msg;
 
         // views
         for (auto obj_view : object.vAdditionalViews){
@@ -407,7 +407,7 @@ void ObjectManager<PointType>::additionalViewsCallback(const sensor_msgs::PointC
 }
 
 template <class PointType>
-void ObjectManager<PointType>::dynamicObjectTracksCallback(const object_manager::DynamicObjectTracksConstPtr& msg)
+void ObjectManager<PointType>::dynamicObjectTracksCallback(const object_manager_msgs::DynamicObjectTracksConstPtr& msg)
 {
     if (m_objectTracked == NULL)
     {
@@ -624,8 +624,8 @@ bool ObjectManager<PointType>::processDynamicObjectServiceCallback(ProcessDynami
 //    }
 
     // create additional view masks
-    ros::ServiceClient client_masks = m_NodeHandle.serviceClient<object_manager::DynamicObjectComputeMaskService>("/dynamic_object_compute_mask_server");
-    object_manager::DynamicObjectComputeMaskService srv_masks;
+    ros::ServiceClient client_masks = m_NodeHandle.serviceClient<object_manager_msgs::DynamicObjectComputeMaskService>("/dynamic_object_compute_mask_server");
+    object_manager_msgs::DynamicObjectComputeMaskService srv_masks;
     srv_masks.request.observation_xml = req.observation_xml;
     srv_masks.request.object_xml = req.object_xml;
 
@@ -639,7 +639,7 @@ bool ObjectManager<PointType>::processDynamicObjectServiceCallback(ProcessDynami
 
     // re-load object and publish tracks data
     ObjectData processed_object = semantic_map_load_utilties::loadDynamicObjectFromSingleSweep<PointType>(req.object_xml);
-    object_manager::DynamicObjectTrackingData tracking_data_msg;
+    object_manager_msgs::DynamicObjectTrackingData tracking_data_msg;
 
     // views
     for (auto obj_view : processed_object.vAdditionalViews){

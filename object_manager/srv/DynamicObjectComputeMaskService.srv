@@ -1,4 +1,0 @@
-string object_xml
-string observation_xml
----
-sensor_msgs/PointCloud2 segmented_object
