@@ -14,16 +14,19 @@
 
 #include <mongodb_store/message_store.h>
 
-#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/PointCloud2.h> 
 #include <sensor_msgs/image_encodings.h>
 
 // Services
-#include <semantic_map/ClearMetaroomService.h>
+#include <semantic_map_msgs/ClearMetaroomService.h>
 #include <observation_registration_services/ObservationRegistrationService.h>
 //#include <semantic_map/DynamicClusterService.h>
 //#include <semantic_map/ObservationService.h>
 
-#include <semantic_map/RoomObservation.h>
+
+//#include "object_manager/dynamic_object.h"
+
+#include <semantic_map_msgs/RoomObservation.h>
 
 // PCL includes
 #include <pcl_ros/point_cloud.h>
@@ -69,15 +72,15 @@ public:
     typedef typename std::map<std::string, SemanticRoom<PointType> >::iterator WaypointRoomMapIterator;
     typedef typename std::map<std::string, CloudPtr>::iterator WaypointPointCloudMapIterator;
 
-    typedef typename semantic_map::ClearMetaroomService::Request ClearMetaroomServiceRequest;
-    typedef typename semantic_map::ClearMetaroomService::Response ClearMetaroomServiceResponse;
+    typedef typename semantic_map_msgs::ClearMetaroomService::Request ClearMetaroomServiceRequest;
+    typedef typename semantic_map_msgs::ClearMetaroomService::Response ClearMetaroomServiceResponse;
 
     SemanticMapNode(ros::NodeHandle nh);
     ~SemanticMapNode();
 
     void processRoomObservation(std::string xml_file_name);
 
-    void roomObservationCallback(const semantic_map::RoomObservationConstPtr& obs_msg);
+    void roomObservationCallback(const semantic_map_msgs::RoomObservationConstPtr& obs_msg);
     bool clearMetaroomServiceCallback(ClearMetaroomServiceRequest &req, ClearMetaroomServiceResponse &res);
 
     ros::Subscriber                                                             m_SubscriberRoomObservation;
@@ -673,7 +676,7 @@ void SemanticMapNode<PointType>::processRoomObservation(std::string xml_file_nam
 }
 
 template <class PointType>
-void SemanticMapNode<PointType>::roomObservationCallback(const semantic_map::RoomObservationConstPtr& obs_msg)
+void SemanticMapNode<PointType>::roomObservationCallback(const semantic_map_msgs::RoomObservationConstPtr& obs_msg)
 {
     std::cout<<"Room obs message received"<<std::endl;
     this->processRoomObservation(obs_msg->xml_file_name);
