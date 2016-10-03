@@ -116,6 +116,9 @@ std::vector<Eigen::Matrix4d> sweepPoses;
 #include <sys/time.h>
 #include <sys/resource.h>
 
+bool testDynamicObjectServiceCallback(std::string path);
+bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res);
+
 void remove_old_seg(std::string sweep_folder){
 	DIR *dir;
 	struct dirent *ent;
@@ -125,23 +128,23 @@ void remove_old_seg(std::string sweep_folder){
 			std::string file = std::string(ent->d_name);
 
 			if (file.find("dynamic_object") !=std::string::npos && file.find(".xml") !=std::string::npos){
-			  printf ("removing %s\n", ent->d_name);
-			  std::remove((sweep_folder+"/"+file).c_str());
+				printf ("removing %s\n", ent->d_name);
+				std::remove((sweep_folder+"/"+file).c_str());
 			}
 
 			if (file.find("dynamicmask") !=std::string::npos && file.find(".png") !=std::string::npos){
-			  printf ("removing %s\n", ent->d_name);
-			  std::remove((sweep_folder+"/"+file).c_str());
+				printf ("removing %s\n", ent->d_name);
+				std::remove((sweep_folder+"/"+file).c_str());
 			}
 
 			if (file.find("moving_object") !=std::string::npos && file.find(".xml") !=std::string::npos){
-			  printf ("removing %s\n", ent->d_name);
-			  std::remove((sweep_folder+"/"+file).c_str());
+				printf ("removing %s\n", ent->d_name);
+				std::remove((sweep_folder+"/"+file).c_str());
 			}
 
 			if (file.find("movingmask") !=std::string::npos && file.find(".png") !=std::string::npos){
-			  printf ("removing %s\n", ent->d_name);
-			  std::remove((sweep_folder+"/"+file).c_str());
+				printf ("removing %s\n", ent->d_name);
+				std::remove((sweep_folder+"/"+file).c_str());
 			}
 		}
 		closedir (dir);
@@ -642,6 +645,8 @@ std::vector<Eigen::Matrix4d> readPoseXML(std::string xmlFile){
 
 void processMetaroom(std::string path){
 	printf("processing: %s\n",path.c_str());
+	testDynamicObjectServiceCallback(path);
+	exit(0);
 
 	int slash_pos = path.find_last_of("/");
 	std::string sweep_folder = path.substr(0, slash_pos) + "/";
@@ -681,6 +686,7 @@ void processMetaroom(std::string path){
 		if(other_waypointid.compare(current_waypointid) == 0){prevind = i;}
 	}
 
+
 	if(prevind != -1){
 		std::string prev = sweep_xmls[prevind];
 		printf("prev: %s\n",prev.c_str());
@@ -712,6 +718,223 @@ void processMetaroom(std::string path){
 			std::vector<reglib::ModelMask*> mod_mm;
 			model->getData(mod_po, mod_fr, mod_mm);
 
+			int dynamicCounter = 1;
+			while(true){
+				double sum = 0;
+				double sumx = 0;
+				double sumy = 0;
+				double sumz = 0;
+				std::vector<int> imgnr;
+				std::vector<cv::Mat> masks;
+
+				for(unsigned int j = 0; j < mod_fr.size(); j++){
+					reglib::RGBDFrame * frame = mod_fr[j];
+					//std::cout << mod_po[j] << std::endl;
+					Eigen::Matrix4d p = mod_po[j]*bg->frames.front()->pose;
+					unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
+					unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
+					float		   * normalsdata	= (float			*)(frame->normals.data);
+
+					reglib::Camera * camera = frame->camera;
+
+					unsigned char * internalmaskdata = (unsigned char *)(internal_masks[j].data);
+					unsigned char * externalmaskdata = (unsigned char *)(external_masks[j].data);
+					unsigned char * dynamicmaskdata = (unsigned char *)(dynamic_masks[j].data);
+
+					float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
+					float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
+					float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
+
+					const float idepth			= camera->idepth_scale;
+					const float cx				= camera->cx;
+					const float cy				= camera->cy;
+					const float ifx				= 1.0/camera->fx;
+					const float ify				= 1.0/camera->fy;
+					const unsigned int width	= camera->width;
+					const unsigned int height	= camera->height;
+
+					cv::Mat mask;
+					mask.create(height,width,CV_8UC1);
+					unsigned char * maskdata = (unsigned char *)(mask.data);
+
+
+					bool containsData = false;
+					for(unsigned int w = 0; w < width;w++){
+						for(unsigned int h = 0; h < height;h++){
+							int ind = h*width+w;
+
+							if(dynamicmaskdata[ind] == dynamicCounter){
+								maskdata[ind] = 255;
+								containsData = true;
+								float z = idepth*float(depthdata[ind]);
+								if(z > 0){
+									float x = (float(w) - cx) * z * ifx;
+									float y = (float(h) - cy) * z * ify;
+
+									sumx += m00*x + m01*y + m02*z + m03;
+									sumy += m10*x + m11*y + m12*z + m13;
+									sumz += m20*x + m21*y + m22*z + m23;
+									sum ++;
+								}
+							}else{
+								maskdata[ind] = 0;
+							}
+						}
+					}
+
+					if(containsData){
+						masks.push_back(mask);
+						imgnr.push_back(j);
+					}
+				}
+				if(masks.size() > 0){
+					char buf [1024];
+					sprintf(buf,"%s/dynamic_object%10.10i.xml",sweep_folder.c_str(),dynamicCounter-1);
+					QFile file(buf);
+					if (file.exists()){file.remove();}
+					if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save dynamic object as XML"<<std::endl;}
+					QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
+					xmlWriter->setDevice(&file);
+
+					xmlWriter->writeStartDocument();
+					xmlWriter->writeStartElement("Object");
+					xmlWriter->writeAttribute("object_number", QString::number(dynamicCounter-1));
+					xmlWriter->writeStartElement("Mean");
+					xmlWriter->writeAttribute("x", QString::number(sumx/sum));
+					xmlWriter->writeAttribute("y", QString::number(sumy/sum));
+					xmlWriter->writeAttribute("z", QString::number(sumz/sum));
+					xmlWriter->writeEndElement();
+
+
+					for(unsigned int j = 0; j < masks.size(); j++){
+						char buf [1024];
+						sprintf(buf,"%s/dynamicmask_%i_%i.png",sweep_folder.c_str(),dynamicCounter-1,imgnr[j]);
+						cv::imwrite(buf, masks[j] );
+
+						sprintf(buf,"dynamicmask_%i_%i.png",dynamicCounter-1,imgnr[j]);
+						xmlWriter->writeStartElement("Mask");
+						xmlWriter->writeAttribute("filename", QString(buf));
+						xmlWriter->writeAttribute("image_number", QString::number(imgnr[j]));
+						xmlWriter->writeEndElement();
+					}
+
+					xmlWriter->writeEndElement();
+					xmlWriter->writeEndDocument();
+					delete xmlWriter;
+					dynamicCounter++;
+				}else{break;}
+			}
+
+			int movingCounter = 1;
+			while(true){
+				double sum = 0;
+				double sumx = 0;
+				double sumy = 0;
+				double sumz = 0;
+				std::vector<int> imgnr;
+				std::vector<cv::Mat> masks;
+
+				for(unsigned int j = 0; j < mod_fr.size(); j++){
+					reglib::RGBDFrame * frame = mod_fr[j];
+					//std::cout << mod_po[j] << std::endl;
+					Eigen::Matrix4d p = mod_po[j]*bg->frames.front()->pose;
+					unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
+					unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
+					float		   * normalsdata	= (float			*)(frame->normals.data);
+
+					reglib::Camera * camera = frame->camera;
+
+					unsigned char * internalmaskdata = (unsigned char *)(internal_masks[j].data);
+					unsigned char * externalmaskdata = (unsigned char *)(external_masks[j].data);
+					unsigned char * dynamicmaskdata = (unsigned char *)(dynamic_masks[j].data);
+
+					float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
+					float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
+					float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
+
+					const float idepth			= camera->idepth_scale;
+					const float cx				= camera->cx;
+					const float cy				= camera->cy;
+					const float ifx				= 1.0/camera->fx;
+					const float ify				= 1.0/camera->fy;
+					const unsigned int width	= camera->width;
+					const unsigned int height	= camera->height;
+
+					cv::Mat mask;
+					mask.create(height,width,CV_8UC1);
+					unsigned char * maskdata = (unsigned char *)(mask.data);
+
+
+					bool containsData = false;
+					for(unsigned int w = 0; w < width;w++){
+						for(unsigned int h = 0; h < height;h++){
+							int ind = h*width+w;
+
+							if(internalmaskdata[ind] == movingCounter){
+								maskdata[ind] = 255;
+								containsData = true;
+								float z = idepth*float(depthdata[ind]);
+								if(z > 0){
+									float x = (float(w) - cx) * z * ifx;
+									float y = (float(h) - cy) * z * ify;
+
+									sumx += m00*x + m01*y + m02*z + m03;
+									sumy += m10*x + m11*y + m12*z + m13;
+									sumz += m20*x + m21*y + m22*z + m23;
+									sum ++;
+								}
+							}else{
+								maskdata[ind] = 0;
+							}
+						}
+					}
+
+					if(containsData){
+						masks.push_back(mask);
+						imgnr.push_back(j);
+					}
+				}
+				if(masks.size() > 0){
+					char buf [1024];
+					sprintf(buf,"%s/moving_object%10.10i.xml",sweep_folder.c_str(),movingCounter-1);
+					QFile file(buf);
+					if (file.exists()){file.remove();}
+					if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save dynamic object as XML"<<std::endl;}
+					QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
+					xmlWriter->setDevice(&file);
+
+					xmlWriter->writeStartDocument();
+					xmlWriter->writeStartElement("Object");
+					xmlWriter->writeAttribute("object_number", QString::number(movingCounter-1));
+					xmlWriter->writeStartElement("Mean");
+					xmlWriter->writeAttribute("x", QString::number(sumx/sum));
+					xmlWriter->writeAttribute("y", QString::number(sumy/sum));
+					xmlWriter->writeAttribute("z", QString::number(sumz/sum));
+					xmlWriter->writeEndElement();
+
+
+					for(unsigned int j = 0; j < masks.size(); j++){
+						char buf [1024];
+						sprintf(buf,"%s/movingmask_%i_%i.png",sweep_folder.c_str(),movingCounter-1,imgnr[j]);
+						cv::imwrite(buf, masks[j] );
+
+						sprintf(buf,"movingmask_%i_%i.png",movingCounter-1,imgnr[j]);
+						xmlWriter->writeStartElement("Mask");
+						xmlWriter->writeAttribute("filename", QString(buf));
+						xmlWriter->writeAttribute("image_number", QString::number(imgnr[j]));
+						xmlWriter->writeEndElement();
+					}
+
+					xmlWriter->writeEndElement();
+					xmlWriter->writeEndDocument();
+					delete xmlWriter;
+					movingCounter++;
+				}else{break;}
+			}
+			/*
+			return;
+			exit(0);
+
 			std::vector<int> dynamic_frameid;
 			std::vector<int> dynamic_pixelid;
 
@@ -725,7 +948,7 @@ void processMetaroom(std::string path){
 			for(unsigned int j = 0; j < mod_fr.size(); j++){
 				reglib::RGBDFrame * frame = mod_fr[j];
 				std::cout << mod_po[j] << std::endl;
-				Eigen::Matrix4d p = mod_po[j]*bg.front()->pose;
+				Eigen::Matrix4d p = mod_po[j]*bg->frames.front()->pose;
 				unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
 				unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
 				float		   * normalsdata	= (float			*)(frame->normals.data);
@@ -788,11 +1011,12 @@ void processMetaroom(std::string path){
 				}
 			}
 
-//			if(visualization_lvl > 0 && cloud->points.size() > 0){
-//				viewer->removeAllPointClouds();
-//				viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "scloud");
-//				viewer->spin();
-//			}
+
+			//			if(visualization_lvl > 0 && cloud->points.size() > 0){
+			//				viewer->removeAllPointClouds();
+			//				viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "scloud");
+			//				viewer->spin();
+			//			}
 
 			printf("dynamiccloud: %i\n",int(dynamiccloud->points.size()));
 			if(dynamiccloud->points.size() > 0){
@@ -847,16 +1071,16 @@ void processMetaroom(std::string path){
 					xmlWriter->writeAttribute("z", QString::number(sumz));
 					xmlWriter->writeEndElement();
 
-//					token = xmlReader->readNext();
-//					double x = atof(xmlReader->readElementText().toStdString().c_str());
+					//					token = xmlReader->readNext();
+					//					double x = atof(xmlReader->readElementText().toStdString().c_str());
 
-//					token = xmlReader->readNext();
-//					double y = atof(xmlReader->readElementText().toStdString().c_str());
+					//					token = xmlReader->readNext();
+					//					double y = atof(xmlReader->readElementText().toStdString().c_str());
 
-//					token = xmlReader->readNext();
-//					double z = atof(xmlReader->readElementText().toStdString().c_str());
+					//					token = xmlReader->readNext();
+					//					double z = atof(xmlReader->readElementText().toStdString().c_str());
 
-//					printf("mean: %f %f %f\n",x,y,z);
+					//					printf("mean: %f %f %f\n",x,y,z);
 
 					for(unsigned int j = 0; j < mod_fr.size(); j++){
 						if(inds[j].size() == 0){continue;}
@@ -948,12 +1172,15 @@ void processMetaroom(std::string path){
 					xmlWriter->writeEndDocument();
 					delete xmlWriter;
 				}
+
 			}
+			*/
 		}
+		bg->fullDelete();
+		delete bg;
 	}
 
-	bg->fullDelete();
-	delete bg;
+
 	fullmodel->fullDelete();
 	delete fullmodel;
 	//	delete bgmassreg;
@@ -1111,11 +1338,10 @@ void sendCallback(const std_msgs::String::ConstPtr& msg){
 //sensor_msgs/PointCloud2[] objects
 //geometry_msgs/Point[] centroids
 
-
 bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res){
 	printf("bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res)\n");
 	std::string path = req.waypoint_id;
-	processMetaroom(path);
+	//processMetaroom(path);
 
 	printf("path: %s\n",path.c_str());
 	int slash_pos = path.find_last_of("/");
@@ -1141,34 +1367,23 @@ bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObj
 
 		QXmlStreamReader* xmlReader = new QXmlStreamReader(&file);
 
-		while (!xmlReader->atEnd() && !xmlReader->hasError())
-		{
+		while (!xmlReader->atEnd() && !xmlReader->hasError()){
 			QXmlStreamReader::TokenType token = xmlReader->readNext();
 			if (token == QXmlStreamReader::StartDocument)
 				continue;
 
-			if (xmlReader->hasError())
-			{
+			if (xmlReader->hasError()){
 				ROS_ERROR("XML error: %s",xmlReader->errorString().toStdString().c_str());
 				break;
 			}
 
 			QString elementName = xmlReader->name().toString();
-
-			if (token == QXmlStreamReader::StartElement)
-			{
-
-				if (xmlReader->name() == "Mean")
-				{
-					token = xmlReader->readNext();
-					double x = atof(xmlReader->readElementText().toStdString().c_str());
-
-					token = xmlReader->readNext();
-					double y = atof(xmlReader->readElementText().toStdString().c_str());
-
-					token = xmlReader->readNext();
-					double z = atof(xmlReader->readElementText().toStdString().c_str());
-
+			if (token == QXmlStreamReader::StartElement){
+				if (xmlReader->name() == "Mean"){
+					QXmlStreamAttributes attributes = xmlReader->attributes();
+					double x = atof(attributes.value("x").toString().toStdString().c_str());
+					double y = atof(attributes.value("y").toString().toStdString().c_str());
+					double z = atof(attributes.value("z").toString().toStdString().c_str());
 					printf("mean: %f %f %f\n",x,y,z);
 				}
 			}
@@ -1180,8 +1395,21 @@ bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObj
 }
 
 bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDynamicObjectServiceResponse &res){
+	//	DynamicObjectsServiceRequest req;
+	//	req.waypoint_id = path;
+	//	DynamicObjectsServiceResponse res;
+	//	return dynamicObjectsServiceCallback(req,res);
+	return true;
+}
+
+
+
+bool testDynamicObjectServiceCallback(std::string path){
 	printf("bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDynamicObjectServiceResponse &res)\n");
-	return false;
+	DynamicObjectsServiceRequest req;
+	req.waypoint_id = path;
+	DynamicObjectsServiceResponse res;
+	return dynamicObjectsServiceCallback(req,res);
 }
 
 
