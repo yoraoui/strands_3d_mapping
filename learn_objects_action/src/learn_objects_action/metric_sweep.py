@@ -127,6 +127,7 @@ class SelectCluster(smach.State):
 
 
     def execute(self, userdata):
+		print "SelectCluster::execute"
         try:
             # Load the waypoint to soma from file
             if self._rois_file != "NONE":
@@ -139,12 +140,17 @@ class SelectCluster(smach.State):
             #clusters = self._get_clusters(userdata['waypoint'])
             clusters = self._get_clusters(userdata.action_goal.waypoint)
 
+
+			print "Line 1"
+
             if self._debug_mode:
                 available=[str(s) for s in range(len(clusters.object_id))]
                 self._debug_services.set_status("SELECT CLUSTER: ["+",".join(available)+"]")
                 select=self._debug_services.get_proceed(("none","auto") + tuple(available))
             else:
                 select="auto"
+
+			print "Line 2"
 
             if select=="PREEMPT" or select=="none":
                 return 'none'
@@ -168,6 +174,9 @@ class SelectCluster(smach.State):
                 ID=numpy.argmax(scores) # the one to look at is the one that has the most observation available
             else:
                 ID=int(select)
+
+
+			print "Line 3"
 
             rospy.logwarn( "Getting cluster: %s"%clusters.object_id[ID])
             #one_cluster = self._get_specific_cluster(userdata['waypoint'], clusters.object_id[ID])
