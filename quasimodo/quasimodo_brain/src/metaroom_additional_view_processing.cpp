@@ -73,12 +73,19 @@
 // Additional view mask service
 #include <object_manager_msgs/DynamicObjectComputeMaskService.h>
 
+
+#include <sys/time.h>
+#include <sys/resource.h>
+
 // Custom messages
 #include <object_manager_msgs/DynamicObjectTracks.h>
 #include <object_manager_msgs/DynamicObjectTrackingData.h>
 
-ros::ServiceServer m_DynamicObjectsServiceServer;
-ros::ServiceServer m_GetDynamicObjectServiceServer;
+
+#include <semantic_map_msgs/RoomObservation.h>
+
+std::vector< ros::ServiceServer > m_DynamicObjectsServiceServers;
+std::vector< ros::ServiceServer > m_GetDynamicObjectServiceServers;
 
 typedef typename object_manager_msgs::DynamicObjectsService::Request DynamicObjectsServiceRequest;
 typedef typename object_manager_msgs::DynamicObjectsService::Response DynamicObjectsServiceResponse;
@@ -102,19 +109,22 @@ typedef semantic_map_load_utilties::DynamicObjectData<PointType> ObjectData;
 using namespace std;
 using namespace semantic_map_load_utilties;
 
-std::string overall_folder = "~/.semanticMap/";
+std::string overall_folder = "";
 boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
-int visualization_lvl = 0;
-std::string outtopic = "/some/topic";
-
-std::string modelouttopic = "/model/out/topic";
+int visualization_lvl		= 0;
+std::string outtopic		= "";
+std::string modelouttopic	= "";
 ros::Publisher out_pub;
 ros::Publisher model_pub;
+
+std::vector< ros::Publisher > m_PublisherStatuss;
+std::vector< ros::Publisher > out_pubs;
+std::vector< ros::Publisher > model_pubs;
+
+
 std::string posepath = "testposes.xml";
 std::vector<Eigen::Matrix4d> sweepPoses;
 
-#include <sys/time.h>
-#include <sys/resource.h>
 
 bool testDynamicObjectServiceCallback(std::string path);
 bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res);
@@ -643,10 +653,13 @@ std::vector<Eigen::Matrix4d> readPoseXML(std::string xmlFile){
 	return poses;
 }
 
-void processMetaroom(std::string path){
+int processMetaroom(std::string path){
+	int returnval = 0;
 	printf("processing: %s\n",path.c_str());
-	testDynamicObjectServiceCallback(path);
-	exit(0);
+	//	testDynamicObjectServiceCallback(path);
+	//	exit(0);
+
+	if ( ! boost::filesystem::exists( path ) ){return 0;}
 
 	int slash_pos = path.find_last_of("/");
 	std::string sweep_folder = path.substr(0, slash_pos) + "/";
@@ -704,8 +717,13 @@ void processMetaroom(std::string path){
 
 		quasimodo_brain::segment(bg,models,internal,external,dynamic,visualization_lvl > 0);
 
-
 		remove_old_seg(sweep_folder);
+
+		if(models.size() == 0){
+			returnval = 2;
+		}else{
+			returnval = 3;
+		}
 
 		for(unsigned int i = 0; i < models.size(); i++){
 			std::vector<cv::Mat> internal_masks = internal[i];
@@ -912,7 +930,6 @@ void processMetaroom(std::string path){
 					xmlWriter->writeAttribute("z", QString::number(sumz/sum));
 					xmlWriter->writeEndElement();
 
-
 					for(unsigned int j = 0; j < masks.size(); j++){
 						char buf [1024];
 						sprintf(buf,"%s/movingmask_%i_%i.png",sweep_folder.c_str(),movingCounter-1,imgnr[j]);
@@ -931,255 +948,12 @@ void processMetaroom(std::string path){
 					movingCounter++;
 				}else{break;}
 			}
-			/*
-			return;
-			exit(0);
-
-			std::vector<int> dynamic_frameid;
-			std::vector<int> dynamic_pixelid;
-
-			std::vector<int> moving_frameid;
-			std::vector<int> moving_pixelid;
-
-			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dynamiccloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr movingcloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-
-			for(unsigned int j = 0; j < mod_fr.size(); j++){
-				reglib::RGBDFrame * frame = mod_fr[j];
-				std::cout << mod_po[j] << std::endl;
-				Eigen::Matrix4d p = mod_po[j]*bg->frames.front()->pose;
-				unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
-				unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
-				float		   * normalsdata	= (float			*)(frame->normals.data);
-
-				reglib::Camera * camera = frame->camera;
-
-				unsigned char * internalmaskdata = (unsigned char *)(internal_masks[j].data);
-				unsigned char * externalmaskdata = (unsigned char *)(external_masks[j].data);
-				unsigned char * dynamicmaskdata = (unsigned char *)(dynamic_masks[j].data);
-
-				float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
-				float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
-				float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
-
-				const float idepth			= camera->idepth_scale;
-				const float cx				= camera->cx;
-				const float cy				= camera->cy;
-				const float ifx				= 1.0/camera->fx;
-				const float ify				= 1.0/camera->fy;
-				const unsigned int width	= camera->width;
-				const unsigned int height	= camera->height;
-
-
-				for(unsigned int w = 0; w < width;w++){
-					for(unsigned int h = 0; h < height;h++){
-						int ind = h*width+w;
-						float z = idepth*float(depthdata[ind]);
-						if(z > 0){
-							float x = (float(w) - cx) * z * ifx;
-							float y = (float(h) - cy) * z * ify;
-
-							pcl::PointXYZRGBNormal point;
-							point.x = m00*x + m01*y + m02*z + m03;
-							point.y = m10*x + m11*y + m12*z + m13;
-							point.z = m20*x + m21*y + m22*z + m23;
-
-							point.b = rgbdata[3*ind+0];
-							point.g = rgbdata[3*ind+1];
-							point.r = rgbdata[3*ind+2];
-
-							if(dynamicmaskdata[ind] != 0){
-								dynamiccloud->points.push_back(point);
-								dynamic_frameid.push_back(j);
-								dynamic_pixelid.push_back(ind);
-								point.b = 0;
-								point.g = 255;
-								point.r = 0;
-							}else if(internalmaskdata[ind] == 0){
-								movingcloud->points.push_back(point);
-								moving_frameid.push_back(j);
-								moving_pixelid.push_back(ind);
-								point.b = 0;
-								point.g = 0;
-								point.r = 255;
-							}
-
-							cloud->points.push_back(point);
-						}
-					}
-				}
-			}
-
-
-			//			if(visualization_lvl > 0 && cloud->points.size() > 0){
-			//				viewer->removeAllPointClouds();
-			//				viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), "scloud");
-			//				viewer->spin();
-			//			}
-
-			printf("dynamiccloud: %i\n",int(dynamiccloud->points.size()));
-			if(dynamiccloud->points.size() > 0){
-				// Creating the KdTree object for the search method of the extraction
-				pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr dynamictree (new pcl::search::KdTree<pcl::PointXYZRGBNormal>);
-				dynamictree->setInputCloud (dynamiccloud);
-
-				std::vector<pcl::PointIndices> dynamic_indices;
-				pcl::EuclideanClusterExtraction<pcl::PointXYZRGBNormal> dynamic_ec;
-				dynamic_ec.setClusterTolerance (0.02); // 2cm
-				dynamic_ec.setMinClusterSize (500);
-				dynamic_ec.setMaxClusterSize (250000000);
-				dynamic_ec.setSearchMethod (dynamictree);
-				dynamic_ec.setInputCloud (dynamiccloud);
-				dynamic_ec.extract (dynamic_indices);
-
-				for (unsigned int d = 0; d < dynamic_indices.size(); d++){
-					std::vector< std::vector<int> > inds;
-					inds.resize(mod_fr.size());
-
-					double sumx = 0;
-					double sumy = 0;
-					double sumz = 0;
-					pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-					for (unsigned int ind = 0; ind < dynamic_indices[d].indices.size(); ind++){
-						int pid = dynamic_indices[d].indices[ind];
-						inds[dynamic_frameid[pid]].push_back(dynamic_pixelid[pid]);
-						cloud_cluster->points.push_back(dynamiccloud->points[pid]);
-						sumx += cloud_cluster->points.back().x;
-						sumy += cloud_cluster->points.back().y;
-						sumz += cloud_cluster->points.back().z;
-					}
-
-					sumx /= double(cloud_cluster->points.size());
-					sumy /= double(cloud_cluster->points.size());
-					sumz /= double(cloud_cluster->points.size());
-
-					char buf [1024];
-					sprintf(buf,"%s/dynamic_object%10.10i.xml",sweep_folder.c_str(),d);
-					QFile file(buf);
-					if (file.exists()){file.remove();}
-					if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save dynamic object as XML"<<std::endl;}
-					QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
-					xmlWriter->setDevice(&file);
-
-					xmlWriter->writeStartDocument();
-					xmlWriter->writeStartElement("Object");
-					xmlWriter->writeAttribute("object_number", QString::number(d));
-					xmlWriter->writeStartElement("Mean");
-					xmlWriter->writeAttribute("x", QString::number(sumx));
-					xmlWriter->writeAttribute("y", QString::number(sumy));
-					xmlWriter->writeAttribute("z", QString::number(sumz));
-					xmlWriter->writeEndElement();
-
-					//					token = xmlReader->readNext();
-					//					double x = atof(xmlReader->readElementText().toStdString().c_str());
-
-					//					token = xmlReader->readNext();
-					//					double y = atof(xmlReader->readElementText().toStdString().c_str());
-
-					//					token = xmlReader->readNext();
-					//					double z = atof(xmlReader->readElementText().toStdString().c_str());
-
-					//					printf("mean: %f %f %f\n",x,y,z);
-
-					for(unsigned int j = 0; j < mod_fr.size(); j++){
-						if(inds[j].size() == 0){continue;}
-						reglib::RGBDFrame * frame = mod_fr[j];
-						reglib::Camera * cam = frame->camera;
-						cv::Mat mask;
-						mask.create(cam->height,cam->width,CV_8UC1);
-						unsigned char * maskdata = (unsigned char *)(mask.data);
-						for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 0;}
-						for(unsigned int k = 0; k < inds[j].size(); k++){maskdata[inds[j][k]] = 255;}
-
-						char buf [1024];
-						sprintf(buf,"%s/dynamicmask_%i_%i.png",sweep_folder.c_str(),d,j);
-						cv::imwrite(buf, mask );
-
-						sprintf(buf,"dynamicmask_%i_%i.png",d,j);
-						xmlWriter->writeStartElement("Mask");
-						xmlWriter->writeAttribute("filename", QString(buf));
-						xmlWriter->writeAttribute("image_number", QString::number(j));
-						xmlWriter->writeEndElement();
-					}
-
-					xmlWriter->writeEndElement();
-					xmlWriter->writeEndDocument();
-					delete xmlWriter;
-				}
-			}
-
-
-			printf("movingcloud: %i\n",int(movingcloud->points.size()));
-			if(movingcloud->points.size() > 0){
-				// Creating the KdTree object for the search method of the extraction
-				pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr movingtree (new pcl::search::KdTree<pcl::PointXYZRGBNormal>);
-				movingtree->setInputCloud (movingcloud);
-
-				std::vector<pcl::PointIndices> moving_indices;
-				pcl::EuclideanClusterExtraction<pcl::PointXYZRGBNormal> moving_ec;
-				moving_ec.setClusterTolerance (0.02); // 2cm
-				moving_ec.setMinClusterSize (500);
-				moving_ec.setMaxClusterSize (250000000);
-				moving_ec.setSearchMethod (movingtree);
-				moving_ec.setInputCloud (movingcloud);
-				moving_ec.extract (moving_indices);
-
-				for (unsigned int d = 0; d < moving_indices.size(); d++){
-					std::vector< std::vector<int> > inds;
-					inds.resize(mod_fr.size());
-
-					pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-					for (unsigned int ind = 0; ind < moving_indices[d].indices.size(); ind++){
-						int pid = moving_indices[d].indices[ind];
-						inds[moving_frameid[pid]].push_back(moving_pixelid[pid]);
-						cloud_cluster->points.push_back(movingcloud->points[pid]);
-					}
-
-					char buf [1024];
-					sprintf(buf,"%s/moving_object%10.10i.xml",sweep_folder.c_str(),d);
-					QFile file(buf);
-					if (file.exists()){file.remove();}
-					if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save moving object as XML"<<std::endl;}
-
-					QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
-					xmlWriter->setDevice(&file);
-
-					xmlWriter->writeStartDocument();
-					xmlWriter->writeStartElement("Object");
-					xmlWriter->writeAttribute("object_number", QString::number(d));
-
-					for(unsigned int j = 0; j < mod_fr.size(); j++){
-						if(inds[j].size() == 0){continue;}
-						reglib::RGBDFrame * frame = mod_fr[j];
-						reglib::Camera * cam = frame->camera;
-						cv::Mat mask;
-						mask.create(cam->height,cam->width,CV_8UC1);
-						unsigned char * maskdata = (unsigned char *)(mask.data);
-						for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 0;}
-						for(unsigned int k = 0; k < inds[j].size(); k++){maskdata[inds[j][k]] = 255;}
-
-						char buf [1024];
-						sprintf(buf,"%s/movingmask_%i_%i.png",sweep_folder.c_str(),d,j);
-						cv::imwrite(buf, mask );
-						xmlWriter->writeStartElement("Mask");
-						xmlWriter->writeAttribute("filename", QString(buf));
-						xmlWriter->writeAttribute("image_number", QString::number(j));
-						xmlWriter->writeEndElement();
-					}
-
-					xmlWriter->writeEndElement();
-					xmlWriter->writeEndDocument();
-					delete xmlWriter;
-				}
-
-			}
-			*/
 		}
 		bg->fullDelete();
 		delete bg;
+	}else{
+		returnval = 1;
 	}
-
 
 	fullmodel->fullDelete();
 	delete fullmodel;
@@ -1190,14 +964,13 @@ void processMetaroom(std::string path){
 
 	std_msgs::String msg;
 	msg.data = path;
-	out_pub.publish(msg);
+	for(unsigned int i = 0; i < out_pubs.size(); i++){out_pubs[i].publish(msg);}
 	ros::spinOnce();
+
+	return returnval;
 }
 
-void chatterCallback(const std_msgs::String::ConstPtr& msg){
-	processMetaroom(msg->data);
-}
-
+void chatterCallback(const std_msgs::String::ConstPtr& msg){processMetaroom(msg->data);}
 
 void trainMetaroom(std::string path){
 	printf("processing: %s\n",path.c_str());
@@ -1259,25 +1032,20 @@ std::vector<reglib::Model *> loadModels(std::string path){
 		reglib::Model * mod = new reglib::Model();
 		QXmlStreamReader* xmlReader = new QXmlStreamReader(&file);
 
-		while (!xmlReader->atEnd() && !xmlReader->hasError())
-		{
+		while (!xmlReader->atEnd() && !xmlReader->hasError()){
 			QXmlStreamReader::TokenType token = xmlReader->readNext();
 			if (token == QXmlStreamReader::StartDocument)
 				continue;
 
-			if (xmlReader->hasError())
-			{
+			if (xmlReader->hasError()){
 				ROS_ERROR("XML error: %s",xmlReader->errorString().toStdString().c_str());
 				break;
 			}
 
 			QString elementName = xmlReader->name().toString();
 
-			if (token == QXmlStreamReader::StartElement)
-			{
-
-				if (xmlReader->name() == "Mask")
-				{
+			if (token == QXmlStreamReader::StartElement){
+				if (xmlReader->name() == "Mask"){
 					int number = 0;
 					cv::Mat mask;
 					QXmlStreamAttributes attributes = xmlReader->attributes();
@@ -1289,8 +1057,7 @@ std::vector<reglib::Model *> loadModels(std::string path){
 					}else{break;}
 
 
-					if (attributes.hasAttribute("image_number"))
-					{
+					if (attributes.hasAttribute("image_number")){
 						QString depthpath = attributes.value("image_number").toString();
 						number = atoi(depthpath.toStdString().c_str());
 						printf("number: %i\n",number);
@@ -1314,7 +1081,7 @@ std::vector<reglib::Model *> loadModels(std::string path){
 
 void addModelToModelServer(reglib::Model * model){
 	printf("addModelToModelServer\n");
-	model_pub.publish(quasimodo_brain::getModelMSG(model));
+	for(unsigned int i = 0; i < model_pubs.size(); i++){model_pubs[i].publish(quasimodo_brain::getModelMSG(model));}
 	ros::spinOnce();
 }
 
@@ -1328,15 +1095,7 @@ void sendMetaroomToServer(std::string path){
 }
 
 
-void sendCallback(const std_msgs::String::ConstPtr& msg){
-	sendMetaroomToServer(msg->data);
-}
-
-//string waypoint_id
-//---
-//string[] object_id
-//sensor_msgs/PointCloud2[] objects
-//geometry_msgs/Point[] centroids
+void sendCallback(const std_msgs::String::ConstPtr& msg){sendMetaroomToServer(msg->data);}
 
 bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res){
 	printf("bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res)\n");
@@ -1399,7 +1158,7 @@ bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDyn
 	//	req.waypoint_id = path;
 	//	DynamicObjectsServiceResponse res;
 	//	return dynamicObjectsServiceCallback(req,res);
-	return true;
+	return false;
 }
 
 
@@ -1412,33 +1171,59 @@ bool testDynamicObjectServiceCallback(std::string path){
 	return dynamicObjectsServiceCallback(req,res);
 }
 
+void roomObservationCallback(const semantic_map_msgs::RoomObservationConstPtr& obs_msg) {
+	std::cout<<"Room obs message received"<<std::endl;
+	int ret = processMetaroom(obs_msg->xml_file_name);
 
-int main(int argc, char** argv){
+	std_msgs::String msg;
+	if(ret == 0){
+		ROS_ERROR_STREAM("Xml file does not exist. Aborting.");
+		msg.data	= "error_processing_observation";
+	}else{msg.data	= "finished_processing_observation";}
 
-	bool once = false;
+	if(ret == 1){ROS_ERROR_STREAM("First metaroom.");}
+	if(ret == 2){ROS_ERROR_STREAM("No moving objects found.");}
+	if(ret == 3){ROS_ERROR_STREAM("Moving objects found.");}
+
+	for(unsigned int i = 0; i < m_PublisherStatuss.size(); i++){m_PublisherStatuss[i].publish(msg);}
+}
+
+
+void setLargeStack(){
 	const rlim_t kStackSize = 256 * 1024 * 1024;   // min stack size = 256 MB
 	struct rlimit rl;
 	unsigned long result;
 
 	result = getrlimit(RLIMIT_STACK, &rl);
-	//printf("result: %ld mb and %ld mb\n",rl.rlim_cur/(1024*1024),rl.rlim_max/(1024*1024));
 	if (result == 0){
 		if (rl.rlim_cur < kStackSize){
 			rl.rlim_cur = kStackSize;
 			result = setrlimit(RLIMIT_STACK, &rl);
-			if (result != 0){
-				fprintf(stderr, "setrlimit returned result = %d\n", int(result));
-			}
-			//printf("result: %ld mb and %ld mb\n",rl.rlim_cur/(1024*1024),rl.rlim_max/(1024*1024));
+			if (result != 0){fprintf(stderr, "setrlimit returned result = %d\n", int(result));}
 		}
 	}
+}
 
+int main(int argc, char** argv){
+
+	bool baseSetting = true;
+	bool once = false;
+
+	overall_folder	= std::string(getenv ("HOME"))+"/.semanticMap/";
+	outtopic		= "/some/topic";
+	modelouttopic	= "/model/out/topic";
+	posepath		= "testposes.xml";
 
 	ros::init(argc, argv, "metaroom_additional_view_processing");
 	ros::NodeHandle n;
 
 	std::vector<ros::Subscriber> segsubs;
 	std::vector<ros::Subscriber> sendsubs;
+	std::vector<ros::Subscriber> roomObservationSubs;
+
+	std::vector<std::string> trainMetarooms;
+	std::vector<std::string> sendMetaroomToServers;
+	std::vector<std::string> processMetarooms;
 
 	int inputstate = 0;
 	for(int i = 1; i < argc;i++){
@@ -1454,55 +1239,92 @@ int main(int argc, char** argv){
 			visualization_lvl = 1;
 			inputstate = 3;
 		}
-		else if(std::string(argv[i]).compare("-folder") == 0){		inputstate = 4;}
-		else if(std::string(argv[i]).compare("-train") == 0){		inputstate = 5;}
-		else if(std::string(argv[i]).compare("-posepath") == 0){	inputstate = 6;}
-		else if(std::string(argv[i]).compare("-loadposes") == 0){	inputstate = 7;}
-		else if(std::string(argv[i]).compare("-sendModel") == 0){	inputstate = 8;}
-		else if(std::string(argv[i]).compare("-sendSub") == 0)	{	inputstate = 9;}
-		else if(std::string(argv[i]).compare("-sendTopic") == 0){	inputstate = 10;}
-		else if(std::string(argv[i]).compare("-once") == 0){		once = true;}
+		else if(std::string(argv[i]).compare("-folder") == 0){					inputstate	= 4;}
+		else if(std::string(argv[i]).compare("-train") == 0){					inputstate	= 5;}
+		else if(std::string(argv[i]).compare("-posepath") == 0){				inputstate	= 6;}
+		else if(std::string(argv[i]).compare("-loadposes") == 0){				inputstate	= 7;}
+		else if(std::string(argv[i]).compare("-sendModel") == 0){				inputstate	= 8;}
+		else if(std::string(argv[i]).compare("-sendSub") == 0)	{				inputstate	= 9;}
+		else if(std::string(argv[i]).compare("-sendTopic") == 0){				inputstate	= 10;}
+		else if(std::string(argv[i]).compare("-roomObservationTopic") == 0){	inputstate	= 11;}
+		else if(std::string(argv[i]).compare("-DynamicObjectsService") == 0){	inputstate	= 12;}
+		else if(std::string(argv[i]).compare("-GetDynamicObjectService") == 0){	inputstate	= 13;}
+		else if(std::string(argv[i]).compare("-statusmsg") == 0){				inputstate	= 14;}
+		else if(std::string(argv[i]).compare("-once") == 0){					once		= true;}
+		else if(std::string(argv[i]).compare("-nobase") == 0){					baseSetting = false;}
 		else if(inputstate == 0){
-			if(sendsubs.size() == 0){
-				model_pub = n.advertise<quasimodo_msgs::model>(modelouttopic, 1000);
-				sendsubs.push_back(n.subscribe(std::string(argv[i]), 1000, sendCallback));
-			}
-			out_pub = n.advertise<std_msgs::String>(outtopic, 1000);
 			segsubs.push_back(n.subscribe(std::string(argv[i]), 1000, chatterCallback));
 		}else if(inputstate == 1){
-			outtopic = std::string(argv[i]);
+			out_pubs.push_back(n.advertise<std_msgs::String>(std::string(argv[i]), 1000));
 		}else if(inputstate == 2){
-			out_pub = n.advertise<std_msgs::String>(outtopic, 1000);
-			if(sendsubs.size() == 0){
-				printf("creating model pub: %s\n",modelouttopic.c_str());
-				model_pub = n.advertise<quasimodo_msgs::model>(modelouttopic, 1000);
-				printf("creating sendsubs %s\n",modelouttopic.c_str());
-				sendsubs.push_back(n.subscribe(outtopic, 1000, sendCallback));
-			}
-			processMetaroom(std::string(argv[i]));
+			processMetarooms.push_back(std::string(argv[i]));
 		}else if(inputstate == 3){
 			visualization_lvl = atoi(argv[i]);
 		}else if(inputstate == 4){
 			overall_folder = std::string(argv[i]);
 		}else if(inputstate == 5){
-			trainMetaroom(std::string(argv[i]));
+			trainMetarooms.push_back(std::string(argv[i]));
 		}else if(inputstate == 6){
 			posepath = std::string(argv[i]);
 		}else if(inputstate == 7){
 			sweepPoses = readPoseXML(std::string(argv[i]));
 		}else if(inputstate == 8){
-			model_pub = n.advertise<quasimodo_msgs::model>(modelouttopic, 1000);
-			sendMetaroomToServer(std::string(argv[i]));
+			sendMetaroomToServers.push_back(std::string(argv[i]));
 		}else if(inputstate == 9){
-			model_pub = n.advertise<quasimodo_msgs::model>(modelouttopic, 1000);
 			sendsubs.push_back(n.subscribe(std::string(argv[i]), 1000, sendCallback));
 		}else if(inputstate == 10){
-			modelouttopic = std::string(argv[i]);
+			model_pubs.push_back(n.advertise<quasimodo_msgs::model>(std::string(argv[i]), 1000));
+		}else if(inputstate == 11){
+			roomObservationSubs.push_back(n.subscribe(std::string(argv[i]), 1000, roomObservationCallback));
+		}else if(inputstate == 12){
+			m_DynamicObjectsServiceServers.push_back(n.advertiseService(std::string(argv[i]), dynamicObjectsServiceCallback));
+		}else if(inputstate == 13){
+			m_GetDynamicObjectServiceServers.push_back(n.advertiseService(std::string(argv[i]), getDynamicObjectServiceCallback));
+		}else if(inputstate == 14){
+			m_PublisherStatuss.push_back(n.advertise<std_msgs::String>(std::string(argv[i]), 1000));
 		}
 	}
 
-	m_DynamicObjectsServiceServer = n.advertiseService("/object_manager_node/ObjectManager/DynamicObjectsService", dynamicObjectsServiceCallback);
-	m_GetDynamicObjectServiceServer = n.advertiseService("/object_manager_node/ObjectManager/GetDynamicObjectService", getDynamicObjectServiceCallback);
+	if(baseSetting){
+		if(m_PublisherStatuss.size() == 0){
+			m_PublisherStatuss.push_back(n.advertise<std_msgs::String>("/local_metric_map/status", 1000));
+		}
+
+		if(segsubs.size() == 0){
+			segsubs.push_back(n.subscribe("/some/inputtopic", 1000, chatterCallback));
+		}
+
+		if(out_pubs.size() == 0){
+			out_pubs.push_back(n.advertise<std_msgs::String>("/some/topic", 1000));
+		}
+
+		if(model_pubs.size() == 0){
+			model_pubs.push_back(n.advertise<quasimodo_msgs::model>("/model/out/topic", 1000));
+		}
+
+		if(sendsubs.size() == 0){
+			sendsubs.push_back(n.subscribe("/model/out/topic/path", 1000, sendCallback));
+		}
+
+		if(roomObservationSubs.size() == 0){
+			roomObservationSubs.push_back(n.subscribe("/local_metric_map/room_observations", 1000, roomObservationCallback));
+		}
+
+		if(m_DynamicObjectsServiceServers.size() == 0){
+			m_DynamicObjectsServiceServers.push_back(n.advertiseService("/object_manager_node/ObjectManager/DynamicObjectsService", dynamicObjectsServiceCallback));
+		}
+
+		if(m_GetDynamicObjectServiceServers.size() == 0){
+			m_GetDynamicObjectServiceServers.push_back(n.advertiseService("/object_manager_node/ObjectManager/GetDynamicObjectService", getDynamicObjectServiceCallback));
+		}
+	}
+
+	printf("overall_folder: %s\n",overall_folder.c_str());
+
+	for(unsigned int i = 0; i < trainMetarooms.size(); i++){		trainMetaroom(			trainMetarooms[i]);}
+	for(unsigned int i = 0; i < processMetarooms.size(); i++){		processMetaroom(		processMetarooms[i]);}
+	for(unsigned int i = 0; i < sendMetaroomToServers.size(); i++){	sendMetaroomToServer(	sendMetaroomToServers[i]);}
+
 	if(!once){ros::spin();}
 	printf("done...\n");
 	return 0;
