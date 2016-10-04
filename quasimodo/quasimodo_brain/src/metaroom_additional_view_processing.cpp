@@ -1104,6 +1104,7 @@ bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObj
 
 	if(overall_folder.back() == '/'){overall_folder.pop_back();}
 
+	SimpleXMLParser<pcl::PointXYZRGB> parser;
 	int prevind = -1;
 	std::vector<std::string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<pcl::PointXYZRGB>(overall_folder);
 	for (unsigned int i = 0; i < sweep_xmls.size(); i++){
