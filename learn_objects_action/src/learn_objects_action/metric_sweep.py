@@ -180,23 +180,16 @@ class SelectCluster(smach.State):
             print "LINE:4"
             rospy.logwarn( "Getting cluster: %s"%clusters.object_id[ID])
             #one_cluster = self._get_specific_cluster(userdata['waypoint'], clusters.object_id[ID])
-            print "LINE:5"
+            
             #one_cluster = self._get_specific_cluster(userdata.action_goal.waypoint,
             #                                         clusters.object_id[ID])
             #userdata['dynamic_object']=one_cluster
-            print "LINE:6"
             userdata.dynamic_object_centroid = clusters.centroids[ID]
-            print "LINE:6.5"
             userdata.dynamic_object_points = clusters.objects[ID]
-            print "LINE:6.75"
             userdata.dynamic_object_id = clusters.object_id[ID]
-            print "LINE:7"
             world = World()
-            print "LINE:8"
             userdata['object'] = world.create_object()
-            print "LINE:9"
             userdata['object'].add_identification('ObjectLearnerID', ObjectIdentification({'NEW':1}))
-            print "LINE:10"
             print clusters.object_id[ID]
             print "="*20
             print clusters.centroids[ID]
