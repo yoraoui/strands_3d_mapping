@@ -127,7 +127,9 @@ class SelectCluster(smach.State):
 
 
     def execute(self, userdata):
+        print "SelectCluster::execute"
         try:
+            print "LINE::1"
             # Load the waypoint to soma from file
             if self._rois_file != "NONE":
                 with open(self._rois_file, "r") as f:
@@ -139,6 +141,8 @@ class SelectCluster(smach.State):
             #clusters = self._get_clusters(userdata['waypoint'])
             clusters = self._get_clusters(userdata.action_goal.waypoint)
 
+            print "LINE::2"
+            
             if self._debug_mode:
                 available=[str(s) for s in range(len(clusters.object_id))]
                 self._debug_services.set_status("SELECT CLUSTER: ["+",".join(available)+"]")
@@ -146,6 +150,8 @@ class SelectCluster(smach.State):
             else:
                 select="auto"
 
+            print "LINE::3"
+            
             if select=="PREEMPT" or select=="none":
                 return 'none'
             elif select=="auto":
@@ -169,6 +175,8 @@ class SelectCluster(smach.State):
             else:
                 ID=int(select)
 
+
+            print "LINE:4"
             rospy.logwarn( "Getting cluster: %s"%clusters.object_id[ID])
             #one_cluster = self._get_specific_cluster(userdata['waypoint'], clusters.object_id[ID])
             one_cluster = self._get_specific_cluster(userdata.action_goal.waypoint,
