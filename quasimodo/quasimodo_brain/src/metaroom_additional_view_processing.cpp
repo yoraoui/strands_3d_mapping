@@ -1179,7 +1179,7 @@ bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObj
 		delete xmlReader;
 	}
 
-	return false;
+	return true;
 }
 
 bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDynamicObjectServiceResponse &res){

@@ -137,7 +137,8 @@ class SelectCluster(smach.State):
                 soma_region = somas[userdata.action_goal.waypoint]
             else:
                 soma_region = ""
-
+                
+            print "LINE::1.5"
             #clusters = self._get_clusters(userdata['waypoint'])
             clusters = self._get_clusters(userdata.action_goal.waypoint)
 
