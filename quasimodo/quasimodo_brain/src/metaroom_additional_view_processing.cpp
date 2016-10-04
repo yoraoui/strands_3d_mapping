@@ -1097,6 +1097,13 @@ void sendMetaroomToServer(std::string path){
 
 void sendCallback(const std_msgs::String::ConstPtr& msg){sendMetaroomToServer(msg->data);}
 
+//string waypoint_id
+//---
+//string[] object_id
+//sensor_msgs/PointCloud2[] objects
+//geometry_msgs/Point[] centroids
+
+
 bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res){
 	printf("bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res)\n");
 	std::string current_waypointid = req.waypoint_id;
@@ -1110,8 +1117,6 @@ bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObj
 	for (unsigned int i = 0; i < sweep_xmls.size(); i++){
 		SimpleXMLParser<pcl::PointXYZRGB>::RoomData other_roomData  = parser.loadRoomFromXML(sweep_xmls[i],std::vector<std::string>(),false,false);
 		std::string other_waypointid = other_roomData.roomWaypointId;
-
-		//if(sweep_xmls[i].compare(path) == 0){break;}
 		if(other_waypointid.compare(current_waypointid) == 0){prevind = i;}
 	}
 	if(prevind == -1){return false;}
@@ -1123,7 +1128,6 @@ bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObj
 	std::string sweep_folder = path.substr(0, slash_pos) + "/";
 
 	printf("sweep_folder: %s\n",sweep_folder.c_str());
-
 
 	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("dynamic_object*.xml"));
 	for (auto objectFile : objectFiles){
@@ -1160,6 +1164,15 @@ bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObj
 					double y = atof(attributes.value("y").toString().toStdString().c_str());
 					double z = atof(attributes.value("z").toString().toStdString().c_str());
 					printf("mean: %f %f %f\n",x,y,z);
+
+					res.object_id.push_back(object);
+					sensor_msgs::PointCloud2 pc;
+					res.objects.push_back(pc);
+					geometry_msgs::Point p;
+					p.x = x;
+					p.y = y;
+					p.z = z;
+					res.centroids.push_back(p);
 				}
 			}
 		}
