@@ -1183,11 +1183,6 @@ bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObj
 }
 
 bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDynamicObjectServiceResponse &res){
-	//	DynamicObjectsServiceRequest req;
-	//	req.waypoint_id = path;
-	//	DynamicObjectsServiceResponse res;
-	//	return dynamicObjectsServiceCallback(req,res);
-
 //	string waypoint_id
 //	string object_id
 //	---

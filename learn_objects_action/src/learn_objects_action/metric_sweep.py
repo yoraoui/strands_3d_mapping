@@ -180,9 +180,10 @@ class SelectCluster(smach.State):
             print "LINE:4"
             rospy.logwarn( "Getting cluster: %s"%clusters.object_id[ID])
             #one_cluster = self._get_specific_cluster(userdata['waypoint'], clusters.object_id[ID])
-            one_cluster = self._get_specific_cluster(userdata.action_goal.waypoint,
-                                                     clusters.object_id[ID])
-            userdata['dynamic_object']=one_cluster
+            
+            #one_cluster = self._get_specific_cluster(userdata.action_goal.waypoint,
+            #                                         clusters.object_id[ID])
+            #userdata['dynamic_object']=one_cluster
             userdata.dynamic_object_centroid = clusters.centroids[ID]
             userdata.dynamic_object_points = clusters.objects[ID]
             userdata.dynamic_object_id = clusters.object_id[ID]
