@@ -1099,7 +1099,22 @@ void sendCallback(const std_msgs::String::ConstPtr& msg){sendMetaroomToServer(ms
 
 bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res){
 	printf("bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res)\n");
-	std::string path = req.waypoint_id;
+	std::string current_waypointid = req.waypoint_id;
+
+
+	if(overall_folder.back() == '/'){overall_folder.pop_back();}
+
+	int prevind = -1;
+	std::vector<std::string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<pcl::PointXYZRGB>(overall_folder);
+	for (unsigned int i = 0; i < sweep_xmls.size(); i++){
+		SimpleXMLParser<pcl::PointXYZRGB>::RoomData other_roomData  = parser.loadRoomFromXML(sweep_xmls[i],std::vector<std::string>(),false,false);
+		std::string other_waypointid = other_roomData.roomWaypointId;
+
+		//if(sweep_xmls[i].compare(path) == 0){break;}
+		if(other_waypointid.compare(current_waypointid) == 0){prevind = i;}
+	}
+	if(prevind == -1){return false;}
+	std::string path = sweep_xmls[prevind];
 	//processMetaroom(path);
 
 	printf("path: %s\n",path.c_str());
