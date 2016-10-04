@@ -127,7 +127,7 @@ class SelectCluster(smach.State):
 
 
 	def execute(self, userdata):
-        try:
+		try:
             # Load the waypoint to soma from file
             if self._rois_file != "NONE":
                 with open(self._rois_file, "r") as f:
