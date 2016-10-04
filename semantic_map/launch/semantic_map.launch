@@ -11,7 +11,7 @@
   <arg name="newest_dynamic_clusters" default="false" />
 
   <machine name="$(arg machine)" address="$(arg machine)" env-loader="$(optenv ROS_ENV_LOADER )" user="$(arg user)"/>
-
+<!--
   <node machine="$(arg machine)" pkg="semantic_map" type="semantic_map_node" name="semantic_map_node" output="screen" respawn="true">
 	<param name="save_intermediate"  type="bool" value="$(arg save_intermediate)"/>
 	<param name="log_to_db"  type="bool" value="$(arg log_to_db)"/>
@@ -20,7 +20,7 @@
 	<!-- <param name="use_NDT_registration"  type="bool" value="$(arg use_NDT_registration)"/> -->
 	<param name="min_object_size"  type="int" value="$(arg min_object_size)"/>
   </node>
-
+-->
 </launch>
 
 
