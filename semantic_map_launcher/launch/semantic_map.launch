@@ -38,7 +38,7 @@
     </include>
 
     <!-- The system doing the analysis of static vs dynamic parts of the local maps -->
-    
+<!--
     <include file="$(find semantic_map)/launch/semantic_map.launch"> 
         <arg name="min_object_size" value="$(arg min_object_size)"/>
         <arg name="update_metaroom" value="$(arg update_metaroom)"/>
@@ -47,7 +47,7 @@
 	<arg name="newest_dynamic_clusters" value="$(arg newest_dynamic_clusters)" />  
 	<!--<arg name="use_NDT_registration" value="$(arg use_NDT_registration)" />  -->
     </include>
-
+-->
     <node machine="$(arg machine)" pkg="calibrate_sweeps" type="calibrate_sweep_as" name="calibrate_sweep_as" output="screen" respawn="true"/>
     
     <node machine="$(arg machine)" pkg="semantic_map_publisher" type="semantic_map_publisher" name="semantic_map_publisher" output="screen" respawn="true"/>
