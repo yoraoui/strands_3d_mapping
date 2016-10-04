@@ -1183,11 +1183,6 @@ bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObj
 }
 
 bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDynamicObjectServiceResponse &res){
-	//	DynamicObjectsServiceRequest req;
-	//	req.waypoint_id = path;
-	//	DynamicObjectsServiceResponse res;
-	//	return dynamicObjectsServiceCallback(req,res);
-
 //	string waypoint_id
 //	string object_id
 //	---
@@ -1219,10 +1214,11 @@ bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDyn
 	std::string sweep_folder = path.substr(0, slash_pos) + "/";
 
 	printf("sweep_folder: %s\n",sweep_folder.c_str());
+	printf("req.object_id: %s\n",req.object_id.c_str());
 	char buf [1024];
-	sprintf(buf,"%s/dynamic_object%10.10i.xml",sweep_folder.c_str(),req.object_id.c_str());
-
-	std::string path = std::string(buf);
+	//sprintf(buf,"%s/dynamic_object%10.10i.xml",sweep_folder.c_str(),atoi(req.object_id.c_str());
+//sprintf(buf,"%s/dynamic_object%10.10i.xml",sweep_folder.c_str(),atoi(req.object_id.c_str());
+	std::string fullpath = std::string(buf);
 
 //    res.object_mask = object.object_indices;
 //    tf::transformTFToMsg(object.transform_to_map, res.transform_to_map);
