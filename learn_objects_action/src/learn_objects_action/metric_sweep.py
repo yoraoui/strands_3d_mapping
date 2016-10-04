@@ -126,8 +126,8 @@ class SelectCluster(smach.State):
         self._debug_services = debug_services
 
 
-	def execute(self, userdata):
-		try:
+    def execute(self, userdata):
+        try:
             # Load the waypoint to soma from file
             if self._rois_file != "NONE":
                 with open(self._rois_file, "r") as f:
@@ -137,7 +137,7 @@ class SelectCluster(smach.State):
                 soma_region = ""
 
             #clusters = self._get_clusters(userdata['waypoint'])
-			clusters = self._get_clusters(userdata.action_goal.waypoint)
+            clusters = self._get_clusters(userdata.action_goal.waypoint)
 
             if self._debug_mode:
                 available=[str(s) for s in range(len(clusters.object_id))]
