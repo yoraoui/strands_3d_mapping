@@ -282,6 +282,7 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
 			for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 255;}
 			masks.push_back(mask);
 		}
+
 		std::vector<cv::Mat> movemask;
 		std::vector<cv::Mat> dynmask;
 		printf("computeMovingDynamicStatic\n");
@@ -289,8 +290,6 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
 		external.push_back(movemask);
 		internal.push_back(masks);
 		dynamic.push_back(dynmask);
-
-		//SegmentationResults sr = mu->computeMovingDynamicStatic(movemask,dynmask,bgcp,bgcf,model->relativeposes,model->frames,debugg);//Determine self occlusions
 	}
 
 	delete reg;

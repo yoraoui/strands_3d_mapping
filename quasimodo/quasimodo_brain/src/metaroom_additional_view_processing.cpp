@@ -78,6 +78,11 @@
 #include <sys/resource.h>
 
 // Custom messages
+#include "object_manager/dynamic_object.h"
+#include "object_manager/dynamic_object_xml_parser.h"
+#include "object_manager/dynamic_object_utilities.h"
+#include "object_manager/dynamic_object_mongodb_interface.h"
+
 #include <object_manager_msgs/DynamicObjectTracks.h>
 #include <object_manager_msgs/DynamicObjectTrackingData.h>
 
@@ -136,8 +141,9 @@ void remove_old_seg(std::string sweep_folder){
 		/* print all the files and directories within directory */
 		while ((ent = readdir (dir)) != NULL) {
 			std::string file = std::string(ent->d_name);
+			printf("file: %s\n",file.c_str());
 
-			if (file.find("dynamic_object") !=std::string::npos && file.find(".xml") !=std::string::npos){
+			if (file.find("dynamic_obj") !=std::string::npos && (file.find(".xml") !=std::string::npos || file.find(".pcd") !=std::string::npos)){
 				printf ("removing %s\n", ent->d_name);
 				std::remove((sweep_folder+"/"+file).c_str());
 			}
@@ -147,7 +153,7 @@ void remove_old_seg(std::string sweep_folder){
 				std::remove((sweep_folder+"/"+file).c_str());
 			}
 
-			if (file.find("moving_object") !=std::string::npos && file.find(".xml") !=std::string::npos){
+			if (file.find("moving_obj") !=std::string::npos && (file.find(".xml") !=std::string::npos || file.find(".pcd") !=std::string::npos)){
 				printf ("removing %s\n", ent->d_name);
 				std::remove((sweep_folder+"/"+file).c_str());
 			}
@@ -156,6 +162,17 @@ void remove_old_seg(std::string sweep_folder){
 				printf ("removing %s\n", ent->d_name);
 				std::remove((sweep_folder+"/"+file).c_str());
 			}
+
+//			if (file.find("_object_") !=std::string::npos && file.find(".xml") !=std::string::npos){
+//				printf ("removing %s\n", ent->d_name);
+//				std::remove((sweep_folder+"/"+file).c_str());
+//			}
+//			if (file.find("_object_") !=std::string::npos && file.find(".pcd") !=std::string::npos){
+//				printf ("maybe: removing %s\n", ent->d_name);
+//				printf("%i\n",file.find("_additional_view_") == std::string::npos);
+//				//file.find("_additional_view_") == std::string::npos;
+//				//std::remove((sweep_folder+"/"+file).c_str());
+//			}
 		}
 		closedir (dir);
 	}
@@ -578,8 +595,6 @@ reglib::Model * processAV(std::string path){
 	delete mu;
 	delete sweep;
 
-
-
 	return fullmodel;
 }
 
@@ -653,11 +668,12 @@ std::vector<Eigen::Matrix4d> readPoseXML(std::string xmlFile){
 	return poses;
 }
 
-int processMetaroom(std::string path){
+int processMetaroom(std::string path, bool store_old_xml = true){
 	int returnval = 0;
 	printf("processing: %s\n",path.c_str());
-	//	testDynamicObjectServiceCallback(path);
-	//	exit(0);
+
+//	testDynamicObjectServiceCallback(path);
+//	exit(0);
 
 	if ( ! boost::filesystem::exists( path ) ){return 0;}
 
@@ -685,6 +701,14 @@ int processMetaroom(std::string path){
 
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData current_roomData  = parser.loadRoomFromXML(path);
+
+//	SemanticRoom<PointType> observation = SemanticRoomXMLParser<PointType>::loadRoomFromXML(path,false);
+//	Eigen::Matrix4f roomTransform = observation.getRoomTransform();
+//	printf("roomTransform\n");
+//	std::cout << roomTransform << std::endl;
+
+	DynamicObjectXMLParser objectparser(path, true);
+
 	std::string current_waypointid = current_roomData.roomWaypointId;
 
 	if(overall_folder.back() == '/'){overall_folder.pop_back();}
@@ -705,6 +729,7 @@ int processMetaroom(std::string path){
 		printf("prev: %s\n",prev.c_str());
 
 		reglib::Model * bg = quasimodo_brain::load_metaroom_model(prev);
+		auto sweep = SimpleXMLParser<PointType>::loadRoomFromXML(prev, std::vector<std::string>{},false);
 		//bg->points = mu->getSuperPoints(bg->relativeposes,bg->frames,bg->modelmasks,1,false);
 		//bg->recomputeModelPoints();
 
@@ -745,10 +770,14 @@ int processMetaroom(std::string path){
 				std::vector<int> imgnr;
 				std::vector<cv::Mat> masks;
 
+				CloudPtr cloud_cluster (new Cloud());
+
+				Eigen::Matrix4d first = model->frames.front()->pose;
+
 				for(unsigned int j = 0; j < mod_fr.size(); j++){
 					reglib::RGBDFrame * frame = mod_fr[j];
-					//std::cout << mod_po[j] << std::endl;
-					Eigen::Matrix4d p = mod_po[j]*bg->frames.front()->pose;
+					std::cout << first*mod_po[j] << std::endl;
+					Eigen::Matrix4d p = frame->pose;//first*mod_po[j];//*bg->frames.front()->pose;
 					unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
 					unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
 					float		   * normalsdata	= (float			*)(frame->normals.data);
@@ -789,9 +818,18 @@ int processMetaroom(std::string path){
 									float x = (float(w) - cx) * z * ifx;
 									float y = (float(h) - cy) * z * ify;
 
-									sumx += m00*x + m01*y + m02*z + m03;
-									sumy += m10*x + m11*y + m12*z + m13;
-									sumz += m20*x + m21*y + m22*z + m23;
+									PointType p;
+									p.x += m00*x + m01*y + m02*z + m03;
+									p.y += m10*x + m11*y + m12*z + m13;
+									p.z += m20*x + m21*y + m22*z + m23;
+									p.r  = rgbdata[3*ind+2];
+									p.g  = rgbdata[3*ind+1];
+									p.b  = rgbdata[3*ind+0];
+									cloud_cluster->points.push_back (p);
+
+									sumx += p.x;
+									sumy += p.y;
+									sumz += p.z;
 									sum ++;
 								}
 							}else{
@@ -805,9 +843,43 @@ int processMetaroom(std::string path){
 						imgnr.push_back(j);
 					}
 				}
+
+				cloud_cluster->width = cloud_cluster->points.size ();
+				cloud_cluster->height = 1;
+				cloud_cluster->is_dense = true;
+
 				if(masks.size() > 0){
+
+					if(store_old_xml){
+						std::stringstream ss;
+						ss << "object_";
+						ss << (dynamicCounter-1);
+
+						// create and save dynamic object
+						DynamicObject::Ptr roomObject(new DynamicObject());
+						roomObject->setCloud(cloud_cluster);
+						roomObject->setTime(sweep.roomLogStartTime);
+						roomObject->m_roomLogString = sweep.roomLogName;
+						roomObject->m_roomStringId = sweep.roomWaypointId;
+						roomObject->m_roomRunNumber = sweep.roomRunNumber;
+						//				        // create label from room log time; could be useful later on, and would resolve ambiguities
+						std::stringstream ss_obj;
+						ss_obj<<boost::posix_time::to_simple_string(sweep.roomLogStartTime);
+						ss_obj<<"_object_";ss_obj<<(dynamicCounter-1);
+						roomObject->m_label = ss_obj.str();
+						std::string xml_file = objectparser.saveAsXML(roomObject);
+						printf("xml_file: %s\n",xml_file.c_str());
+					}
+
 					char buf [1024];
-					sprintf(buf,"%s/dynamic_object%10.10i.xml",sweep_folder.c_str(),dynamicCounter-1);
+					sprintf(buf,"%s/dynamic_obj%10.10i.pcd",sweep_folder.c_str(),dynamicCounter-1);
+					pcl::io::savePCDFileBinaryCompressed(std::string(buf),*cloud_cluster);
+
+
+//					std::string objectpcd = std::string(buf);//object.substr(0,object.size()-4);
+//					std::cout << objectpcd.substr(0,objectpcd.size()-4) << std::endl;
+
+					sprintf(buf,"%s/dynamic_obj%10.10i.xml",sweep_folder.c_str(),dynamicCounter-1);
 					QFile file(buf);
 					if (file.exists()){file.remove();}
 					if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save dynamic object as XML"<<std::endl;}
@@ -882,7 +954,6 @@ int processMetaroom(std::string path){
 					mask.create(height,width,CV_8UC1);
 					unsigned char * maskdata = (unsigned char *)(mask.data);
 
-
 					bool containsData = false;
 					for(unsigned int w = 0; w < width;w++){
 						for(unsigned int h = 0; h < height;h++){
@@ -914,7 +985,7 @@ int processMetaroom(std::string path){
 				}
 				if(masks.size() > 0){
 					char buf [1024];
-					sprintf(buf,"%s/moving_object%10.10i.xml",sweep_folder.c_str(),movingCounter-1);
+					sprintf(buf,"%s/moving_obj%10.10i.xml",sweep_folder.c_str(),movingCounter-1);
 					QFile file(buf);
 					if (file.exists()){file.remove();}
 					if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save dynamic object as XML"<<std::endl;}
@@ -1014,7 +1085,7 @@ std::vector<reglib::Model *> loadModels(std::string path){
 	std::vector<Eigen::Matrix4d> poses;
 	readViewXML(sweep_folder+"ViewGroup.xml",frames,poses);
 
-	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("dynamic_object*.xml"));
+	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("dynamic_obj*.xml"));
 	for (auto objectFile : objectFiles){
 		std::string object = sweep_folder+objectFile.toStdString();
 		printf("object: %s\n",object.c_str());
@@ -1108,6 +1179,8 @@ bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObj
 	printf("bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res)\n");
 	std::string current_waypointid = req.waypoint_id;
 
+	printf("current_waypointid: %i\n",current_waypointid.c_str());
+
 
 	if(overall_folder.back() == '/'){overall_folder.pop_back();}
 
@@ -1165,13 +1238,25 @@ bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObj
 					double z = atof(attributes.value("z").toString().toStdString().c_str());
 					printf("mean: %f %f %f\n",x,y,z);
 
-					res.object_id.push_back(object);
-					sensor_msgs::PointCloud2 pc;
-					res.objects.push_back(pc);
+					std::string objectpcd = object.substr(0,object.size()-4);
+					std::cout << objectpcd << std::endl;
+
+					pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+					pcl::io::loadPCDFile<pcl::PointXYZRGB> (objectpcd+".pcd", *cloud);
+
+					printf("cloud->points.size() = %i\n",cloud->points.size());
+
+					sensor_msgs::PointCloud2 msg_objects;
+					pcl::toROSMsg(*cloud, msg_objects);
+					msg_objects.header.frame_id="/map";
+
 					geometry_msgs::Point p;
 					p.x = x;
 					p.y = y;
 					p.z = z;
+
+					res.object_id.push_back(object);
+					res.objects.push_back(msg_objects);
 					res.centroids.push_back(p);
 				}
 			}
@@ -1183,14 +1268,14 @@ bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObj
 }
 
 bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDynamicObjectServiceResponse &res){
-//	string waypoint_id
-//	string object_id
-//	---
-//	sensor_msgs/PointCloud2 object_cloud
-//	int32[] object_mask
-//	geometry_msgs/Transform transform_to_map
-//	int32 pan_angle
-//	int32 tilt_angle
+	//	string waypoint_id
+	//	string object_id
+	//	---
+	//	sensor_msgs/PointCloud2 object_cloud
+	//	int32[] object_mask
+	//	geometry_msgs/Transform transform_to_map
+	//	int32 pan_angle
+	//	int32 tilt_angle
 
 	std::string current_waypointid = req.waypoint_id;
 
@@ -1217,20 +1302,100 @@ bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDyn
 	printf("req.object_id: %s\n",req.object_id.c_str());
 	char buf [1024];
 	//sprintf(buf,"%s/dynamic_object%10.10i.xml",sweep_folder.c_str(),atoi(req.object_id.c_str());
-//sprintf(buf,"%s/dynamic_object%10.10i.xml",sweep_folder.c_str(),atoi(req.object_id.c_str());
+	//sprintf(buf,"%s/dynamic_object%10.10i.xml",sweep_folder.c_str(),atoi(req.object_id.c_str());
 	std::string fullpath = std::string(buf);
 
-//    res.object_mask = object.object_indices;
-//    tf::transformTFToMsg(object.transform_to_map, res.transform_to_map);
-//    pcl::toROSMsg(*object.object_cloud, res.object_cloud);
-//    res.object_cloud.header.frame_id="/map";
-//    res.pan_angle = -object.pan_angle;
-//    res.tilt_angle = -object.tilt_angle;
+//	best_transform = roomTransform.inverse() * best_transform;
+//    const Eigen::Affine3d eigenTr(best_transform.cast<double>());
+//    tf::transformEigenToTF(eigenTr,returned_object.transform_to_map);
+//    returned_object.object_cloud = CloudPtr(new Cloud());
+//    *returned_object.object_cloud = *allClouds[best_index];
+//    //        pcl::transformPointCloud (*returned_object.object_cloud, *returned_object.object_cloud, best_transform); // transform to map frame
 
+//    returned_object.object_indices.insert(returned_object.object_indices.begin(), src_indices.begin(),src_indices.end());
+//    returned_object.object_mask = cluster_image;
+
+//    // save mask and indices
+//    if (m_bSaveMask) {
+//        // find observation folder
+//        int slash_pos = observation_xml.find_last_of("/");
+//        std::string observation_folder = observation_xml.substr(0, slash_pos);
+//        std::string mask_image = observation_folder + "/" + object_id + "_mask.jpg";
+//        cv::imwrite(mask_image, cluster_image);
+//        std::string mask_indices = observation_folder + "/" + object_id + "_mask.txt";
+//        ofstream mask_indices_os;
+//        mask_indices_os.open(mask_indices);
+//        for (int index : returned_object.object_indices){
+//            mask_indices_os << index<<" ";
+//        }
+//        mask_indices_os.close();
+//        ROS_INFO_STREAM("Object mask saved at: "<<mask_image);
+//        ROS_INFO_STREAM("Object mask indices saved at: "<<mask_indices);
+//    }
+
+//    int pan_angle = 0, tilt_angle = 0;
+//    semantic_map_registration_transforms::getPtuAnglesForIntPosition(observation.m_SweepParameters.m_pan_start, observation.m_SweepParameters.m_pan_step, observation.m_SweepParameters.m_pan_end,
+//                                                                     observation.m_SweepParameters.m_tilt_start, observation.m_SweepParameters.m_tilt_step, observation.m_SweepParameters.m_tilt_end,
+//                                                                     best_index, pan_angle, tilt_angle);
+
+//    returned_object.pan_angle = pan_angle;
+//    returned_object.tilt_angle = tilt_angle;
+
+	//    res.object_mask = object.object_indices;
+	//    tf::transformTFToMsg(object.transform_to_map, res.transform_to_map);
+	//    pcl::toROSMsg(*object.object_cloud, res.object_cloud);
+	//    res.object_cloud.header.frame_id="/map";
+	//    res.pan_angle = -object.pan_angle;
+	//    res.tilt_angle = -object.tilt_angle;
 	return true;
 }
 
+/*
+	ROS_INFO_STREAM("Received a get dynamic cluster request for waypoint "<<req.waypoint_id);
+	using namespace std;
+	std::vector<DynamicObject::Ptr> currentObjects;
+	bool objects_found = updateObjectsAtWaypoint(req.waypoint_id);
+	if (!objects_found){return true;}
 
+	GetObjStruct object;
+	bool found =returnObjectMask(req.waypoint_id, req.object_id,m_waypointToSweepFileMap[req.waypoint_id], object);
+	if (!found){
+		ROS_ERROR_STREAM("Could not compute mask for object id "<<req.object_id);
+		return true;
+	}
+
+	res.object_mask = object.object_indices;
+	tf::transformTFToMsg(object.transform_to_map, res.transform_to_map);
+	pcl::toROSMsg(*object.object_cloud, res.object_cloud);
+	res.object_cloud.header.frame_id="/map";
+	res.pan_angle = -object.pan_angle;
+	res.tilt_angle = -object.tilt_angle;
+
+	m_PublisherRequestedObjectCloud.publish(res.object_cloud);
+
+	// convert to sensor_msgs::Image
+	cv_bridge::CvImage aBridgeImage;
+	aBridgeImage.image = object.object_mask;
+	aBridgeImage.encoding = "bgr8";
+	sensor_msgs::ImagePtr rosImage = aBridgeImage.toImageMsg();
+	m_PublisherRequestedObjectImage.publish(rosImage);
+
+	// update tracked object
+	bool trackedUpdated = getDynamicObject(req.waypoint_id, req.object_id, m_objectTracked, m_objectTrackedObservation);
+	if (!trackedUpdated)
+	{
+		ROS_ERROR_STREAM("Could not find object for viewing");
+	} else {
+		// check if this object doesn't have any additional views -> if not, add the intermediate cloud & its transform
+		//        if (!m_objectTracked->m_vAdditionalViews.size()){
+		//            m_objectTracked->addAdditionalView(object.object_cloud);
+		//            m_objectTracked->addAdditionalViewTransform(object.transform_to_map);
+		//        }
+	}
+
+	return true;
+
+*/
 
 bool testDynamicObjectServiceCallback(std::string path){
 	printf("bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDynamicObjectServiceResponse &res)\n");
@@ -1379,13 +1544,13 @@ int main(int argc, char** argv){
 			roomObservationSubs.push_back(n.subscribe("/local_metric_map/room_observations", 1000, roomObservationCallback));
 		}
 
-		if(m_DynamicObjectsServiceServers.size() == 0){
-			m_DynamicObjectsServiceServers.push_back(n.advertiseService("/object_manager_node/ObjectManager/DynamicObjectsService", dynamicObjectsServiceCallback));
-		}
+//		if(m_DynamicObjectsServiceServers.size() == 0){
+//			m_DynamicObjectsServiceServers.push_back(n.advertiseService("/object_manager_node/ObjectManager/DynamicObjectsService", dynamicObjectsServiceCallback));
+//		}
 
-		if(m_GetDynamicObjectServiceServers.size() == 0){
-			m_GetDynamicObjectServiceServers.push_back(n.advertiseService("/object_manager_node/ObjectManager/GetDynamicObjectService", getDynamicObjectServiceCallback));
-		}
+//		if(m_GetDynamicObjectServiceServers.size() == 0){
+//			m_GetDynamicObjectServiceServers.push_back(n.advertiseService("/object_manager_node/ObjectManager/GetDynamicObjectService", getDynamicObjectServiceCallback));
+//		}
 	}
 
 	printf("overall_folder: %s\n",overall_folder.c_str());
