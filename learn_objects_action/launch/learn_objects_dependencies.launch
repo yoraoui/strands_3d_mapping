@@ -5,7 +5,10 @@
   <arg name="user" default="" />
   <arg name="camera_topic" default="/head_xtion/depth_registered" />
   <arg name="model_path" default="/home/strands/models/" />
+  <!-- 
   <arg name="planning_method" default="ral16" />
+  -->
+  <arg name="planning_method" default="InfoGain" />
   <arg name="object_view_map_topic" default="/waypoint_map" />
   <arg name="record_run" default="false" />
 
