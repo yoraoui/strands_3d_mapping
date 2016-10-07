@@ -188,11 +188,11 @@ class SelectCluster(smach.State):
             userdata.dynamic_object_points = clusters.objects[ID]
             userdata.dynamic_object_id = clusters.object_id[ID]
             print "LINE:5"
-            world = World()
+            #world = World()
             print "LINE:6"
-            userdata['object'] = world.create_object()
+            #userdata['object'] = world.create_object()
             print "LINE:7"
-            userdata['object'].add_identification('ObjectLearnerID', ObjectIdentification({'NEW':1}))
+            #userdata['object'].add_identification('ObjectLearnerID', ObjectIdentification({'NEW':1}))
             print "LINE:8"
             print clusters.object_id[ID]
             print "LINE:9"
