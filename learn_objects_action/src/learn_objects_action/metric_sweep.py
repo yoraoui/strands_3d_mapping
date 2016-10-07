@@ -187,13 +187,16 @@ class SelectCluster(smach.State):
             userdata.dynamic_object_centroid = clusters.centroids[ID]
             userdata.dynamic_object_points = clusters.objects[ID]
             userdata.dynamic_object_id = clusters.object_id[ID]
+            print "LINE:5"
             world = World()
             userdata['object'] = world.create_object()
             userdata['object'].add_identification('ObjectLearnerID', ObjectIdentification({'NEW':1}))
+            print "LINE:6"
             print clusters.object_id[ID]
             print "="*20
             print clusters.centroids[ID]
             print "="*20
+            print "LINE:7"
             return "selected"
         except Exception, e:
             rospy.logwarn("Failed to select a cluster!!!!")

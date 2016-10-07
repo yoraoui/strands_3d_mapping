@@ -107,8 +107,16 @@ void execute(const calibrate_sweeps::CalibrateSweepsGoalConstPtr& goal, Server* 
     unsigned int gy = 3;
     unsigned int todoy = 3;
     RobotContainer * rc = new RobotContainer(gx,todox,gy,todoy);
-
+    
+    
+//    	534.191590 0.000000 315.622746
+//		0.000000 534.016892 238.568515
+//0.000000 0.000000 1.000000
+printf("%f %f %f %f\n",534.191590, 534.016892,315.622746, 238.568515);
+	rc->initializeCamera(534.191590, 534.016892,315.622746, 238.568515, 640, 480);
+//exit(0);
     // initialize camera parameters from the sweep
+    /*
     if (matchingObservations.size()){
         SemanticRoom<PointType> aRoom = SemanticRoomXMLParser<PointType>::loadRoomFromXML(matchingObservations[0],true);
         if (aRoom.getIntermediateCloudCameraParameters().size()){
@@ -118,7 +126,7 @@ void execute(const calibrate_sweeps::CalibrateSweepsGoalConstPtr& goal, Server* 
             // no camera parameters saved with the sweep -> initialize optimizer with default parameters
             rc->initializeCamera(540.0, 540.0,319.5, 219.5, 640, 480);
         }
-    }
+    }*/
 
 
     for (size_t i=0; i<goal->max_num_sweeps && i<matchingObservations.size(); i++)
