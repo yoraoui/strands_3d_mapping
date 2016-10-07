@@ -33,28 +33,36 @@ class TurnPTUToObject(smach.State):
 
 
     def execute(self, userdata):
+        print "start TurnPTUToObject::execute"
         try:
+            print "LINE 1"
             if self._debug_mode:
                 self._debug_services.set_status("Turn PTU to cluster?")
                 proceed = self._debug_services.get_proceed(("OK",))
                 if proceed == "PREEMPT":
                     return 'preempted'
             # start transformation
+            print "LINE 2"
             self._jnts.position=[math.radians(userdata.dynamic_object.pan_angle),
                                  math.radians(userdata.dynamic_object.tilt_angle)]
+            print "LINE 3"
             goal = PtuGotoGoal()
+            print "LINE 4"
             goal.pan = userdata.dynamic_object.pan_angle
             goal.tilt = userdata.dynamic_object.tilt_angle
             goal.pan_vel = 30
             goal.tilt_vel = 30
+            print "LINE 5"
             rospy.loginfo("SET PTU: pan: %f tilt: %f", goal.pan, goal.tilt)
             self.ptu_client.send_goal(goal)
             self.ptu_client.wait_for_result()
             rospy.loginfo("Reached ptu goal")
 
+            print "LINE 6"
             print "Capturing a new shot of that object before tracking."
             # So uggly force get through publisher queue
             for i in range(30):
+            	print "LINE " i
                 userdata.dynamic_object.object_cloud= rospy.wait_for_message("/head_xtion/depth_registered/points", PointCloud2)
                 #  is already there
             print "ok."
