@@ -776,7 +776,7 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 
 				for(unsigned int j = 0; j < mod_fr.size(); j++){
 					reglib::RGBDFrame * frame = mod_fr[j];
-					std::cout << first*mod_po[j] << std::endl;
+					//std::cout << first*mod_po[j] << std::endl;
 					Eigen::Matrix4d p = frame->pose;//first*mod_po[j];//*bg->frames.front()->pose;
 					unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
 					unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
