@@ -522,14 +522,16 @@ bool ObjectManager<PointType>::dynamicObjectsServiceCallback(DynamicObjectsServi
 template <class PointType>
 bool ObjectManager<PointType>::getDynamicObject(std::string waypoint, std::string object_id, DynamicObject::Ptr& object, std::string& object_observation)
 {
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
     auto it =  m_waypointToObjMap.find(waypoint);
     if (it == m_waypointToObjMap.end() )
     {
         ROS_ERROR_STREAM("No objects loaded for waypoint "+waypoint);
         return false;
     }
-
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
     std::vector<DynamicObject::Ptr> objects = m_waypointToObjMap[waypoint];
+    printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
     bool found = false;
     for (auto objectStruct : objects)
     {
@@ -541,10 +543,12 @@ bool ObjectManager<PointType>::getDynamicObject(std::string waypoint, std::strin
             break;
         }
     }
+    	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
     if(!found)
     {
         ROS_ERROR_STREAM("Object "<<object_id<<" at waypoint "<<waypoint<<" could not be found.");
     }
+    	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
     return true;
 }
 
@@ -711,23 +715,23 @@ bool ObjectManager<PointType>::getDynamicObjectServiceCallback(GetDynamicObjectS
         ROS_ERROR_STREAM("Could not compute mask for object id "<<req.object_id);
         return true;
     }
-
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
     res.object_mask = object.object_indices;
     tf::transformTFToMsg(object.transform_to_map, res.transform_to_map);
     pcl::toROSMsg(*object.object_cloud, res.object_cloud);
     res.object_cloud.header.frame_id="/map";
     res.pan_angle = -object.pan_angle;
     res.tilt_angle = -object.tilt_angle;
-
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
     m_PublisherRequestedObjectCloud.publish(res.object_cloud);
-
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
     // convert to sensor_msgs::Image
     cv_bridge::CvImage aBridgeImage;
     aBridgeImage.image = object.object_mask;
     aBridgeImage.encoding = "bgr8";
     sensor_msgs::ImagePtr rosImage = aBridgeImage.toImageMsg();
     m_PublisherRequestedObjectImage.publish(rosImage);
-
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
     // update tracked object
     bool trackedUpdated = getDynamicObject(req.waypoint_id, req.object_id, m_objectTracked, m_objectTrackedObservation);
     if (!trackedUpdated)
