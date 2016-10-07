@@ -62,7 +62,8 @@ class TurnPTUToObject(smach.State):
             print "Capturing a new shot of that object before tracking."
             # So uggly force get through publisher queue
             for i in range(30):
-            	print "LINE " i
+            	print "LINE "
+            	print i
                 userdata.dynamic_object.object_cloud= rospy.wait_for_message("/head_xtion/depth_registered/points", PointCloud2)
                 #  is already there
             print "ok."
