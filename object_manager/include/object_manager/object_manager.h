@@ -703,6 +703,7 @@ bool ObjectManager<PointType>::getDynamicObjectServiceCallback(GetDynamicObjectS
         return true;
     }
 
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
     GetObjStruct object;
     bool found =returnObjectMask(req.waypoint_id, req.object_id,m_waypointToSweepFileMap[req.waypoint_id], object);
     if (!found)
