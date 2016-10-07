@@ -746,6 +746,7 @@ bool ObjectManager<PointType>::getDynamicObjectServiceCallback(GetDynamicObjectS
 template <class PointType>
 bool ObjectManager<PointType>::updateObjectsAtWaypoint(std::string waypoint_id)
 {
+	printf("START bool ObjectManager<PointType>::updateObjectsAtWaypoint(std::string waypoint_id)\n");
     using namespace std;
     std::vector<std::string> matchingObservations = semantic_map_load_utilties::getSweepXmlsForTopologicalWaypoint<PointType>(m_dataFolder, waypoint_id);
     if (matchingObservations.size() == 0)
@@ -816,6 +817,7 @@ bool ObjectManager<PointType>::updateObjectsAtWaypoint(std::string waypoint_id)
 template <class PointType>
 std::vector<DynamicObject::Ptr>  ObjectManager<PointType>::loadDynamicObjectsFromObservation(std::string obs_file)
 {
+	printf("START std::vector<DynamicObject::Ptr>  ObjectManager<PointType>::loadDynamicObjectsFromObservation(std::string obs_file)\n");
     std::vector<DynamicObject::Ptr> dynamicObjects;
 
     // check if the objects have been computed already
