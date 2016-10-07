@@ -200,6 +200,16 @@ class SelectCluster(smach.State):
             print clusters.centroids[ID]
             print "LINE:10"
             print "="*20
+            
+            print userdata.dynamic_object_centroid
+            print "LINE:10"
+            print "="*20
+            
+                        
+            print userdata
+            print "LINE:10"
+            print "="*20
+            
             print "LINE:11"
             return "selected"
         except Exception, e:
