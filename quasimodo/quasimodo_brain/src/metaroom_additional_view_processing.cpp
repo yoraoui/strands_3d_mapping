@@ -141,7 +141,6 @@ void remove_old_seg(std::string sweep_folder){
 		/* print all the files and directories within directory */
 		while ((ent = readdir (dir)) != NULL) {
 			std::string file = std::string(ent->d_name);
-			printf("file: %s\n",file.c_str());
 
 			if (file.find("dynamic_obj") !=std::string::npos && (file.find(".xml") !=std::string::npos || file.find(".pcd") !=std::string::npos)){
 				printf ("removing %s\n", ent->d_name);
@@ -707,7 +706,7 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 //	printf("roomTransform\n");
 //	std::cout << roomTransform << std::endl;
 
-	DynamicObjectXMLParser objectparser(path, true);
+	DynamicObjectXMLParser objectparser(sweep_folder, true);
 
 	std::string current_waypointid = current_roomData.roomWaypointId;
 
