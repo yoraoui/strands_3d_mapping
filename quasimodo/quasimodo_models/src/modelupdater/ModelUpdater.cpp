@@ -1857,9 +1857,9 @@ std::vector< std::vector<float> > getImageProbs(reglib::RGBDFrame * frame, int b
 		edgesdata[3*i+2] = dyc[i];
 	}
 
-		cv::namedWindow( "src", cv::WINDOW_AUTOSIZE );          cv::imshow( "src",	src);
-		cv::namedWindow( "edges", cv::WINDOW_AUTOSIZE );          cv::imshow( "edges",	edges);
-		cv::waitKey(0);
+//		cv::namedWindow( "src", cv::WINDOW_AUTOSIZE );          cv::imshow( "src",	src);
+//		cv::namedWindow( "edges", cv::WINDOW_AUTOSIZE );          cv::imshow( "edges",	edges);
+//		cv::waitKey(0);
 
 	return probs2;
 }

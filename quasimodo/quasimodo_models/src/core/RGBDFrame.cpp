@@ -1437,5 +1437,22 @@ std::vector<superpoint> RGBDFrame::getSuperPoints(Eigen::Matrix4d cp, unsigned i
 	return ret;
 }
 
+std::vector< std::vector<float> > RGBDFrame::getImageProbs(){
+
+	unsigned int width = camera->width;
+	unsigned int height = camera->height;
+
+	std::vector<float> dxc;
+	dxc.resize(width*height);
+	for(unsigned int i = 0; i < width*height;i++){dxc[i] = 0;}
+
+	std::vector<float> dyc;
+	dyc.resize(width*height);
+	for(unsigned int i = 0; i < width*height;i++){dyc[i] = 0;}
+
+	std::vector< std::vector<float> > probs2;
+	probs2.push_back(dxc);
+	probs2.push_back(dyc);
+}
 
 }

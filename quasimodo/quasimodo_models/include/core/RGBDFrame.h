@@ -66,6 +66,8 @@ namespace reglib
 		std::vector<ReprojectionResult> getReprojections(std::vector<superpoint> & spvec, Eigen::Matrix4d cp, bool * maskvec,  bool useDet = true);
 
 		std::vector<superpoint> getSuperPoints(Eigen::Matrix4d cp = Eigen::Matrix4d::Identity(), unsigned int step = 1, bool zeroinclude = true);
+
+		std::vector< std::vector<float> > getImageProbs();
 	};
 }
 
