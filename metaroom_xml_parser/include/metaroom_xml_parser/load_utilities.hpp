@@ -404,7 +404,7 @@ std::vector<DynamicObjectData<PointType>> loadAllDynamicObjectsFromSingleSweep(s
     if (verbose){
         std::cout<<"Found "<<objectFiles.size()<<" dynamic objects."<<std::endl;
     }
-printf("%s::%i",__FILE__,__LINE__);
+//printf("%s::%i",__FILE__,__LINE__);
     for (auto objectFile : objectFiles){
         if (verbose){
             std::cout<<"Now parsing "<<objectFile.toStdString()<<std::endl;

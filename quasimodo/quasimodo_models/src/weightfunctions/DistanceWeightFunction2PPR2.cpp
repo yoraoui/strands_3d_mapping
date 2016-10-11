@@ -668,6 +668,8 @@ void DistanceWeightFunction2PPR2::computeModel(MatrixXd mat){
 	const unsigned int nr_data = mat.cols();
 	const int nr_dim = mat.rows();
 
+double startTime = getCurrentTime3();
+//printf("\n################################################### ITER:%i ############################################################\n",iter);
 	if(debugg_print){printf("\n################################################### ITER:%i ############################################################\n",iter);}
 	if(!fixed_histogram_size){
 		if(first){
@@ -713,7 +715,7 @@ void DistanceWeightFunction2PPR2::computeModel(MatrixXd mat){
 			if(debugg_print){printf("nr_inside: %f histogram_size: %i blurval: %f\n",nr_inside,histogram_size,blurval);}
 		}
 	}
-
+//printf("time taken to %5.5i: %10.10f\n",__LINE__,getCurrentTime3()-startTime); startTime = getCurrentTime3();
 	histogram_mul	= double(histogram_size)/maxd;
 	histogram_mul2	= double(histogram_size)/(maxd-mind);
 //	if(bidir){	histogram_mul2 = double(histogram_size)/(2.0*maxd);}
@@ -732,46 +734,12 @@ void DistanceWeightFunction2PPR2::computeModel(MatrixXd mat){
 			}
 		}
 	}
-
+//printf("time taken to %5.5i: %10.10f\n",__LINE__,getCurrentTime3()-startTime); startTime = getCurrentTime3();
 	//double ind = getInd(d,debugg);
-
-//	if(!fixed_histogram_size){
-//	for(unsigned int j = 0; j < nr_data; j++){
-//		for(int k = 0; k < nr_dim; k++){
-//			double ind = fabs(mat(k,j))*histogram_mul;
-//			double w2 = ind-int(ind);
-//			double w1 = 1-w2;
-//			if(ind >= 0 && (ind+0.5) < histogram_size){histogram[int(ind+0.5)]++;}
-//		}
-//	}
-//	histogram[0]*=2;
-//}else if(bidir){
-//	for(unsigned int j = 0; j < histogram_size; j++){histogram[j] = 0;}
-//	for(unsigned int j = 0; j < nr_data; j++){
-//		for(int k = 0; k < nr_dim; k++){
-//			double ind = double(histogram_size)*(mat(k,j)+maxd)/(2.0*maxd);
-//			if(ind >= 0 && (ind+0.00001) < histogram_size){
-//				histogram[int(ind+0.00001)]++;
-//			}
-//		}
-//	}
-//}else{
-//	for(unsigned int j = 0; j < nr_data; j++){
-//		for(int k = 0; k < nr_dim; k++){
-//			double ind = fabs(mat(k,j))*histogram_mul;
-//			double w2 = ind-int(ind);
-//			double w1 = 1-w2;
-//			if(ind >= 0 && (ind+0.00001) < histogram_size){
-//				histogram[int(ind+0.00001)]++;
-//			}
-//			//if(j % 5000 == 0){printf("%i %i -> r:%f ind: %f \n",j,k,mat(k,j),ind);}
-//		}
-//	}
-//}
 
 	start_time = getCurrentTime3();
 	blurHistogram3(blur_histogram,histogram,blurval,histogram_size,debugg_print);
-
+//printf("time taken to %5.5i: %10.10f\n",__LINE__,getCurrentTime3()-startTime); startTime = getCurrentTime3();
 //	stdval2 = 0;
 //	Gaussian3 g  = getModel(stdval, blur_histogram,	uniform_bias,refine_mean,refine_mul,refine_std,nr_refineiters,costpen,zeromean);
 //	//Gaussian3 g2 = getModel(stdval2,histogram,		uniform_bias,refine_mean,refine_mul,refine_std,nr_refineiters,costpen,zeromean);
@@ -814,7 +782,7 @@ void DistanceWeightFunction2PPR2::computeModel(MatrixXd mat){
 //    gd->train(blur_histogram,histogram_size);
 //    gd->print();
 //    delete gd;
-
+//printf("time taken to %5.5i: %10.10f\n",__LINE__,getCurrentTime3()-startTime); startTime = getCurrentTime3();
 	g.stdval = std::max(0.0001*double(histogram_size)/(maxd),std::min(g.stdval,maxnoise*double(histogram_size)/maxd));
 
 	//noiseval = maxd*g.stdval/float(histogram_size);
@@ -836,7 +804,7 @@ void DistanceWeightFunction2PPR2::computeModel(MatrixXd mat){
 	if(compute_infront){
 		for(int k = 0; k < histogram_size; k++){noisecdf[k] = g.getcdf(k);}
 	}
-
+//printf("time taken to %5.5i: %10.10f\n",__LINE__,getCurrentTime3()-startTime); startTime = getCurrentTime3();
 //	std::vector<float> new_histogram;
 //	if(rescaling){
 //		new_histogram.resize(blur_histogram.size());
@@ -858,20 +826,16 @@ void DistanceWeightFunction2PPR2::computeModel(MatrixXd mat){
 		if(max_under_mean && k < g.mean){	prob[k] = maxp;	}
 		else{
 			double hs = blur_histogram[k]+1;
-//			if(rescaling){hs = new_histogram[k]+1;}
 			prob[k] = std::min(maxp , noise[k]/hs);//never fully trust any data
 			infront[k] = (1-prob[k])*noisecdf[k];
 		}
 	}
-
+//printf("time taken to %5.5i: %10.10f\n",__LINE__,getCurrentTime3()-startTime); startTime = getCurrentTime3();
 	nr_inliers = 0;
 	for(unsigned int j = 0; j < nr_data; j++){
 		float inl  = 1;
 		float ninl = 1;
 		for(int k = 0; k < nr_dim; k++){
-			//double ind = getInd(mat(k,j));//fabs(mat(k,j))*histogram_mul;
-			//float p = 0;
-			//if(ind >= 0 && (ind+0.5) < histogram_size){p = prob[int(ind+0.5)];}
 			float p = getProb(mat(k,j));
 			inl *= p;
 			ninl *= 1.0-p;
@@ -879,7 +843,7 @@ void DistanceWeightFunction2PPR2::computeModel(MatrixXd mat){
 		double d = inl / (inl+ninl);
 		nr_inliers += d;
 	}
-
+//printf("time taken to %5.5i: %10.10f\n",__LINE__,getCurrentTime3()-startTime); startTime = getCurrentTime3();//SLOW
 	if(debugg_print){printf("hist = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%i ",	int(histogram[k]));}		printf("];\n");}
 	if(debugg_print){printf("noise = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%i ",	int(noise[k]));}			printf("];\n");}
 	if(debugg_print){printf("noisecdf = [");		for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%2.2f ",int(noisecdf[k]));}			printf("];\n");}
@@ -909,22 +873,23 @@ void DistanceWeightFunction2PPR2::computeModel(MatrixXd mat){
 		if(next_maxd == next_mind){	return;}
 
 		double overlap = 0;
-		if(next_maxd < maxd && next_mind > mind){overlap = next_maxd-next_mind;}
-		if(next_maxd > maxd && next_mind < mind){overlap =		maxd-	  mind;}
-		if(next_maxd < maxd && next_mind < mind){overlap = next_maxd-	  mind;}
-		if(next_maxd > maxd && next_mind > mind){overlap =      maxd-next_mind;}
+		if(next_maxd <= maxd && next_mind >= mind){overlap = next_maxd	-next_mind;}
+		if(next_maxd >= maxd && next_mind <= mind){overlap = maxd		-	  mind;}
+		if(next_maxd <= maxd && next_mind <= mind){overlap = next_maxd	-	  mind;}
+		if(next_maxd >= maxd && next_mind >= mind){overlap =      maxd	-next_mind;}
 
 		double ratio = 2*overlap/(maxd+next_maxd-mind-next_mind);
 		double newlogdiff = log(ratio);
 
-//		if(bidir){
+		//if(bidir){
 //			printf("meanoffset: %f stdval2: %f stdval: %f regularization: %f\n",meanval2,stdval2,noiseval,regularization);
 //			printf("mind: %5.5f maxd: %5.5f noise: %5.5f noise+reg: %5.5f\n",mind,maxd,noiseval,getNoise());
 //			printf("next_maxd: %5.5f maxd: %5.5f\n",next_maxd,maxd);
 //			printf("next_mind: %5.5f mind: %5.5f\n",next_mind,mind);
 //			printf("logdiff: %5.5f\n",logdiff);
 //			printf("newlogdiff: %5.5f\n",newlogdiff);
-//		}
+//			printf("ratio: %5.5f = %5.5f / %5.5f\n",ratio,2*overlap,(maxd+next_maxd-mind-next_mind) );
+		//}
 
 
 		//double next_maxd  = meanval2 + (stdval2 + regularization)*target_length;
@@ -937,7 +902,7 @@ void DistanceWeightFunction2PPR2::computeModel(MatrixXd mat){
 			return;
 		}else{iter = 0;}
 	}
-
+//printf("time taken to %5.5i: %10.10f\n",__LINE__,getCurrentTime3()-startTime); startTime = getCurrentTime3();
 	//if(bidir){exit(0);}
 }
 
@@ -951,19 +916,6 @@ VectorXd DistanceWeightFunction2PPR2::getProbs(MatrixXd mat){
 		float inl  = 1;
 		float ninl = 1;
 		for(int k = 0; k < nr_dim; k++){
-//			double ind;
-//			float p = 0;
-//			if(bidir){
-//				ind = double(histogram_size)*(mat(k,j)+maxd)/(2.0*maxd);
-//			}else{
-//				ind = fabs(mat(k,j))*histogram_mul;
-//			}
-//			double w2 = ind-int(ind);
-//			double w1 = 1-w2;
-//			if(ind >= 0 && (ind+0.5) < histogram_size){
-//				if(interp){	p = prob[int(ind)]*w1 + prob[int(ind+1)]*w2;
-//				}else{		p = prob[int(ind+0.5)];}
-//			}
 			float p = getProb(mat(k,j));
 			inl *= p;
 			ninl *= 1.0-p;

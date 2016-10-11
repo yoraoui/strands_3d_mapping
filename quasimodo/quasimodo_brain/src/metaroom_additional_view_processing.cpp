@@ -89,6 +89,7 @@
 
 #include <semantic_map_msgs/RoomObservation.h>
 
+
 std::vector< ros::ServiceServer > m_DynamicObjectsServiceServers;
 std::vector< ros::ServiceServer > m_GetDynamicObjectServiceServers;
 
@@ -129,6 +130,7 @@ std::vector< ros::Publisher > model_pubs;
 
 std::string posepath = "testposes.xml";
 std::vector<Eigen::Matrix4d> sweepPoses;
+reglib::Camera * basecam;
 
 
 bool testDynamicObjectServiceCallback(std::string path);
@@ -464,6 +466,28 @@ void readViewXML(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames,
 	delete xmlReader;
 }
 
+
+void setBaseSweep(std::string path){
+	printf("setBaseSweep(%s)\n",path.c_str());
+	SimpleXMLParser<pcl::PointXYZRGB> parser;
+	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(path);//, std::vector<std::string>(),false,false);
+printf("loaded room data\n");
+	image_geometry::PinholeCameraModel baseCameraModel = roomData.vIntermediateRoomCloudCamParamsCorrected.front();
+	if(basecam != 0){delete basecam;}
+	basecam		= new reglib::Camera();
+	basecam->fx = baseCameraModel.fx();
+	basecam->fy = baseCameraModel.fy();
+	basecam->cx = baseCameraModel.cx();
+	basecam->cy = baseCameraModel.cy();
+
+	sweepPoses.clear();
+	for (size_t i=0; i<roomData.vIntermediateRoomCloudTransformsRegistered.size(); i++){
+		sweepPoses.push_back(quasimodo_brain::getMat(roomData.vIntermediateRoomCloudTransformsRegistered[i]));
+		std::cout << "sweepPoses" << i << std::endl;
+		std::cout << sweepPoses.back() << std::endl;
+	}
+}
+
 reglib::Model * processAV(std::string path){
 	printf("processAV: %s\n",path.c_str());
 
@@ -507,6 +531,10 @@ reglib::Model * processAV(std::string path){
 	for(unsigned int i = 0; (i < sweep->frames.size()) && (sweep->frames.size() == sweepPoses.size()) ; i++){
 		sweep->frames[i]->pose	= sweep->frames.front()->pose * sweepPoses[i];
 		sweep->relativeposes[i] = sweepPoses[i];
+		if(basecam != 0){
+			delete sweep->frames[i]->camera;
+			sweep->frames[i]->camera = basecam->clone();
+		}
 	}
 
 	std::vector<reglib::RGBDFrame *> frames;
@@ -561,11 +589,11 @@ reglib::Model * processAV(std::string path){
 
 	if(frames.size() > 0){
 		reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.15);
-		bgmassreg->timeout = 20;
+		bgmassreg->timeout = 300;
 		bgmassreg->viewer = viewer;
 		bgmassreg->use_surface = true;
 		bgmassreg->use_depthedge = false;
-		bgmassreg->visualizationLvl = 0;
+		bgmassreg->visualizationLvl = visualization_lvl;
 		bgmassreg->maskstep = 5;
 		bgmassreg->nomaskstep = 5;
 		bgmassreg->nomask = true;
@@ -575,6 +603,23 @@ reglib::Model * processAV(std::string path){
 
 		reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
 		delete bgmassreg;
+
+//		reglib::MassRegistrationPPR2 * bgmassreg2 = new reglib::MassRegistrationPPR2(0.01);
+
+//		bgmassreg2->timeout = 300;
+//		bgmassreg2->viewer = viewer;
+//		bgmassreg2->use_surface = true;
+//		bgmassreg2->use_depthedge = false;
+//		bgmassreg2->visualizationLvl = visualization_lvl;
+//		bgmassreg2->maskstep = 2;
+//		bgmassreg2->nomaskstep = 2;
+//		bgmassreg2->nomask = true;
+//		bgmassreg2->stopval = 0.0005;
+//		bgmassreg2->addModel(sweep);
+//		bgmassreg2->setData(frames,masks);
+
+//		reglib::MassFusionResults bgmfr2 = bgmassreg2->getTransforms(bgmfr.poses);
+//		delete bgmassreg2;
 
 		for(unsigned int i = 0; i < frames.size(); i++){
 			frames[i]->pose = sweep->frames.front()->pose * bgmfr.poses[i+1];
@@ -593,6 +638,7 @@ reglib::Model * processAV(std::string path){
 	delete reg;
 	delete mu;
 	delete sweep;
+	delete basecam;
 
 	return fullmodel;
 }
@@ -1060,14 +1106,14 @@ void trainMetaroom(std::string path){
 	bgmassreg->viewer = viewer;
 	bgmassreg->use_surface = true;
 	bgmassreg->use_depthedge = true;
-	bgmassreg->visualizationLvl = 0;
+	bgmassreg->visualizationLvl = visualization_lvl;//0;
 	bgmassreg->maskstep = 5;
 	bgmassreg->nomaskstep = 5;
 	bgmassreg->nomask = true;
 	bgmassreg->stopval = 0.0005;
 	bgmassreg->setData(fullmodel->frames,fullmodel->modelmasks);
 	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(fullmodel->relativeposes);
-
+exit(0);
 	savePoses(overall_folder+"/"+posepath,bgmfr.poses,17);
 	fullmodel->fullDelete();
 	delete fullmodel;
@@ -1167,13 +1213,6 @@ void sendMetaroomToServer(std::string path){
 
 void sendCallback(const std_msgs::String::ConstPtr& msg){sendMetaroomToServer(msg->data);}
 
-//string waypoint_id
-//---
-//string[] object_id
-//sensor_msgs/PointCloud2[] objects
-//geometry_msgs/Point[] centroids
-
-
 bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res){
 	printf("bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res)\n");
 	std::string current_waypointid = req.waypoint_id;
@@ -1267,17 +1306,7 @@ bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObj
 }
 
 bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDynamicObjectServiceResponse &res){
-	//	string waypoint_id
-	//	string object_id
-	//	---
-	//	sensor_msgs/PointCloud2 object_cloud
-	//	int32[] object_mask
-	//	geometry_msgs/Transform transform_to_map
-	//	int32 pan_angle
-	//	int32 tilt_angle
-
 	std::string current_waypointid = req.waypoint_id;
-
 
 	if(overall_folder.back() == '/'){overall_folder.pop_back();}
 
@@ -1291,7 +1320,6 @@ bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDyn
 	}
 	if(prevind == -1){return false;}
 	std::string path = sweep_xmls[prevind];
-	//processMetaroom(path);
 
 	printf("path: %s\n",path.c_str());
 	int slash_pos = path.find_last_of("/");
@@ -1300,101 +1328,22 @@ bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDyn
 	printf("sweep_folder: %s\n",sweep_folder.c_str());
 	printf("req.object_id: %s\n",req.object_id.c_str());
 	char buf [1024];
-	//sprintf(buf,"%s/dynamic_object%10.10i.xml",sweep_folder.c_str(),atoi(req.object_id.c_str());
-	//sprintf(buf,"%s/dynamic_object%10.10i.xml",sweep_folder.c_str(),atoi(req.object_id.c_str());
 	std::string fullpath = std::string(buf);
 
-//	best_transform = roomTransform.inverse() * best_transform;
-//    const Eigen::Affine3d eigenTr(best_transform.cast<double>());
-//    tf::transformEigenToTF(eigenTr,returned_object.transform_to_map);
-//    returned_object.object_cloud = CloudPtr(new Cloud());
-//    *returned_object.object_cloud = *allClouds[best_index];
-//    //        pcl::transformPointCloud (*returned_object.object_cloud, *returned_object.object_cloud, best_transform); // transform to map frame
-
-//    returned_object.object_indices.insert(returned_object.object_indices.begin(), src_indices.begin(),src_indices.end());
-//    returned_object.object_mask = cluster_image;
-
-//    // save mask and indices
-//    if (m_bSaveMask) {
-//        // find observation folder
-//        int slash_pos = observation_xml.find_last_of("/");
-//        std::string observation_folder = observation_xml.substr(0, slash_pos);
-//        std::string mask_image = observation_folder + "/" + object_id + "_mask.jpg";
-//        cv::imwrite(mask_image, cluster_image);
-//        std::string mask_indices = observation_folder + "/" + object_id + "_mask.txt";
-//        ofstream mask_indices_os;
-//        mask_indices_os.open(mask_indices);
-//        for (int index : returned_object.object_indices){
-//            mask_indices_os << index<<" ";
-//        }
-//        mask_indices_os.close();
-//        ROS_INFO_STREAM("Object mask saved at: "<<mask_image);
-//        ROS_INFO_STREAM("Object mask indices saved at: "<<mask_indices);
-//    }
-
-//    int pan_angle = 0, tilt_angle = 0;
-//    semantic_map_registration_transforms::getPtuAnglesForIntPosition(observation.m_SweepParameters.m_pan_start, observation.m_SweepParameters.m_pan_step, observation.m_SweepParameters.m_pan_end,
-//                                                                     observation.m_SweepParameters.m_tilt_start, observation.m_SweepParameters.m_tilt_step, observation.m_SweepParameters.m_tilt_end,
-//                                                                     best_index, pan_angle, tilt_angle);
-
-//    returned_object.pan_angle = pan_angle;
-//    returned_object.tilt_angle = tilt_angle;
-
-	//    res.object_mask = object.object_indices;
-	//    tf::transformTFToMsg(object.transform_to_map, res.transform_to_map);
-	//    pcl::toROSMsg(*object.object_cloud, res.object_cloud);
-	//    res.object_cloud.header.frame_id="/map";
-	//    res.pan_angle = -object.pan_angle;
-	//    res.tilt_angle = -object.tilt_angle;
 	return true;
 }
 
-/*
-	ROS_INFO_STREAM("Received a get dynamic cluster request for waypoint "<<req.waypoint_id);
-	using namespace std;
-	std::vector<DynamicObject::Ptr> currentObjects;
-	bool objects_found = updateObjectsAtWaypoint(req.waypoint_id);
-	if (!objects_found){return true;}
+bool segmentRaresFiles(std::string path){
+	printf("bool segmentRaresFiles(%s)\n",path.c_str());
 
-	GetObjStruct object;
-	bool found =returnObjectMask(req.waypoint_id, req.object_id,m_waypointToSweepFileMap[req.waypoint_id], object);
-	if (!found){
-		ROS_ERROR_STREAM("Could not compute mask for object id "<<req.object_id);
-		return true;
+	vector<string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<PointType>(path);
+	for (auto sweep_xml : sweep_xmls) {
+		printf("sweep_xml: %s\n",sweep_xml.c_str());
+		processMetaroom(sweep_xml);
+		///reglib::Model * fullmodel = processAV(sweep_xml);
 	}
-
-	res.object_mask = object.object_indices;
-	tf::transformTFToMsg(object.transform_to_map, res.transform_to_map);
-	pcl::toROSMsg(*object.object_cloud, res.object_cloud);
-	res.object_cloud.header.frame_id="/map";
-	res.pan_angle = -object.pan_angle;
-	res.tilt_angle = -object.tilt_angle;
-
-	m_PublisherRequestedObjectCloud.publish(res.object_cloud);
-
-	// convert to sensor_msgs::Image
-	cv_bridge::CvImage aBridgeImage;
-	aBridgeImage.image = object.object_mask;
-	aBridgeImage.encoding = "bgr8";
-	sensor_msgs::ImagePtr rosImage = aBridgeImage.toImageMsg();
-	m_PublisherRequestedObjectImage.publish(rosImage);
-
-	// update tracked object
-	bool trackedUpdated = getDynamicObject(req.waypoint_id, req.object_id, m_objectTracked, m_objectTrackedObservation);
-	if (!trackedUpdated)
-	{
-		ROS_ERROR_STREAM("Could not find object for viewing");
-	} else {
-		// check if this object doesn't have any additional views -> if not, add the intermediate cloud & its transform
-		//        if (!m_objectTracked->m_vAdditionalViews.size()){
-		//            m_objectTracked->addAdditionalView(object.object_cloud);
-		//            m_objectTracked->addAdditionalViewTransform(object.transform_to_map);
-		//        }
-	}
-
-	return true;
-
-*/
+	return false;
+}
 
 bool testDynamicObjectServiceCallback(std::string path){
 	printf("bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDynamicObjectServiceResponse &res)\n");
@@ -1457,6 +1406,7 @@ int main(int argc, char** argv){
 	std::vector<std::string> trainMetarooms;
 	std::vector<std::string> sendMetaroomToServers;
 	std::vector<std::string> processMetarooms;
+	std::vector<std::string> raresfiles;
 
 	int inputstate = 0;
 	for(int i = 1; i < argc;i++){
@@ -1483,6 +1433,8 @@ int main(int argc, char** argv){
 		else if(std::string(argv[i]).compare("-DynamicObjectsService") == 0){	inputstate	= 12;}
 		else if(std::string(argv[i]).compare("-GetDynamicObjectService") == 0){	inputstate	= 13;}
 		else if(std::string(argv[i]).compare("-statusmsg") == 0){				inputstate	= 14;}
+		else if(std::string(argv[i]).compare("-files") == 0){					inputstate	= 15;}
+		else if(std::string(argv[i]).compare("-baseSweep") == 0){				inputstate	= 16;}
 		else if(std::string(argv[i]).compare("-once") == 0){					once		= true;}
 		else if(std::string(argv[i]).compare("-nobase") == 0){					baseSetting = false;}
 		else if(inputstate == 0){
@@ -1515,7 +1467,12 @@ int main(int argc, char** argv){
 			m_GetDynamicObjectServiceServers.push_back(n.advertiseService(std::string(argv[i]), getDynamicObjectServiceCallback));
 		}else if(inputstate == 14){
 			m_PublisherStatuss.push_back(n.advertise<std_msgs::String>(std::string(argv[i]), 1000));
+		}else if(inputstate == 15){
+			raresfiles.push_back(std::string(argv[i]));
+		}else if(inputstate == 16){
+			setBaseSweep(std::string(argv[i]));
 		}
+
 	}
 
 	if(baseSetting){
@@ -1554,6 +1511,7 @@ int main(int argc, char** argv){
 
 	printf("overall_folder: %s\n",overall_folder.c_str());
 
+	for(unsigned int i = 0; i < raresfiles.size(); i++){			segmentRaresFiles(		raresfiles[i]);}
 	for(unsigned int i = 0; i < trainMetarooms.size(); i++){		trainMetaroom(			trainMetarooms[i]);}
 	for(unsigned int i = 0; i < processMetarooms.size(); i++){		processMetaroom(		processMetarooms[i]);}
 	for(unsigned int i = 0; i < sendMetaroomToServers.size(); i++){	sendMetaroomToServer(	sendMetaroomToServers[i]);}

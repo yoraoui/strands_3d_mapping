@@ -119,7 +119,7 @@ void MassRegistration::show(std::vector<Eigen::MatrixXd> Xv, bool save, std::str
 				cloud->points.push_back(p);
 			}
 
-            printf("cloud->points: %i\n",cloud->points.size());
+			//printf("cloud->points: %i\n",cloud->points.size());
 
 			char buf [1024];
 			sprintf(buf,"cloud%i",xi);

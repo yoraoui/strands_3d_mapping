@@ -2,6 +2,97 @@
 
 namespace quasimodo_brain {
 
+reglib::Model * loadFromRaresFormat(std::string path){
+	reglib::Model * model = new reglib::Model();
+	reglib::Model * sweep = load_metaroom_model(path);
+
+	model->submodels.push_back(sweep);
+	model->submodels_relativeposes.push_back(Eigen::Matrix4d::Identity());
+
+
+	int slash_pos = path.find_last_of("/");
+	std::string sweep_folder = path.substr(0, slash_pos) + "/";
+	printf("folder: %s\n",sweep_folder.c_str());
+
+
+	std::vector<semantic_map_load_utilties::DynamicObjectData<pcl::PointXYZRGB>> objects = semantic_map_load_utilties::loadAllDynamicObjectsFromSingleSweep<pcl::PointXYZRGB>(sweep_folder+"room.xml");
+
+	for (auto object : objects){
+		if (!object.objectScanIndices.size()){continue;}
+
+		printf("%i %i %i\n",int(object.vAdditionalViews.size()),int(object.vAdditionalViewsTransformsRegistered.size()),int(object.vAdditionalViewsTransforms.size()));
+		for (unsigned int i = 0; i < object.vAdditionalViews.size(); i ++){
+			pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = object.vAdditionalViews[i];
+
+			cv::Mat rgb;
+			rgb.create(cloud->height,cloud->width,CV_8UC3);
+			unsigned char * rgbdata = (unsigned char *)rgb.data;
+
+			cv::Mat depth;
+			depth.create(cloud->height,cloud->width,CV_16UC1);
+			unsigned short * depthdata = (unsigned short *)depth.data;
+
+			unsigned int nr_data = cloud->height * cloud->width;
+			for(unsigned int j = 0; j < nr_data; j++){
+				pcl::PointXYZRGB p = cloud->points[j];
+				rgbdata[3*j+0]	= p.b;
+				rgbdata[3*j+1]	= p.g;
+				rgbdata[3*j+2]	= p.r;
+				depthdata[j]	= short(5000.0 * p.z);
+			}
+
+			cv::Mat fullmask;
+			fullmask.create(cloud->height,cloud->width,CV_8UC1);
+			unsigned char * maskdata = (unsigned char *)fullmask.data;
+			for(int j = 0; j < nr_data; j++){maskdata[j] = 255;}
+
+			reglib::Camera * cam		= sweep->frames.front()->camera->clone();
+
+			reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb,depth,0, getMat(object.vAdditionalViewsTransforms[i]));
+			model->frames.push_back(frame);
+			if(model->relativeposes.size() == 0){
+				model->relativeposes.push_back(Eigen::Matrix4d::Identity());//current_room_frames.front()->pose.inverse() * frame->pose);
+			}else{
+				model->relativeposes.push_back(model->frames.front()->pose.inverse() * frame->pose);
+			}
+			model->modelmasks.push_back(new reglib::ModelMask(fullmask));
+		}
+	}
+
+
+//	if(model->relativeposes.size() == 0){
+//		model->submodels_relativeposes.push_back(Eigen::Matrix4d::Identity());
+//	}else{
+//		model->submodels_relativeposes.push_back(model->relativeposes.front().inverse() * sweep->frames.front()->pose);
+//	}
+
+
+	return model;
+}
+
+std::vector<Eigen::Matrix4f> getRegisteredViewPoses(std::string poses_file, int no_transforms){
+	std::vector<Eigen::Matrix4f> toRet;
+	ifstream in(poses_file);
+	if (!in.is_open()){
+		cout<<"ERROR: cannot find poses file "<<poses_file<<endl;
+		return toRet;
+	}
+	cout<<"Loading additional view registered poses from "<<poses_file<<endl;
+
+	for (int i=0; i<no_transforms+1; i++){
+		Eigen::Matrix4f transform;
+		float temp;
+		for (size_t j=0; j<4; j++){
+			for (size_t k=0; k<4; k++){
+				in >> temp;
+				transform(j,k) = temp;
+			}
+		}
+		toRet.push_back(transform);
+	}
+	return toRet;
+}
+
 double getTime(){
 	struct timeval start1;
 	gettimeofday(&start1, NULL);

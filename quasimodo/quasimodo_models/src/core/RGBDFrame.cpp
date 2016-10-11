@@ -938,16 +938,26 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 //		cv::namedWindow( "blur", cv::WINDOW_AUTOSIZE );			cv::imshow( "blur",	blur_rgb);
 //		//cv::namedWindow( "maximas", cv::WINDOW_AUTOSIZE );			cv::imshow( "blur",	blur_rgb);
 //		cv::waitKey(0);
-//	//    cv::namedWindow( "det", cv::WINDOW_AUTOSIZE );			cv::imshow( "det",	det);
-//	//    cv::waitKey(0);
+	//    cv::namedWindow( "det", cv::WINDOW_AUTOSIZE );			cv::imshow( "det",	det);
+	//    cv::waitKey(0);
 
 
     int dilation_size = 4;
 	cv::dilate( det, det_dilate, getStructuringElement( cv::MORPH_RECT, cv::Size( 2*dilation_size + 1, 2*dilation_size+1 ), cv::Point( dilation_size, dilation_size ) ) );
 
+
+	unsigned char * det_dilatedata = (unsigned char*)det_dilate.data;
+
     depthedges.create(height,width,CV_8UC1);
     unsigned char * depthedgesdata = (unsigned char *)depthedges.data;
-    for(int i = 0; i < width*height; i++){depthedgesdata[i] = 0;}
+	for(int i = 0; i < width*height; i++){
+		//depthedgesdata[i] = 255*((dedata[3*i+1] > 0.5) || (dedata[3*i+2] > 0.5) || (cedata[3*i+1]*maxima_dxdata[i] > 0.5) || (cedata[3*i+2]*maxima_dydata[i] > 0.5));
+		depthedgesdata[i] = 255*(((cedata[3*i+1]*maxima_dxdata[i] > 0.5) || (cedata[3*i+2]*maxima_dydata[i] > 0.5)) && (det_dilatedata[i] == 0));
+		//depthedgesdata[i] = 0;
+	}
+
+	//cv::namedWindow( "depthedges", cv::WINDOW_AUTOSIZE );			cv::imshow( "depthedges",	depthedges);
+	//cv::waitKey(0);
 
 	if(verbose)
 		printf("%s::%i time: %5.5fs\n",__PRETTY_FUNCTION__,__LINE__,getTime()-startTime); startTime = getTime();

@@ -1239,9 +1239,9 @@ cv::Mat getImageFromArray(unsigned int width, unsigned int height, double * arr)
 		}
 	}
 
-	cv::namedWindow( "getImageFromArray", cv::WINDOW_AUTOSIZE );
-	cv::imshow( "getImageFromArray",m);
-	cv::waitKey(0);
+//	cv::namedWindow( "getImageFromArray", cv::WINDOW_AUTOSIZE );
+//	cv::imshow( "getImageFromArray",m);
+//	cv::waitKey(0);
 
 	return m;
 }
@@ -1634,7 +1634,7 @@ std::vector< std::vector<float> > getImageProbs(reglib::RGBDFrame * frame, int b
 
 		DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
 		func->zeromean				= true;
-		func->maxp					= 0.9999;
+		func->maxp					= 0.99999;
 		func->startreg				= 0.5;
 		func->debugg_print			= false;
 		//func->bidir					= true;
@@ -1857,9 +1857,9 @@ std::vector< std::vector<float> > getImageProbs(reglib::RGBDFrame * frame, int b
 		edgesdata[3*i+2] = dyc[i];
 	}
 
-	//	cv::namedWindow( "src", cv::WINDOW_AUTOSIZE );          cv::imshow( "src",	src);
-	//	cv::namedWindow( "edges", cv::WINDOW_AUTOSIZE );          cv::imshow( "edges",	edges);
-	//	cv::waitKey(0);
+		cv::namedWindow( "src", cv::WINDOW_AUTOSIZE );          cv::imshow( "src",	src);
+		cv::namedWindow( "edges", cv::WINDOW_AUTOSIZE );          cv::imshow( "edges",	edges);
+		cv::waitKey(0);
 
 	return probs2;
 }
@@ -2100,11 +2100,12 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	dfunc = dfuncTMP;
 	dfuncTMP->refine_mean			= true;
 	dfuncTMP->zeromean				= false;
-	//dfuncTMP->startreg				= 0.0005;
-	dfuncTMP->startreg				= 0.00001;
+	//dfuncTMP->startreg				= 0.001;
+	dfuncTMP->startreg				= 0.0000001;
 	dfuncTMP->debugg_print			= false;
 	dfuncTMP->bidir					= true;
 	//dfuncTMP->bidir					= false;
+	//dfuncTMP->maxp					= 0.9;
 	dfuncTMP->maxp					= 0.9;
 	dfuncTMP->maxd					= 0.5;
 	dfuncTMP->histogram_size		= 1000;
@@ -2155,6 +2156,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 //	printf("adding constraints\n");
 	for(unsigned int i = 0; i < frames.size(); i++){
+		printf("currently workin on frame %i\n",i);
 		int offset = offsets[i];
 		RGBDFrame * frame = frames[i];
 		startTime = getTime();
@@ -2283,7 +2285,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	printf("total_Dynw             = %5.5fs\n",		total_Dynw);
 
 
-//	printf("running inference\n");
+	printf("setup inference\n");
 
 	long interframeConnections = 0;
 	for(unsigned int i = 0; i < interframe_connectionId.size();i++){
@@ -2343,9 +2345,10 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	for(unsigned int i = 0; i < interframe_connectionId.size();i++){
 		for(unsigned int j = 0; j < interframe_connectionId[i].size();j++){
 			double weight = interframe_connectionStrength[i][j];
-			g -> add_edge( i, interframe_connectionId[i][j], weight, weight );
+			//g -> add_edge( i, interframe_connectionId[i][j], weight, weight );
 		}
 	}
+	printf("run inference\n");
 	g -> maxflow();
 
 	int dynamic_label = 1;
@@ -2468,7 +2471,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			for(unsigned int j = 0; j < interframe_connectionId[i].size();j++){
 				if(labels[interframe_connectionId[i][j]] == labels[i]){
 					double weight = interframe_connectionStrength[i][j];
-					dynamic_g -> add_edge( stat_ind[i], stat_ind[ interframe_connectionId[i][j] ], weight, weight );
+					//dynamic_g -> add_edge( stat_ind[i], stat_ind[ interframe_connectionId[i][j] ], weight, weight );
 				}
 			}
 		}
@@ -3505,9 +3508,9 @@ std::vector<cv::Mat> ModelUpdater::computeDynamicObject(reglib::Model * bg,  Eig
 		unsigned char * internaldata = (unsigned char *)(internalmask.data);
 		for(unsigned int i = 0; i < width*height;i++){internaldata[i] = 255.0*(g->what_segment(i) == gc::Graph<double,double,double>::SOURCE);}
 
-		cv::imshow( "rgb", cf[i]->rgb );
-		cv::imshow( "internalmask", internalmask );
-		cv::waitKey(30);
+//		cv::imshow( "rgb", cf[i]->rgb );
+//		cv::imshow( "internalmask", internalmask );
+//		cv::waitKey(30);
 
 		newmasks.push_back(internalmask);
 		//Time to compute external masks...

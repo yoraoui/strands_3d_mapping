@@ -534,23 +534,7 @@ void MassRegistrationPPR2::setData(std::vector<RGBDFrame*> frames_,std::vector<M
 	double total_load_time_start = getTime();
 
 	unsigned long nr_frames = frames_.size();
-//	if(arraypoints.size() > 0){
-//		for(unsigned long i = 0; i < arraypoints.size(); i++){delete[] arraypoints[i];}
-//		arraypoints.resize(0);
-//	}
-
-//	if(a3dv.size() > 0){
-//		for(unsigned long i = 0; i < a3dv.size(); i++){delete a3dv[i];}
-//		a3dv.resize(0);
-//	}
-
-//	if(trees3d.size() > 0){
-//		for(unsigned long i = 0; i < trees3d.size(); i++){delete trees3d[i];}
-//		trees3d.resize(0);
-//	}
-
 	for(unsigned long i = 0; i < nr_frames; i++){addData(frames_[i], mmasks_[i]);}
-	//printf("total load time:          %5.5f\n",getTime()-total_load_time_start);
 }
 
 double matchframes(DistanceWeightFunction2PPR2 * f, Eigen::Affine3d rp, long nr_ap, double * ap, std::vector<long > & matchid, std::vector<double> & matchdist, Tree3d * t3d, double & new_good_rematches, double & new_total_rematches){
@@ -1448,7 +1432,7 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 		}
 	}
 
-	//printf("depthedge_count: %i\n",depthedge_count);
+	printf("depthedge_count: %i\n",depthedge_count);
 	if(depthedge_count > 10){
 		double * depthedge_ap = new double[3*depthedge_count];
 		double * depthedge_ai = new double[3*depthedge_count];
@@ -3071,6 +3055,7 @@ void MassRegistrationPPR2::showEdges(std::vector<Eigen::Matrix4d> poses){
 			p.r		= b;
 			cloud->points.push_back(p);
 		}
+		printf("showEdges %i -> %i\n",i,cloud->points.size());
 	}
     if(cloud->points.size() > 0){
         viewer->removeAllPointClouds();
@@ -3135,7 +3120,6 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 			tXn(1,c)	= m10*xn + m11*yn + m12*zn;
 			tXn(2,c)	= m20*xn + m21*yn + m22*zn;
 		}
-
 	}
 
 	func->reset();
@@ -3204,7 +3188,7 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 			poses0 = poses;
 			rematch_time += getTime()-rematch_time_start;
 
-			for(long lala = 0; lala < 10; lala++){
+			for(long lala = 0; lala < 3; lala++){
 				if(visualizationLvl > 0){
 					printf("funcupdate: %i rematching: %i lala: %i\n",funcupdate,rematching,lala);
 					printf("total_time:          %5.5f\n",getTime()-total_time_start);
@@ -3247,13 +3231,8 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 
 				double computeModel_time_start = getTime();
 
-				if(use_surface){
-					func->computeModel(all_residuals);
-				}
-
-				if(use_depthedge){
-					depthedge_func->computeModel(depthedge_all_residuals);
-				}
+				if(use_surface){	func->computeModel(all_residuals);}
+				if(use_depthedge){	depthedge_func->computeModel(depthedge_all_residuals);}
 
 				//printf("surface reg: %5.5f noise: %5.5f\n",func->regularization,func->noiseval);
 				//printf("edge:   reg: %5.5f noise: %5.5f\n",depthedge_func->regularization,depthedge_func->noiseval);

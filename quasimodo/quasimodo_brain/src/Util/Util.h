@@ -31,12 +31,16 @@
 #include "core/RGBDFrame.h"
 
 #include "metaroom_xml_parser/simple_xml_parser.h"
+#include <metaroom_xml_parser/load_utilities.h>
 
 #include <ros/ros.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl/point_types.h>
 
 namespace quasimodo_brain {
+
+std::vector<Eigen::Matrix4f> getRegisteredViewPosesFromFile(std::string poses_file, int no_transforms);
+reglib::Model * loadFromRaresFormat(std::string path);
 
 double getTime();
 reglib::Model * getModelFromMSG(quasimodo_msgs::model & msg);
