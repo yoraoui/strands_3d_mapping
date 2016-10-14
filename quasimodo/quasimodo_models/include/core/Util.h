@@ -71,9 +71,27 @@ float recursive_split(std::vector<Graph*> * graphs_out,std::vector<std::vector<i
 std::vector<int> partition_graph(std::vector< std::vector< float > > & scores);
 
 inline double getNoise(double depth){return depth*depth;}
+
 inline double getInformation(double depth){
 	double n = getNoise(depth);
 	return 1.0/(n*n);
+}
+
+inline double getNoise(double n1, double n2){
+	double info1 = 1.0/(n1*n1);
+	double info2 = 1.0/(n2*n2);
+	double info3 = info1+info2;
+	return sqrt(1.0/info3);
+}
+
+inline double getNoiseFromInformation(double info1, double info2){
+	double info3 = info1+info2;
+	return sqrt(1.0/info3);
+}
+
+inline double getNoiseFromInformation(double info){
+	double cov = 1/info;
+	return sqrt(cov);
 }
 
 pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr getPointCloudFromVector(std::vector<superpoint> & spvec, int colortype = 0, int r = -1, int g = -1, int b = -1);

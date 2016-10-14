@@ -12,6 +12,7 @@ class ReprojectionResult{
 	unsigned long	dst_ind;
 	double			angle;
 	double			residualZ;
+	double			residualE2;
 	double			residualR;
 	double			residualG;
 	double			residualB;
@@ -20,7 +21,7 @@ class ReprojectionResult{
 	double noiseRGB;
 
 	ReprojectionResult();
-	ReprojectionResult(unsigned long si, unsigned long di, double rz, double a, double rr, double rg, double rb, double nz, double nrgb);
+	ReprojectionResult(unsigned long si, unsigned long di, double rz, double rE2, double a, double rr, double rg, double rb, double nz, double nrgb);
 	~ReprojectionResult();
 	void print();
 };

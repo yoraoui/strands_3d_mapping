@@ -164,16 +164,16 @@ void remove_old_seg(std::string sweep_folder){
 				std::remove((sweep_folder+"/"+file).c_str());
 			}
 
-//			if (file.find("_object_") !=std::string::npos && file.find(".xml") !=std::string::npos){
-//				printf ("removing %s\n", ent->d_name);
-//				std::remove((sweep_folder+"/"+file).c_str());
-//			}
-//			if (file.find("_object_") !=std::string::npos && file.find(".pcd") !=std::string::npos){
-//				printf ("maybe: removing %s\n", ent->d_name);
-//				printf("%i\n",file.find("_additional_view_") == std::string::npos);
-//				//file.find("_additional_view_") == std::string::npos;
-//				//std::remove((sweep_folder+"/"+file).c_str());
-//			}
+			//			if (file.find("_object_") !=std::string::npos && file.find(".xml") !=std::string::npos){
+			//				printf ("removing %s\n", ent->d_name);
+			//				std::remove((sweep_folder+"/"+file).c_str());
+			//			}
+			//			if (file.find("_object_") !=std::string::npos && file.find(".pcd") !=std::string::npos){
+			//				printf ("maybe: removing %s\n", ent->d_name);
+			//				printf("%i\n",file.find("_additional_view_") == std::string::npos);
+			//				//file.find("_additional_view_") == std::string::npos;
+			//				//std::remove((sweep_folder+"/"+file).c_str());
+			//			}
 		}
 		closedir (dir);
 	}
@@ -471,7 +471,7 @@ void setBaseSweep(std::string path){
 	printf("setBaseSweep(%s)\n",path.c_str());
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(path);//, std::vector<std::string>(),false,false);
-printf("loaded room data\n");
+	printf("loaded room data\n");
 	image_geometry::PinholeCameraModel baseCameraModel = roomData.vIntermediateRoomCloudCamParamsCorrected.front();
 	if(basecam != 0){delete basecam;}
 	basecam		= new reglib::Camera();
@@ -544,7 +544,7 @@ reglib::Model * processAV(std::string path){
 	std::vector<Eigen::Matrix4d> both_unrefined;
 	both_unrefined.push_back(Eigen::Matrix4d::Identity());
 	std::vector<double> times;
-	for(unsigned int i = 0; i < viewrgbs.size(); i++){
+	for(unsigned int i = 0; i < 3 &&  i < viewrgbs.size(); i++){
 		printf("additional view: %i\n",i);
 		geometry_msgs::TransformStamped msg;
 		tf::transformStampedTFToMsg(viewtfs[i], msg);
@@ -568,6 +568,102 @@ reglib::Model * processAV(std::string path){
 		reglib::Camera * cam		= sweep->frames.front()->camera->clone();
 		reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],time, m);//a.matrix());
 		frames.push_back(frame);
+
+		//Visualize edges...
+		viewer->removeAllPointClouds();
+		viewer->removeAllShapes();
+		std::vector< std::vector<float> > probs = frame->getImageProbs();
+		unsigned char * det_dilatedata = frame->det_dilate.data;
+
+		// printf("saving pcd: %s\n",path.c_str());
+		unsigned char * rgbdata = (unsigned char *)(frame->rgb.data);
+		unsigned short * depthdata = (unsigned short *)(frame->depth.data);
+
+		const unsigned int width	= frame->camera->width;
+		const unsigned int height	= frame->camera->height;
+		const double idepth			= frame->camera->idepth_scale;
+		const double cx				= frame->camera->cx;
+		const double cy				= frame->camera->cy;
+		const double ifx			= 1.0/frame->camera->fx;
+		const double ify			= 1.0/frame->camera->fy;
+
+		pcl::PointCloud<pcl::PointXYZRGB>::Ptr	cloud	(new pcl::PointCloud<pcl::PointXYZRGB>);
+		cloud->width	= width;
+		cloud->height	= height;
+		cloud->points.resize(width*height);
+
+		for(unsigned int w = 0; w < width; w++){
+			for(unsigned int h = 0; h < height;h++){
+				int ind = h*width+w;
+				double z = idepth*double(depthdata[ind]);
+
+				if(z > 0){
+					pcl::PointXYZRGB p;
+					p.x = (double(w) - cx) * z * ifx;
+					p.y = (double(h) - cy) * z * ify;
+					p.z = z;
+					p.b = 0;//rgbdata[3*ind+0];
+					p.g = 0;//rgbdata[3*ind+1];
+					p.r = 0;//rgbdata[3*ind+2];
+					cloud->points[ind] = p;
+				}
+			}
+		}
+viewer->addPointCloud<pcl::PointXYZRGB> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cloud), "cloud");
+
+		for(unsigned int w = 1; w < width; w++){
+			for(unsigned int h = 1; h < height;h++){
+				int ind = h*width+w;
+				pcl::PointXYZRGB & p = cloud->points[ind];
+				if(p.z > 1.5 || p.z == 0){
+					p.r = 0;
+					p.g = 0;
+					p.b = 0;
+				}else{
+					if(det_dilatedata[ind]){
+						float px = 1.0-probs[0][ind];
+						float py = 1.0-probs[1][ind];
+						char buf [1024];
+
+						{
+
+							pcl::PointXYZRGB p1 = cloud->points[ind-1];
+							double d = sqrt(pow(p.x-p1.x,2)+pow(p.y-p1.y,2)+pow(p.z-p1.z,2));
+							if(d > 0.2 && px > 0.5){
+							printf("%i , %i :: %i -> %i\n",w,h,ind,ind-1);
+							sprintf(buf,"lineX_%i",ind);
+							viewer->addLine<pcl::PointXYZRGB>(p,p1,px,0,0,buf);
+							viewer->spin();
+							}
+						}
+//						{
+//							pcl::PointXYZRGB p1 = cloud->points[ind-width];
+//							sprintf(buf,"lineY_%i",ind);
+//							viewer->addLine<pcl::PointXYZRGB>(p,p1,0,1,0,buf);
+//						}
+
+						//					if(px > 0.1){
+						//						pcl::PointXYZRGB p1 = cloud->points[ind-1];
+						//						p1 = p; p1.x *= 1.1; p1.y *= 1.1; p1.z *= 1.1;
+						//						//if(p1.z < 0.1){p1 = p; p1.x *= 1.1; p1.y *= 1.1; p1.z *= 1.1;}
+
+						//						sprintf(buf,"lineX_%i",ind);
+						//						viewer->addLine<pcl::PointXYZRGB>(p,p1,1,0,0,buf);
+						//					}
+						//					if(py > 0.1){
+						//						pcl::PointXYZRGB p1 = cloud->points[ind-width];
+						//						p1 = p; p1.x *= 1.1; p1.y *= 1.1; p1.z *= 1.1;
+						//						//if(p1.z < 0.1){p1 = p; p1.x *= 1.1; p1.y *= 1.1; p1.z *= 1.1;}
+						//						sprintf(buf,"lineY_%i",ind);
+						//						viewer->addLine<pcl::PointXYZRGB>(p,p1,0,1,0,buf);
+						//					}
+					}
+				}
+			}
+		}
+
+
+		viewer->spin();
 
 		//both_unrefined.push_back(sweep->frames.front()->pose.inverse()*a.matrix());
 		both_unrefined.push_back(sweep->frames.front()->pose.inverse()*m);
@@ -593,7 +689,7 @@ reglib::Model * processAV(std::string path){
 		bgmassreg->viewer = viewer;
 		bgmassreg->use_surface = true;
 		bgmassreg->use_depthedge = false;
-		bgmassreg->visualizationLvl = visualization_lvl;
+		bgmassreg->visualizationLvl = 0;//visualization_lvl;
 		bgmassreg->maskstep = 5;
 		bgmassreg->nomaskstep = 5;
 		bgmassreg->nomask = true;
@@ -604,22 +700,22 @@ reglib::Model * processAV(std::string path){
 		reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
 		delete bgmassreg;
 
-//		reglib::MassRegistrationPPR2 * bgmassreg2 = new reglib::MassRegistrationPPR2(0.01);
+		//		reglib::MassRegistrationPPR2 * bgmassreg2 = new reglib::MassRegistrationPPR2(0.01);
 
-//		bgmassreg2->timeout = 300;
-//		bgmassreg2->viewer = viewer;
-//		bgmassreg2->use_surface = true;
-//		bgmassreg2->use_depthedge = false;
-//		bgmassreg2->visualizationLvl = visualization_lvl;
-//		bgmassreg2->maskstep = 2;
-//		bgmassreg2->nomaskstep = 2;
-//		bgmassreg2->nomask = true;
-//		bgmassreg2->stopval = 0.0005;
-//		bgmassreg2->addModel(sweep);
-//		bgmassreg2->setData(frames,masks);
+		//		bgmassreg2->timeout = 300;
+		//		bgmassreg2->viewer = viewer;
+		//		bgmassreg2->use_surface = true;
+		//		bgmassreg2->use_depthedge = false;
+		//		bgmassreg2->visualizationLvl = visualization_lvl;
+		//		bgmassreg2->maskstep = 2;
+		//		bgmassreg2->nomaskstep = 2;
+		//		bgmassreg2->nomask = true;
+		//		bgmassreg2->stopval = 0.0005;
+		//		bgmassreg2->addModel(sweep);
+		//		bgmassreg2->setData(frames,masks);
 
-//		reglib::MassFusionResults bgmfr2 = bgmassreg2->getTransforms(bgmfr.poses);
-//		delete bgmassreg2;
+		//		reglib::MassFusionResults bgmfr2 = bgmassreg2->getTransforms(bgmfr.poses);
+		//		delete bgmassreg2;
 
 		for(unsigned int i = 0; i < frames.size(); i++){
 			frames[i]->pose = sweep->frames.front()->pose * bgmfr.poses[i+1];
@@ -717,8 +813,8 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 	int returnval = 0;
 	printf("processing: %s\n",path.c_str());
 
-//	testDynamicObjectServiceCallback(path);
-//	exit(0);
+	//	testDynamicObjectServiceCallback(path);
+	//	exit(0);
 
 	if ( ! boost::filesystem::exists( path ) ){return 0;}
 
@@ -747,10 +843,10 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData current_roomData  = parser.loadRoomFromXML(path);
 
-//	SemanticRoom<PointType> observation = SemanticRoomXMLParser<PointType>::loadRoomFromXML(path,false);
-//	Eigen::Matrix4f roomTransform = observation.getRoomTransform();
-//	printf("roomTransform\n");
-//	std::cout << roomTransform << std::endl;
+	//	SemanticRoom<PointType> observation = SemanticRoomXMLParser<PointType>::loadRoomFromXML(path,false);
+	//	Eigen::Matrix4f roomTransform = observation.getRoomTransform();
+	//	printf("roomTransform\n");
+	//	std::cout << roomTransform << std::endl;
 
 	DynamicObjectXMLParser objectparser(sweep_folder, true);
 
@@ -921,8 +1017,8 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 					pcl::io::savePCDFileBinaryCompressed(std::string(buf),*cloud_cluster);
 
 
-//					std::string objectpcd = std::string(buf);//object.substr(0,object.size()-4);
-//					std::cout << objectpcd.substr(0,objectpcd.size()-4) << std::endl;
+					//					std::string objectpcd = std::string(buf);//object.substr(0,object.size()-4);
+					//					std::cout << objectpcd.substr(0,objectpcd.size()-4) << std::endl;
 
 					sprintf(buf,"%s/dynamic_obj%10.10i.xml",sweep_folder.c_str(),dynamicCounter-1);
 					QFile file(buf);
@@ -934,6 +1030,7 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 					xmlWriter->writeStartDocument();
 					xmlWriter->writeStartElement("Object");
 					xmlWriter->writeAttribute("object_number", QString::number(dynamicCounter-1));
+					xmlWriter->writeAttribute("label", QString(""));
 					xmlWriter->writeStartElement("Mean");
 					xmlWriter->writeAttribute("x", QString::number(sumx/sum));
 					xmlWriter->writeAttribute("y", QString::number(sumy/sum));
@@ -1040,6 +1137,7 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 					xmlWriter->writeStartDocument();
 					xmlWriter->writeStartElement("Object");
 					xmlWriter->writeAttribute("object_number", QString::number(movingCounter-1));
+					xmlWriter->writeAttribute("label", QString(""));
 					xmlWriter->writeStartElement("Mean");
 					xmlWriter->writeAttribute("x", QString::number(sumx/sum));
 					xmlWriter->writeAttribute("y", QString::number(sumy/sum));
@@ -1113,7 +1211,7 @@ void trainMetaroom(std::string path){
 	bgmassreg->stopval = 0.0005;
 	bgmassreg->setData(fullmodel->frames,fullmodel->modelmasks);
 	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(fullmodel->relativeposes);
-exit(0);
+	exit(0);
 	savePoses(overall_folder+"/"+posepath,bgmfr.poses,17);
 	fullmodel->fullDelete();
 	delete fullmodel;
@@ -1500,13 +1598,13 @@ int main(int argc, char** argv){
 			roomObservationSubs.push_back(n.subscribe("/local_metric_map/room_observations", 1000, roomObservationCallback));
 		}
 
-//		if(m_DynamicObjectsServiceServers.size() == 0){
-//			m_DynamicObjectsServiceServers.push_back(n.advertiseService("/object_manager_node/ObjectManager/DynamicObjectsService", dynamicObjectsServiceCallback));
-//		}
+		//		if(m_DynamicObjectsServiceServers.size() == 0){
+		//			m_DynamicObjectsServiceServers.push_back(n.advertiseService("/object_manager_node/ObjectManager/DynamicObjectsService", dynamicObjectsServiceCallback));
+		//		}
 
-//		if(m_GetDynamicObjectServiceServers.size() == 0){
-//			m_GetDynamicObjectServiceServers.push_back(n.advertiseService("/object_manager_node/ObjectManager/GetDynamicObjectService", getDynamicObjectServiceCallback));
-//		}
+		//		if(m_GetDynamicObjectServiceServers.size() == 0){
+		//			m_GetDynamicObjectServiceServers.push_back(n.advertiseService("/object_manager_node/ObjectManager/GetDynamicObjectService", getDynamicObjectServiceCallback));
+		//		}
 	}
 
 	printf("overall_folder: %s\n",overall_folder.c_str());

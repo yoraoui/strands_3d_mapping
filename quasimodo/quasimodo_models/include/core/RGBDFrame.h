@@ -67,7 +67,7 @@ namespace reglib
 
 		std::vector<superpoint> getSuperPoints(Eigen::Matrix4d cp = Eigen::Matrix4d::Identity(), unsigned int step = 1, bool zeroinclude = true);
 
-		std::vector< std::vector<float> > getImageProbs();
+		std::vector< std::vector<float> > getImageProbs(bool depthonly = false);
 	};
 }
 
