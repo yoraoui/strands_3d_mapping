@@ -53,6 +53,18 @@ namespace reglib{
 		return double(start1.tv_sec+(start1.tv_usec/1000000.0));
 	}
 
+	void pn(double p, unsigned int len){
+		char buf1 [64];
+		if(p >= 0){
+			sprintf(buf1,"  %i.%if",len,len);
+			buf1[1] = '%';
+		}else{
+			sprintf(buf1," %i.%if",len,len);
+			buf1[0] = '%';
+		}
+		printf(buf1,p);
+	}
+
 	float graph_cut(std::vector<Graph*>& graphs_out,std::vector<std::vector<int>>& second_graphinds, Graph& graph_in, std::vector<int> graph_inds){
 		using adjacency_iterator = boost::graph_traits<Graph>::adjacency_iterator;
 		typename boost::property_map<Graph, boost::vertex_index_t>::type vertex_id		= boost::get(boost::vertex_index, graph_in);

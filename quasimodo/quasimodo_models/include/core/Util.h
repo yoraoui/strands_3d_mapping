@@ -62,6 +62,8 @@ using Components = boost::component_index<VertexIndex>;
 namespace reglib
 {
 
+void pn(double p, unsigned int len = 3);
+
 
 
 float graph_cut(std::vector<Graph*>& graphs_out,std::vector<std::vector<int>>& second_graphinds, Graph& graph_in, std::vector<int> graph_inds);

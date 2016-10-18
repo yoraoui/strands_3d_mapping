@@ -134,10 +134,13 @@ add_executable(			segmentationserver src/segmentationserver.cpp)
 add_dependencies(		segmentationserver roscpp quasimodo_msgs_generate_messages_cpp)
 target_link_libraries(	segmentationserver quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
-
 add_executable(			metaroom_additional_view_processing src/metaroom_additional_view_processing.cpp)
 add_dependencies(		metaroom_additional_view_processing roscpp quasimodo_msgs_generate_messages_cpp object_manager_msgs_generate_messages_cpp semantic_map_msgs_generate_messages_cpp)
 target_link_libraries(	metaroom_additional_view_processing quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+
+add_executable(			AnnotationTool src/AnnotationTool.cpp)
+add_dependencies(		AnnotationTool roscpp quasimodo_msgs_generate_messages_cpp object_manager_msgs_generate_messages_cpp semantic_map_msgs_generate_messages_cpp)
+target_link_libraries(	AnnotationTool quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
 
 #############

@@ -1906,7 +1906,7 @@ std::vector<int> doInference(std::vector<double> & prior, std::vector< std::vect
 
 	return labels;
 }
-
+/*
 void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & dvec, std::vector<double> & nvec, DistanceWeightFunction2 * dfunc, DistanceWeightFunction2 * nfunc, Matrix4d p, RGBDFrame* frame1, double * overlaps, double * occlusions, RGBDFrame* frame2,  int offset1, int offset2, std::vector< std::vector<int> > & interframe_connectionId, std::vector< std::vector<float> > & interframe_connectionStrength, double debugg){
 	std::vector<superpoint> framesp1_test		= frame1->getSuperPoints(Eigen::Matrix4d::Identity(),10,false);
 	std::vector<ReprojectionResult> rr_vec_test	= frame2->getReprojections(framesp1_test,p,0,false);
@@ -2033,6 +2033,163 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 		viewer->spin();
 	}
 }
+*/
+
+void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & dvec, std::vector<double> & nvec, DistanceWeightFunction2 * dfunc, DistanceWeightFunction2 * nfunc, Matrix4d p, RGBDFrame* frame1, double * overlaps, double * occlusions, double * notocclusions, RGBDFrame* frame2,  int offset1, int offset2, std::vector< std::vector<int> > & interframe_connectionId, std::vector< std::vector<float> > & interframe_connectionStrength, double debugg){
+	std::vector<superpoint> framesp1_test		= frame1->getSuperPoints(Eigen::Matrix4d::Identity(),10,false);
+	std::vector<ReprojectionResult> rr_vec_test	= frame2->getReprojections(framesp1_test,p,0,false);
+
+	double inlierratio = double(rr_vec_test.size())/double(framesp1_test.size());
+
+	if( inlierratio < 0.01 ){return ;}
+	std::vector<superpoint> framesp1		= frame1->getSuperPoints();
+	std::vector<superpoint> framesp2		= frame2->getSuperPoints();//p);
+
+	getDynamicWeights(store_distance,dvec,nvec,dfunc,nfunc,p,frame1,framesp1_test,framesp1,overlaps,occlusions,notocclusions,frame2,framesp2,offset1,offset2,interframe_connectionId, interframe_connectionStrength, debugg);
+}
+
+void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & dvec, std::vector<double> & nvec, DistanceWeightFunction2 * dfunc, DistanceWeightFunction2 * nfunc, Matrix4d p, RGBDFrame* frame1, std::vector<superpoint> & tframesp1_test, std::vector<superpoint> & tframesp1, double * overlaps, double * occlusions, double * notocclusions, RGBDFrame* frame2, std::vector<superpoint> & tframesp2,  int offset1, int offset2, std::vector< std::vector<int> > & interframe_connectionId, std::vector< std::vector<float> > & interframe_connectionStrength, double debugg){
+	double totalstartTime = getTime();
+
+	std::string currentString;
+	double startTime;
+	startTime = getTime();
+	unsigned char * src_detdata = (unsigned char*)(frame1->det_dilate.data);
+	unsigned char * dst_detdata = (unsigned char*)(frame2->det_dilate.data);
+
+	std::vector<superpoint> & framesp1_test		= tframesp1_test;//frame1->getSuperPoints(Eigen::Matrix4d::Identity(),10,false);
+	std::vector<ReprojectionResult> rr_vec_test	= frame2->getReprojections(framesp1_test,p,0,false);
+	double inlierratio = double(rr_vec_test.size())/double(framesp1_test.size());
+
+	currentString = "part1";
+	if(benchtime.count(currentString) == 0){benchtime[currentString] = 0;}
+	benchtime[currentString] += getTime() - startTime;
+	startTime = getTime();
+
+	if( inlierratio < 0.01 ){return ;}
+
+	std::vector<superpoint> & framesp1		= tframesp1;//frame1->getSuperPoints();
+	std::vector<superpoint> & framesp2		= tframesp2;//frame2->getSuperPoints();
+
+	currentString = "part2";
+	if(benchtime.count(currentString) == 0){benchtime[currentString] = 0;}
+	benchtime[currentString] += getTime() - startTime;
+	startTime = getTime();
+
+	std::vector<ReprojectionResult> rr_vec	= frame2->getReprojections(framesp1,p,0,false);
+	inlierratio = double(rr_vec.size())/double(framesp1.size());
+	unsigned long nr_rr = rr_vec.size();
+
+	currentString = "part3";
+	if(benchtime.count(currentString) == 0){benchtime[currentString] = 0;}
+	benchtime[currentString] += getTime() - startTime;
+	startTime = getTime();
+
+	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr src_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dst_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+	if(debugg){
+		src_cloud = getPointCloudFromVector(framesp1,3,255,0,255);
+		dst_cloud = getPointCloudFromVector(framesp2,3,0,0,255);
+	}
+
+	double threshold = 0;
+	if(!store_distance){
+		threshold = pow(20.0*dfunc->getNoise(),2);
+	}
+
+	int totsum = 0;
+	for(unsigned long ind = 0; ind < nr_rr;ind++){
+		ReprojectionResult & rr = rr_vec[ind];
+		unsigned int src_ind = rr.src_ind;
+		superpoint & src_p = framesp1[src_ind];
+		if(src_p.point(2) < 0.0){continue;}
+
+		totsum++;
+		unsigned int dst_ind = rr.dst_ind;
+		superpoint & dst_p = framesp2[dst_ind];
+		double src_variance = 1.0/src_p.point_information;
+		double dst_variance = 1.0/dst_p.point_information;
+		double total_variance = src_variance+dst_variance;
+		double total_stdiv = sqrt(total_variance);
+		double d = rr.residualZ/total_stdiv;
+		double surface_angle = rr.angle;
+		if(store_distance){
+			dvec.push_back(d);
+			nvec.push_back(1-surface_angle);
+		}else{
+			double dE2 = rr.residualE2/total_stdiv;
+			double p_overlap_angle = nfunc->getProb(1-surface_angle);
+			double p_overlap = dfunc->getProb(d);
+			double p_occlusion = dfunc->getProbInfront(d);//std::max(1 - 1e-6,std::max(1e-6,dfunc->getProbInfront(d)));
+
+			p_overlap *= p_overlap_angle;
+
+			if(p_overlap > 0.001 && offset1 >= 0 && offset2 >= 0 && dE2 < threshold){
+				interframe_connectionId[offset1+src_ind].push_back(offset2+dst_ind);
+				interframe_connectionStrength[offset1+src_ind].push_back(-log(1-p_overlap));
+			}
+
+			if(debugg){
+				src_cloud->points[src_ind].r = 255.0 * p_overlap;
+				src_cloud->points[src_ind].g = 255.0 * p_occlusion;
+				src_cloud->points[src_ind].b = 0;
+			}
+
+			if(dst_detdata[dst_ind] != 0){continue;}
+			if(src_detdata[src_ind] != 0){continue;}
+
+			overlaps[src_ind] = std::min(0.9,std::max(overlaps[src_ind],p_overlap));
+			//double prev = 1.0-occlusions[src_ind];
+			occlusions[src_ind] += p_occlusion;//std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
+			notocclusions[src_ind]++;
+			//notocclusions[src_ind] *= 1.0-p_occlusion;//std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
+
+
+			//occlusions[src_ind] *= p_occlusion;//std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
+			//notocclusions[src_ind] *= 1.0-p_occlusion;//std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
+		}
+	}
+	currentString = "part4";
+	if(benchtime.count(currentString) == 0){benchtime[currentString] = 0;}
+	benchtime[currentString] += getTime() - startTime;
+	startTime = getTime();
+
+	currentString = "total_getDyn";
+	if(benchtime.count(currentString) == 0){benchtime[currentString] = 0;}
+	benchtime[currentString] += getTime() - totalstartTime;
+	startTime = getTime();
+
+	if(false && !store_distance){
+		cv::Mat overlapsimg;
+		overlapsimg.create(frame1->camera->height,frame1->camera->width,CV_32FC3);
+		float * overlapsimgdata = (float*)overlapsimg.data;
+		cv::Mat occlusionsimg;
+		occlusionsimg.create(frame1->camera->height,frame1->camera->width,CV_32FC3);
+		float * occlusionsimgdata = (float*)occlusionsimg.data;
+		for(unsigned long ind = 0; ind < frame1->camera->height*frame1->camera->width;ind++){
+			overlapsimgdata[3*ind+0] = overlaps[ind];
+			overlapsimgdata[3*ind+1] = overlaps[ind];
+			overlapsimgdata[3*ind+2] = overlaps[ind];
+
+			occlusionsimgdata[3*ind+0] = occlusions[ind]/std::max(1.0,notocclusions[ind]);
+			occlusionsimgdata[3*ind+1] = occlusionsimgdata[3*ind+0];
+			occlusionsimgdata[3*ind+2] = occlusionsimgdata[3*ind+0];
+		}
+		cv::namedWindow( "rgb",				cv::WINDOW_AUTOSIZE );	cv::imshow( "rgb",			frame1->rgb );
+		cv::namedWindow( "occlusionsimg",	cv::WINDOW_AUTOSIZE );	cv::imshow( "occlusionsimg",occlusionsimg );
+		cv::namedWindow( "overlapsimg",		cv::WINDOW_AUTOSIZE );	cv::imshow( "overlapsimg",	overlapsimg );
+		cv::waitKey(0);
+	}
+
+	if(debugg && totsum > 0){
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr src_cloud = getPointCloudFromVector(framesp1,3,255,0,255);
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dst_cloud = getPointCloudFromVector(framesp2,3,0,0,255);
+		viewer->removeAllPointClouds();
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (src_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(src_cloud), "scloud");
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (dst_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dst_cloud), "dcloud");
+		viewer->spin();
+	}
+}
 
 void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, std::vector<cv::Mat> & dynmask, vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Matrix4d> poses, vector<RGBDFrame*> frames, bool debugg){
 	double computeMovingDynamicStatic_startTime = getTime();
@@ -2047,6 +2204,9 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		unsigned int nr_pixels = frames[i]->camera->width * frames[i]->camera->height;
 		tot_nr_pixels += nr_pixels;
 	}
+
+	std::vector<unsigned char> labels;
+	labels.resize(tot_nr_pixels);
 
 	//Graph...
 	std::vector< std::vector<int> > interframe_connectionId;
@@ -2089,7 +2249,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			if(i == j){continue;}
 			Eigen::Matrix4d p = poses[i].inverse() * poses[j];
 			std::vector<superpoint> & framesp2 = framesp[j];
-			getDynamicWeights(true,dvec,nvec,dfunc,nfunc,p.inverse(),frames[i],framesp1_test,framesp1, 0, 0, frames[j],framesp2,offsets[i],offsets[j],interframe_connectionId,interframe_connectionStrength,false);
+			getDynamicWeights(true,dvec,nvec,dfunc,nfunc,p.inverse(),frames[i],framesp1_test,framesp1, 0, 0, 0, frames[j],framesp2,offsets[i],offsets[j],interframe_connectionId,interframe_connectionStrength,false);
 		}
 	}
 
@@ -2181,57 +2341,101 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		unsigned int nr_pixels = width * height;
 		double * current_overlaps	= new double[nr_pixels];
 		double * current_occlusions		= new double[nr_pixels];
+		double * current_notocclusions		= new double[nr_pixels];
 		for(unsigned int j = 0; j < nr_pixels; j++){
 			current_overlaps[j] = 0;
-			current_occlusions[j] = 0;
+			current_occlusions[j] = 0.0;
+			current_notocclusions[j] = 0.0;
 		}
 
 		double * bg_overlaps	= new double[nr_pixels];
 		double * bg_occlusions		= new double[nr_pixels];
+		double * bg_notocclusions		= new double[nr_pixels];
 		for(unsigned int j = 0; j < nr_pixels; j++){
-			bg_overlaps[j] = 0;
-			bg_occlusions[j] = 0;
+			bg_overlaps[j]	= 0;
+			bg_occlusions[j] = 0.0;
+			bg_notocclusions[j] = 0.0;
 		}
 		total_alloctime += getTime()-startTime;
 
 		startTime = getTime();
+		printf("current\n");
 		for(unsigned int j = 0; j < frames.size(); j++){
 			if(i == j){continue;}
 			Eigen::Matrix4d p = poses[i].inverse() * poses[j];
-			getDynamicWeights(false,dvec,nvec,dfunc,nfunc,p.inverse(),frames[i],framesp_test[i],framesp[i], current_overlaps, current_occlusions, frames[j],framesp[j],offsets[i],offsets[j],interframe_connectionId,interframe_connectionStrength,false);
+			getDynamicWeights(false,dvec,nvec,dfunc,nfunc,p.inverse(),frames[i],framesp_test[i],framesp[i], current_overlaps, current_occlusions, current_notocclusions, frames[j],framesp[j],offsets[i],offsets[j],interframe_connectionId,interframe_connectionStrength,false);
 		}
 
+		printf("background\n");
 		for(unsigned int j = 0; j < bgcf.size(); j++){
 			Eigen::Matrix4d p = poses[i].inverse() * bgcp[j];
-			getDynamicWeights(false,dvec,nvec,dfunc,nfunc,p.inverse(),frames[i],framesp_test[i],framesp[i], bg_overlaps, bg_occlusions, bgcf[j],bgsp[j],-1,-1,interframe_connectionId,interframe_connectionStrength,false);
+			getDynamicWeights(false,dvec,nvec,dfunc,nfunc,p.inverse(),frames[i],framesp_test[i],framesp[i], bg_overlaps, bg_occlusions, bg_notocclusions, bgcf[j],bgsp[j],-1,-1,interframe_connectionId,interframe_connectionStrength,false);
 		}
+
+		for(unsigned int j = 0; j < nr_pixels; j++){
+			bg_occlusions[j]		= std::min(0.99,bg_occlusions[j]/std::max(1.0,bg_notocclusions[j]));
+			current_occlusions[j]	= std::min(0.99,current_occlusions[j]/std::max(1.0,current_notocclusions[j]));
+			//bg_occlusions[j]		= bg_occlusions[j]		/bg_notocclusions[j];
+			//current_occlusions[j]	= current_occlusions[j]	/current_notocclusions[j];
+		}
+
+//		for(unsigned int j = 0; j < nr_pixels; j++){
+//			bg_occlusions[j]		= bg_occlusions[j]		/(bg_occlusions[j]		+bg_notocclusions[j]);
+//			current_occlusions[j]	= current_occlusions[j]	/(current_occlusions[j]	+current_notocclusions[j]);
+//		}
 		total_Dynw += getTime()-startTime;
 
+		cv::Mat priorsimg;
+		priorsimg.create(height,width,CV_32FC3);
+		float * priorsdata = (float*)priorsimg.data;
+		//for(int i = 0; i < 3*nr_pixels; i++){priorsdata[i] = priors[3*offset+i];}
 
 		startTime = getTime();
 		unsigned char * detdata = (unsigned char*)(frame->det_dilate.data);
-		float minprob = 0.01;
+		float bias = 0.01;
 		for(unsigned int h = 0; h < height;h++){
 			for(unsigned int w = 0; w < width;w++){
 				int ind = h*width+w;
 
 				valids[offset+ind] = detdata[ind] == 0;
+				if(valids[offset+ind]){
+					float p_moving  = current_occlusions[ind];
+					float p_dynamic  =     std::max((bg_occlusions[ind]-p_moving)*current_overlaps[ind],0.0);
+					p_dynamic       += 0.5*std::max((bg_occlusions[ind]-p_moving)*(1-current_overlaps[ind]),0.0);
+					p_moving        += 0.5*std::max((bg_occlusions[ind]-p_moving)*(1-current_overlaps[ind]),0.0);
 
-				float p_moving  = current_occlusions[ind];
-				float p_dynamic  =     std::max((bg_occlusions[ind]-p_moving)*current_overlaps[ind],0.0);
-				p_dynamic       += 0.5*std::max((bg_occlusions[ind]-p_moving)*(1-current_overlaps[ind]),0.0);
-				p_moving        += 0.5*std::max((bg_occlusions[ind]-p_moving)*(1-current_overlaps[ind]),0.0);
+					float p_static  = std::max(bg_overlaps[ind]-p_moving-p_dynamic,0.0);
+					float leftover = 1-p_moving-p_dynamic-p_static;
 
-				float p_static  = std::max(bg_overlaps[ind]-p_moving-p_dynamic,0.0);
+					float p_dyn		= p_dynamic			+ (0.5-bias)*leftover;
+					float p_other	= p_static+p_moving + (0.5+bias)*leftover;
 
-				float leftover = 1-p_moving-p_dynamic-p_static;
+					priorsdata[3*ind+2] = p_dyn;//p_moving;
+					priorsdata[3*ind+1] = p_dyn;
+					priorsdata[3*ind+0] = p_dyn;
+
+					priors[3*(offset+ind)+0]       = 0;
+					priors[3*(offset+ind)+1]       = p_dyn;
+					priors[3*(offset+ind)+2]       = p_other;
+				}else{
+
+					priorsdata[3*ind+2] = 0;//p_moving;
+					priorsdata[3*ind+1] = 0.5;
+					priorsdata[3*ind+0] = 0.5;
+
+					priors[3*(offset+ind)+0]       = 0;
+					priors[3*(offset+ind)+1]       = 0.5;
+					priors[3*(offset+ind)+2]       = 0.5;
+				}
+
+				/*
 				float notMoving = current_overlaps[ind];
 
 				float bias = 0.0001;
 
-				float p_moving_leftover   = -bias+(1-notMoving)*leftover/4.0;
-				float p_dynamic_leftover  = -bias+0.5*leftover*notMoving + (1-notMoving)*leftover/4.0;
-				float p_static_leftover   = 2.0*bias+0.5*leftover*notMoving + (1-notMoving)*leftover/2.0;
+				float p_moving_leftover   =    -bias+(1-notMoving)*leftover/4.0;
+				float p_dynamic_leftover  =    -bias+0.5*notMoving*leftover + (1-notMoving)*leftover/4.0;
+				float p_static_leftover   = 2.0*bias+0.5*notMoving*leftover + (1-notMoving)*leftover/2.0;
 
 				float p_moving_tot	= (1.0-4.0*minprob)*(p_moving+p_moving_leftover)	+ minprob;
 				float p_dynamic_tot = (1.0-4.0*minprob)*(p_dynamic+p_dynamic_leftover)	+ minprob;
@@ -2240,6 +2444,8 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				priors[3*(offset+ind)+0]       = p_moving_tot;
 				priors[3*(offset+ind)+1]       = p_dynamic_tot;
 				priors[3*(offset+ind)+2]       = p_static_tot;
+*/
+
 
 				if(probs[0][ind] > 0.00000001){frameConnections++;}
 				if(probs[1][ind] > 0.00000001){frameConnections++;}
@@ -2247,6 +2453,72 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				current_point++;
 			}
 		}
+
+		printf("run inference\n");
+		double start_inf = getTime();
+		gc::Graph<double,double,double> * g = new gc::Graph<double,double,double>(nr_pixels,2*nr_pixels);
+		for(unsigned long ind = 0; ind < nr_pixels;ind++){
+			g -> add_node();
+			double p_fg = priors[3*(offset+ind)+1];
+			double p_bg = priors[3*(offset+ind)+2];
+			double norm = p_fg + p_bg;
+			if(norm <= 0){
+				g -> add_tweights( ind, 0, 0 );
+				continue;
+			}
+			p_fg /= norm;
+			p_bg /= norm;
+
+			double weightFG = -log(p_fg);
+			double weightBG = -log(p_bg);
+			g -> add_tweights( ind, weightFG, weightBG );
+		}
+
+
+		double maxprob_same = 0.99999999999;
+
+		for(unsigned int w = 0; w < width;w++){
+			for(unsigned int h = 0; h < height;h++){
+				int ind = h*width+w;
+				if(w > 0 && probs[0][ind] > 0.00000001){
+					int other = ind-1;
+					double p_same = std::min(double(probs[0][ind]),maxprob_same);
+					double not_p_same = 1-p_same;
+					double weight = -log(not_p_same);
+					g -> add_edge( ind, other, weight, weight );
+				}
+
+				if(h > 0 && probs[1][ind] > 0.00000001){
+					int other = ind-width;
+					double p_same = std::min(double(probs[1][ind]),maxprob_same);
+					double not_p_same = 1-p_same;
+					double weight = -log(not_p_same);
+					g -> add_edge( ind, other, weight, weight );
+				}
+			}
+		}
+
+		g -> maxflow();
+		for(unsigned long ind = 0; ind < nr_pixels;ind++){labels[offset+ind] = g->what_segment(ind);}
+
+		printf("local inference time: %10.10fs\n\n",getTime()-start_inf);
+
+//		cv::Mat labelimg;
+//		labelimg.create(height,width,CV_32FC3);
+//		float * labelimgdata = (float*)labelimg.data;
+//		for(unsigned long ind = 0; ind < nr_pixels;ind++){
+//			double label = g->what_segment(ind);
+//			labelimgdata[3*ind+0] = 0;
+//			labelimgdata[3*ind+1] = label;
+//			labelimgdata[3*ind+2] = 1-label;
+//		}
+//		cv::namedWindow( "rgb"		, cv::WINDOW_AUTOSIZE );		cv::imshow( "rgb",		frame->rgb );
+//		cv::namedWindow( "depth"		, cv::WINDOW_AUTOSIZE );	cv::imshow( "depth",	frame->depth );
+//		cv::namedWindow( "priors"	, cv::WINDOW_AUTOSIZE );		cv::imshow( "priors",	priorsimg );
+//		cv::namedWindow( "labelimg"	, cv::WINDOW_AUTOSIZE );		cv::imshow( "labelimg",	labelimg );
+//		cv::waitKey(0);
+
+		delete g;
 
 		Eigen::Matrix4d p = poses[i];
 		float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
@@ -2272,8 +2544,10 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 		startTime = getTime();
 		delete[] current_occlusions;
+		delete[] current_notocclusions;
 		delete[] current_overlaps;
 		delete[] bg_occlusions;
+		delete[] bg_notocclusions;
 		delete[] bg_overlaps;
 		total_dealloctime += getTime()-startTime;
 	}
@@ -2288,25 +2562,22 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	printf("total_Dynw             = %5.5fs\n",		total_Dynw);
 
 	long interframeConnections = 0;
-	for(unsigned int i = 0; i < interframe_connectionId.size();i++){
-		for(unsigned int j = 0; j < interframe_connectionId[i].size();j++){
-			interframeConnections++;
-		}
-	}
+	for(unsigned int i = 0; i < interframe_connectionId.size();i++){interframeConnections += interframe_connectionId[i].size();}
 
 	double start_inf = getTime();
 	gc::Graph<double,double,double> * g = new gc::Graph<double,double,double>(current_point,frameConnections+interframeConnections);
 	for(unsigned long i = 0; i < current_point;i++){
 		g -> add_node();
-		double p_fg = priors[3*i+0]+priors[3*i+1];
+		double p_fg = priors[3*i+1];
 		double p_bg = priors[3*i+2];
 		double norm = p_fg + p_bg;
-		p_fg /= norm;
-		p_bg /= norm;
-		if(priors[3*i+0]+priors[3*i+1]+priors[3*i+2] <= 0){
+		if(norm <= 0){
 			g -> add_tweights( i, 0, 0 );
 			continue;
 		}
+
+		p_fg /= norm;
+		p_bg /= norm;
 
 		double weightFG = -log(p_fg);
 		double weightBG = -log(p_bg);
@@ -2341,6 +2612,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			}
 		}
 	}
+
 	printf("run inference\n");
 
 	std::vector<std::vector<unsigned long> > interframe_connectionId_added;
@@ -2349,6 +2621,279 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	std::vector<std::vector<double> > interframe_connectionStrength_added;
 	interframe_connectionStrength_added.resize(interframe_connectionStrength.size());
 
+	double initAdded = 0;
+	for(unsigned int i = 0; i < interframe_connectionId.size();i++){
+		for(unsigned int j = 0; j < interframe_connectionId[i].size();j++){
+			double weight = interframe_connectionStrength[i][j];
+			unsigned long other = interframe_connectionId[i][j];
+			//if(weight > 0.01 && fabs(priors[3*i+1] - priors[3*i+2]) > 0.5){//labels[i] != labels[other]){//g->what_segment(i) != g->what_segment(other)){
+			if(weight > 0.01 && labels[i] != labels[other]){//g->what_segment(i) != g->what_segment(other)){
+				g -> add_edge( i, other, weight, weight );
+
+				interframe_connectionId_added[i].push_back(other);
+				interframe_connectionStrength_added[i].push_back(weight);
+
+				interframe_connectionStrength[i][j] = interframe_connectionStrength[i].back();
+				interframe_connectionStrength[i].pop_back();
+
+				interframe_connectionId[i][j] = interframe_connectionId[i].back();
+				interframe_connectionId[i].pop_back();
+				j--;
+
+				initAdded++;
+			}
+		}
+	}
+
+	printf("initAdded %f of %i\n",initAdded,interframeConnections);
+
+	g -> maxflow();
+	for(unsigned long ind = 0; ind < current_point;ind++){labels[ind] = g->what_segment(ind);}
+
+	double tot_inf = 0;
+	for(unsigned int it = 0; it < 40; it++){
+		double start_inf1 = getTime();
+
+		double diffs = 0;
+		for(unsigned int i = 0; i < interframe_connectionId.size();i++){
+			for(unsigned int j = 0; j < interframe_connectionId[i].size();j++){
+				double weight = interframe_connectionStrength[i][j];
+				unsigned long other = interframe_connectionId[i][j];
+				if(weight > 0.01 && labels[i] != labels[other]){diffs++;}
+			}
+		}
+
+
+		double adds = 100000;
+		double prob = std::min(adds / diffs,1.0);
+		printf("diffs: %f adds: %f prob: %f\n",diffs,adds,prob);
+		printf("ratio of total diffs: %f\n",diffs/double(frameConnections+interframeConnections));
+
+		if(diffs == 0){break;}
+
+		double trueadds = 0;
+		for(unsigned int i = 0; i < interframe_connectionId.size();i++){
+			for(unsigned int j = 0; j < interframe_connectionId[i].size();j++){
+				double weight = interframe_connectionStrength[i][j];
+				unsigned long other = interframe_connectionId[i][j];
+				if(weight > 0.01 && labels[i] != labels[other]){//g->what_segment(i) != g->what_segment(other)){
+					if(rand() <= prob*RAND_MAX){
+						trueadds++;
+						g -> add_edge( i, other, weight, weight );
+
+						interframe_connectionId_added[i].push_back(other);
+						interframe_connectionStrength_added[i].push_back(weight);
+
+						interframe_connectionStrength[i][j] = interframe_connectionStrength[i].back();
+						interframe_connectionStrength[i].pop_back();
+
+						interframe_connectionId[i][j] = interframe_connectionId[i].back();
+						interframe_connectionId[i].pop_back();
+						j--;
+					}
+				}
+			}
+		}
+		printf("trueadds: %f\n",trueadds);
+
+		g -> maxflow();
+		for(unsigned long ind = 0; ind < current_point;ind++){labels[ind] = g->what_segment(ind);}
+
+		tot_inf += getTime()-start_inf1;
+		printf("static inference1 time: %10.10fs total: %10.10f\n\n",getTime()-start_inf1,tot_inf);
+
+		if(tot_inf > 90){break;}
+	}
+
+	double interfrace_constraints_added = 0;
+	for(unsigned int i = 0; i < interframe_connectionId.size();i++){
+		interfrace_constraints_added += interframe_connectionId_added[i].size();
+		for(unsigned int j = 0; j < interframe_connectionId_added[i].size();j++){
+			interframe_connectionStrength[i].push_back(interframe_connectionStrength_added[i][j]);
+			interframe_connectionId[i].push_back(interframe_connectionId_added[i][j]);
+		}
+	}
+
+	delete g;
+	double end_inf = getTime();
+	printf("static inference time: %10.10fs interfrace_constraints added ratio: %f\n",end_inf-start_inf,interfrace_constraints_added/double(interframeConnections));
+
+	if(false){
+		printf("3-class\n");
+		for(unsigned int i = 0; i < current_point; i++){
+			cloud->points[i].r = priors[3*i+0]*255.0;
+			cloud->points[i].g = priors[3*i+1]*255.0;
+			cloud->points[i].b = priors[3*i+2]*255.0;
+		}
+
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_sample (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+		cloud_sample->points.clear();
+		for(unsigned int i = 0; i < current_point; i++){
+			cloud_sample->points.push_back(cloud->points[i]);
+		}
+		viewer->removeAllPointClouds();
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
+		viewer->spin();
+
+		for(unsigned int i = 0; i < current_point; i++){
+			cloud_sample->points[i].r = 255*labels[i];
+			cloud_sample->points[i].g = 255*(1-labels[i]);
+			cloud_sample->points[i].b = 0;
+		}
+
+		viewer->removeAllPointClouds();
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
+		viewer->spin();
+	}
+
+	double start_inf1 = getTime();
+
+	const unsigned int nr_frames		= frames.size();
+	const unsigned int width			= frames[0]->camera->width;
+	const unsigned int height			= frames[0]->camera->height;
+	const unsigned int pixels_per_image	= width*height;
+	const unsigned int nr_pixels		= nr_frames*pixels_per_image;
+
+	double probthresh = 0.5;
+	double str_probthresh = -log(probthresh);
+	unsigned int number_of_dynamics = 0;
+	unsigned int nr_obj_dyn = 0;
+	unsigned int nr_obj_mov = 0;
+	std::vector<unsigned int> objectlabel;
+	std::vector<int> labelID;
+	labelID.push_back(0);
+	objectlabel.resize(nr_pixels);
+
+	for(unsigned long i = 0; i < nr_pixels; i++){objectlabel[i] = 0;}
+	for(unsigned long ind = 0; ind < nr_pixels; ind++){
+		if(valids[ind] && objectlabel[ind] == 0 && labels[ind] != 0){
+			unsigned int current_label = labels[ind];
+			number_of_dynamics++;
+			objectlabel[ind] = number_of_dynamics;
+			unsigned long todocounter = 0;
+			std::vector< unsigned long > todo;
+			todo.push_back(ind);
+			double score = 0;
+			double totsum = 0;
+			while(todocounter < todo.size()){
+				unsigned long cind = todo[todocounter++];
+				unsigned long frameind = cind / pixels_per_image;
+
+
+				unsigned long iind = cind % pixels_per_image;
+				unsigned long w = iind % width;
+				unsigned long h = iind / width;
+
+				double p0 = priors[3*cind+0];
+				double p1 = priors[3*cind+1];
+				double p2 = priors[3*cind+2];
+
+				if(valids[cind]){
+					double s = 0;
+					if(p0 > p2){s += p1 - p0;}
+					else{       s += p1 - p2;}
+					score += s;
+					totsum++;
+				}
+
+				float * dedata = (float*)(frames[frameind]->de.data);
+
+				int dir;
+				dir = -1;
+				if( w > 0 && objectlabel[cind+dir] == 0 && labels[cind+dir] == current_label && (dedata[3*(iind+dir)+1]+dedata[3*(iind+dir)+2]) < probthresh){
+					objectlabel[cind+dir] = number_of_dynamics;
+					todo.push_back(cind+dir);
+				}
+
+				dir = 1;
+				if( w < (width-1) && objectlabel[cind+dir] == 0 && labels[cind+dir] == current_label && (dedata[3*(iind+dir)+1]+dedata[3*(iind+dir)+2]) < probthresh){
+					objectlabel[cind+dir] = number_of_dynamics;
+					todo.push_back(cind+dir);
+				}
+
+				dir = -width;
+				if( h > 0 && objectlabel[cind+dir] == 0 && labels[cind+dir] == current_label && (dedata[3*(iind+dir)+1]+dedata[3*(iind+dir)+2]) < probthresh){
+					objectlabel[cind+dir] = number_of_dynamics;
+					todo.push_back(cind+dir);
+				}
+
+				dir = width;
+				if( h < (height-1) && objectlabel[cind+dir] == 0 && labels[cind+dir] == current_label && (dedata[3*(iind+dir)+1]+dedata[3*(iind+dir)+2]) < probthresh){
+					objectlabel[cind+dir] = number_of_dynamics;
+					todo.push_back(cind+dir);
+				}
+
+				for(unsigned long j = 0; j < interframe_connectionId[cind].size();j++){
+					unsigned long other = interframe_connectionId[cind][j];
+					if(interframe_connectionStrength[cind][j] > str_probthresh && objectlabel[other] == 0 && labels[other] == current_label){
+						objectlabel[other] = number_of_dynamics;
+						todo.push_back(other);
+					}
+				}
+			}
+
+			printf("score: %f\n",score);
+
+
+			labelID.push_back(0);
+			if(score < 200){continue;}
+
+			if(debugg && todo.size() > 10000){
+				for(unsigned int i = 0; i < current_point; i++){
+					cloud->points[i].r = priors[3*i+0]*255.0;
+					cloud->points[i].g = priors[3*i+1]*255.0;
+					cloud->points[i].b = priors[3*i+2]*255.0;
+				}
+
+				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_sample (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+				cloud_sample->points.clear();
+				for(unsigned int i = 0; i < current_point; i++){
+					cloud_sample->points.push_back(cloud->points[i]);
+				}
+				viewer->removeAllPointClouds();
+				viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
+				viewer->spin();
+
+				for(unsigned int i = 0; i < current_point; i++){
+					cloud_sample->points[i].r = 255;
+					cloud_sample->points[i].g = 0;
+					cloud_sample->points[i].b = 0;
+				}
+
+				for(unsigned int j = 0; j < todo.size(); j++){
+					unsigned int i = todo[j];
+					cloud_sample->points[i].r = 0;
+					cloud_sample->points[i].g = 255;
+					cloud_sample->points[i].b = 0;
+				}
+				viewer->removeAllPointClouds();
+				viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
+				viewer->spin();
+			}
+
+			if(score < 0){continue;}
+			if(current_label == 1){
+				labelID.back() = ++nr_obj_dyn;
+				printf("Dynamic: %f -> %f\n",score,totsum);
+				sr.component_dynamic.push_back(todo);
+				sr.scores_dynamic.push_back(score);
+				sr.total_dynamic.push_back(totsum);
+			}
+			if(current_label == 2){
+				labelID.back() = --nr_obj_mov;
+				printf("Moving: %f -> %f\n",score,totsum);
+				sr.component_moving.push_back(todo);
+				sr.scores_moving.push_back(score);
+				sr.total_moving.push_back(totsum);
+			}
+		}
+	}
+	interframe_connectionId.clear();
+	interframe_connectionStrength.clear();
+
+	printf("connectedComponent: %5.5fs\n",getTime()-start_inf);
+
+/*
 	double tot_inf = 0;
 	for(unsigned int it = 0; it < 10; it++){
 		double start_inf1 = getTime();
@@ -2412,10 +2957,10 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	}
 
 	int dynamic_label = 1;
-	std::vector<unsigned char> labels;
+	//std::vector<unsigned char> labels;
 	std::vector<int> dyn_ind;
 	std::vector<int> stat_ind;
-	labels.resize(current_point);
+	//labels.resize(current_point);
 	stat_ind.resize(current_point);
 	long nr_dynamic = 0;
 	for(unsigned long i = 0; i < current_point;i++){
@@ -2767,7 +3312,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	interframe_connectionStrength.clear();
 
 	printf("connectedComponent: %5.5fs\n",getTime()-start_inf);
-
+*/
 	int current = 0;
 	for(unsigned long i = 0; i < frames.size(); i++){
 		Camera * camera				= frames[i]->camera;
@@ -2806,7 +3351,6 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	if(debugg){
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_sample (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 
-		printf("3-class\n");
 		for(unsigned int i = 0; i < current_point; i++){
 			cloud->points[i].r = priors[3*i+0]*255.0;
 			cloud->points[i].g = priors[3*i+1]*255.0;
@@ -2862,6 +3406,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		viewer->spin();
 	}
 
+	delete[] valids;
 	delete[] priors;
 	printf("computeMovingDynamicStatic total time: %5.5fs\n",getTime()-computeMovingDynamicStatic_startTime);
 }

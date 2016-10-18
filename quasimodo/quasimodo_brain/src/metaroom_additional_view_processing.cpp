@@ -544,7 +544,7 @@ reglib::Model * processAV(std::string path){
 	std::vector<Eigen::Matrix4d> both_unrefined;
 	both_unrefined.push_back(Eigen::Matrix4d::Identity());
 	std::vector<double> times;
-	for(unsigned int i = 0; i < 3 &&  i < viewrgbs.size(); i++){
+	for(unsigned int i = 0; i < 3000 &&  i < viewrgbs.size(); i++){
 		printf("additional view: %i\n",i);
 		geometry_msgs::TransformStamped msg;
 		tf::transformStampedTFToMsg(viewtfs[i], msg);
@@ -568,7 +568,7 @@ reglib::Model * processAV(std::string path){
 		reglib::Camera * cam		= sweep->frames.front()->camera->clone();
 		reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],time, m);//a.matrix());
 		frames.push_back(frame);
-
+/*
 		//Visualize edges...
 		viewer->removeAllPointClouds();
 		viewer->removeAllShapes();
@@ -605,66 +605,59 @@ reglib::Model * processAV(std::string path){
 					p.b = 0;//rgbdata[3*ind+0];
 					p.g = 0;//rgbdata[3*ind+1];
 					p.r = 0;//rgbdata[3*ind+2];
+//					if(det_dilatedata[ind]){
+//						p.r = 255;
+//						p.g = 255;
+//						p.b = 255;
+//					}
 					cloud->points[ind] = p;
 				}
 			}
 		}
-viewer->addPointCloud<pcl::PointXYZRGB> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cloud), "cloud");
+
 
 		for(unsigned int w = 1; w < width; w++){
 			for(unsigned int h = 1; h < height;h++){
 				int ind = h*width+w;
 				pcl::PointXYZRGB & p = cloud->points[ind];
-				if(p.z > 1.5 || p.z == 0){
-					p.r = 0;
-					p.g = 0;
-					p.b = 0;
-				}else{
-					if(det_dilatedata[ind]){
-						float px = 1.0-probs[0][ind];
-						float py = 1.0-probs[1][ind];
-						char buf [1024];
 
-						{
+				float px = 1.0-probs[0][ind];
+				float py = 1.0-probs[1][ind];
 
-							pcl::PointXYZRGB p1 = cloud->points[ind-1];
-							double d = sqrt(pow(p.x-p1.x,2)+pow(p.y-p1.y,2)+pow(p.z-p1.z,2));
-							if(d > 0.2 && px > 0.5){
-							printf("%i , %i :: %i -> %i\n",w,h,ind,ind-1);
+				p.r = 255.0*(1-px);
+				p.g = 255.0*(1-py);
+
+				if(det_dilatedata[ind]){
+
+
+					char buf [1024];
+
+					{
+						pcl::PointXYZRGB p1 = cloud->points[ind-1];
+						double d = sqrt(pow(p.x-p1.x,2)+pow(p.y-p1.y,2)+pow(p.z-p1.z,2));
+						if(((p1.z < 1.5 && p1.z > 0) && (p.z < 1.5 && p.z > 0)) && d > 0.05){// ){//){
+							//printf("myset.insert(%i);\n",ind);
 							sprintf(buf,"lineX_%i",ind);
-							viewer->addLine<pcl::PointXYZRGB>(p,p1,px,0,0,buf);
-							viewer->spin();
-							}
+							viewer->addLine<pcl::PointXYZRGB>(p,p1,1-px,0,0,buf);
 						}
-//						{
-//							pcl::PointXYZRGB p1 = cloud->points[ind-width];
-//							sprintf(buf,"lineY_%i",ind);
-//							viewer->addLine<pcl::PointXYZRGB>(p,p1,0,1,0,buf);
-//						}
+					}
 
-						//					if(px > 0.1){
-						//						pcl::PointXYZRGB p1 = cloud->points[ind-1];
-						//						p1 = p; p1.x *= 1.1; p1.y *= 1.1; p1.z *= 1.1;
-						//						//if(p1.z < 0.1){p1 = p; p1.x *= 1.1; p1.y *= 1.1; p1.z *= 1.1;}
-
-						//						sprintf(buf,"lineX_%i",ind);
-						//						viewer->addLine<pcl::PointXYZRGB>(p,p1,1,0,0,buf);
-						//					}
-						//					if(py > 0.1){
-						//						pcl::PointXYZRGB p1 = cloud->points[ind-width];
-						//						p1 = p; p1.x *= 1.1; p1.y *= 1.1; p1.z *= 1.1;
-						//						//if(p1.z < 0.1){p1 = p; p1.x *= 1.1; p1.y *= 1.1; p1.z *= 1.1;}
-						//						sprintf(buf,"lineY_%i",ind);
-						//						viewer->addLine<pcl::PointXYZRGB>(p,p1,0,1,0,buf);
-						//					}
+					{
+						pcl::PointXYZRGB p1 = cloud->points[ind-width];
+						double d = sqrt(pow(p.x-p1.x,2)+pow(p.y-p1.y,2)+pow(p.z-p1.z,2));
+						if(((p1.z < 1.5 && p1.z > 0) && (p.z < 1.5 && p.z > 0)) && d > 0.5){// ){//){
+							//printf("myset.insert(%i);\n",ind);
+							sprintf(buf,"lineY_%i",ind);
+							viewer->addLine<pcl::PointXYZRGB>(p,p1,0,1-py,0,buf);
+						}
 					}
 				}
 			}
 		}
 
-
+		viewer->addPointCloud<pcl::PointXYZRGB> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cloud), "cloud");
 		viewer->spin();
-
+*/
 		//both_unrefined.push_back(sweep->frames.front()->pose.inverse()*a.matrix());
 		both_unrefined.push_back(sweep->frames.front()->pose.inverse()*m);
 	}
