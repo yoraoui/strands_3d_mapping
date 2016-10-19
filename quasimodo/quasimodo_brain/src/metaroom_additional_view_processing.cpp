@@ -518,9 +518,9 @@ void setBaseSweep(std::string path){
 
 reglib::Model * processAV(std::string path){
 
-//	std::vector<reglib::RGBDFrame *> frames;
-//	std::vector<Eigen::Matrix4d> poses;
-//	readViewXML(sweep_folder+"ViewGroup.xml",frames,poses);
+	//	std::vector<reglib::RGBDFrame *> frames;
+	//	std::vector<Eigen::Matrix4d> poses;
+	//	readViewXML(sweep_folder+"ViewGroup.xml",frames,poses);
 
 	printf("processAV: %s\n",path.c_str());
 
@@ -742,8 +742,7 @@ std::vector<Eigen::Matrix4d> readPoseXML(std::string xmlFile){
 	return poses;
 }
 
-int processMetaroom(std::string path, bool store_old_xml = true){
-	int returnval = 0;
+reglib::Model * getAVMetaroom(std::string path){
 	printf("processing: %s\n",path.c_str());
 
 	if ( ! boost::filesystem::exists( path ) ){return 0;}
@@ -789,6 +788,23 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 		fullmodel = processAV(path);
 		writeXml(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes);
 	}
+	return fullmodel;
+}
+
+int processMetaroom(std::string path, bool store_old_xml = true){
+	int returnval = 0;
+	printf("processing: %s\n",path.c_str());
+
+	if ( ! boost::filesystem::exists( path ) ){return 0;}
+
+	int slash_pos = path.find_last_of("/");
+	std::string sweep_folder = path.substr(0, slash_pos) + "/";
+
+
+	SimpleXMLParser<pcl::PointXYZRGB> parser;
+	SimpleXMLParser<pcl::PointXYZRGB>::RoomData current_roomData  = parser.loadRoomFromXML(path);
+
+	reglib::Model * fullmodel = getAVMetaroom(path);
 
 	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( fullmodel, reg);
@@ -832,7 +848,7 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 		std::string prev = sweep_xmls[prevind];
 		printf("prev: %s\n",prev.c_str());
 
-		reglib::Model * bg = quasimodo_brain::load_metaroom_model(prev);
+		reglib::Model * bg = getAVMetaroom(prev);//quasimodo_brain::load_metaroom_model(prev);
 		auto sweep = SimpleXMLParser<PointType>::loadRoomFromXML(prev, std::vector<std::string>{},false);
 		//bg->points = mu->getSuperPoints(bg->relativeposes,bg->frames,bg->modelmasks,1,false);
 		//bg->recomputeModelPoints();
