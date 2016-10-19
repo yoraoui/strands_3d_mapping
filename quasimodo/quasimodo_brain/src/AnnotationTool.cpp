@@ -338,11 +338,14 @@ std::vector<reglib::Model *> loadModels(std::string path){
 	int slash_pos = path.find_last_of("/");
 	std::string sweep_folder = path.substr(0, slash_pos) + "/";
 
+	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("dynamic_obj*.xml"));
+	if(objectFiles.size() == 0){return models;}
+
 	std::vector<reglib::RGBDFrame *> frames;
 	std::vector<Eigen::Matrix4d> poses;
 	readViewXML(sweep_folder+"ViewGroup.xml",frames,poses);
 
-	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("dynamic_obj*.xml"));
+
 	for (auto objectFile : objectFiles){
 		std::string object = sweep_folder+objectFile.toStdString();
 		printf("object: %s\n",object.c_str());
@@ -409,14 +412,253 @@ std::vector<reglib::Model *> loadModels(std::string path){
 
 bool annotate(std::string path){
 	printf("annotate: %s\n",path.c_str());
-	std::vector<reglib::Model *> models = loadModels(path);
+
+	std::string xmlFile = path;
+	std::vector< std::string > rgbpaths;
+
+
+	QString xmlFileQS(xmlFile.c_str());
+	int index = xmlFileQS.lastIndexOf('/');
+	std::string roomFolder = xmlFileQS.left(index).toStdString();
+
+
+
+	QFile file((roomFolder+"/ViewGroup.xml").c_str());
+	if (!file.exists()){
+		ROS_ERROR("Could not open file %s to load room.",(roomFolder+"/ViewGroup.xml").c_str());
+		return false;
+	}
+
+	file.open(QIODevice::ReadOnly);
+
+	ROS_INFO_STREAM("Parsing xml file: "<<(roomFolder+"/ViewGroup.xml").c_str());
+
+	QXmlStreamReader* xmlReader = new QXmlStreamReader(&file);
+
+	while (!xmlReader->atEnd() && !xmlReader->hasError()){
+		QXmlStreamReader::TokenType token = xmlReader->readNext();
+		if (token == QXmlStreamReader::StartDocument)
+			continue;
+
+		if (xmlReader->hasError()){
+			ROS_ERROR("XML error: %s",xmlReader->errorString().toStdString().c_str());
+			return false;
+		}
+
+		QString elementName = xmlReader->name().toString();
+
+		if (token == QXmlStreamReader::StartElement){
+			if (xmlReader->name() == "View"){
+				QXmlStreamAttributes attributes = xmlReader->attributes();
+				if (attributes.hasAttribute("RGB")){
+					rgbpaths.push_back(roomFolder+"/"+attributes.value("RGB").toString().toStdString());
+					printf("%s\n",rgbpaths.back().c_str());
+				}else{break;}
+			}
+		}
+	}
+
+	delete xmlReader;
+
+	printf("rgbpaths: %i\n",rgbpaths.size());
+
+	QStringList objectFiles = QDir(roomFolder.c_str()).entryList(QStringList("dynamic_obj*.xml"));
+	if(objectFiles.size() == 0){return true;}
+
+
+
+	for (auto objectFile : objectFiles){
+		std::string object = roomFolder+"/"+objectFile.toStdString();
+		printf("object: %s\n",object.c_str());
+
+		std::vector<cv::Mat > objectMasks;
+		std::vector<unsigned int > imgNumber;
+		unsigned int current_displayInd = 0;
+		unsigned int maxNrPixels = 0;
+
+		QFile objfile(object.c_str());
+
+		if (!objfile.exists()){
+			ROS_ERROR("Could not open file %s to masks.",object.c_str());
+			continue;
+		}
+
+		objfile.open(QIODevice::ReadOnly);
+		ROS_INFO_STREAM("Parsing xml file: "<<object.c_str());
+
+		QXmlStreamReader* objxmlReader = new QXmlStreamReader(&objfile);
+
+		while (!objxmlReader->atEnd() && !objxmlReader->hasError()){
+			QXmlStreamReader::TokenType token = objxmlReader->readNext();
+			if (token == QXmlStreamReader::StartDocument)
+				continue;
+
+			if (objxmlReader->hasError()){
+				ROS_ERROR("XML error: %s",objxmlReader->errorString().toStdString().c_str());
+				break;
+			}
+
+			QString elementName = objxmlReader->name().toString();
+
+			if (token == QXmlStreamReader::StartElement){
+				if (objxmlReader->name() == "Mask"){
+					int number = 0;
+//					cv::Mat mask;
+					QXmlStreamAttributes attributes = objxmlReader->attributes();
+					if (attributes.hasAttribute("filename")){
+						QString maskpath = attributes.value("filename").toString();
+						objectMasks.push_back(cv::imread(roomFolder+"/"+(maskpath.toStdString().c_str()), CV_LOAD_IMAGE_UNCHANGED));
+						unsigned char * data = objectMasks.back().data;
+						unsigned int nr_points = objectMasks.back().rows * objectMasks.back().cols;
+						unsigned int nrPixels = 0;
+						for(unsigned int ind = 0; ind < nr_points; ind++ ){nrPixels += data[ind] != 0;}
+
+						if( maxNrPixels < nrPixels ){
+							maxNrPixels = nrPixels;
+							current_displayInd = objectMasks.size()-1;
+						}
+					}else{break;}
+
+
+					if (attributes.hasAttribute("image_number")){
+						QString depthpath = attributes.value("image_number").toString();
+						number = atoi(depthpath.toStdString().c_str());
+						printf("number: %i\n",number);
+						imgNumber.push_back(number);
+						if(imgNumber.back() >= rgbpaths.size()){return false;}
+					}else{break;}
+				}
+			}
+		}
+
+		if(objectMasks.size() != imgNumber.size()){return false;}
+
+		std::string classname = "";
+		std::string instancename = "";
+		int fontFace = cv::FONT_HERSHEY_COMPLEX_SMALL;
+		double fontScale = 1;
+		int thickness = 1;
+		int state = 0;
+
+		cv::Mat rgb = cv::imread(rgbpaths[imgNumber[current_displayInd]], CV_LOAD_IMAGE_UNCHANGED);
+		cv::Mat mask = objectMasks[current_displayInd];
+		while(true){
+
+
+			std::vector<std::vector<cv::Point> > contours;
+			std::vector<cv::Vec4i> hierarchy;
+
+			cv::findContours( mask, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0) );
+			for( unsigned int i = 0; i < contours.size(); i++ ){
+				cv::drawContours( rgb, contours, i, cv::Scalar( 0, 0, 255 ), 3, 8, hierarchy, 0, cv::Point() );
+				cv::drawContours( rgb, contours, i, cv::Scalar( 0, 255, 0 ), 1, 8, hierarchy, 0, cv::Point() );
+			}
+
+
+			unsigned int height	= rgb.rows;
+			unsigned int width	= rgb.cols;
+			unsigned int newwidth = width+400;
+
+
+			unsigned char * rgbdata = rgb.data;
+
+			cv::Mat img;
+			img.create(height,newwidth,CV_8UC3);
+			unsigned char * imgdata = img.data;
+
+			for(unsigned int i = 0; i < 3*height*newwidth; i++){imgdata[i] = 0;}
+
+
+			for(unsigned int w = 0; w < width;w++){
+				for(unsigned int h = 0; h < height;h++){
+					int oind = h*width+w;
+					int nind = h*newwidth+w;
+					imgdata[3*nind + 0] = rgbdata[3*oind + 0];
+					imgdata[3*nind + 1] = rgbdata[3*oind + 1];
+					imgdata[3*nind + 2] = rgbdata[3*oind + 2];
+				}
+			}
+
+
+			int textnr = 0;
+			putText(img, "   Class:    "+classname, cv::Point(width+10,	30+(textnr++)*25   ),		fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
+			putText(img, "   Instance: "+instancename, cv::Point(width+10,	30+(textnr++)*25   ),	fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
+
+
+			char buf [1024];
+			sprintf(buf,"   Image:     %i / %i",current_displayInd+1,objectMasks.size());
+			putText(img, std::string(buf), cv::Point(width+10,			30+(textnr++)*25   ), fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
+
+			putText(img, "--", cv::Point(width+5,	30+state*25   ), fontFace, fontScale, cv::Scalar(0,255,0), thickness, 8);
+
+			cv::namedWindow( "rgb",				cv::WINDOW_AUTOSIZE );	cv::imshow( "rgb",img );
+			char c = cv::waitKey(0);
+			printf("c: %c -> %i\n",c,int(c));
+
+			if(c == -29){
+				state = 3;
+			}else if(state == 0){
+				if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')  || (c >= '0' && c <= '1')){classname += c;}
+				if(c == 8 && classname.size() > 0){classname.pop_back();}
+				if(c == 10){state = 1;}
+			}else if(state == 1){
+				if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')  || (c >= '0' && c <= '1')){instancename += c;}
+				if(c == 8 && instancename.size() > 0){instancename.pop_back();}
+				if(c == 10){break;}
+			}else if(state == 2){
+				if(c == 'q' || c == 'Q'){
+					current_displayInd = std::max(int(current_displayInd-1),0);
+					rgb = cv::imread(rgbpaths[imgNumber[current_displayInd]], CV_LOAD_IMAGE_UNCHANGED);
+					mask = objectMasks[current_displayInd];
+				}
+				if(c == 'w' || c == 'W'){
+					current_displayInd = std::min(int(current_displayInd+1),int(imgNumber.size()-1));
+					rgb = cv::imread(rgbpaths[imgNumber[current_displayInd]], CV_LOAD_IMAGE_UNCHANGED);
+					mask = objectMasks[current_displayInd];
+				}
+				if(c == 10){state = 0;}
+			}else if(state == 3){
+				if(c == '1'){state = 0;}
+				if(c == '2'){state = 1;}
+				if(c == '3'){state = 2;}
+			}
+
+		}
+
+
+
+		delete objxmlReader;
+	}
+
+/*
+
 	int slash_pos = path.find_last_of("/");
 	std::string sweep_folder = path.substr(0, slash_pos) + "/";
 	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("dynamic_obj*.xml"));
-	for (auto objectFile : objectFiles){
-		std::string object = sweep_folder+objectFile.toStdString();
+
+	if(models.size() == 0 || models.size() != objectFiles.size()){return false;}
+
+	for(unsigned int m = 0; m < models.size(); m++){
+
+		std::string object = sweep_folder+objectFiles[m].toStdString();
 		printf("object: %s\n",object.c_str());
+
+		reglib::Model * model = models[m];
+		unsigned int current_displayInd = 0;
+		unsigned int maxNrPixels = 0;
+		for(unsigned int j = 0; j < model->frames.size(); j++){
+			unsigned int nrPixels = model->modelmasks[j]->testw.size();
+
+		}
+
+
+
+		printf("current_displayInd: %i\n",current_displayInd);
+		model->fullDelete();
+		delete model;
 	}
+*/
+	return true;
 }
 
 bool annotateFiles(std::string path){

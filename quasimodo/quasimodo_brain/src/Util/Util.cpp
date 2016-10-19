@@ -292,7 +292,7 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
 	reglib::MassRegistrationPPR2 * massregmod = new reglib::MassRegistrationPPR2(0.05);
 	massregmod->timeout = 1200;
 	massregmod->viewer = viewer;
-	massregmod->visualizationLvl = 0;
+	massregmod->visualizationLvl = 1;
 	massregmod->maskstep = 10;//std::max(1,int(0.4*double(models[i]->frames.size())));
 	massregmod->nomaskstep = 10;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
 	massregmod->nomask = true;
