@@ -52,7 +52,11 @@ bool segment_model(quasimodo_msgs::segment_model::Request  & req, quasimodo_msgs
 	std::vector< std::vector< cv::Mat > > external;
 	std::vector< std::vector< cv::Mat > > dynamic;
 
-	quasimodo_brain::segment(bg,models,internal,external,dynamic,visualization);
+	std::vector< reglib::Model * > bgs;
+	bgs.push_back(bg);
+
+	//quasimodo_brain::segment(bg,models,internal,external,dynamic,visualization);
+	quasimodo_brain::segment(bgs,models,internal,external,dynamic,visualization);
 	printf("visualization: %i\n",visualization);
 
 	for(unsigned int i = 0; false && visualization && i < models.size(); i++){

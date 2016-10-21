@@ -2138,7 +2138,13 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 			if(dst_detdata[dst_ind] != 0){continue;}
 			if(src_detdata[src_ind] != 0){continue;}
 
-			overlaps[src_ind] = std::min(0.9,std::max(overlaps[src_ind],p_overlap));
+			double olp = overlaps[src_ind];
+			double nolp = 1-olp;
+			nolp *= (1-p_overlap);
+			//overlaps[src_ind] = std::min(0.9999,std::max(olp,p_overlap));
+			overlaps[src_ind] = std::min(0.9999,1-nolp);
+			//
+			//overlaps[src_ind] = std::min(0.9999,std::max(overlaps[src_ind],p_overlap));
 			//double prev = 1.0-occlusions[src_ind];
 			occlusions[src_ind] += p_occlusion;//std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
 			notocclusions[src_ind]++;
@@ -2321,8 +2327,8 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		int offset = offsets[i];
 		RGBDFrame * frame = frames[i];
 		startTime = getTime();
-		//std::vector< std::vector<float> > probs = frame->getImageProbs();//getImageProbs(frame,9);
-		std::vector< std::vector<float> > probs = getImageProbs(frame,9);
+		std::vector< std::vector<float> > probs = frame->getImageProbs();//getImageProbs(frame,9);
+		//std::vector< std::vector<float> > probs2 = getImageProbs(frame,9);
 
 		total_connectiontime += getTime()-startTime;
 		pixel_weights.push_back(probs);
@@ -2373,16 +2379,16 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		}
 
 		for(unsigned int j = 0; j < nr_pixels; j++){
-			bg_occlusions[j]		= std::min(0.99,bg_occlusions[j]/std::max(1.0,bg_notocclusions[j]));
-			current_occlusions[j]	= std::min(0.99,current_occlusions[j]/std::max(1.0,current_notocclusions[j]));
+			bg_occlusions[j]		= std::min(0.999,bg_occlusions[j]/std::max(1.0,bg_notocclusions[j]));
+			current_occlusions[j]	= std::min(0.999,current_occlusions[j]/std::max(1.0,current_notocclusions[j]));
 			//bg_occlusions[j]		= bg_occlusions[j]		/bg_notocclusions[j];
 			//current_occlusions[j]	= current_occlusions[j]	/current_notocclusions[j];
 		}
 
-//		for(unsigned int j = 0; j < nr_pixels; j++){
-//			bg_occlusions[j]		= bg_occlusions[j]		/(bg_occlusions[j]		+bg_notocclusions[j]);
-//			current_occlusions[j]	= current_occlusions[j]	/(current_occlusions[j]	+current_notocclusions[j]);
-//		}
+		//		for(unsigned int j = 0; j < nr_pixels; j++){
+		//			bg_occlusions[j]		= bg_occlusions[j]		/(bg_occlusions[j]		+bg_notocclusions[j]);
+		//			current_occlusions[j]	= current_occlusions[j]	/(current_occlusions[j]	+current_notocclusions[j]);
+		//		}
 		total_Dynw += getTime()-startTime;
 
 		cv::Mat priorsimg;
@@ -2404,7 +2410,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 					p_dynamic       += 0.5*std::max((bg_occlusions[ind]-p_moving)*(1-current_overlaps[ind]),0.0);
 					p_moving        += 0.5*std::max((bg_occlusions[ind]-p_moving)*(1-current_overlaps[ind]),0.0);
 
-					float p_static  = std::max(bg_overlaps[ind]-p_moving-p_dynamic,0.0);
+					float p_static  = std::max(0.5*bg_overlaps[ind]-p_moving-p_dynamic,0.0);
 					float leftover = 1-p_moving-p_dynamic-p_static;
 
 					float p_dyn		= p_dynamic			+ (0.5-bias)*leftover;
@@ -2503,6 +2509,26 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 		printf("local inference time: %10.10fs\n\n",getTime()-start_inf);
 
+
+//		cv::Mat edgeimgX;
+//		edgeimgX.create(height,width,CV_32FC3);
+//		float * edgedataX = (float*)edgeimgX.data;
+
+//		cv::Mat edgeimgY;
+//		edgeimgY.create(height,width,CV_32FC3);
+//		float * edgedataY = (float*)edgeimgY.data;
+
+//		for(int j = 0; j < width*height; j++){
+//			edgedataX[3*j+0] = 0;
+//			edgedataX[3*j+1] = 1-probs[0][j];
+//			edgedataX[3*j+2] = probs2[0][j];
+
+//			edgedataY[3*j+0] = 0;
+//			edgedataY[3*j+1] = 1-probs[1][j];
+//			edgedataY[3*j+2] = probs2[1][j];
+//		}
+
+
 //		cv::Mat labelimg;
 //		labelimg.create(height,width,CV_32FC3);
 //		float * labelimgdata = (float*)labelimg.data;
@@ -2512,6 +2538,8 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 //			labelimgdata[3*ind+1] = label;
 //			labelimgdata[3*ind+2] = 1-label;
 //		}
+//		cv::namedWindow( "edgeimgX"		, cv::WINDOW_AUTOSIZE );		cv::imshow( "edgeimgX",		edgeimgX );
+//		cv::namedWindow( "edgeimgY"		, cv::WINDOW_AUTOSIZE );		cv::imshow( "edgeimgY",		edgeimgY );
 //		cv::namedWindow( "rgb"		, cv::WINDOW_AUTOSIZE );		cv::imshow( "rgb",		frame->rgb );
 //		cv::namedWindow( "depth"		, cv::WINDOW_AUTOSIZE );	cv::imshow( "depth",	frame->depth );
 //		cv::namedWindow( "priors"	, cv::WINDOW_AUTOSIZE );		cv::imshow( "priors",	priorsimg );
@@ -2594,7 +2622,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		for(unsigned int w = 0; w < width;w++){
 			for(unsigned int h = 0; h < height;h++){
 				int ind = h*width+w;
-				if(w > 0 && probs[0][ind] > 0.00000001){
+				if(w > 0 && probs[0][ind] > 0.00000001 && w < width-1){
 					int other = ind-1;
 					double p_same = std::min(double(probs[0][ind]),maxprob_same);
 					double not_p_same = 1-p_same;
@@ -2602,7 +2630,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 					g -> add_edge( ind+offset, other+offset, weight, weight );
 				}
 
-				if(h > 0 && probs[1][ind] > 0.00000001){
+				if(h > 0 && probs[1][ind] > 0.00000001 && h < height-1) {
 					int other = ind-width;
 					double p_same = std::min(double(probs[1][ind]),maxprob_same);
 					double not_p_same = 1-p_same;
@@ -2871,7 +2899,6 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				viewer->spin();
 			}
 
-			if(score < 0){continue;}
 			if(current_label == 1){
 				labelID.back() = ++nr_obj_dyn;
 				printf("Dynamic: %f -> %f\n",score,totsum);
@@ -2893,426 +2920,6 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 	printf("connectedComponent: %5.5fs\n",getTime()-start_inf);
 
-/*
-	double tot_inf = 0;
-	for(unsigned int it = 0; it < 10; it++){
-		double start_inf1 = getTime();
-
-		g -> maxflow();
-
-		double diffs = 0;
-		for(unsigned int i = 0; i < interframe_connectionId.size();i++){
-			for(unsigned int j = 0; j < interframe_connectionId[i].size();j++){
-				double weight = interframe_connectionStrength[i][j];
-				unsigned long other = interframe_connectionId[i][j];
-				if(weight > 1 && g->what_segment(i) != g->what_segment(other)){
-					diffs++;
-				}
-			}
-		}
-
-		if(diffs < 1000){break;}
-
-		double adds = 100000;
-		double prob = std::min(adds / diffs,1.0);
-		printf("diffs: %f adds: %f prob: %f\n",diffs,adds,prob);
-
-		double trueadds = 0;
-
-		for(unsigned int i = 0; i < interframe_connectionId.size();i++){
-			for(unsigned int j = 0; j < interframe_connectionId[i].size();j++){
-				double weight = interframe_connectionStrength[i][j];
-				unsigned long other = interframe_connectionId[i][j];
-				if(weight > 0.1 && g->what_segment(i) != g->what_segment(other)){
-					if(rand() <= prob*RAND_MAX){
-						trueadds++;
-						g -> add_edge( i, other, weight, weight );
-
-						interframe_connectionId_added[i].push_back(other);
-						interframe_connectionStrength_added[i].push_back(weight);
-
-						interframe_connectionStrength[i][j] = interframe_connectionStrength[i].back();
-						interframe_connectionStrength[i].pop_back();
-
-						interframe_connectionId[i][j] = interframe_connectionId[i].back();
-						interframe_connectionId[i].pop_back();
-						j--;
-					}
-				}
-			}
-		}
-		printf("trueadds: %f\n",trueadds);
-
-		tot_inf += getTime()-start_inf1;
-		printf("static inference1 time: %10.10fs total: %10.10f\n\n",getTime()-start_inf1,tot_inf);
-
-		if(tot_inf > 90){break;}
-	}
-
-	for(unsigned int i = 0; i < interframe_connectionId.size();i++){
-		for(unsigned int j = 0; j < interframe_connectionId_added[i].size();j++){
-			interframe_connectionStrength[i].push_back(interframe_connectionStrength_added[i][j]);
-			interframe_connectionId[i].push_back(interframe_connectionId_added[i][j]);
-		}
-	}
-
-	int dynamic_label = 1;
-	//std::vector<unsigned char> labels;
-	std::vector<int> dyn_ind;
-	std::vector<int> stat_ind;
-	//labels.resize(current_point);
-	stat_ind.resize(current_point);
-	long nr_dynamic = 0;
-	for(unsigned long i = 0; i < current_point;i++){
-		labels[i] = g->what_segment(i);
-		nr_dynamic += labels[i]==dynamic_label;
-		if(labels[i]==dynamic_label){
-			stat_ind[i] = dyn_ind.size();
-			dyn_ind.push_back(i);
-		}
-	}
-	delete g;
-
-	double end_inf = getTime();
-	printf("static inference time: %10.10fs\n",end_inf-start_inf);
-
-	long dynamic_frameConnections = 0;
-
-	for(unsigned long i = 0; i < frames.size(); i++){
-		int offset = offsets[i];
-		Camera * camera				= frames[i]->camera;
-		const unsigned int width	= camera->width;
-		const unsigned int height	= camera->height;
-		std::vector< std::vector<float> > & probs = pixel_weights[i];
-		for(unsigned int w = 0; w < width;w++){
-			for(unsigned int h = 0; h < height;h++){
-				int ind = h*width+w;
-				if(labels[ind+offset] == dynamic_label){
-					if(w > 0 && probs[0][ind] > 0.00000001){
-						int other = ind-1;
-						if(labels[ind+offset] == labels[other+offset]){dynamic_frameConnections++;}
-					}
-
-					if(h > 0 && probs[1][ind] > 0.00000001){
-						int other = ind-width;
-						if(labels[ind+offset] == labels[other+offset]){dynamic_frameConnections++;}
-					}
-				}
-			}
-		}
-	}
-
-	long dynamic_interframeConnections = 0;
-	for(unsigned long i = 0; i < current_point;i++){
-		if(labels[i] == dynamic_label){
-			for(unsigned int j = 0; j < interframe_connectionId[i].size();j++){
-				if(labels[interframe_connectionId[i][j]] == labels[i]){dynamic_interframeConnections++;}
-			}
-		}
-	}
-
-	start_inf = getTime();
-	gc::Graph<double,double,double> * dynamic_g = new gc::Graph<double,double,double>(nr_dynamic,dynamic_frameConnections+dynamic_interframeConnections);
-	for(unsigned long i = 0; i < dyn_ind.size();i++){
-		dynamic_g -> add_node();
-		double p_fg = priors[3*dyn_ind[i]+0];
-		double p_bg = priors[3*dyn_ind[i]+1];
-		double norm = p_fg+p_bg;
-		p_fg /= norm;
-		p_bg /= norm;
-		if(norm <= 0){
-			dynamic_g -> add_tweights( i, 0, 0 );
-			continue;
-		}
-
-		double weightFG = -log(p_fg);
-		double weightBG = -log(p_bg);
-		dynamic_g -> add_tweights( i, weightFG, weightBG );
-	}
-
-	for(unsigned long i = 0; i < frames.size(); i++){
-		int offset = offsets[i];
-		Camera * camera				= frames[i]->camera;
-		const unsigned int width	= camera->width;
-		const unsigned int height	= camera->height;
-		std::vector< std::vector<float> > & probs = pixel_weights[i];
-		for(unsigned int w = 0; w < width;w++){
-			for(unsigned int h = 0; h < height;h++){
-				int ind = h*width+w;
-				if(labels[ind+offset] == dynamic_label){
-					if(w > 0 && probs[0][ind] > 0.00000001){
-						int other = ind-1;
-						if(labels[ind+offset] == labels[other+offset]){
-							//dynamic_frameConnections++;
-							double p_same = std::min(double(probs[0][ind]),maxprob_same);
-							double not_p_same = 1-p_same;
-							double weight = -log(not_p_same);
-							dynamic_g -> add_edge( stat_ind[ind+offset], stat_ind[other+offset], weight, weight );
-						}
-					}
-
-					if(h > 0 && probs[1][ind] > 0.00000001){
-						int other = ind-width;
-						if(labels[ind+offset] == labels[other+offset]){
-							//dynamic_frameConnections++;
-							double p_same = std::min(double(probs[0][ind]),maxprob_same);
-							double not_p_same = 1-p_same;
-							double weight = -log(not_p_same);
-							dynamic_g -> add_edge( stat_ind[ind+offset], stat_ind[other+offset], weight, weight );
-						}
-					}
-				}
-			}
-		}
-	}
-
-	for(unsigned long i = 0; i < current_point;i++){
-		if(labels[i] == dynamic_label){
-			for(unsigned int j = 0; j < interframe_connectionId[i].size();j++){
-				if(labels[interframe_connectionId[i][j]] == labels[i]){
-					double weight = interframe_connectionStrength[i][j];
-					dynamic_g -> add_edge( stat_ind[i], stat_ind[ interframe_connectionId[i][j] ], weight, weight );
-				}
-			}
-		}
-	}
-	dynamic_g -> maxflow();
-
-
-	tot_inf = 0;
-	for(unsigned int it = 0; false && it < 100; it++){
-		double start_inf1 = getTime();
-		dynamic_g -> maxflow();
-
-		double diffs = 0;
-		for(unsigned long i = 0; i < current_point;i++){
-			if(labels[i] == dynamic_label){
-				for(unsigned int j = 0; j < interframe_connectionId[i].size();j++){
-					if(labels[interframe_connectionId[i][j]] == labels[i]){
-						double weight = interframe_connectionStrength[i][j];
-
-						unsigned long i2 = stat_ind[i];
-						unsigned long j2 = stat_ind[ interframe_connectionId[i][j] ];
-						if(weight > 1 && g->what_segment(i2) != g->what_segment(j2)){
-							diffs++;
-						}
-					}
-				}
-			}
-		}
-
-
-		double adds = 100000;
-		double prob = std::min(adds / diffs,1.0);
-		printf("diffs: %f adds: %f prob: %f\n",diffs,adds,prob);
-
-		if(diffs < 1000){break;}
-
-
-		double trueadds = 0;
-
-		for(unsigned int i = 0; i < interframe_connectionId.size();i++){
-			if(labels[i] == dynamic_label){
-				for(unsigned int j = 0; j < interframe_connectionId[i].size();j++){
-					if(labels[interframe_connectionId[i][j]] == labels[i]){
-
-						double weight = interframe_connectionStrength[i][j];
-						unsigned long other = interframe_connectionId[i][j];
-
-						unsigned long i2 = stat_ind[i];
-						unsigned long j2 = stat_ind[ interframe_connectionId[i][j] ];
-						if(weight > 1 && g->what_segment(i2) != g->what_segment(j2)){
-							if(rand() <= prob*RAND_MAX){
-								trueadds++;
-								g -> add_edge( i2, j2, weight, weight );
-
-								interframe_connectionId_added[i].push_back(other);
-								interframe_connectionStrength_added[i].push_back(weight);
-
-								interframe_connectionStrength[i][j] = interframe_connectionStrength[i].back();
-								interframe_connectionStrength[i].pop_back();
-
-								interframe_connectionId[i][j] = interframe_connectionId[i].back();
-								interframe_connectionId[i].pop_back();
-								j--;
-							}
-						}
-					}
-				}
-			}
-		}
-		printf("trueadds: %f\n",trueadds);
-
-		tot_inf += getTime()-start_inf1;
-		printf("static inference1 time: %10.10fs total: %10.10f\n\n",getTime()-start_inf1,tot_inf);
-		if(tot_inf > 90){break;}
-	}
-
-	end_inf = getTime();
-	printf("dynamic inference time: %10.10fs\n",end_inf-start_inf);
-
-	long nr_moving = 0;
-	for(unsigned long i = 0; i < dyn_ind.size();i++){
-		int res = dynamic_g->what_segment(i);
-		if(res == 1){
-			labels[dyn_ind[i]] = 2;
-			nr_moving++;
-		}
-	}
-	delete dynamic_g;
-
-	for(unsigned int i = 0; i < interframe_connectionId.size();i++){
-		for(unsigned int j = 0; j < interframe_connectionId_added[i].size();j++){
-			interframe_connectionStrength[i].push_back(interframe_connectionStrength_added[i][j]);
-			interframe_connectionId[i].push_back(interframe_connectionId_added[i][j]);
-		}
-	}
-
-	const unsigned int nr_frames		= frames.size();
-	const unsigned int width			= frames[0]->camera->width;
-	const unsigned int height			= frames[0]->camera->height;
-	const unsigned int pixels_per_image	= width*height;
-	const unsigned int nr_pixels		= nr_frames*pixels_per_image;
-
-	double probthresh = 0.5;
-	double str_probthresh = -log(probthresh);
-	unsigned int number_of_dynamics = 0;
-	unsigned int nr_obj_dyn = 0;
-	unsigned int nr_obj_mov = 0;
-	std::vector<unsigned int> objectlabel;
-	std::vector<int> labelID;
-	labelID.push_back(0);
-	objectlabel.resize(nr_pixels);
-	for(unsigned long i = 0; i < nr_pixels; i++){objectlabel[i] = 0;}
-	for(unsigned long ind = 0; ind < nr_pixels; ind++){
-		if(valids[ind] && objectlabel[ind] == 0 && labels[ind] != 0){
-			unsigned int current_label = labels[ind];
-			number_of_dynamics++;
-			objectlabel[ind] = number_of_dynamics;
-			unsigned long todocounter = 0;
-			std::vector< unsigned long > todo;
-			todo.push_back(ind);
-			double score = 0;
-			double totsum = 0;
-			while(todocounter < todo.size()){
-				unsigned long cind = todo[todocounter++];
-				unsigned long frameind = cind / pixels_per_image;
-
-
-				unsigned long iind = cind % pixels_per_image;
-				unsigned long w = iind % width;
-				unsigned long h = iind / width;
-
-				double p0 = priors[3*cind+0];
-				double p1 = priors[3*cind+1];
-				double p2 = priors[3*cind+2];
-
-				if(valids[cind]){
-					double s = 0;
-					if(p0 > p2){s += p1 - p0;}
-					else{       s += p1 - p2;}
-					score += s;
-					totsum++;
-				}
-
-				float * dedata = (float*)(frames[frameind]->de.data);
-
-				int dir;
-				dir = -1;
-				if( w > 0 && objectlabel[cind+dir] == 0 && labels[cind+dir] == current_label && (dedata[3*(iind+dir)+1]+dedata[3*(iind+dir)+2]) < probthresh){
-					objectlabel[cind+dir] = number_of_dynamics;
-					todo.push_back(cind+dir);
-				}
-
-				dir = 1;
-				if( w < (width-1) && objectlabel[cind+dir] == 0 && labels[cind+dir] == current_label && (dedata[3*(iind+dir)+1]+dedata[3*(iind+dir)+2]) < probthresh){
-					objectlabel[cind+dir] = number_of_dynamics;
-					todo.push_back(cind+dir);
-				}
-
-				dir = -width;
-				if( h > 0 && objectlabel[cind+dir] == 0 && labels[cind+dir] == current_label && (dedata[3*(iind+dir)+1]+dedata[3*(iind+dir)+2]) < probthresh){
-					objectlabel[cind+dir] = number_of_dynamics;
-					todo.push_back(cind+dir);
-				}
-
-				dir = width;
-				if( h < (height-1) && objectlabel[cind+dir] == 0 && labels[cind+dir] == current_label && (dedata[3*(iind+dir)+1]+dedata[3*(iind+dir)+2]) < probthresh){
-					objectlabel[cind+dir] = number_of_dynamics;
-					todo.push_back(cind+dir);
-				}
-
-				for(unsigned long j = 0; j < interframe_connectionId[cind].size();j++){
-					unsigned long other = interframe_connectionId[cind][j];
-					if(interframe_connectionStrength[cind][j] > str_probthresh && objectlabel[other] == 0 && labels[other] == current_label){
-						objectlabel[other] = number_of_dynamics;
-						todo.push_back(other);
-					}
-				}
-			}
-
-			printf("score: %f\n",score);
-
-
-			labelID.push_back(0);
-			if(score < 200){continue;}
-
-			if(debugg && todo.size() > 10000){
-				printf("3-class\n");
-				for(unsigned int i = 0; i < current_point; i++){
-					cloud->points[i].r = priors[3*i+0]*255.0;
-					cloud->points[i].g = priors[3*i+1]*255.0;
-					cloud->points[i].b = priors[3*i+2]*255.0;
-				}
-
-				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_sample (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-				cloud_sample->points.clear();
-				for(unsigned int i = 0; i < current_point; i++){
-					cloud_sample->points.push_back(cloud->points[i]);
-				}
-				viewer->removeAllPointClouds();
-				viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
-				viewer->spin();
-
-				for(unsigned int i = 0; i < current_point; i++){
-					cloud_sample->points[i].r = 255;
-					cloud_sample->points[i].g = 0;
-					cloud_sample->points[i].b = 0;
-				}
-
-				for(unsigned int j = 0; j < todo.size(); j++){
-					unsigned int i = todo[j];
-					cloud_sample->points[i].r = 0;
-					cloud_sample->points[i].g = 255;
-					cloud_sample->points[i].b = 0;
-				}
-				viewer->removeAllPointClouds();
-				viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
-				viewer->spin();
-			}
-
-			if(score < 0){continue;}
-			if(current_label == 1){
-				labelID.back() = ++nr_obj_dyn;
-				printf("Dynamic: %f -> %f\n",score,totsum);
-				sr.component_dynamic.push_back(todo);
-				sr.scores_dynamic.push_back(score);
-				sr.total_dynamic.push_back(totsum);
-			}
-			if(current_label == 2){
-				labelID.back() = --nr_obj_mov;
-				printf("Moving: %f -> %f\n",score,totsum);
-				sr.component_moving.push_back(todo);
-				sr.scores_moving.push_back(score);
-				sr.total_moving.push_back(totsum);
-			}
-		}
-	}
-	interframe_connectionId.clear();
-	interframe_connectionStrength.clear();
-
-	printf("connectedComponent: %5.5fs\n",getTime()-start_inf);
-*/
 	int current = 0;
 	for(unsigned long i = 0; i < frames.size(); i++){
 		Camera * camera				= frames[i]->camera;
@@ -3331,6 +2938,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		d2.create(height,width,CV_8UC1);
 		unsigned char * ddata2 = (unsigned char*)d2.data;
 
+
 		for(int j = 0; j < width*height; j++){
 			mdata[j] = 0;
 			ddata[j] = 0;
@@ -3346,6 +2954,44 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		}
 		movemask.push_back(m);
 		dynmask.push_back(d);
+
+
+//		unsigned short * depthdata	= (unsigned short	*)(frames[i]->depth.data);
+//		cv::Mat debuggimg;
+//		debuggimg.create(height,width,CV_8UC3);
+//		unsigned char * debuggimgdata = (unsigned char*)debuggimg.data;
+//		cv::Mat edgeimg;
+//		edgeimg.create(height,width,CV_32FC3);
+//		float * edgedata = (float*)edgeimg.data;
+//		for(unsigned int label = 0; label < labelID.size(); label++){
+//			int lid = labelID[label];
+//			printf("lid: %i\n",lid);
+//			if(lid <= 0){continue;}
+//			bool hasdata = false;
+//			for(int j = 0; j < width*height; j++){
+//				if(ddata[j] == lid){
+//					debuggimgdata[3*j+0] = 255;
+//					debuggimgdata[3*j+1] = 255;
+//					debuggimgdata[3*j+2] = 255;
+//					hasdata = true;
+//				}else{
+//					debuggimgdata[3*j+0] = 0;
+//					debuggimgdata[3*j+1] = 0;
+//					debuggimgdata[3*j+2] = 0;
+//				}
+//				if(depthdata[j] == 0){
+//					debuggimgdata[3*j+0] = 255;
+//					debuggimgdata[3*j+1] = 0;
+//					debuggimgdata[3*j+2] = 255;
+//				}
+//			}
+//			if(hasdata){
+//				cv::namedWindow( "rgb"	,			cv::WINDOW_AUTOSIZE );		cv::imshow( "rgb",			frames[i]->rgb );
+//				cv::namedWindow( "debuggimg"	,	cv::WINDOW_AUTOSIZE );		cv::imshow( "debuggimg",	debuggimg );
+//				cv::namedWindow( "edgeimg"	,		cv::WINDOW_AUTOSIZE );		cv::imshow( "edgeimg",		edgeimg );
+//				cv::waitKey(0);
+//			}
+//		}
 	}
 
 	if(debugg){

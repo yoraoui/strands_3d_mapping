@@ -2,6 +2,22 @@
 
 namespace quasimodo_brain {
 
+void cleanPath(std::string & path){
+	std::size_t found = path.find("//");
+	while (found!=std::string::npos){
+		path.replace(found,2,"/");
+		found = path.find("//");
+	}
+}
+
+bool xmlSortFunction (std::string & a, std::string & b) {
+	return true;
+}
+
+void sortXMLs(std::vector<std::string> & sweeps){
+
+}
+
 reglib::Model * loadFromRaresFormat(std::string path){
 	reglib::Model * model = new reglib::Model();
 	reglib::Model * sweep = load_metaroom_model(path);
@@ -279,7 +295,124 @@ reglib::Model * load_metaroom_model(std::string sweep_xml){
 	return sweepmodel;
 }
 
-void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vector< std::vector< cv::Mat > > & internal, std::vector< std::vector< cv::Mat > > & external, std::vector< std::vector< cv::Mat > > & dynamic, bool debugg){
+void segment(std::vector< reglib::Model * > bgs, std::vector< reglib::Model * > models, std::vector< std::vector< cv::Mat > > & internal, std::vector< std::vector< cv::Mat > > & external, std::vector< std::vector< cv::Mat > > & dynamic, bool debugg){
+	double startTime = getTime();
+	printf("running segment method\n");
+	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
+	if(debugg){
+		viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("viewer"));
+		viewer->addCoordinateSystem(0.01);
+		viewer->setBackgroundColor(1.0,1.0,1.0);
+	}
+
+	reglib::MassRegistrationPPR2 * massregmod = new reglib::MassRegistrationPPR2(0.05);
+	massregmod->timeout = 1200;
+	massregmod->viewer = viewer;
+	massregmod->visualizationLvl = 0;
+	massregmod->maskstep = 10;//std::max(1,int(0.4*double(models[i]->frames.size())));
+	massregmod->nomaskstep = 10;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
+	massregmod->nomask = true;
+	massregmod->stopval = 0.0001;
+
+	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
+	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( models.front(), reg);
+	mu->occlusion_penalty               = 15;
+	mu->massreg_timeout                 = 60*4;
+	mu->viewer							= viewer;
+	printf("total segment part1 time: %5.5fs\n",getTime()-startTime);
+
+	std::vector<Eigen::Matrix4d> cpmod;
+	if(models.size() > 0 && bgs.size() > 0){
+		for(unsigned int i = 0; i < bgs.size(); i++){
+			if(bgs[i]->points.size() == 0){bgs[i]->recomputeModelPoints();}
+			cpmod.push_back(bgs.front()->frames.front()->pose.inverse() * bgs[i]->frames.front()->pose);
+			massregmod->addModel(bgs[i]);
+		}
+
+		for(int j = 0; j < models.size(); j++){
+			if(models[j]->points.size() == 0){models[j]->recomputeModelPoints();}
+			cpmod.push_back(bgs.front()->frames.front()->pose.inverse() * models[j]->frames.front()->pose);//bg->relativeposes.front().inverse() * models[j]->relativeposes.front());
+			massregmod->addModel(models[j]);
+		}
+		printf("total segment part1b time: %5.5fs\n",getTime()-startTime);
+		reglib::MassFusionResults mfrmod = massregmod->getTransforms(cpmod);
+
+		for(unsigned int i = 0; i < bgs.size(); i++){cpmod[i] = mfrmod.poses[i];}
+
+		for(int j = 0; j < models.size(); j++){
+			Eigen::Matrix4d change = mfrmod.poses[j+bgs.size()];
+			for(unsigned int k = 0; k < models[j]->relativeposes.size(); k++){
+				models[j]->relativeposes[k] = change*models[j]->relativeposes[k];
+			}
+			for(unsigned int k = 0; k < models[j]->submodels_relativeposes.size(); k++){
+				models[j]->submodels_relativeposes[k] = change*models[j]->submodels_relativeposes[k];
+			}
+		}
+	}else if(models.size() > 1){
+		for(int j = 0; j < models.size(); j++){
+			if(models[j]->points.size() == 0){models[j]->recomputeModelPoints();}
+			cpmod.push_back(models.front()->relativeposes.front().inverse() * models[j]->relativeposes.front());
+			massregmod->addModel(models[j]);
+		}
+		reglib::MassFusionResults mfrmod = massregmod->getTransforms(cpmod);
+		for(int j = 0; j < models.size(); j++){
+			Eigen::Matrix4d change = mfrmod.poses[j] * cpmod[j].inverse();
+
+			for(unsigned int k = 0; k < models[j]->relativeposes.size(); k++){
+				models[j]->relativeposes[k] = change*models[j]->relativeposes[k];
+			}
+
+			for(unsigned int k = 0; k < models[j]->submodels_relativeposes.size(); k++){
+				models[j]->submodels_relativeposes[k] = change*models[j]->submodels_relativeposes[k];
+			}
+		}
+	}
+	delete massregmod;
+
+	printf("total segment part2 time: %5.5fs\n",getTime()-startTime);
+
+	std::vector<Eigen::Matrix4d> bgcp;
+	std::vector<reglib::RGBDFrame*> bgcf;
+	std::vector<cv::Mat> bgmask;
+	for(unsigned int i = 0; i < bgs.size(); i++){
+		Eigen::Matrix4d cp = cpmod[i];
+		std::cout << cp << std::endl;
+		for(unsigned int k = 0; k < bgs[i]->relativeposes.size(); k++){
+			bgcp.push_back(cp * bgs[i]->relativeposes[k]);
+			bgcf.push_back(bgs[i]->frames[k]);
+			bgmask.push_back(bgs[i]->modelmasks[k]->getMask());
+		}
+	}
+	for(int j = 0; j < models.size(); j++){
+		reglib::Model * model = models[j];
+
+		std::vector<cv::Mat> masks;
+		for(unsigned int i = 0; i < model->frames.size(); i++){
+			reglib::RGBDFrame * frame = model->frames[i];
+			reglib::Camera * cam = frame->camera;
+			cv::Mat mask;
+			mask.create(cam->height,cam->width,CV_8UC1);
+			unsigned char * maskdata = (unsigned char *)(mask.data);
+			for(unsigned int k = 0; k < cam->height*cam->width;k++){maskdata[k] = 255;}
+			masks.push_back(mask);
+		}
+
+		std::vector<cv::Mat> movemask;
+		std::vector<cv::Mat> dynmask;
+		printf("computeMovingDynamicStatic\n");
+		mu->computeMovingDynamicStatic(movemask,dynmask,bgcp,bgcf,model->relativeposes,model->frames,debugg);//Determine self occlusions
+		external.push_back(movemask);
+		internal.push_back(masks);
+		dynamic.push_back(dynmask);
+	}
+
+	delete reg;
+	delete mu;
+	printf("total segment time: %5.5fs\n",getTime()-startTime);
+}
+
+/*
+void segment(std::vector< reglib::Model * > bgs, std::vector< reglib::Model * > models, std::vector< std::vector< cv::Mat > > & internal, std::vector< std::vector< cv::Mat > > & external, std::vector< std::vector< cv::Mat > > & dynamic, bool debugg){
 	double startTime = getTime();
 	printf("running segment method\n");
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
@@ -386,7 +519,7 @@ void segment(reglib::Model * bg, std::vector< reglib::Model * > models, std::vec
 	delete reg;
 	delete mu;
 	printf("total segment time: %5.5fs\n",getTime()-startTime);
-	//exit(0);
 }
+*/
 
 }

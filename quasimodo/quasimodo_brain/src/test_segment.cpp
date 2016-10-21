@@ -215,7 +215,11 @@ int main(int argc, char** argv){
 		std::vector< std::vector< cv::Mat > > internal;
 		std::vector< std::vector< cv::Mat > > external;
 		std::vector< std::vector< cv::Mat > > dynamic;
-        quasimodo_brain::segment(models[i-1],foreground,internal,external,dynamic,false);
+
+		std::vector< reglib::Model * > background;
+		background.push_back(models[i-1]);
+
+		quasimodo_brain::segment(background,foreground,internal,external,dynamic,false);
 
 //		quasimodo_msgs::segment_model sm;
 //		sm.request.models.push_back(quasimodo_brain::getModelMSG(models[i]));

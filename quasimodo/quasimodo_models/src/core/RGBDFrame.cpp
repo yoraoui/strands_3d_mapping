@@ -999,11 +999,14 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	cenms.create(height,width,CV_32FC3);
 	float * cenmsdata = (float*)cenms.data;
 	for(int i = 0; i < nr_pixels; i++){
-		double edgep = std::max(cedata[3*i+1]*maxima_dxdata[i],cedata[3*i+2]*maxima_dydata[i]);
-		edgep = std::max(0.0001,edgep);
-		cenmsdata[3*i+0] = edgep;
-		cenmsdata[3*i+1] = edgep;
-		cenmsdata[3*i+2] = edgep;
+				double edgep = std::max(cedata[3*i+1]*maxima_dxdata[i],cedata[3*i+2]*maxima_dydata[i]);
+				edgep = std::max(0.0001,edgep);
+				cenmsdata[3*i+0] = edgep;
+				cenmsdata[3*i+1] = edgep;
+				cenmsdata[3*i+2] = edgep;
+//				cenmsdata[3*i+0] = 0;
+//				cenmsdata[3*i+1] = std::max(0.0001f,cedata[3*i+1]*maxima_dxdata[i]);
+//				cenmsdata[3*i+2] = std::max(0.0001f,cedata[3*i+2]*maxima_dydata[i]);
 	}
 
 //	for(int i = 0; i < nr_pixels; i++){
@@ -1479,16 +1482,16 @@ std::vector< std::vector<float> > RGBDFrame::getImageProbs(bool depthonly){
 	dyc.resize(nr_pixels);
 
 	for(unsigned int i = 0; i < nr_pixels;i++){
-		dxc[i] = dedata[3*i+1];
-		dyc[i] = dedata[3*i+2];
+		dxc[i] = 1.0-dedata[3*i+1];
+		dyc[i] = 1.0-dedata[3*i+2];
 
 		if(!depthonly){
 			if(!det_dilatedata[i]){
-				dxc[i] = std::max(dedata[3*i+1],cedata[3*i+1]);
-				dyc[i] = std::max(dedata[3*i+2],cedata[3*i+2]);
+				dxc[i] = 1.0-std::max(dedata[3*i+1],cedata[3*i+1]);
+				dyc[i] = 1.0-std::max(dedata[3*i+2],cedata[3*i+2]);
 			}else{
-				dxc[i] = std::max(dedata[3*i+1],0.8f*cedata[3*i+1]);
-				dyc[i] = std::max(dedata[3*i+2],0.8f*cedata[3*i+2]);
+				dxc[i] = 1.0-std::max(dedata[3*i+1],0.8f*cedata[3*i+1]);
+				dyc[i] = 1.0-std::max(dedata[3*i+2],0.8f*cedata[3*i+2]);
 			}
 		}
 	}

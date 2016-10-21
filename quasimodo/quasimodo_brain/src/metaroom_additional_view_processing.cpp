@@ -753,9 +753,12 @@ reglib::Model * getAVMetaroom(std::string path){
 	int viewgroup_nrviews = readNumberOfViews(sweep_folder+"ViewGroup.xml");
 
 
+	printf("sweep_folder: %s\n",sweep_folder.c_str());
+
 	int additional_nrviews = 0;
 	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("*object*.xml"));
 	for (auto objectFile : objectFiles){
+		printf("objectFile: %s\n",(sweep_folder+objectFile.toStdString()).c_str());
 		auto object = loadDynamicObjectFromSingleSweep<PointType>(sweep_folder+objectFile.toStdString(),false);
 		additional_nrviews += object.vAdditionalViews.size();
 	}
@@ -788,10 +791,14 @@ reglib::Model * getAVMetaroom(std::string path){
 		fullmodel = processAV(path);
 		writeXml(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes);
 	}
+
+
 	return fullmodel;
 }
 
 int processMetaroom(std::string path, bool store_old_xml = true){
+
+	quasimodo_brain::cleanPath(path);
 	int returnval = 0;
 	printf("processing: %s\n",path.c_str());
 
@@ -800,6 +807,8 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 	int slash_pos = path.find_last_of("/");
 	std::string sweep_folder = path.substr(0, slash_pos) + "/";
 
+	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("*object*.xml"));
+	store_old_xml = objectFiles.size() == 0;
 
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData current_roomData  = parser.loadRoomFromXML(path);
@@ -842,33 +851,39 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 		if(sweep_xmls[i].compare(path) == 0){break;}
 		if(other_waypointid.compare(current_waypointid) == 0){prevind = i;}
 	}
+	int nextind = prevind +2;
 
+	std::vector< reglib::Model * > models;
+	models.push_back(fullmodel);
 
+	std::vector< std::vector< cv::Mat > > internal;
+	std::vector< std::vector< cv::Mat > > external;
+	std::vector< std::vector< cv::Mat > > dynamic;
+
+	std::vector< reglib::Model * > bgs;
 	if(prevind != -1){
 		std::string prev = sweep_xmls[prevind];
 		printf("prev: %s\n",prev.c_str());
+		reglib::Model * bg = getAVMetaroom(prev);
+		bgs.push_back(bg);
+	}
 
-		reglib::Model * bg = getAVMetaroom(prev);//quasimodo_brain::load_metaroom_model(prev);
-		auto sweep = SimpleXMLParser<PointType>::loadRoomFromXML(prev, std::vector<std::string>{},false);
-		//bg->points = mu->getSuperPoints(bg->relativeposes,bg->frames,bg->modelmasks,1,false);
-		//bg->recomputeModelPoints();
+	if(nextind < sweep_xmls.size()){
+		std::string next = sweep_xmls[nextind];
+		printf("next: %s\n",next.c_str());
+		reglib::Model * nxt = getAVMetaroom(next);
+		bgs.push_back(nxt);
+	}
 
-		std::vector< reglib::Model * > models;
-		models.push_back(fullmodel);
+	if(bgs.size() > 0){
+		auto sweep = SimpleXMLParser<PointType>::loadRoomFromXML(path, std::vector<std::string>{},false);
 
-		std::vector< std::vector< cv::Mat > > internal;
-		std::vector< std::vector< cv::Mat > > external;
-		std::vector< std::vector< cv::Mat > > dynamic;
-
-		quasimodo_brain::segment(bg,models,internal,external,dynamic,visualization_lvl > 0);
+		quasimodo_brain::segment(bgs,models,internal,external,dynamic,visualization_lvl > 0);
 
 		remove_old_seg(sweep_folder);
 
-		if(models.size() == 0){
-			returnval = 2;
-		}else{
-			returnval = 3;
-		}
+		if(models.size() == 0){	returnval = 2;}
+		else{					returnval = 3;}
 
 		for(unsigned int i = 0; i < models.size(); i++){
 			std::vector<cv::Mat> internal_masks = internal[i];
@@ -1009,7 +1024,9 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 					xmlWriter->writeStartDocument();
 					xmlWriter->writeStartElement("Object");
 					xmlWriter->writeAttribute("object_number", QString::number(dynamicCounter-1));
-					xmlWriter->writeAttribute("label", QString(""));
+					xmlWriter->writeAttribute("classname", QString(""));
+					xmlWriter->writeAttribute("instancename", QString(""));
+					xmlWriter->writeAttribute("tags", QString(""));
 					xmlWriter->writeStartElement("Mean");
 					xmlWriter->writeAttribute("x", QString::number(sumx/sum));
 					xmlWriter->writeAttribute("y", QString::number(sumy/sum));
@@ -1048,7 +1065,7 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 				for(unsigned int j = 0; j < mod_fr.size(); j++){
 					reglib::RGBDFrame * frame = mod_fr[j];
 					//std::cout << mod_po[j] << std::endl;
-					Eigen::Matrix4d p = mod_po[j]*bg->frames.front()->pose;
+					Eigen::Matrix4d p = mod_po[j]*bgs.front()->frames.front()->pose;
 					unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
 					unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
 					float		   * normalsdata	= (float			*)(frame->normals.data);
@@ -1142,10 +1159,13 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 				}else{break;}
 			}
 		}
-		bg->fullDelete();
-		delete bg;
 	}else{
 		returnval = 1;
+	}
+
+	for(unsigned int i = 0; i < bgs.size(); i++){
+		bgs[i]->fullDelete();
+		delete bgs[i];
 	}
 
 	fullmodel->fullDelete();

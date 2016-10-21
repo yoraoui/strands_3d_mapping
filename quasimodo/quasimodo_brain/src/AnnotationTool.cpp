@@ -89,6 +89,9 @@
 
 #include <semantic_map_msgs/RoomObservation.h>
 
+#include <iostream>
+#include <fstream>
+
 
 std::vector< ros::ServiceServer > m_DynamicObjectsServiceServers;
 std::vector< ros::ServiceServer > m_GetDynamicObjectServiceServers;
@@ -161,7 +164,6 @@ Eigen::Matrix4d getPose(QXmlStreamReader * xmlReader){
 }
 
 void readViewXML(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames, std::vector<Eigen::Matrix4d> & poses){
-
 	QFile file(xmlFile.c_str());
 
 	if (!file.exists())
@@ -189,7 +191,7 @@ void readViewXML(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames,
 
 		if (xmlReader->hasError())
 		{
-			ROS_ERROR("XML error: %s",xmlReader->errorString().toStdString().c_str());
+			ROS_ERROR("XML error: %s in %s",xmlReader->errorString().toStdString().c_str(),xmlFile.c_str());
 			return;
 		}
 
@@ -309,7 +311,7 @@ std::vector<Eigen::Matrix4d> readPoseXML(std::string xmlFile){
 
 		if (xmlReader->hasError())
 		{
-			ROS_ERROR("XML error: %s",xmlReader->errorString().toStdString().c_str());
+			ROS_ERROR("XML error: %s in %s",xmlReader->errorString().toStdString().c_str(),xmlFile.c_str());
 			return poses;
 		}
 
@@ -369,7 +371,7 @@ std::vector<reglib::Model *> loadModels(std::string path){
 				continue;
 
 			if (xmlReader->hasError()){
-				ROS_ERROR("XML error: %s",xmlReader->errorString().toStdString().c_str());
+				ROS_ERROR("XML error: %s in %s",xmlReader->errorString().toStdString().c_str(),object.c_str());
 				break;
 			}
 
@@ -441,7 +443,7 @@ bool annotate(std::string path){
 			continue;
 
 		if (xmlReader->hasError()){
-			ROS_ERROR("XML error: %s",xmlReader->errorString().toStdString().c_str());
+			ROS_ERROR("XML error: %s in %s",xmlReader->errorString().toStdString().c_str(), (roomFolder+"/ViewGroup.xml").c_str());
 			return false;
 		}
 
@@ -476,6 +478,11 @@ bool annotate(std::string path){
 		unsigned int current_displayInd = 0;
 		unsigned int maxNrPixels = 0;
 
+		std::string classname = "";
+		std::string instancename = "";
+		std::string tags = "";
+
+
 		QFile objfile(object.c_str());
 
 		if (!objfile.exists()){
@@ -494,16 +501,22 @@ bool annotate(std::string path){
 				continue;
 
 			if (objxmlReader->hasError()){
-				ROS_ERROR("XML error: %s",objxmlReader->errorString().toStdString().c_str());
+				ROS_ERROR("XML error: %s in %s",objxmlReader->errorString().toStdString().c_str(),object.c_str());
 				break;
 			}
 
 			QString elementName = objxmlReader->name().toString();
 
 			if (token == QXmlStreamReader::StartElement){
+				if (objxmlReader->name() == "Object"){
+					QXmlStreamAttributes attributes = objxmlReader->attributes();
+					if (attributes.hasAttribute("classname")){		classname		= attributes.value("classname").toString().toStdString();}
+					if (attributes.hasAttribute("instancename")){	instancename	= attributes.value("instancename").toString().toStdString();}
+					if (attributes.hasAttribute("tags")){			tags			= attributes.value("tags").toString().toStdString();}
+				}
+
 				if (objxmlReader->name() == "Mask"){
 					int number = 0;
-//					cv::Mat mask;
 					QXmlStreamAttributes attributes = objxmlReader->attributes();
 					if (attributes.hasAttribute("filename")){
 						QString maskpath = attributes.value("filename").toString();
@@ -533,8 +546,7 @@ bool annotate(std::string path){
 
 		if(objectMasks.size() != imgNumber.size()){return false;}
 
-		std::string classname = "";
-		std::string instancename = "";
+
 		int fontFace = cv::FONT_HERSHEY_COMPLEX_SMALL;
 		double fontScale = 1;
 		int thickness = 1;
@@ -557,7 +569,7 @@ bool annotate(std::string path){
 
 			unsigned int height	= rgb.rows;
 			unsigned int width	= rgb.cols;
-			unsigned int newwidth = width+400;
+			unsigned int newwidth = width+600;
 
 
 			unsigned char * rgbdata = rgb.data;
@@ -567,7 +579,6 @@ bool annotate(std::string path){
 			unsigned char * imgdata = img.data;
 
 			for(unsigned int i = 0; i < 3*height*newwidth; i++){imgdata[i] = 0;}
-
 
 			for(unsigned int w = 0; w < width;w++){
 				for(unsigned int h = 0; h < height;h++){
@@ -579,33 +590,36 @@ bool annotate(std::string path){
 				}
 			}
 
-
 			int textnr = 0;
-			putText(img, "   Class:    "+classname, cv::Point(width+10,	30+(textnr++)*25   ),		fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
-			putText(img, "   Instance: "+instancename, cv::Point(width+10,	30+(textnr++)*25   ),	fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
-
+			putText(img, "   Class:    "+classname,		cv::Point(width+10,	30+(textnr++)*25   ),	fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
+			putText(img, "   Instance: "+instancename,	cv::Point(width+10,	30+(textnr++)*25   ),	fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
+			putText(img, "   Tags:     "+tags,			cv::Point(width+10,	30+(textnr++)*25   ),	fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
 
 			char buf [1024];
 			sprintf(buf,"   Image:     %i / %i",current_displayInd+1,objectMasks.size());
 			putText(img, std::string(buf), cv::Point(width+10,			30+(textnr++)*25   ), fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
 
+			putText(img, "   Select state(pushed CTRL)",cv::Point(width+10,	30+(textnr++)*25   ),	fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
 			putText(img, "--", cv::Point(width+5,	30+state*25   ), fontFace, fontScale, cv::Scalar(0,255,0), thickness, 8);
 
-			cv::namedWindow( "rgb",				cv::WINDOW_AUTOSIZE );	cv::imshow( "rgb",img );
+			cv::namedWindow( "Annotation tool",				cv::WINDOW_AUTOSIZE );	cv::imshow( "Annotation tool",img );
 			char c = cv::waitKey(0);
-			printf("c: %c -> %i\n",c,int(c));
 
 			if(c == -29){
-				state = 3;
+				state = 4;
 			}else if(state == 0){
-				if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')  || (c >= '0' && c <= '1')){classname += c;}
+				if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')  || (c >= '0' && c <= '9') || c == ' '){classname += c;}
 				if(c == 8 && classname.size() > 0){classname.pop_back();}
 				if(c == 10){state = 1;}
 			}else if(state == 1){
-				if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')  || (c >= '0' && c <= '1')){instancename += c;}
+				if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')  || (c >= '0' && c <= '9') || c == ' '){instancename += c;}
 				if(c == 8 && instancename.size() > 0){instancename.pop_back();}
-				if(c == 10){break;}
+				if(c == 10){state = 2;}
 			}else if(state == 2){
+				if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')  || (c >= '0' && c <= '9') || c == ' '){tags += c;}
+				if(c == 8 && tags.size() > 0){tags.pop_back();}
+				if(c == 10){break;}
+			}else if(state == 3){
 				if(c == 'q' || c == 'Q'){
 					current_displayInd = std::max(int(current_displayInd-1),0);
 					rgb = cv::imread(rgbpaths[imgNumber[current_displayInd]], CV_LOAD_IMAGE_UNCHANGED);
@@ -617,17 +631,77 @@ bool annotate(std::string path){
 					mask = objectMasks[current_displayInd];
 				}
 				if(c == 10){state = 0;}
-			}else if(state == 3){
+			}else if(state == 4){
 				if(c == '1'){state = 0;}
 				if(c == '2'){state = 1;}
 				if(c == '3'){state = 2;}
+				if(c == '4'){state = 3;}
+				if(c == 10){ state = 0;}
 			}
-
 		}
-
-
-
 		delete objxmlReader;
+
+
+
+		std::streampos size;
+		char * memblock;
+
+		std::ifstream file (object, ios::in|ios::binary|ios::ate);
+		if (file.is_open()){
+			size = file.tellg();
+			memblock = new char [size];
+			file.seekg (0, ios::beg);
+			file.read (memblock, size);
+			file.close();
+
+			std::string filedata = std::string(memblock);
+
+			//<Object
+
+			std::size_t found1 = filedata.find("<Object");
+			std::size_t found1a = filedata.find("\"",found1+1);
+			std::size_t found1b = filedata.find("\"",found1a+1);
+
+
+
+			std::size_t found2 = filedata.find(">",found1b+1);
+			printf("found: %i\n",found1);
+
+
+			std::string frontpart = filedata.substr(0,found1b+1);
+
+			std::string endpart = filedata.substr(found2,filedata.size()-found2-1);
+
+//			std::cout << frontpart << std::endl;
+//			std::cout << endpart << std::endl;
+
+//			if (attributes.hasAttribute("classname")){		classname		= attributes.value("classname").toString().toStdString();}
+//			if (attributes.hasAttribute("instancename")){	instancename	= attributes.value("instancename").toString().toStdString();}
+//			if (attributes.hasAttribute("tags")){			tags			= attributes.value("tags").toString().toStdString();}
+
+
+			std::string total = frontpart+" classname=\""+classname+"\""+" instancename=\""+instancename+"\""+" tags=\""+tags+"\""+endpart;
+
+			std::ofstream myfile;
+			myfile.open (object);
+			myfile << total;
+			myfile.close();
+
+			//std::cout << std::endl << std::endl << std::endl << total << std::endl;
+//exit(0);
+//			while (found!=std::string::npos){
+//				path.replace(found,2,"/");
+//				found = path.find("//");
+//			}
+
+			std::cout << "the entire file content is in memory" << std::endl;
+			std::cout << total << std::endl;
+
+			delete[] memblock;
+		}else{
+			std::cout << "Unable to open file\n";
+		}
+//	    return 0;
 	}
 
 /*
