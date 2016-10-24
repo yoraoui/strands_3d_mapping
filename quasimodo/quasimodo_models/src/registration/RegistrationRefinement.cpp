@@ -149,7 +149,7 @@ FusionResults RegistrationRefinement::getTransform(Eigen::MatrixXd guess){
 	double score = 0;
 	stop = 99999;
 
-	//if(visualizationLvl >= 2){show(X,Y);}
+	if(visualizationLvl >= 3){show(X,Y);}
 
 	//printf("X: %i %i Y: %i %i\n",X.cols(), X.rows(),Y.cols(), Y.rows());
 
@@ -284,7 +284,7 @@ bool timestopped = false;
 
 						W = W.array()*rangeW.array()*rangeW.array();
 
-                        if(visualizationLvl >= 3){
+						if(visualizationLvl >= 4){
                             //printf("start show\n");
                             unsigned int s_nr_data = X.cols();
                             unsigned int d_nr_data = Y.cols();

@@ -744,12 +744,8 @@ bool annotateFiles(std::string path){
 }
 
 int main(int argc, char** argv){
-	visualization_lvl = 1;
+	visualization_lvl = 0;
 
-	viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
-	viewer->setBackgroundColor (0.5, 0, 0.5);
-	viewer->addCoordinateSystem (1.0);
-	viewer->initCameraParameters ();
 
 	std::vector< std::string > folders;
 	int inputstate = 0;
@@ -757,8 +753,18 @@ int main(int argc, char** argv){
 		printf("input: %s\n",argv[i]);
 		if(std::string(argv[i]).compare("-v") == 0){			inputstate	= 1;}
 		else if(std::string(argv[i]).compare("-folder") == 0){	inputstate	= 2;}
+		else if(std::string(argv[i]).compare("-folders") == 0){	inputstate	= 2;}
+		else if(std::string(argv[i]).compare("-file") == 0){	inputstate	= 2;}
+		else if(std::string(argv[i]).compare("-files") == 0){	inputstate	= 2;}
 		else if(inputstate == 1){visualization_lvl = atoi(argv[i]);}
 		else if(inputstate == 2){folders.push_back(std::string(argv[i]));}
+	}
+
+	if(visualization_lvl > 0){
+		viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
+		viewer->setBackgroundColor (0.5, 0, 0.5);
+		viewer->addCoordinateSystem (1.0);
+		viewer->initCameraParameters ();
 	}
 
 	if(folders.size() == 0){folders.push_back(std::string(getenv ("HOME"))+"/.semanticMap/");}

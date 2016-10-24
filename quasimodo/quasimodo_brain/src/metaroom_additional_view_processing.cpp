@@ -517,11 +517,6 @@ void setBaseSweep(std::string path){
 }
 
 reglib::Model * processAV(std::string path){
-
-	//	std::vector<reglib::RGBDFrame *> frames;
-	//	std::vector<Eigen::Matrix4d> poses;
-	//	readViewXML(sweep_folder+"ViewGroup.xml",frames,poses);
-
 	printf("processAV: %s\n",path.c_str());
 
 	int slash_pos = path.find_last_of("/");
@@ -619,12 +614,42 @@ reglib::Model * processAV(std::string path){
 	fullmodel->modelmasks = sweep->modelmasks;
 
 	if(frames.size() > 0){
-		reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.15);
+
+		reglib::RegistrationRefinement * refinement = new reglib::RegistrationRefinement();
+		refinement->viewer	= viewer;
+		refinement->visualizationLvl	= 3*(visualization_lvl > 2);
+		refinement->normalize_matchweights = false;
+		refinement->target_points = 4000;
+////double register_setup_start = getTime();
+
+		reglib::CloudData * cd1 = sweep->getCD(sweep->points.size());
+		refinement->setDst(cd1);
+
+		fullmodel->points = frames.front()->getSuperPoints(Eigen::Matrix4d::Identity(),1,false);
+		reglib::CloudData * cd2	= fullmodel->getCD(fullmodel->points.size());
+		refinement->setSrc(cd2);
+//////printf("register_setup_start:          %5.5f\n",getTime()-register_setup_start);
+////double register_compute_start = getTime();
+		Eigen::Matrix4d guess = both_unrefined[1]*both_unrefined[0].inverse();
+
+		reglib::FusionResults fr = refinement->getTransform(guess);
+		Eigen::Matrix4d offset = fr.guess*guess.inverse();
+		for(unsigned int i = 1; i < both_unrefined.size(); i++){
+			both_unrefined[i] = offset*both_unrefined[i];
+		}
+
+		delete refinement;
+
+		fullmodel->points.clear();
+		delete cd1;
+		delete cd2;
+
+		reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.25);
 		bgmassreg->timeout = 300;
 		bgmassreg->viewer = viewer;
 		bgmassreg->use_surface = true;
 		bgmassreg->use_depthedge = false;
-		bgmassreg->visualizationLvl = visualization_lvl;
+		bgmassreg->visualizationLvl = visualization_lvl > 1;
 		bgmassreg->maskstep = 5;
 		bgmassreg->nomaskstep = 5;
 		bgmassreg->nomask = true;
@@ -815,6 +840,13 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 
 	reglib::Model * fullmodel = getAVMetaroom(path);
 
+	printf("fullmodel->frames.size() = %i\n",fullmodel->frames.size());
+
+//	fullmodel->fullDelete();
+//	delete fullmodel;
+//	return 0;
+
+
 	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( fullmodel, reg);
 	mu->occlusion_penalty               = 15;
@@ -825,16 +857,15 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 	std::vector<reglib::RGBDFrame*> fr;
 	std::vector<reglib::ModelMask*> mm;
 	fullmodel->getData(po, fr, mm);
-	//fullmodel->points = mu->getSuperPoints(po,fr,mm,1,false);
-	//fullmodel->recomputeModelPoints();
-
-
-
-
+	//	fullmodel->points = mu->getSuperPoints(po,fr,mm,1,false);
+	//	fullmodel->recomputeModelPoints();
 	//	SemanticRoom<PointType> observation = SemanticRoomXMLParser<PointType>::loadRoomFromXML(path,false);
 	//	Eigen::Matrix4f roomTransform = observation.getRoomTransform();
 	//	printf("roomTransform\n");
 	//	std::cout << roomTransform << std::endl;
+
+//	return 0;
+//exit(0);
 
 	DynamicObjectXMLParser objectparser(sweep_folder, true);
 
@@ -845,13 +876,23 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 	int prevind = -1;
 	std::vector<std::string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<pcl::PointXYZRGB>(overall_folder);
 	for (unsigned int i = 0; i < sweep_xmls.size(); i++){
+		printf("prev: %s\n",sweep_xmls[i].c_str());
 		SimpleXMLParser<pcl::PointXYZRGB>::RoomData other_roomData  = parser.loadRoomFromXML(sweep_xmls[i],std::vector<std::string>(),false,false);
 		std::string other_waypointid = other_roomData.roomWaypointId;
 
 		if(sweep_xmls[i].compare(path) == 0){break;}
 		if(other_waypointid.compare(current_waypointid) == 0){prevind = i;}
 	}
-	int nextind = prevind +2;
+
+	int nextind = sweep_xmls.size();
+	for (unsigned int i = (sweep_xmls.size()-1); i >= 0 ; i--){
+		printf("next: %s\n",sweep_xmls[i].c_str());
+		SimpleXMLParser<pcl::PointXYZRGB>::RoomData other_roomData  = parser.loadRoomFromXML(sweep_xmls[i],std::vector<std::string>(),false,false);
+		std::string other_waypointid = other_roomData.roomWaypointId;
+
+		if(sweep_xmls[i].compare(path) == 0){break;}
+		if(other_waypointid.compare(current_waypointid) == 0){nextind = i;}
+	}
 
 	std::vector< reglib::Model * > models;
 	models.push_back(fullmodel);
@@ -874,10 +915,11 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 		reglib::Model * nxt = getAVMetaroom(next);
 		bgs.push_back(nxt);
 	}
-
+printf("bgs.size() = %i\n",bgs.size());
 	if(bgs.size() > 0){
 		auto sweep = SimpleXMLParser<PointType>::loadRoomFromXML(path, std::vector<std::string>{},false);
 
+		printf("models.front()->frames.size() = %i\n",models.front()->frames.size());
 		quasimodo_brain::segment(bgs,models,internal,external,dynamic,visualization_lvl > 0);
 
 		remove_old_seg(sweep_folder);
@@ -1210,7 +1252,7 @@ void trainMetaroom(std::string path){
 	bgmassreg->stopval = 0.0005;
 	bgmassreg->setData(fullmodel->frames,fullmodel->modelmasks);
 	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(fullmodel->relativeposes);
-	exit(0);
+
 	savePoses(overall_folder+"/"+posepath,bgmfr.poses,17);
 	fullmodel->fullDelete();
 	delete fullmodel;
