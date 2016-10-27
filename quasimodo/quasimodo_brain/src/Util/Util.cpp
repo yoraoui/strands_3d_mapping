@@ -255,7 +255,10 @@ reglib::Model * load_metaroom_model(std::string sweep_xml){
 	printf("load_metaroom_model(%s)\n",sweep_folder.c_str());
 
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
-	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(sweep_folder+"/room.xml");
+	std::vector<std::string> dummy;
+	dummy.push_back("RoomIntermediateCloud");
+	dummy.push_back("IntermediatePosition");
+	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(sweep_folder+"/room.xml",dummy);
 
 	reglib::Model * sweepmodel = 0;
 
@@ -295,7 +298,7 @@ reglib::Model * load_metaroom_model(std::string sweep_xml){
 	return sweepmodel;
 }
 
-void segment(std::vector< reglib::Model * > bgs, std::vector< reglib::Model * > models, std::vector< std::vector< cv::Mat > > & internal, std::vector< std::vector< cv::Mat > > & external, std::vector< std::vector< cv::Mat > > & dynamic, bool debugg){
+void segment(std::vector< reglib::Model * > bgs, std::vector< reglib::Model * > models, std::vector< std::vector< cv::Mat > > & internal, std::vector< std::vector< cv::Mat > > & external, std::vector< std::vector< cv::Mat > > & dynamic, int debugg){
 	double startTime = getTime();
 	printf("running segment method\n");
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
@@ -308,7 +311,7 @@ void segment(std::vector< reglib::Model * > bgs, std::vector< reglib::Model * > 
 	reglib::MassRegistrationPPR2 * massregmod = new reglib::MassRegistrationPPR2(0.05);
 	massregmod->timeout = 1200;
 	massregmod->viewer = viewer;
-	massregmod->visualizationLvl = 0;
+	massregmod->visualizationLvl = debugg > 1;
 	massregmod->maskstep = 10;//std::max(1,int(0.4*double(models[i]->frames.size())));
 	massregmod->nomaskstep = 10;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
 	massregmod->nomask = true;

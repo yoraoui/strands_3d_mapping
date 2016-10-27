@@ -784,7 +784,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	DistanceWeightFunction2PPR3 * funcZ = new DistanceWeightFunction2PPR3();
 	funcZ->zeromean				= true;
 	//funcZ->startreg				= 0.001;
-	funcZ->startreg				= 0.000001;
+	funcZ->startreg				= 0.0001;
 	funcZ->debugg_print			= false;
 	funcZ->bidir				= false;
 	funcZ->maxp					= 0.999999;
@@ -928,7 +928,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	DistanceWeightFunction2PPR2 * funcG = new DistanceWeightFunction2PPR2();
 	DistanceWeightFunction2PPR2 * funcB = new DistanceWeightFunction2PPR2();
 	funcR->zeromean		= funcG->zeromean	= funcB->zeromean	= true;
-	funcR->maxp			= funcG->maxp		= funcB->maxp		= 0.9999;
+	funcR->maxp			= funcG->maxp		= funcB->maxp		= 0.999999999999999999;
 	funcR->startreg		= funcG->startreg	= funcB->startreg	= 1.0;
 	funcR->debugg_print = funcG->debugg_print = funcB->debugg_print = false;
 	funcR->maxd			= funcG->maxd		= funcB->maxd		= 256.0;
@@ -936,7 +936,8 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	funcR->fixed_histogram_size	= funcG->fixed_histogram_size	= funcB->fixed_histogram_size	= true;
 	funcR->startmaxd	= funcG->startmaxd	= funcB->startmaxd	= funcR->maxd;
 	funcR->starthistogram_size	= funcG->starthistogram_size	= funcB->starthistogram_size	= funcR->histogram_size;
-	funcR->blurval		= funcG->blurval	= funcB->blurval	= 0.005;
+	//funcR->blurval		= funcG->blurval	= funcB->blurval	= 0.005;
+	funcR->blurval		= funcG->blurval	= funcB->blurval	= 0.5;
 
 	funcR->stdval2		= stdvalR;
 	funcR->maxnoise		= stdvalR;
@@ -1000,7 +1001,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	float * cenmsdata = (float*)cenms.data;
 	for(int i = 0; i < nr_pixels; i++){
 				double edgep = std::max(cedata[3*i+1]*maxima_dxdata[i],cedata[3*i+2]*maxima_dydata[i]);
-				edgep = std::max(0.0001,edgep);
+				edgep = std::max(0.000000000000000000001,edgep);
 				cenmsdata[3*i+0] = edgep;
 				cenmsdata[3*i+1] = edgep;
 				cenmsdata[3*i+2] = edgep;
@@ -1482,18 +1483,25 @@ std::vector< std::vector<float> > RGBDFrame::getImageProbs(bool depthonly){
 	dyc.resize(nr_pixels);
 
 	for(unsigned int i = 0; i < nr_pixels;i++){
-		dxc[i] = 1.0-dedata[3*i+1];
-		dyc[i] = 1.0-dedata[3*i+2];
+		//dxc[i] = 1.0-std::max(dedata[3*i+1],cedata[3*i+1]);
+		//dyc[i] = 1.0-std::max(dedata[3*i+2],cedata[3*i+2]);
+
+
+
 
 		if(!depthonly){
 			if(!det_dilatedata[i]){
-				dxc[i] = 1.0-std::max(dedata[3*i+1],cedata[3*i+1]);
-				dyc[i] = 1.0-std::max(dedata[3*i+2],cedata[3*i+2]);
+				dxc[i] = 1.0-std::max(dedata[3*i+1],1.0f*cedata[3*i+1]);
+				dyc[i] = 1.0-std::max(dedata[3*i+2],1.0f*cedata[3*i+2]);
 			}else{
-				dxc[i] = 1.0-std::max(dedata[3*i+1],0.8f*cedata[3*i+1]);
-				dyc[i] = 1.0-std::max(dedata[3*i+2],0.8f*cedata[3*i+2]);
+				dxc[i] = 1.0-std::max(dedata[3*i+1],1.0f*cedata[3*i+1]);
+				dyc[i] = 1.0-std::max(dedata[3*i+2],1.0f*cedata[3*i+2]);
 			}
+		}else{
+			dxc[i] = 1.0-dedata[3*i+1];
+			dyc[i] = 1.0-dedata[3*i+2];
 		}
+
 	}
 
 //	cv::namedWindow( "Colour edges"	, cv::WINDOW_AUTOSIZE );	cv::imshow( "Colour edges",	ce);

@@ -89,6 +89,11 @@
 
 #include <semantic_map_msgs/RoomObservation.h>
 
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
+
 
 std::vector< ros::ServiceServer > m_DynamicObjectsServiceServers;
 std::vector< ros::ServiceServer > m_GetDynamicObjectServiceServers;
@@ -117,9 +122,11 @@ using namespace semantic_map_load_utilties;
 
 std::string overall_folder = "";
 boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
-int visualization_lvl		= 0;
-std::string outtopic		= "";
-std::string modelouttopic	= "";
+int visualization_lvl			= 0;
+int visualization_lvl_regref	= 0;
+int visualization_lvl_regini	= 0;
+std::string outtopic			= "";
+std::string modelouttopic		= "";
 ros::Publisher out_pub;
 ros::Publisher model_pub;
 
@@ -137,6 +144,11 @@ bool recomputeRelativePoses = false;
 
 bool testDynamicObjectServiceCallback(std::string path);
 bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res);
+
+void signal_callback_handler(int signum){
+	printf("Caught signal %d\n",signum);
+	exit(signum);
+}
 
 void remove_old_seg(std::string sweep_folder){
 	DIR *dir;
@@ -366,7 +378,7 @@ int readNumberOfViews(std::string xmlFile){
 	return count;
 }
 
-void readViewXML(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames, std::vector<Eigen::Matrix4d> & poses){
+void readViewXML(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames, std::vector<Eigen::Matrix4d> & poses, bool compute_edges = true){
 
 	QFile file(xmlFile.c_str());
 
@@ -516,7 +528,7 @@ void setBaseSweep(std::string path){
 	}
 }
 
-reglib::Model * processAV(std::string path){
+reglib::Model * processAV(std::string path, bool compute_edges = true){
 	printf("processAV: %s\n",path.c_str());
 
 	int slash_pos = path.find_last_of("/");
@@ -617,7 +629,7 @@ reglib::Model * processAV(std::string path){
 
 		reglib::RegistrationRefinement * refinement = new reglib::RegistrationRefinement();
 		refinement->viewer	= viewer;
-		refinement->visualizationLvl	= 3*(visualization_lvl > 2);
+		refinement->visualizationLvl	= visualization_lvl_regini;
 		refinement->normalize_matchweights = false;
 		refinement->target_points = 4000;
 ////double register_setup_start = getTime();
@@ -649,7 +661,7 @@ reglib::Model * processAV(std::string path){
 		bgmassreg->viewer = viewer;
 		bgmassreg->use_surface = true;
 		bgmassreg->use_depthedge = false;
-		bgmassreg->visualizationLvl = visualization_lvl > 1;
+		bgmassreg->visualizationLvl = visualization_lvl_regref;
 		bgmassreg->maskstep = 5;
 		bgmassreg->nomaskstep = 5;
 		bgmassreg->nomask = true;
@@ -767,7 +779,7 @@ std::vector<Eigen::Matrix4d> readPoseXML(std::string xmlFile){
 	return poses;
 }
 
-reglib::Model * getAVMetaroom(std::string path){
+reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true){
 	printf("processing: %s\n",path.c_str());
 
 	if ( ! boost::filesystem::exists( path ) ){return 0;}
@@ -789,7 +801,7 @@ reglib::Model * getAVMetaroom(std::string path){
 	}
 
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
-	SimpleXMLParser<pcl::PointXYZRGB>::RoomData current_roomData  = parser.loadRoomFromXML(path);
+	SimpleXMLParser<pcl::PointXYZRGB>::RoomData current_roomData  = parser.loadRoomFromXML(path,std::vector<std::string>{"RoomIntermediateCloud","IntermediatePosition"});
 	int metaroom_nrviews = current_roomData.vIntermediateRoomClouds.size();
 
 
@@ -810,16 +822,18 @@ reglib::Model * getAVMetaroom(std::string path){
 			fullmodel->modelmasks.push_back(new reglib::ModelMask(fullmask));
 		}
 
-		readViewXML(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes);
+		readViewXML(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes,compute_edges);
 		fullmodel->recomputeModelPoints();
 	}else{
-		fullmodel = processAV(path);
+		fullmodel = processAV(path,compute_edges);
 		writeXml(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes);
 	}
 
 
 	return fullmodel;
 }
+
+int totalcounter = 0;
 
 int processMetaroom(std::string path, bool store_old_xml = true){
 
@@ -835,8 +849,12 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("*object*.xml"));
 	store_old_xml = objectFiles.size() == 0;
 
+	printf("current_roomData starting to load\n");
+
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
-	SimpleXMLParser<pcl::PointXYZRGB>::RoomData current_roomData  = parser.loadRoomFromXML(path);
+	SimpleXMLParser<pcl::PointXYZRGB>::RoomData current_roomData  = parser.loadRoomFromXML(path,std::vector<std::string>{"RoomIntermediateCloud","IntermediatePosition"});
+
+	printf("current_roomData loaded\n");
 
 	reglib::Model * fullmodel = getAVMetaroom(path);
 
@@ -876,7 +894,6 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 	int prevind = -1;
 	std::vector<std::string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<pcl::PointXYZRGB>(overall_folder);
 	for (unsigned int i = 0; i < sweep_xmls.size(); i++){
-		printf("prev: %s\n",sweep_xmls[i].c_str());
 		SimpleXMLParser<pcl::PointXYZRGB>::RoomData other_roomData  = parser.loadRoomFromXML(sweep_xmls[i],std::vector<std::string>(),false,false);
 		std::string other_waypointid = other_roomData.roomWaypointId;
 
@@ -886,7 +903,6 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 
 	int nextind = sweep_xmls.size();
 	for (unsigned int i = (sweep_xmls.size()-1); i >= 0 ; i--){
-		printf("next: %s\n",sweep_xmls[i].c_str());
 		SimpleXMLParser<pcl::PointXYZRGB>::RoomData other_roomData  = parser.loadRoomFromXML(sweep_xmls[i],std::vector<std::string>(),false,false);
 		std::string other_waypointid = other_roomData.roomWaypointId;
 
@@ -909,12 +925,12 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 		bgs.push_back(bg);
 	}
 
-	if(nextind < sweep_xmls.size()){
-		std::string next = sweep_xmls[nextind];
-		printf("next: %s\n",next.c_str());
-		reglib::Model * nxt = getAVMetaroom(next);
-		bgs.push_back(nxt);
-	}
+//	if(nextind < sweep_xmls.size()){
+//		std::string next = sweep_xmls[nextind];
+//		printf("next: %s\n",next.c_str());
+//		reglib::Model * nxt = getAVMetaroom(next);
+//		bgs.push_back(nxt);
+//	}
 printf("bgs.size() = %i\n",bgs.size());
 	if(bgs.size() > 0){
 		auto sweep = SimpleXMLParser<PointType>::loadRoomFromXML(path, std::vector<std::string>{},false);
@@ -1057,6 +1073,7 @@ printf("bgs.size() = %i\n",bgs.size());
 					//					std::cout << objectpcd.substr(0,objectpcd.size()-4) << std::endl;
 
 					sprintf(buf,"%s/dynamic_obj%10.10i.xml",sweep_folder.c_str(),dynamicCounter-1);
+					printf("saving dynamic objec: %s\n",buf);
 					QFile file(buf);
 					if (file.exists()){file.remove();}
 					if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save dynamic object as XML"<<std::endl;}
@@ -1077,9 +1094,94 @@ printf("bgs.size() = %i\n",bgs.size());
 
 
 					for(unsigned int j = 0; j < masks.size(); j++){
+
+						reglib::RGBDFrame * frame = mod_fr[imgnr[j]];
+						unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
+
 						char buf [1024];
 						sprintf(buf,"%s/dynamicmask_%i_%i.png",sweep_folder.c_str(),dynamicCounter-1,imgnr[j]);
 						cv::imwrite(buf, masks[j] );
+
+
+						int width = masks[j].cols;
+						int height = masks[j].rows;
+
+						int maxw = 0;
+						int minw = width;
+						int maxh = 0;
+						int minh = height;
+						for(int w = 0; w < width; w++){
+							for(int h = 0; h < height; h++){
+								if(masks[j].data[h*width+w] != 0){
+									maxw = std::max(maxw,w);
+									minw = std::min(minw,w);
+									maxh = std::max(maxh,h);
+									minh = std::min(minh,h);
+								}
+							}
+						}
+
+						double ratio = 0.15;
+						int diffw = maxw-minw;
+						int diffh = maxh-minh;
+
+						printf("w: %i %i ",minw,maxw);
+						printf("h: %i %i ",minh,maxh);
+						printf("diff: %i %i\n",diffw,diffh);
+						maxw = std::min(width-1	,int(maxw+ratio*diffw));
+						minw = std::max(0		,int(minw-ratio*diffw));
+						maxh = std::min(height-1,int(maxh+ratio*diffh));
+						minh = std::max(0		,int(minh-ratio*diffh));
+
+//						cv::namedWindow( "mask"		, cv::WINDOW_AUTOSIZE );	cv::imshow( "mask",	masks[j] );
+//						cv::namedWindow( "rgb"		, cv::WINDOW_AUTOSIZE );	cv::imshow( "rgb",	frame->rgb );
+//						cv::waitKey(0);
+
+						diffw = maxw-minw;
+						diffh = maxh-minh;
+						printf("w: %i %i ",minw,maxw);
+						printf("h: %i %i ",minh,maxh);
+						printf("diff: %i %i\n",diffw,diffh);
+
+
+						// Transform it into the C++ cv::Mat format
+						cv::Mat image = frame->rgb.clone();
+
+						// Setup a rectangle to define your region of interest
+						cv::Rect myROI(minw, minh, diffw, diffh);
+
+						// Crop the full image to that image contained by the rectangle myROI
+						// Note that this doesn't copy the data
+						cv::Mat localimg = image(myROI);
+
+
+						char buf2 [1024];
+						sprintf(buf2,"/home/johane/imgregion/region%10.10i.png",totalcounter++);
+						cv::imwrite(buf2, localimg );
+
+
+//						cv::Mat localimg;
+//						localimg.create(diffh,diffw,CV_8UC3);
+
+//						int width2 = maxw-minw;
+//						for(int w = minw; w < maxw; w++){
+//							for(int h = minw; h < maxh; h++){
+//								int w2 = w-minw;
+//								int h2 = h-minh;
+//								int ind = h*width+w;
+//								int ind1 = h2*width2+w2;
+//								localimg.data[3*ind1+0] = rgbdata[3*ind+0];
+//								localimg.data[3*ind1+1] = rgbdata[3*ind+1];
+//								localimg.data[3*ind1+2] = rgbdata[3*ind+2];
+//							}
+//						}
+
+//						cv::namedWindow( "mask"		, cv::WINDOW_AUTOSIZE );	cv::imshow( "mask",	masks[j] );
+//						cv::namedWindow( "rgb"		, cv::WINDOW_AUTOSIZE );	cv::imshow( "rgb",	frame->rgb );
+//						cv::namedWindow( "localimg"	, cv::WINDOW_AUTOSIZE );	cv::imshow( "localimg",	localimg );
+//						cv::waitKey(0);
+
+						printf("saving dynamic mask: dynamicmask_%i_%i.png\n",dynamicCounter-1,imgnr[j]);
 
 						sprintf(buf,"dynamicmask_%i_%i.png",dynamicCounter-1,imgnr[j]);
 						xmlWriter->writeStartElement("Mask");
@@ -1186,7 +1288,6 @@ printf("bgs.size() = %i\n",bgs.size());
 						char buf [1024];
 						sprintf(buf,"%s/movingmask_%i_%i.png",sweep_folder.c_str(),movingCounter-1,imgnr[j]);
 						cv::imwrite(buf, masks[j] );
-
 						sprintf(buf,"movingmask_%i_%i.png",movingCounter-1,imgnr[j]);
 						xmlWriter->writeStartElement("Mask");
 						xmlWriter->writeAttribute("filename", QString(buf));
@@ -1472,14 +1573,32 @@ bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDyn
 	return true;
 }
 
-bool segmentRaresFiles(std::string path){
+bool segmentRaresFiles(std::string path, bool resegment){
 	printf("bool segmentRaresFiles(%s)\n",path.c_str());
 
 	vector<string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<PointType>(path);
 	for (auto sweep_xml : sweep_xmls) {
 		printf("sweep_xml: %s\n",sweep_xml.c_str());
-		processMetaroom(sweep_xml);
-		///reglib::Model * fullmodel = processAV(sweep_xml);
+
+		quasimodo_brain::cleanPath(sweep_xml);
+		int slash_pos = sweep_xml.find_last_of("/");
+		std::string sweep_folder = sweep_xml.substr(0, slash_pos) + "/";
+		QStringList segoutput = QDir(sweep_folder.c_str()).entryList(QStringList("segoutput.txt"));
+		//QStringList movFiles = QDir(sweep_folder.c_str()).entryList(QStringList("*moving_obj*.xml"));
+
+		//printf("sweep_folder: %s\n",sweep_folder.c_str());
+		printf("segoutput %i\n",segoutput.size());
+		if(resegment || segoutput.size() == 0){
+
+			std::ofstream myfile;
+			myfile.open (sweep_folder+"segoutput.txt");
+			myfile << "dummy";
+			myfile.close();
+
+
+			processMetaroom(sweep_xml);
+		}
+
 	}
 	return false;
 }
@@ -1526,7 +1645,6 @@ void setLargeStack(){
 }
 
 int main(int argc, char** argv){
-
 	bool baseSetting = true;
 	bool once = false;
 
@@ -1545,7 +1663,11 @@ int main(int argc, char** argv){
 	std::vector<std::string> trainMetarooms;
 	std::vector<std::string> sendMetaroomToServers;
 	std::vector<std::string> processMetarooms;
+
+	std::vector<bool>		 raresfiles_resegment;
 	std::vector<std::string> raresfiles;
+
+	bool resegment					= false;
 
 	int inputstate = 0;
 	for(int i = 1; i < argc;i++){
@@ -1553,14 +1675,7 @@ int main(int argc, char** argv){
 		if(		std::string(argv[i]).compare("-intopic") == 0){		inputstate = 0;}
 		else if(std::string(argv[i]).compare("-outtopic") == 0){	inputstate = 1;}
 		else if(std::string(argv[i]).compare("-file") == 0){		inputstate = 2;}
-		else if(std::string(argv[i]).compare("-v") == 0){
-			viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
-			viewer->setBackgroundColor (0.5, 0, 0.5);
-			viewer->addCoordinateSystem (1.0);
-			viewer->initCameraParameters ();
-			visualization_lvl = 1;
-			inputstate = 3;
-		}
+		else if(std::string(argv[i]).compare("-v") == 0){	visualization_lvl = 1;inputstate = 3;}
 		else if(std::string(argv[i]).compare("-folder") == 0){					inputstate	= 4;}
 		else if(std::string(argv[i]).compare("-train") == 0){					inputstate	= 5;}
 		else if(std::string(argv[i]).compare("-posepath") == 0){				inputstate	= 6;}
@@ -1574,9 +1689,12 @@ int main(int argc, char** argv){
 		else if(std::string(argv[i]).compare("-statusmsg") == 0){				inputstate	= 14;}
 		else if(std::string(argv[i]).compare("-files") == 0){					inputstate	= 15;}
 		else if(std::string(argv[i]).compare("-baseSweep") == 0){				inputstate	= 16;}
+		else if(std::string(argv[i]).compare("-resegment") == 0){				resegment	= true;}
 		else if(std::string(argv[i]).compare("-once") == 0){					once		= true;}
 		else if(std::string(argv[i]).compare("-nobase") == 0){					baseSetting = false;}
 		else if(std::string(argv[i]).compare("-recomputeRelativePoses") == 0){	recomputeRelativePoses = true;}
+		else if(std::string(argv[i]).compare("-v_init") == 0){	visualization_lvl_regini = 1;inputstate = 17;}
+		else if(std::string(argv[i]).compare("-v_reg") == 0){	visualization_lvl_regref = 1;inputstate = 18;}
 		else if(inputstate == 0){
 			segsubs.push_back(n.subscribe(std::string(argv[i]), 1000, chatterCallback));
 		}else if(inputstate == 1){
@@ -1609,10 +1727,22 @@ int main(int argc, char** argv){
 			m_PublisherStatuss.push_back(n.advertise<std_msgs::String>(std::string(argv[i]), 1000));
 		}else if(inputstate == 15){
 			raresfiles.push_back(std::string(argv[i]));
+			raresfiles_resegment.push_back(resegment);
 		}else if(inputstate == 16){
 			setBaseSweep(std::string(argv[i]));
+		}else if(inputstate == 17){
+			visualization_lvl_regini = atoi(argv[i]);
+		}else if(inputstate == 18){
+			visualization_lvl_regref = atoi(argv[i]);
 		}
 
+	}
+
+	if(visualization_lvl != 0 || visualization_lvl_regref != 0 || visualization_lvl_regini != 0){
+		viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));
+		viewer->setBackgroundColor (0.5, 0, 0.5);
+		viewer->addCoordinateSystem (1.0);
+		viewer->initCameraParameters ();
 	}
 
 	if(baseSetting){
@@ -1651,7 +1781,7 @@ int main(int argc, char** argv){
 
 	printf("overall_folder: %s\n",overall_folder.c_str());
 
-	for(unsigned int i = 0; i < raresfiles.size(); i++){			segmentRaresFiles(		raresfiles[i]);}
+	for(unsigned int i = 0; i < raresfiles.size(); i++){			segmentRaresFiles(		raresfiles[i], raresfiles_resegment[i]);}
 	for(unsigned int i = 0; i < trainMetarooms.size(); i++){		trainMetaroom(			trainMetarooms[i]);}
 	for(unsigned int i = 0; i < processMetarooms.size(); i++){		processMetaroom(		processMetarooms[i]);}
 	for(unsigned int i = 0; i < sendMetaroomToServers.size(); i++){	sendMetaroomToServer(	sendMetaroomToServers[i]);}

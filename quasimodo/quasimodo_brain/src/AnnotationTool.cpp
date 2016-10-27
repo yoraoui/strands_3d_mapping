@@ -636,6 +636,11 @@ bool annotate(std::string path){
 				if(c == '2'){state = 1;}
 				if(c == '3'){state = 2;}
 				if(c == '4'){state = 3;}
+				if(c == 'j' || c == 'q'){
+					classname = "segmentation junk";
+					instancename = "segmentation junk";
+					break;
+				}
 				if(c == 10){ state = 0;}
 			}
 		}
@@ -649,14 +654,13 @@ bool annotate(std::string path){
 		std::ifstream file (object, ios::in|ios::binary|ios::ate);
 		if (file.is_open()){
 			size = file.tellg();
-			memblock = new char [size];
+			memblock = new char [size+1];
 			file.seekg (0, ios::beg);
 			file.read (memblock, size);
 			file.close();
+			memblock[size] = 0;
 
 			std::string filedata = std::string(memblock);
-
-			//<Object
 
 			std::size_t found1 = filedata.find("<Object");
 			std::size_t found1a = filedata.find("\"",found1+1);
@@ -666,8 +670,19 @@ bool annotate(std::string path){
 
 			std::size_t found2 = filedata.find(">",found1b+1);
 			printf("found: %i\n",found1);
+			printf("found2: %i\n",found2);
 
+			filedata.replace(found1b+1,found2-found1b," classname=\""+classname+"\""+" instancename=\""+instancename+"\""+" tags=\""+tags+"\">");
 
+			std::ofstream myfile;
+			myfile.open (object);
+			myfile << filedata;
+			myfile.close();
+
+			std::cout << "the entire file content is in memory" << std::endl;
+			std::cout << filedata << std::endl << std::endl;
+
+/*
 			std::string frontpart = filedata.substr(0,found1b+1);
 
 			std::string endpart = filedata.substr(found2,filedata.size()-found2-1);
@@ -681,11 +696,13 @@ bool annotate(std::string path){
 
 
 			std::string total = frontpart+" classname=\""+classname+"\""+" instancename=\""+instancename+"\""+" tags=\""+tags+"\""+endpart;
+			std::string total2 = filedata;
+			total2.replace(found1b+1,found2-found1b," classname=\""+classname+"\""+" instancename=\""+instancename+"\""+" tags=\""+tags+"\">");//std::string total2 = frontpart+" classname=\""+classname+"\""+" instancename=\""+instancename+"\""+" tags=\""+tags+"\""+endpart;
 
-			std::ofstream myfile;
-			myfile.open (object);
-			myfile << total;
-			myfile.close();
+//			std::ofstream myfile;
+//			myfile.open (object);
+//			myfile << total2;
+//			myfile.close();
 
 			//std::cout << std::endl << std::endl << std::endl << total << std::endl;
 //exit(0);
@@ -694,8 +711,15 @@ bool annotate(std::string path){
 //				found = path.find("//");
 //			}
 
+			printf("size: %i\n",size);
+			printf("filedata.size(): %i\n",filedata.size());
+
 			std::cout << "the entire file content is in memory" << std::endl;
-			std::cout << total << std::endl;
+			std::cout << filedata << std::endl << std::endl;
+			std::cout << total << std::endl << std::endl;
+			std::cout << total2 << std::endl << std::endl;
+*/
+
 
 			delete[] memblock;
 		}else{
