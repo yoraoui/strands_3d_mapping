@@ -2,7 +2,9 @@
 
 namespace reglib
 {
-Distribution::Distribution(){}
+Distribution::Distribution(){
+    debugg_print = false;
+}
 Distribution::~Distribution(){}
 void	Distribution::reset(){printf("%s in %s\n",__PRETTY_FUNCTION__,__FILE__);}
 void    Distribution::train(std::vector<float> & hist, unsigned int nr_bins){   printf("%s in %s not implemented, stopping\n",__PRETTY_FUNCTION__,__FILE__);exit(0);}
@@ -14,7 +16,7 @@ void    Distribution::setRegularization(double x){regularization = x;update();}
 double  Distribution::getNoise(){return 1;}
 void    Distribution::setNoise(double x){                                       printf("%s in %s not implemented, stopping\n",__PRETTY_FUNCTION__,__FILE__);exit(0);}
 void    Distribution::getMaxdMind(double & maxd, double & mind, double prob){
-    printf("%s in %s\n",__PRETTY_FUNCTION__,__FILE__);
+    if(debugg_print){printf("%s in %s\n",__PRETTY_FUNCTION__,__FILE__);}
     double half = prob*0.5;
     double minDist = 0;
     double minDistScore = getcdf(mean+minDist);

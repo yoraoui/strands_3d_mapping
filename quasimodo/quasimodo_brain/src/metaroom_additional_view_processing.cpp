@@ -1094,14 +1094,9 @@ printf("bgs.size() = %i\n",bgs.size());
 
 
 					for(unsigned int j = 0; j < masks.size(); j++){
-
-						reglib::RGBDFrame * frame = mod_fr[imgnr[j]];
-						unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
-
 						char buf [1024];
 						sprintf(buf,"%s/dynamicmask_%i_%i.png",sweep_folder.c_str(),dynamicCounter-1,imgnr[j]);
 						cv::imwrite(buf, masks[j] );
-
 
 						int width = masks[j].cols;
 						int height = masks[j].rows;
@@ -1125,61 +1120,22 @@ printf("bgs.size() = %i\n",bgs.size());
 						int diffw = maxw-minw;
 						int diffh = maxh-minh;
 
-						printf("w: %i %i ",minw,maxw);
-						printf("h: %i %i ",minh,maxh);
-						printf("diff: %i %i\n",diffw,diffh);
 						maxw = std::min(width-1	,int(maxw+ratio*diffw));
 						minw = std::max(0		,int(minw-ratio*diffw));
 						maxh = std::min(height-1,int(maxh+ratio*diffh));
 						minh = std::max(0		,int(minh-ratio*diffh));
 
-//						cv::namedWindow( "mask"		, cv::WINDOW_AUTOSIZE );	cv::imshow( "mask",	masks[j] );
-//						cv::namedWindow( "rgb"		, cv::WINDOW_AUTOSIZE );	cv::imshow( "rgb",	frame->rgb );
-//						cv::waitKey(0);
-
 						diffw = maxw-minw;
 						diffh = maxh-minh;
-						printf("w: %i %i ",minw,maxw);
-						printf("h: %i %i ",minh,maxh);
-						printf("diff: %i %i\n",diffw,diffh);
 
-
-						// Transform it into the C++ cv::Mat format
-						cv::Mat image = frame->rgb.clone();
-
-						// Setup a rectangle to define your region of interest
+						cv::Mat image = mod_fr[imgnr[j]]->rgb.clone();
 						cv::Rect myROI(minw, minh, diffw, diffh);
-
-						// Crop the full image to that image contained by the rectangle myROI
-						// Note that this doesn't copy the data
 						cv::Mat localimg = image(myROI);
 
 
 						char buf2 [1024];
 						sprintf(buf2,"/home/johane/imgregion/region%10.10i.png",totalcounter++);
 						cv::imwrite(buf2, localimg );
-
-
-//						cv::Mat localimg;
-//						localimg.create(diffh,diffw,CV_8UC3);
-
-//						int width2 = maxw-minw;
-//						for(int w = minw; w < maxw; w++){
-//							for(int h = minw; h < maxh; h++){
-//								int w2 = w-minw;
-//								int h2 = h-minh;
-//								int ind = h*width+w;
-//								int ind1 = h2*width2+w2;
-//								localimg.data[3*ind1+0] = rgbdata[3*ind+0];
-//								localimg.data[3*ind1+1] = rgbdata[3*ind+1];
-//								localimg.data[3*ind1+2] = rgbdata[3*ind+2];
-//							}
-//						}
-
-//						cv::namedWindow( "mask"		, cv::WINDOW_AUTOSIZE );	cv::imshow( "mask",	masks[j] );
-//						cv::namedWindow( "rgb"		, cv::WINDOW_AUTOSIZE );	cv::imshow( "rgb",	frame->rgb );
-//						cv::namedWindow( "localimg"	, cv::WINDOW_AUTOSIZE );	cv::imshow( "localimg",	localimg );
-//						cv::waitKey(0);
 
 						printf("saving dynamic mask: dynamicmask_%i_%i.png\n",dynamicCounter-1,imgnr[j]);
 

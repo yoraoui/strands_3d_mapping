@@ -184,8 +184,15 @@ void DistanceWeightFunction2PPR3::recomputeProbs(){
 			double hs = std::max(minhist,std::max(1.0,double(blur_histogram[k])));
 			prob[k] = std::min(maxp , noise[k]/hs);//never fully trust any data
 		}
-		infront[k] = (1-prob[k])*noisecdf[k];
+        infront[k] = (1-prob[k])*noisecdf[k];
 	}
+
+    if(false && debugg_print){
+        for(int k = 0; k < histogram_size; k+=10){
+            printf("%i -> hist: %f prob[k]: %f noisecdf[k]: %f infront[k]: %f\n",k,double(blur_histogram[k]),prob[k],noisecdf[k],infront[k]);
+        }
+    }
+    //exit(0);
 }
 
 void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
@@ -196,23 +203,33 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
 	if(debugg_print){printf("\n%%################################################### ITER:%i ############################################################\n",iter);}
 	if(!fixed_histogram_size){
 		if(first){
-			first = false;
+
 			double sum = 0;
 			for(unsigned int j = 0; j < nr_data; j++){
 				for(int k = 0; k < nr_dim; k++){sum += mat(k,j)*mat(k,j);}
 			}
 			double stdval = sqrt(sum / double(nr_data*nr_dim));
 			if(debugg_print){printf("%%stdval: %f\n",stdval);}
-			dist->setNoise(stdval);
+            histogram_mul2	= double(histogram_size)/(maxd-mind);
+            dist->setNoise(stdval*histogram_mul2);
 		}
 
 		if(update_size){
+
+            if(debugg_print){printf("%%update_size\n");dist->print();}
 			double next_maxd;
 			double next_mind;
 			start_time = getTime();
-			dist->getMaxdMind(next_maxd,next_mind,0.001);
-			next_maxd *= (maxd-mind)/double(histogram_size);
-			next_mind *= (maxd-mind)/double(histogram_size);
+            dist->getMaxdMind(next_maxd,next_mind,0.0000001);
+//			next_maxd *= (maxd-mind)/double(histogram_size);
+//			next_mind *= (maxd-mind)/double(histogram_size);
+            if(first){
+                next_maxd *= (maxd-mind)/double(histogram_size);
+                next_mind = -next_maxd;
+            }else {
+                next_maxd = getDfromInd(next_maxd);
+                next_mind = getDfromInd(next_mind);
+            }
 			if(debugg_print){printf("%%getMaxdMind time: %5.5fs\n",getTime()-start_time);}
 			if(!bidir){next_mind = 0;}
 			mind = next_mind;
@@ -233,6 +250,7 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
 			blurval = blur*double(histogram_size)*float(histogram_size)/float(new_histogram_size);
 			if(debugg_print){printf("%%nr_inside: %f histogram_size: %i blurval: %f\n",nr_inside,histogram_size,blurval);}
 		}
+        first = false;
 	}
 
 	if(debugg_print){printf("%%histogram_size: %5.5f maxd: %5.5f mind: %5.5f\n",double(histogram_size),maxd,mind);}
@@ -264,7 +282,8 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
 	if(debugg_print){printf("noisecdf = [");		for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%2.2f ",int(noisecdf[k]));}			printf("];\n");}
 	if(debugg_print){printf("prob = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%2.2f ",prob[k]);}					printf("];\n");}
 	if(debugg_print){printf("infront = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%2.2f ",infront[k]);}				printf("];\n");}
-	if(debugg_print){printf("clf; hold on; plot(hist_smooth,'r','LineWidth',2); plot(hist,'m','LineWidth',2); plot(noise,'b','LineWidth',2); plot(prob*max(noise),'g','LineWidth',2); plot(infront*max(noise),'g','LineWidth',2);\n");}
+    if(debugg_print){printf("figure(%i);",iter+1);}
+    if(debugg_print){printf("clf; hold on; plot(hist_smooth,'r','LineWidth',2); plot(hist,'m','LineWidth',2); plot(noise,'b','LineWidth',2); plot(prob*max(noise),'g','LineWidth',2); plot(infront*max(noise),'g','LineWidth',2);\n");}
 
 	if(!fixed_histogram_size && update_size ){
 
@@ -272,14 +291,22 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
 		double next_mind;
 		start_time = getTime();
 
-		dist->getMaxdMind(next_maxd,next_mind,0.001);
-		next_maxd *= (maxd-mind)/double(histogram_size);
-		next_mind *= (maxd-mind)/double(histogram_size);
+        dist->getMaxdMind(next_maxd,next_mind,0.0000001);
+
 		if(debugg_print){
 			printf("%%getMaxdMind time: %5.5fs\n",getTime()-start_time);
 			printf("%%current: %f %f\n",mind,maxd);
 			printf("%%next: %f %f\n",next_mind,next_maxd);
 		}
+
+        next_maxd = getDfromInd(next_maxd);
+        next_mind = getDfromInd(next_mind);
+        //next_maxd *= (maxd-mind)/double(histogram_size);
+        //next_mind *= (maxd-mind)/double(histogram_size);
+
+        if(debugg_print){
+            printf("%%next: %f %f\n",next_mind,next_maxd);
+        }
 
 		if(!bidir){next_mind = 0;}
 
@@ -299,7 +326,7 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
 		double newlogdiff = log(ratio);
 		if(debugg_print){printf("%%overlap: %5.5f ratio: %5.5f newlogdiff: %5.5f\n",overlap,ratio,newlogdiff);}
 
-		if(fabs(newlogdiff) > 0.2 && iter < 3){
+        if(fabs(newlogdiff) > 0.05 && iter < 5){
 			iter++;
 			computeModel(mat);
 			return;
@@ -441,11 +468,19 @@ double DistanceWeightFunction2PPR3::getConvergenceThreshold(){
 }
 
 inline double DistanceWeightFunction2PPR3::getInd(double d, bool debugg){
-	if(bidir){
-		return 0.00001+(d-mind)*histogram_mul2;
-	}else{
-		return 0.00001+fabs(d)*histogram_mul2;
-	}
+    if(bidir){
+        return 0.00001+(d-mind)*histogram_mul2;
+    }else{
+        return 0.00001+fabs(d)*histogram_mul2;
+    }
+}
+
+inline double DistanceWeightFunction2PPR3::getDfromInd(double ind, bool debugg){
+    if(bidir){
+        return ind/histogram_mul2+mind;
+    }else{
+        return ind/histogram_mul2;
+    }
 }
 }
 

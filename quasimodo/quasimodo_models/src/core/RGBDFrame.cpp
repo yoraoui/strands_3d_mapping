@@ -1491,11 +1491,11 @@ std::vector< std::vector<float> > RGBDFrame::getImageProbs(bool depthonly){
 
 		if(!depthonly){
 			if(!det_dilatedata[i]){
-				dxc[i] = 1.0-std::max(dedata[3*i+1],1.0f*cedata[3*i+1]);
-				dyc[i] = 1.0-std::max(dedata[3*i+2],1.0f*cedata[3*i+2]);
+                dxc[i] = 1.0-std::max(dedata[3*i+1],0.8f*cedata[3*i+1]);
+                dyc[i] = 1.0-std::max(dedata[3*i+2],0.8f*cedata[3*i+2]);
 			}else{
-				dxc[i] = 1.0-std::max(dedata[3*i+1],1.0f*cedata[3*i+1]);
-				dyc[i] = 1.0-std::max(dedata[3*i+2],1.0f*cedata[3*i+2]);
+                dxc[i] = 1.0-std::max(dedata[3*i+1],0.8f*cedata[3*i+1]);
+                dyc[i] = 1.0-std::max(dedata[3*i+2],0.8f*cedata[3*i+2]);
 			}
 		}else{
 			dxc[i] = 1.0-dedata[3*i+1];

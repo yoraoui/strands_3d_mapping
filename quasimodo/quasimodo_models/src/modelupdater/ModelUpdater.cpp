@@ -2205,6 +2205,9 @@ int setupPriors(int method,float current_occlusions, float current_overlaps, flo
 
 	foreground_weight = 0;
 	background_weight = 0;
+	prior_moving    = 0.0;
+	prior_dynamic   = 0.0;
+	prior_static    = 0.0;
 
 	if(method == 0){
 		if(valid){
@@ -2235,53 +2238,135 @@ int setupPriors(int method,float current_occlusions, float current_overlaps, flo
 				foreground_weight = -log(p_fg);
 				background_weight = -log(p_bg);
 			}
-		}else{
-			prior_moving    = 0;
-			prior_dynamic   = 0.5;
-			prior_static    = 0.5;
 		}
 	}
 
 	if(method == 1){
 		if(valid){
 
+			float minprob = 0.01;
+			float bias = 0.001;
+			float overlap_same_prob = 0.95;
+
 			//Prob behind all bg
 			float prob_behind = 1-(bg_overlaps+bg_occlusions);
 			float leftover = 1-prob_behind;
 
-			//float p_moving_or_dynamic = std::max((bg_occlusions-current_occlusions)*(1.0f-current_overlaps),0.0f);
-			float p_moving  = std::min(current_occlusions,leftover);//prob_behind;//current_occlusions;//0.5f*p_moving_or_dynamic + current_occlusions;
-			leftover = 1.0f-prob_behind-p_moving;
-			float p_dynamic = std::min(bg_occlusions,leftover);//std::max(bg_occlusions,leftover);//std::max((bg_occlusions-current_occlusions)*(1.0f-current_overlaps),0.0f);//std::max((bg_occlusions-current_occlusions),0.0f);//0.5f*p_moving_or_dynamic + std::max((bg_occlusions-current_occlusions)		*   current_overlaps,0.0f);
-			leftover = 1.0f-prob_behind-p_moving-p_dynamic;
-			float p_static  = std::min(bg_overlaps,leftover);//std::max(bg_overlaps-p_moving-p_dynamic,0.0f);
+			float p_moving_or_dynamic = std::max((bg_occlusions-current_occlusions)*(1.0f-current_overlaps),0.0f);
+			float p_moving  = 0.5f*p_moving_or_dynamic + current_occlusions;
+			float p_dynamic = 0.5f*p_moving_or_dynamic + std::max((bg_occlusions-current_occlusions)		*   current_overlaps,0.0f);
+
+			float p_static  = std::max(overlap_same_prob*bg_overlaps-p_moving-p_dynamic,0.0f);
 
 			leftover = 1.0f-p_moving-p_dynamic-p_static;
 			float notMoving = current_overlaps;
 
-			float p_moving_leftover   =	0;//0.25*leftover;//*(1-notMoving); //(1-notMoving)*leftover/4.0;
-			float p_dynamic_leftover  = 0;//0.25*leftover;//0.5*leftover*notMoving + 0.5*leftover*(1-notMoving); //(1-notMoving)*leftover/4.0;
-			float p_static_leftover   = 0;//0.5*leftover;//*notMoving;
+			float p_moving_leftover   =	0.5*leftover*(1-notMoving);
+			float p_dynamic_leftover  = 0.5*leftover;
+			float p_static_leftover   = 0.5*leftover*notMoving;
+
+			prior_moving    = (1.0-4.0*minprob-bias)*((1.0-prob_behind)*(p_moving+p_moving_leftover)	+0.25*prob_behind)+		minprob;
+			prior_dynamic   = (1.0-4.0*minprob-bias)*((1.0-prob_behind)*(p_dynamic+p_dynamic_leftover)	+0.25*prob_behind)+		minprob;
+			prior_static    = (1.0-4.0*minprob-bias)*((1.0-prob_behind)*(p_static+p_static_leftover)	+0.50*prob_behind)+ 2.0*minprob + bias;
+
+			foreground_weight = -log(prior_moving+prior_dynamic);
+			background_weight = -log(prior_static);
+		}
+	}
+
+	if(method == 2){
+		if(valid){
+
+			float minprob = 0.1;
+			float bias = 0.00;
+			float overlap_same_prob = 0.7;
+
+			//Prob behind all bg
+			float prob_behind = 1-(bg_overlaps+bg_occlusions);
+			float leftover = 1-prob_behind;
+
+			float p_moving_or_dynamic = std::max((bg_occlusions-current_occlusions)*(1.0f-current_overlaps),0.0f);
+			float p_moving  = 0.5f*p_moving_or_dynamic + current_occlusions;
+			float p_dynamic = 0.5f*p_moving_or_dynamic + std::max((bg_occlusions-current_occlusions)		*   current_overlaps,0.0f);
+
+			float p_static  = std::max(overlap_same_prob*bg_overlaps-p_moving-p_dynamic,0.0f);
+
+			leftover = 1.0f-p_moving-p_dynamic-p_static;
+			float notMoving = current_overlaps;
+
+			float p_moving_leftover   =	0.5*leftover*(1-notMoving);
+			float p_dynamic_leftover  = 0.5*leftover;
+			float p_static_leftover   = 0.5*leftover*notMoving;
 
 			prior_moving    = p_moving+p_moving_leftover;
-			prior_dynamic   = p_dynamic+p_dynamic_leftover;
-			prior_static    = p_static+p_static_leftover;
+			prior_dynamic   = (1.0-prob_behind)*(p_dynamic+p_dynamic_leftover);
+			prior_static    = (1.0-prob_behind)*(p_static+p_static_leftover);
 
-			double p_fg = std::min( 1.0f-maxdiff ,std::max( maxdiff , prior_moving+prior_dynamic-0.01f));
-			double p_bg = std::min( 1.0f-maxdiff ,std::max( maxdiff , prior_static+0.01f));
-			double norm = p_fg + p_bg;
-			p_fg /= norm;
-			p_bg /= norm;
+			double norm = prior_moving+prior_dynamic+prior_static;
+			prior_dynamic   += (1.0-norm)*0.5;
+			prior_static    += (1.0-norm)*0.5;
 
+			//			prior_moving    = (1.0-3.0*minprob-bias)*prior_moving  + minprob;
+			//			prior_dynamic   = (1.0-3.0*minprob-bias)*prior_dynamic + minprob;
+			//			prior_static    = (1.0-3.0*minprob-bias)*prior_static  + minprob + bias;
 
-			if(norm > 0){
-				foreground_weight = -log(p_fg);
-				background_weight = -log(p_bg);
-			}
+			//			prior_moving    = (1.0-3.0*minprob-bias)*prior_moving  + minprob;
+			//			prior_dynamic   = (1.0-3.0*minprob-bias)*prior_dynamic + minprob;
+			//			prior_static    = (1.0-3.0*minprob-bias)*prior_static  + minprob + bias;
+
+			double prob_fg = prior_dynamic;
+			double prob_bg = prior_moving+prior_static;
+			//double norm = prob_fg+prob_bg;
+
+			foreground_weight = -log((1.0-2.0*minprob)*prob_fg+minprob);//+norm*0.5);
+			background_weight = -log((1.0-2.0*minprob)*prob_bg+minprob);//+norm*0.5);
+
+			//			prior_moving    += norm/3.0;
+			//			prior_dynamic   += norm/3.0;
+			//			prior_static    += norm/3.0;
+		}
+	}
+
+	if(method == 3){
+		if(valid){
+			float minprob = 0.01;
+			float bias = 0.005;
+			float overlap_same_prob = 0.75;
+
+			//Prob behind all bg
+			float prob_behind = 1-(bg_overlaps+bg_occlusions);
+
+			float p_moving_or_dynamic = std::max((bg_occlusions-current_occlusions)*(1.0f-current_overlaps),0.0f);
+			float p_moving  = 0.5f*p_moving_or_dynamic + current_occlusions;
+			float p_dynamic = 0.5f*p_moving_or_dynamic + std::max((bg_occlusions-current_occlusions)		*   current_overlaps,0.0f);
+
+			float p_static  = std::max(overlap_same_prob*bg_overlaps-p_moving-p_dynamic,0.0f);
+
+			float leftover				= 1.0f-p_moving-p_dynamic-p_static;
+			float notMoving				= 1.0f-current_occlusions;//current_overlaps;
+
+			float p_moving_leftover   =	0.5*leftover*(1-notMoving);
+			float p_dynamic_leftover  = 0.5*leftover;
+			float p_static_leftover   = 0.5*leftover*notMoving;
+
+			prior_moving  = p_moving+p_moving_leftover;
+			prior_dynamic = (1.0-prob_behind)*(p_dynamic+p_dynamic_leftover);
+			prior_static  = (1.0-prob_behind)*(p_static+p_static_leftover);
+
+			float p_dynamic_or_static = 1.0f-p_moving-p_dynamic-p_static;
+			prior_dynamic += 0.5*p_dynamic_or_static;
+			prior_static  += 0.5*p_dynamic_or_static;
+
+			foreground_weight = -log((1.0-2.0*minprob-bias)*(prior_moving+prior_dynamic) + minprob		 );
+			background_weight = -log((1.0-2.0*minprob-bias)* prior_static				 + minprob + bias);
+
+			prior_moving  = (1.0-3.0*minprob-bias)* prior_moving	+ minprob;
+			prior_dynamic = (1.0-3.0*minprob-bias)* prior_dynamic	+ minprob;
+			prior_static  = (1.0-3.0*minprob-bias)* prior_static	+ minprob + bias;
 		}else{
-			prior_moving    = 0;
-			prior_dynamic   = 0.5;
-			prior_static    = 0.5;
+			prior_static = prior_dynamic = prior_moving = 1.0/3.0;
+			foreground_weight = -log(0.5);
+			background_weight = -log(0.5);
 		}
 	}
 	return 0;
@@ -2309,7 +2394,6 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	std::vector< std::vector<float> > interframe_connectionStrength;
 	interframe_connectionId.resize(tot_nr_pixels);
 	interframe_connectionStrength.resize(tot_nr_pixels);
-
 
 	int current_point         = 0;
 	float * priors            = new float[3*tot_nr_pixels];
@@ -2354,28 +2438,24 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	for(unsigned int i = 0; i < dvec.size(); i++){dstdval += dvec[i]*dvec[i];}
 	dstdval = sqrt(dstdval/double(dvec.size()-1));
 
-	DistanceWeightFunction2PPR2 * dfuncTMP = new DistanceWeightFunction2PPR2();
+	GeneralizedGaussianDistribution * dggdnfunc	= new GeneralizedGaussianDistribution(true,true,false,true,true);
+	dggdnfunc->nr_refineiters					= 4;
+	DistanceWeightFunction2PPR3 * dfuncTMP		= new DistanceWeightFunction2PPR3(dggdnfunc);
 	dfunc = dfuncTMP;
-	dfuncTMP->refine_mean			= true;
-	dfuncTMP->zeromean				= false;
-	dfuncTMP->startreg				= 0.0;
-	//dfuncTMP->startreg				= 0.001;
-	//dfuncTMP->startreg				= 0.0000001;
+	dfuncTMP->startreg				= 0.00;
 	dfuncTMP->debugg_print			= false;
 	dfuncTMP->bidir					= true;
-	//dfuncTMP->bidir					= false;
-	//dfuncTMP->maxp					= 0.9;
-	dfuncTMP->maxp					= 0.9;
+	dfuncTMP->zeromean				= false;
+	dfuncTMP->maxp					= 0.9999;
 	dfuncTMP->maxd					= 0.5;
 	dfuncTMP->histogram_size		= 1000;
-	dfuncTMP->fixed_histogram_size	= false;//true;
-	dfuncTMP->max_under_mean		= false;
+	dfuncTMP->fixed_histogram_size	= false;
 	dfuncTMP->startmaxd				= dfuncTMP->maxd;
 	dfuncTMP->starthistogram_size	= dfuncTMP->histogram_size;
 	dfuncTMP->blurval				= 0.5;
-	dfuncTMP->stdval2				= dstdval;
 	dfuncTMP->maxnoise				= dstdval;
 	dfuncTMP->compute_infront		= true;
+	dfuncTMP->ggd					= true;
 	dfuncTMP->reset();
 	dfunc->computeModel(dvec);
 
@@ -2387,7 +2467,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	nfuncTMP->debugg_print			= false;
 	nfuncTMP->bidir					= false;
 	nfuncTMP->zeromean				= true;
-	nfuncTMP->maxp					= 0.999;
+	nfuncTMP->maxp					= 0.9999;
 	nfuncTMP->maxd					= 1.0;
 	nfuncTMP->histogram_size		= 1000;
 	nfuncTMP->fixed_histogram_size	= true;
@@ -2413,8 +2493,6 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	double total_dealloctime = 0;
 	double total_Dynw = 0;
 
-	float bias = 0.0001;
-	float maxdiff = bias+0.0001;
 	double maxprob_same = 0.999999999999999999;
 
 	for(unsigned int i = 0; i < frames.size(); i++){
@@ -2472,8 +2550,8 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		}
 
 		for(unsigned int j = 0; j < nr_pixels; j++){
-			bg_occlusions[j]		= std::min(0.999,bg_occlusions[j]/std::max(1.0,bg_notocclusions[j]));
-			current_occlusions[j]	= std::min(0.999,current_occlusions[j]/std::max(1.0,current_notocclusions[j]));
+			bg_occlusions[j]		= std::min(0.99999,bg_occlusions[j]/std::max(1.0,bg_notocclusions[j]));
+			current_occlusions[j]	= std::min(0.99999,current_occlusions[j]/std::max(1.0,current_notocclusions[j]));
 		}
 
 		total_Dynw += getTime()-startTime;
@@ -2481,61 +2559,15 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		cv::Mat priorsimg;
 		priorsimg.create(height,width,CV_32FC3);
 		float * priorsdata = (float*)priorsimg.data;
-		//for(int i = 0; i < 3*nr_pixels; i++){priorsdata[i] = priors[3*offset+i];}
 
 		startTime = getTime();
 		unsigned char * detdata = (unsigned char*)(frame->det_dilate.data);
-		float bias = 0.0001;
 		for(unsigned int h = 0; h < height;h++){
 			for(unsigned int w = 0; w < width;w++){
 				int ind = h*width+w;
 
 				valids[offset+ind] = detdata[ind] == 0 && normalsdata[3*ind] != 2;
-
-/*
-				if(valids[offset+ind]){
-
-//					float p_moving  = current_occlusions[ind];
-//					float p_dynamic = std::max((bg_occlusions[ind]-current_occlusions[ind])		*   current_overlaps[ind],0.0);
-//					p_dynamic       += 0.5*std::max((bg_occlusions[ind]-current_occlusions[ind])*(1-current_overlaps[ind]),0.0);
-//					p_moving        += 0.5*std::max((bg_occlusions[ind]-current_occlusions[ind])*(1-current_overlaps[ind]),0.0);
-
-					float p_moving_or_dynamic = std::max((bg_occlusions[ind]-current_occlusions[ind])*(1-current_overlaps[ind]),0.0);
-					float p_moving  = 0.5*p_moving_or_dynamic + current_occlusions[ind];
-					float p_dynamic = 0.5*p_moving_or_dynamic + std::max((bg_occlusions[ind]-current_occlusions[ind])		*   current_overlaps[ind],0.0);
-					float p_static  = std::max(bg_overlaps[ind]-p_moving-p_dynamic,0.0);
-
-					float leftover = 1-p_moving-p_dynamic-p_static;
-					float notMoving = current_overlaps[ind];
-
-					float p_moving_leftover   =							 0.5*leftover*(1-notMoving); //(1-notMoving)*leftover/4.0;
-					float p_dynamic_leftover  = 0.5*leftover*notMoving + 0.5*leftover*(1-notMoving); //(1-notMoving)*leftover/4.0;
-					float p_static_leftover   = 0.5*leftover*notMoving;
-
-					priors[3*(offset+ind)+0]    = p_moving+p_moving_leftover;
-					priors[3*(offset+ind)+1]    = p_dynamic+p_dynamic_leftover;
-					priors[3*(offset+ind)+2]    = p_static+p_static_leftover;
-
-
-
-				}else{
-					if(detdata[ind] == 0){
-						priorsdata[3*ind+2] = 1.0;
-						priorsdata[3*ind+1] = 0.0;
-						priorsdata[3*ind+0] = 1.0;
-					}else{
-						priorsdata[3*ind+2] = 1.0;
-						priorsdata[3*ind+1] = 1.0;
-						priorsdata[3*ind+0] = 0.0;
-					}
-
-					priors[3*(offset+ind)+0]       = 0;
-					priors[3*(offset+ind)+1]       = 0.5;
-					priors[3*(offset+ind)+2]       = 0.5;
-				}
-*/
-
-				setupPriors(1,
+				setupPriors(3,
 						current_occlusions[ind],current_overlaps[ind],bg_occlusions[ind],bg_overlaps[ind],valids[offset+ind],
 						priors[3*(offset+ind)+0], priors[3*(offset+ind)+1],priors[3*(offset+ind)+2],
 						prior_weights[2*(offset+ind)+0], prior_weights[2*(offset+ind)+1]);
@@ -2555,29 +2587,8 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		gc::Graph<double,double,double> * g = new gc::Graph<double,double,double>(nr_pixels,2*nr_pixels);
 		for(unsigned long ind = 0; ind < nr_pixels;ind++){
 			g -> add_node();
-//			double p_fg = std::min( 1.0f-maxdiff ,std::max( maxdiff , priors[3*(offset+ind)+1]))-bias;
-//			double p_bg = std::min( 1.0f-maxdiff ,std::max( maxdiff , priors[3*(offset+ind)+2] + priors[3*(offset+ind)+0]))+bias;
-//			double norm = p_fg + p_bg;
-////			p_fg /= norm;
-////			p_bg /= norm;
-//			p_fg /= 2*norm;
-//			p_bg /= 2*norm;
-//			p_fg += 0.25;
-//			p_bg += 0.25;
-
-//			if(norm <= 0){
-//				g -> add_tweights( ind, 0, 0 );
-//				continue;
-//			}
-
-
-//			double weightFG = -log(p_fg);
-//			double weightBG = -log(p_bg);
-
 			double weightFG = prior_weights[2*(offset+ind)+0];
 			double weightBG = prior_weights[2*(offset+ind)+1];
-
-
 			g -> add_tweights( ind, weightFG, weightBG );
 		}
 
@@ -2607,64 +2618,44 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 		if(debugg != 0){printf("local inference time: %10.10fs\n\n",getTime()-start_inf);}
 
+		//		cv::Mat edgeimg;
+		//		edgeimg.create(height,width,CV_32FC3);
+		//		float * edgedata = (float*)edgeimg.data;
 
-//		cv::Mat edgeimgX;
-//		edgeimgX.create(height,width,CV_32FC3);
-//		float * edgedataX = (float*)edgeimgX.data;
+		//		for(int j = 0; j < width*height; j++){
+		//			edgedata[3*j+0] = 0;
+		//			edgedata[3*j+1] = 1-probs[0][j];
+		//			edgedata[3*j+2] = 1-probs[1][j];
+		//		}
 
-//		cv::Mat edgeimgY;
-//		edgeimgY.create(height,width,CV_32FC3);
-//		float * edgedataY = (float*)edgeimgY.data;
+		//		cv::Mat labelimg;
+		//		labelimg.create(height,width,CV_32FC3);
+		//		float * labelimgdata = (float*)labelimg.data;
+		//		for(unsigned long ind = 0; ind < nr_pixels;ind++){
+		//			double label = g->what_segment(ind);
+		//			labelimgdata[3*ind+0] = 0;
+		//			labelimgdata[3*ind+1] = label;
+		//			labelimgdata[3*ind+2] = 1-label;
+		//		}
 
-//		for(int j = 0; j < width*height; j++){
-//			edgedataX[3*j+0] = 0;
-//			edgedataX[3*j+1] = 1-probs[0][j];
-//			edgedataX[3*j+2] = probs2[0][j];
+		//		cv::Mat detrgb;
+		//		detrgb.create(height,width,CV_8UC3);
 
-//			edgedataY[3*j+0] = 0;
-//			edgedataY[3*j+1] = 1-probs[1][j];
-//			edgedataY[3*j+2] = probs2[1][j];
-//		}
+		//		for(unsigned long ind = 0; ind < nr_pixels;ind++){
+		//			int dd = detdata[ind] == 0;
+		//			detrgb.data[3*ind+0] = dd * frame->rgb.data[3*ind+0];
+		//			detrgb.data[3*ind+1] = dd * frame->rgb.data[3*ind+1];
+		//			detrgb.data[3*ind+2] = dd * frame->rgb.data[3*ind+2];
+		//		}
 
-
-		cv::Mat edgeimg;
-		edgeimg.create(height,width,CV_32FC3);
-		float * edgedata = (float*)edgeimg.data;
-
-		for(int j = 0; j < width*height; j++){
-			edgedata[3*j+0] = 0;
-			edgedata[3*j+1] = 1-probs[0][j];
-			edgedata[3*j+2] = 1-probs[1][j];
-		}
-
-		cv::Mat labelimg;
-		labelimg.create(height,width,CV_32FC3);
-		float * labelimgdata = (float*)labelimg.data;
-		for(unsigned long ind = 0; ind < nr_pixels;ind++){
-			double label = g->what_segment(ind);
-			labelimgdata[3*ind+0] = 0;
-			labelimgdata[3*ind+1] = label;
-			labelimgdata[3*ind+2] = 1-label;
-		}
-
-		cv::Mat detrgb;
-		detrgb.create(height,width,CV_8UC3);
-
-		for(unsigned long ind = 0; ind < nr_pixels;ind++){
-			int dd = detdata[ind] == 0;
-			detrgb.data[3*ind+0] = dd * frame->rgb.data[3*ind+0];
-			detrgb.data[3*ind+1] = dd * frame->rgb.data[3*ind+1];
-			detrgb.data[3*ind+2] = dd * frame->rgb.data[3*ind+2];
-		}
-
-		cv::namedWindow( "edgeimg"		, cv::WINDOW_AUTOSIZE );		cv::imshow( "edgeimg",		edgeimg );
-		cv::namedWindow( "det_dilate"	, cv::WINDOW_AUTOSIZE );		cv::imshow( "det_dilate", frame->det_dilate);
-		cv::namedWindow( "det_dilate2"	, cv::WINDOW_AUTOSIZE );		cv::imshow( "det_dilate2", detrgb);
-		cv::namedWindow( "rgb"			, cv::WINDOW_AUTOSIZE );		cv::imshow( "rgb",		frame->rgb );
-		cv::namedWindow( "depth"		, cv::WINDOW_AUTOSIZE );		cv::imshow( "depth",	frame->depth );
-		cv::namedWindow( "priors"		, cv::WINDOW_AUTOSIZE );		cv::imshow( "priors",	priorsimg );
-		cv::namedWindow( "labelimg"		, cv::WINDOW_AUTOSIZE );		cv::imshow( "labelimg",	labelimg );
-		cv::waitKey(0);
+		//		cv::namedWindow( "edgeimg"		, cv::WINDOW_AUTOSIZE );		cv::imshow( "edgeimg",		edgeimg );
+		//		cv::namedWindow( "det_dilate"	, cv::WINDOW_AUTOSIZE );		cv::imshow( "det_dilate",	frame->det_dilate);
+		//		cv::namedWindow( "det_dilate2"	, cv::WINDOW_AUTOSIZE );		cv::imshow( "det_dilate2",	detrgb);
+		//		cv::namedWindow( "rgb"			, cv::WINDOW_AUTOSIZE );		cv::imshow( "rgb",			frame->rgb );
+		//		cv::namedWindow( "depth"		, cv::WINDOW_AUTOSIZE );		cv::imshow( "depth",		frame->depth );
+		//		cv::namedWindow( "priors"		, cv::WINDOW_AUTOSIZE );		cv::imshow( "priors",		priorsimg );
+		//		cv::namedWindow( "labelimg"		, cv::WINDOW_AUTOSIZE );		cv::imshow( "labelimg",		labelimg );
+		//		cv::waitKey(0);
 
 
 
@@ -2718,24 +2709,9 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	gc::Graph<double,double,double> * g = new gc::Graph<double,double,double>(current_point,frameConnections+interframeConnections);
 	for(unsigned long i = 0; i < current_point;i++){
 		g -> add_node();
+		double weightFG = prior_weights[2*i+0];
+		double weightBG = prior_weights[2*i+1];
 
-		double p_fg = std::min( 1.0f-maxdiff ,std::max( maxdiff , priors[3*i+1]))-bias;
-		double p_bg = std::min( 1.0f-maxdiff ,std::max( maxdiff , priors[3*i+2] + priors[3*i+0]))+bias;
-		double norm = p_fg + p_bg;
-		p_fg /= 2*norm;
-		p_bg /= 2*norm;
-		p_fg += 0.25;
-		p_bg += 0.25;
-
-		if(norm <= 0){
-			g -> add_tweights( i, 0, 0 );
-			continue;
-		}
-
-
-
-		double weightFG = -log(p_fg);
-		double weightBG = -log(p_bg);
 		g -> add_tweights( i, weightFG, weightBG );
 	}
 
@@ -2867,36 +2843,6 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	double end_inf = getTime();
 	printf("static inference time: %10.10fs interfrace_constraints added ratio: %f\n",end_inf-start_inf,interfrace_constraints_added/double(interframeConnections));
 
-	if(false){
-		printf("3-class\n");
-		for(unsigned int i = 0; i < current_point; i++){
-			cloud->points[i].r = priors[3*i+0]*255.0;
-			cloud->points[i].g = priors[3*i+1]*255.0;
-			cloud->points[i].b = priors[3*i+2]*255.0;
-		}
-
-		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_sample (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-		cloud_sample->points.clear();
-		for(unsigned int i = 0; i < current_point; i++){
-			cloud_sample->points.push_back(cloud->points[i]);
-		}
-		viewer->removeAllPointClouds();
-		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
-		viewer->spin();
-
-		for(unsigned int i = 0; i < current_point; i++){
-			cloud_sample->points[i].r = 255*labels[i];
-			cloud_sample->points[i].g = 255*(1-labels[i]);
-			cloud_sample->points[i].b = 0;
-		}
-
-		viewer->removeAllPointClouds();
-		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
-		viewer->spin();
-	}
-
-	double start_inf1 = getTime();
-
 	const unsigned int nr_frames		= frames.size();
 	const unsigned int width			= frames[0]->camera->width;
 	const unsigned int height			= frames[0]->camera->height;
@@ -2922,7 +2868,9 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			unsigned long todocounter = 0;
 			std::vector< unsigned long > todo;
 			todo.push_back(ind);
-			double score = 0;
+
+			double score0 = 0;
+			double score1 = 0;
 			double totsum = 0;
 			while(todocounter < todo.size()){
 				unsigned long cind = todo[todocounter++];
@@ -2938,10 +2886,16 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				double p2 = priors[3*cind+2];
 
 				if(valids[cind]){
-					double s = 0;
-					if(p0 > p2){s += p1 - p0;}
-					else{       s += p1 - p2;}
-					score += s;
+					double s0 = 0;
+					if(p1 > p2){s0 += p0 - p1;}
+					else{       s0 += p0 - p2;}
+					score0 += s0;
+
+					double s1 = 0;
+					if(p0 > p2){s1 += p1 - p0;}
+					else{       s1 += p1 - p2;}
+					score1 += s1;
+
 					totsum++;
 				}
 
@@ -2983,57 +2937,21 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				}
 			}
 
-			if(debugg != 0){printf("score: %f\n",score);}
-
-
 			labelID.push_back(0);
-			if(score < 200){continue;}
+			if(debugg != 0){printf("score0: %f score1: %f\n",score0,score1);}
+			if(std::max(score0,score1) < 100){continue;}
 
-			if(false && debugg && todo.size() > 10000){
-				for(unsigned int i = 0; i < current_point; i++){
-					cloud->points[i].r = priors[3*i+0]*255.0;
-					cloud->points[i].g = priors[3*i+1]*255.0;
-					cloud->points[i].b = priors[3*i+2]*255.0;
-				}
-
-				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_sample (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-				cloud_sample->points.clear();
-				for(unsigned int i = 0; i < current_point; i++){
-					cloud_sample->points.push_back(cloud->points[i]);
-				}
-				viewer->removeAllPointClouds();
-				viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
-				viewer->spin();
-
-				for(unsigned int i = 0; i < current_point; i++){
-					cloud_sample->points[i].r = 255;
-					cloud_sample->points[i].g = 0;
-					cloud_sample->points[i].b = 0;
-				}
-
-				for(unsigned int j = 0; j < todo.size(); j++){
-					unsigned int i = todo[j];
-					cloud_sample->points[i].r = 0;
-					cloud_sample->points[i].g = 255;
-					cloud_sample->points[i].b = 0;
-				}
-				viewer->removeAllPointClouds();
-				viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
-				viewer->spin();
-			}
-
-			if(current_label == 1){
+			if(score1 > score0){
 				labelID.back() = ++nr_obj_dyn;
-				if(debugg != 0){printf("Dynamic: %f -> %f\n",score,totsum);}
+				if(debugg != 0){printf("Dynamic: %f -> %f\n",score1,totsum);}
 				sr.component_dynamic.push_back(todo);
-				sr.scores_dynamic.push_back(score);
+				sr.scores_dynamic.push_back(score1);
 				sr.total_dynamic.push_back(totsum);
-			}
-			if(current_label == 2){
+			}else{
 				labelID.back() = --nr_obj_mov;
-				if(debugg != 0){printf("Moving: %f -> %f\n",score,totsum);}
+				if(debugg != 0){printf("Moving: %f -> %f\n",score0,totsum);}
 				sr.component_moving.push_back(todo);
-				sr.scores_moving.push_back(score);
+				sr.scores_moving.push_back(score0);
 				sr.total_moving.push_back(totsum);
 			}
 		}
@@ -3083,42 +3001,42 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		dynmask.push_back(d);
 
 
-//		unsigned short * depthdata	= (unsigned short	*)(frames[i]->depth.data);
-//		cv::Mat debuggimg;
-//		debuggimg.create(height,width,CV_8UC3);
-//		unsigned char * debuggimgdata = (unsigned char*)debuggimg.data;
-//		cv::Mat edgeimg;
-//		edgeimg.create(height,width,CV_32FC3);
-//		float * edgedata = (float*)edgeimg.data;
-//		for(unsigned int label = 0; label < labelID.size(); label++){
-//			int lid = labelID[label];
-//			printf("lid: %i\n",lid);
-//			if(lid <= 0){continue;}
-//			bool hasdata = false;
-//			for(int j = 0; j < width*height; j++){
-//				if(ddata[j] == lid){
-//					debuggimgdata[3*j+0] = 255;
-//					debuggimgdata[3*j+1] = 255;
-//					debuggimgdata[3*j+2] = 255;
-//					hasdata = true;
-//				}else{
-//					debuggimgdata[3*j+0] = 0;
-//					debuggimgdata[3*j+1] = 0;
-//					debuggimgdata[3*j+2] = 0;
-//				}
-//				if(depthdata[j] == 0){
-//					debuggimgdata[3*j+0] = 255;
-//					debuggimgdata[3*j+1] = 0;
-//					debuggimgdata[3*j+2] = 255;
-//				}
-//			}
-//			if(hasdata){
-//				cv::namedWindow( "rgb"	,			cv::WINDOW_AUTOSIZE );		cv::imshow( "rgb",			frames[i]->rgb );
-//				cv::namedWindow( "debuggimg"	,	cv::WINDOW_AUTOSIZE );		cv::imshow( "debuggimg",	debuggimg );
-//				cv::namedWindow( "edgeimg"	,		cv::WINDOW_AUTOSIZE );		cv::imshow( "edgeimg",		edgeimg );
-//				cv::waitKey(0);
-//			}
-//		}
+		//		unsigned short * depthdata	= (unsigned short	*)(frames[i]->depth.data);
+		//		cv::Mat debuggimg;
+		//		debuggimg.create(height,width,CV_8UC3);
+		//		unsigned char * debuggimgdata = (unsigned char*)debuggimg.data;
+		//		cv::Mat edgeimg;
+		//		edgeimg.create(height,width,CV_32FC3);
+		//		float * edgedata = (float*)edgeimg.data;
+		//		for(unsigned int label = 0; label < labelID.size(); label++){
+		//			int lid = labelID[label];
+		//			printf("lid: %i\n",lid);
+		//			if(lid <= 0){continue;}
+		//			bool hasdata = false;
+		//			for(int j = 0; j < width*height; j++){
+		//				if(ddata[j] == lid){
+		//					debuggimgdata[3*j+0] = 255;
+		//					debuggimgdata[3*j+1] = 255;
+		//					debuggimgdata[3*j+2] = 255;
+		//					hasdata = true;
+		//				}else{
+		//					debuggimgdata[3*j+0] = 0;
+		//					debuggimgdata[3*j+1] = 0;
+		//					debuggimgdata[3*j+2] = 0;
+		//				}
+		//				if(depthdata[j] == 0){
+		//					debuggimgdata[3*j+0] = 255;
+		//					debuggimgdata[3*j+1] = 0;
+		//					debuggimgdata[3*j+2] = 255;
+		//				}
+		//			}
+		//			if(hasdata){
+		//				cv::namedWindow( "rgb"	,			cv::WINDOW_AUTOSIZE );		cv::imshow( "rgb",			frames[i]->rgb );
+		//				cv::namedWindow( "debuggimg"	,	cv::WINDOW_AUTOSIZE );		cv::imshow( "debuggimg",	debuggimg );
+		//				cv::namedWindow( "edgeimg"	,		cv::WINDOW_AUTOSIZE );		cv::imshow( "edgeimg",		edgeimg );
+		//				cv::waitKey(0);
+		//			}
+		//		}
 	}
 
 	if(debugg){
@@ -3144,11 +3062,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		for(unsigned int i = 0; i < current_point; i++){
 			if(rand() % 4 == 0){
 
-				double p_fg = std::min( 1.0f-maxdiff ,std::max( maxdiff , priors[3*i+1]))-bias;
-				double p_bg = std::min( 1.0f-maxdiff ,std::max( maxdiff , priors[3*i+2] + priors[3*i+0]))+bias;
-				double norm = p_fg + p_bg;
-				p_fg /= norm;
-				p_bg /= norm;
+				double p_fg = exp(-prior_weights[2*i+0]);
 
 				cloud_sample->points.push_back(cloud->points[i]);
 				cloud_sample->points.back().r = p_fg*255.0;//(priors[3*i+0]+priors[3*i+2])*255.0;
@@ -3177,9 +3091,9 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			int randb = rand()%256;
 			for(unsigned int i = 0; i < sr.component_dynamic[c].size(); i++){
 				cloud_sample->points.push_back(cloud->points[sr.component_dynamic[c][i]]);
-				cloud_sample->points.back().r = randr;
-				cloud_sample->points.back().g = randg;
-				cloud_sample->points.back().b = randb;
+				cloud_sample->points.back().r = 0;//randr;
+				cloud_sample->points.back().g = 255;//randg;
+				cloud_sample->points.back().b = 0;//randb;
 			}
 		}
 
@@ -3189,9 +3103,9 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			int randb = rand()%256;
 			for(unsigned int i = 0; i < sr.component_moving[c].size(); i++){
 				cloud_sample->points.push_back(cloud->points[sr.component_moving[c][i]]);
-				cloud_sample->points.back().r = randr;
-				cloud_sample->points.back().g = randg;
-				cloud_sample->points.back().b = randb;
+				cloud_sample->points.back().r = 255;//randr;
+				cloud_sample->points.back().g = 0;//randg;
+				cloud_sample->points.back().b = 0;//randb;
 			}
 		}
 		viewer->removeAllPointClouds();
@@ -3735,6 +3649,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 						if(weight > 1 && g->what_segment(i2) != g->what_segment(j2)){
 							diffs++;
 						}
+	dfuncTMP->compute_infront		= true;
 					}
 				}
 			}

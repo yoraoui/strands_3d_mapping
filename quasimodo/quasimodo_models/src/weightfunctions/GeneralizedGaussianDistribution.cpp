@@ -18,6 +18,7 @@ GeneralizedGaussianDistribution::GeneralizedGaussianDistribution(bool refine_std
     stdval      = stdval_;
     power       = power_;
     update();
+    debugg_print = false;
 }
 
 GeneralizedGaussianDistribution::~GeneralizedGaussianDistribution(){}
@@ -178,7 +179,7 @@ void GeneralizedGaussianDistribution::setNoise(double x){
 }
 
 void GeneralizedGaussianDistribution::print(){
-    printf("GeneralizedGaussianDistribution:: mul = %5.5f mean = %5.5f stdval = %5.5f reg = %5.5f power = %5.5f\n",mul,mean,stdval,regularization,power);
+    printf("%%GeneralizedGaussianDistribution:: mul = %5.5f mean = %5.5f stdval = %5.5f reg = %5.5f power = %5.5f\n",mul,mean,stdval,regularization,power);
 }
 
 double GeneralizedGaussianDistribution::getNoise(){return stdval+regularization;}

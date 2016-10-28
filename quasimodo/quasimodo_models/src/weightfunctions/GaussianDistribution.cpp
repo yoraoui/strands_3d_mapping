@@ -16,6 +16,7 @@ GaussianDistribution::GaussianDistribution(bool refine_std_, bool zeromean_, boo
     mean        = mean_;
     stdval      = stdval_;
     update();
+    debugg_print = false;
 }
 //GaussianDistribution::GaussianDistribution(double mul_, double mean_,	double stdval_){
 //    mul = mul_;

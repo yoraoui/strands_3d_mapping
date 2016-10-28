@@ -15,6 +15,7 @@ class Distribution
 public:
     double regularization;
     double mean;
+    bool debugg_print;
 
 
     Distribution();

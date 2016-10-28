@@ -118,6 +118,7 @@ public:
 	virtual void reset();
 	virtual std::string getString();
 	virtual double getInd(double d, bool debugg = false);
+    virtual double getDfromInd(double ind, bool debugg = false);
 };
 
 }
