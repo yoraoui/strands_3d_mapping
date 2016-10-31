@@ -67,6 +67,9 @@ namespace reglib
 
 		unsigned int visualizationLvl;
 
+
+		std::string savePath;
+
 		std::vector<RGBDFrame *> frames;
 		std::vector<ModelMask *> mmasks;
 
@@ -89,6 +92,9 @@ namespace reglib
 		virtual void show(Eigen::MatrixXd X, Eigen::MatrixXd Y);
 		virtual void show(std::vector<Eigen::MatrixXd> Xv, bool save = false, std::string filename = "", bool stop = true);
 		Eigen::MatrixXd getMat(int rows, int cols, double * datas);
+
+
+		virtual void savePCD(std::vector<Eigen::MatrixXd> Xv, std::string path);
 
 	};
 

@@ -298,7 +298,7 @@ reglib::Model * load_metaroom_model(std::string sweep_xml, std::string savePath)
 	return sweepmodel;
 }
 
-void segment(std::vector< reglib::Model * > bgs, std::vector< reglib::Model * > models, std::vector< std::vector< cv::Mat > > & internal, std::vector< std::vector< cv::Mat > > & external, std::vector< std::vector< cv::Mat > > & dynamic, int debugg){
+void segment(std::vector< reglib::Model * > bgs, std::vector< reglib::Model * > models, std::vector< std::vector< cv::Mat > > & internal, std::vector< std::vector< cv::Mat > > & external, std::vector< std::vector< cv::Mat > > & dynamic, int debugg, std::string savePath){
 	double startTime = getTime();
 	printf("running segment method\n");
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
@@ -309,6 +309,9 @@ void segment(std::vector< reglib::Model * > bgs, std::vector< reglib::Model * > 
 	}
 
 	reglib::MassRegistrationPPR2 * massregmod = new reglib::MassRegistrationPPR2(0.05);
+	if(savePath.size() != 0){
+		massregmod->savePath = savePath+"/segment_"+std::to_string(models.front()->id);
+	}
 	massregmod->timeout = 1200;
 	massregmod->viewer = viewer;
 	massregmod->visualizationLvl = debugg > 1;
@@ -403,7 +406,7 @@ void segment(std::vector< reglib::Model * > bgs, std::vector< reglib::Model * > 
 		std::vector<cv::Mat> movemask;
 		std::vector<cv::Mat> dynmask;
 		printf("computeMovingDynamicStatic\n");
-		mu->computeMovingDynamicStatic(movemask,dynmask,bgcp,bgcf,model->relativeposes,model->frames,debugg);//Determine self occlusions
+		mu->computeMovingDynamicStatic(movemask,dynmask,bgcp,bgcf,model->relativeposes,model->frames,debugg,savePath);//Determine self occlusions
 		external.push_back(movemask);
 		internal.push_back(masks);
 		dynamic.push_back(dynmask);

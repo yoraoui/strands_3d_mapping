@@ -13,6 +13,7 @@ Model::Model(){
     score = 0;
     id = model_id_counter++;
     last_changed = -1;
+	savePath = "";
 }
 
 Model::Model(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d pose){
@@ -29,6 +30,8 @@ Model::Model(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d pose){
     relativeposes.push_back(pose);
     frames.push_back(frame);
     modelmasks.push_back(new ModelMask(mask));
+
+	savePath = "";
     //recomputeModelPoints();
 }
 

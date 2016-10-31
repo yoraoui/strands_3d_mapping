@@ -3,6 +3,9 @@
 namespace reglib{
 
 DistanceWeightFunction2PPR2::DistanceWeightFunction2PPR2(	double maxd_, int histogram_size_){
+	savePath = "";
+	saveData.str("");
+
 
     fixed_histogram_size = false;
 

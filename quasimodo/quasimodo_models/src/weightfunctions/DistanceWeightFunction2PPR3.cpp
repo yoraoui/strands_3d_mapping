@@ -15,6 +15,8 @@ double getTime3(){
 namespace reglib{
 
 DistanceWeightFunction2PPR3::DistanceWeightFunction2PPR3(Distribution * dist_,	double maxd_, int histogram_size_){
+	savePath = "";
+	saveData.str("");
 
 	fixed_histogram_size = false;
 
@@ -201,6 +203,15 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
 	double start_time;
 
 	if(debugg_print){printf("\n%%################################################### ITER:%i ############################################################\n",iter);}
+
+	if(	savePath.size() != 0 && iter == 0){	saveData.str("");}
+
+	if(	savePath.size() != 0){
+		saveData << "\n%################################################### ITER:" << iter << " ############################################################\n";
+	}
+
+
+
 	if(!fixed_histogram_size){
 		if(first){
 
@@ -285,6 +296,45 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
     if(debugg_print){printf("figure(%i);",iter+1);}
     if(debugg_print){printf("clf; hold on; plot(hist_smooth,'r','LineWidth',2); plot(hist,'m','LineWidth',2); plot(noise,'b','LineWidth',2); plot(prob*max(noise),'g','LineWidth',2); plot(infront*max(noise),'g','LineWidth',2);\n");}
 
+	if(	savePath.size() != 0){
+		saveData << "d = [";
+		for(int k = 0; k < histogram_size; k++){saveData << (maxd-mind)*double(k)/double(histogram_size-1)+mind << " ";}
+		saveData << "];\n";
+
+		saveData << "hist = [";
+		for(int k = 0; k < histogram_size; k++){saveData << histogram[k] << " ";}
+		saveData << "];\n";
+		saveData << "hist_smooth = [";
+		for(int k = 0; k < histogram_size; k++){saveData << blur_histogram[k] << " ";}
+		saveData << "];\n";
+		saveData << "noise = [";
+		for(int k = 0; k < histogram_size; k++){saveData << noise[k] << " ";}
+		saveData << "];\n";
+		saveData << "noisecdf = [";
+		for(int k = 0; k < histogram_size; k++){saveData << noisecdf[k] << " ";}
+		saveData << "];\n";
+		saveData << "prob = [";
+		for(int k = 0; k < histogram_size; k++){saveData << prob[k] << " ";}
+		saveData << "];\n";
+		saveData << "infront = [";
+		for(int k = 0; k < histogram_size; k++){saveData << infront[k] << " ";}
+		saveData << "];\n";
+		saveData << "figure(" << iter+1 <<");\n";
+		saveData << "clf; hold on;\n";
+		saveData << "title('Distribution of residuals and corresponding estimates')\n";
+		saveData << "xlabel('residual values')\n";
+		saveData << "ylabel('number of data')\n";
+
+		saveData << "plot(d,hist_smooth,'r','LineWidth',2);\n";
+		saveData << "plot(d,hist,'m','LineWidth',2);\n";
+		saveData << "plot(d,noise,'b','LineWidth',2);\n";
+		saveData << "plot(prob*max(noise),'g','LineWidth',2);\n";
+		if(compute_infront){saveData << "plot(d,infront*max(noise),'c','LineWidth',2);\n";}
+		saveData << "legend('histogram smoothed','histogram raw','noise estimate','P(Inlier)'";
+		if(compute_infront){saveData << ",'P(Infront)'";}
+		saveData << ");\n";
+	}
+
 	if(!fixed_histogram_size && update_size ){
 
 		double next_maxd;
@@ -330,7 +380,22 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
 			iter++;
 			computeModel(mat);
 			return;
-		}else{iter = 0;}
+		}else{
+			iter = 0;
+			if(	savePath.size() != 0){
+				std::ofstream myfile;
+				myfile.open (savePath);
+				myfile << saveData.str();
+				myfile.close();
+			}
+		}
+	}else{
+		if(	savePath.size() != 0){
+			std::ofstream myfile;
+			myfile.open (savePath);
+			myfile << saveData.str();
+			myfile.close();
+		}
 	}
 }
 

@@ -41,6 +41,9 @@ public:
 	double convergence_threshold;
 	bool debugg_print;
 
+	std::string savePath;
+	std::stringstream saveData;
+
 	DistanceWeightFunction2();
 	~DistanceWeightFunction2();
 

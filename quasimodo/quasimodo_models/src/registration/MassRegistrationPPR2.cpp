@@ -3066,6 +3066,12 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 		}
 	}
 
+	if(savePath.size() != 0){
+		std::vector<Eigen::MatrixXd> Xv;
+		for(unsigned long j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
+		savePCD(Xv,savePath+"_before.pcd");
+	}
+
 	rematch_time = 0;
 	residuals_time = 0;
 	opt_time = 0;
@@ -3229,6 +3235,13 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 
 	Eigen::Matrix4d firstinv = poses.front().inverse();
 	for(long i = 0; i < nr_frames; i++){poses[i] = firstinv*poses[i];}
+
+
+	if(savePath.size() != 0){
+		std::vector<Eigen::MatrixXd> Xv;
+		for(unsigned long j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}
+		savePCD(Xv,savePath+"_after.pcd");
+	}
 
 	return MassFusionResults(poses,-1);
 }

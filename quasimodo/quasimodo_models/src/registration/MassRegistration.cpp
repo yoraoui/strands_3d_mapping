@@ -17,7 +17,7 @@ MassRegistration::MassRegistration(){
 	nomask = true;
 	maskstep = 1;
 	nomaskstep = 100000;
-    timeout = 60;//1 minute timeout
+	timeout = 60;//1 minute timeout
 }
 MassRegistration::~MassRegistration(){}
 
@@ -82,65 +82,86 @@ Eigen::MatrixXd MassRegistration::getMat(int rows, int cols, double * datas){
 
 
 void MassRegistration::show(std::vector<Eigen::MatrixXd> Xv, bool save, std::string filename, bool stop){
-    printf("show\n");
+	printf("show\n");
 	//for(unsigned int a = 0; a < Xv.size(); a++){
-		viewer->removeAllPointClouds();
+	viewer->removeAllPointClouds();
 
-		srand(0);
-		for(unsigned int xi = 0; xi < Xv.size(); xi++){
+	srand(0);
+	for(unsigned int xi = 0; xi < Xv.size(); xi++){
 
-			Eigen::MatrixXd X = Xv[xi];
-			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-			int r,g,b;
-//			if(xi == a){
-//				r = 0;
-//				g = 255;
-//				b = 0;
-//			}else{
-//				r = 256*(1+(rand()%4))/4 - 1;//255*((xi+1) & 1);
-//				g = 0;//255*((xi+1) & 1);
-//				b = 256*(1+(rand()%4))/4 - 1;//255*(xi & 1);
-//			}
+		Eigen::MatrixXd X = Xv[xi];
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+		int r,g,b;
 
-			r = 256*(1+(rand()%4))/4 - 1;//255*((xi+1) & 1);
-			g = 256*(1+(rand()%4))/4 - 1;//255*((xi+1) & 1);
-			b = 256*(1+(rand()%4))/4 - 1;//255*(xi & 1);
+		r = 256*(1+(rand()%4))/4 - 1;//255*((xi+1) & 1);
+		g = 256*(1+(rand()%4))/4 - 1;//255*((xi+1) & 1);
+		b = 256*(1+(rand()%4))/4 - 1;//255*(xi & 1);
 
-			unsigned int nr_data = X.cols();
-			cloud->points.clear();
-			for(unsigned int i = 0; i < nr_data; i++){
-				pcl::PointXYZRGBNormal p;
-				p.x = X(0,i);
-				p.y = X(1,i);
-				p.z = X(2,i);
-				p.b = r;
-				p.g = g;
-				p.r = b;
-				cloud->points.push_back(p);
-			}
-
-			//printf("cloud->points: %i\n",cloud->points.size());
-
-			char buf [1024];
-			sprintf(buf,"cloud%i",xi);
-			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), buf);
-
+		unsigned int nr_data = X.cols();
+		cloud->points.clear();
+		for(unsigned int i = 0; i < nr_data; i++){
+			pcl::PointXYZRGBNormal p;
+			p.x = X(0,i);
+			p.y = X(1,i);
+			p.z = X(2,i);
+			p.b = r;
+			p.g = g;
+			p.r = b;
+			cloud->points.push_back(p);
 		}
 
+		//printf("cloud->points: %i\n",cloud->points.size());
+
+		char buf [1024];
+		sprintf(buf,"cloud%i",xi);
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud), buf);
+
+	}
 
 
-		if(!save){
-			viewer->spin();
-		}else{
-			viewer->spinOnce();
-		}
-		//void pcl::visualization::PCLVisualizerInteractorStyle::saveScreenshot	(	const std::string & 	file	)
-		if(save){
-			printf("saving: %s\n",filename.c_str());
-			viewer->saveScreenshot(filename);
-		}
-		viewer->removeAllPointClouds();
+
+	if(!save){
+		viewer->spin();
+	}else{
+		viewer->spinOnce();
+	}
+	//void pcl::visualization::PCLVisualizerInteractorStyle::saveScreenshot	(	const std::string & 	file	)
+	if(save){
+		printf("saving: %s\n",filename.c_str());
+		viewer->saveScreenshot(filename);
+	}
+	viewer->removeAllPointClouds();
 	//}
+}
+
+void MassRegistration::savePCD(std::vector<Eigen::MatrixXd> Xv, std::string path){
+
+	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+	srand(0);
+	for(unsigned int xi = 0; xi < Xv.size(); xi++){
+		Eigen::MatrixXd X = Xv[xi];
+		int r,g,b;
+		r = 256*(1+(rand()%4))/4 - 1;//255*((xi+1) & 1);
+		g = 256*(1+(rand()%4))/4 - 1;//255*((xi+1) & 1);
+		b = 256*(1+(rand()%4))/4 - 1;//255*(xi & 1);
+
+		unsigned int nr_data = X.cols();
+		for(unsigned int i = 0; i < nr_data; i++){
+			pcl::PointXYZRGBNormal p;
+			p.x = X(0,i);
+			p.y = X(1,i);
+			p.z = X(2,i);
+			p.b = r;
+			p.g = g;
+			p.r = b;
+			cloud->points.push_back(p);
+		}
+	}
+	cloud->width = cloud->points.size();
+	cloud->height = 1;
+
+	//pcl::io::savePCDFileBinaryCompressed (cloud,path);
+	pcl::io::savePCDFileBinaryCompressed (path, *cloud);
 }
 /*
 void Registration::show(Eigen::MatrixXd X, Eigen::MatrixXd Y){
@@ -155,11 +176,11 @@ void Registration::show(Eigen::MatrixXd X, Eigen::MatrixXd Y){
 	scloud->points.clear();
 	dcloud->points.clear();
 	for(unsigned int i = 0; i < s_nr_data; i++){pcl::PointXYZRGBNormal p;p.x = X(0,i);p.y = X(1,i);p.z = X(2,i);p.b = 0;p.g = 255;p.r = 0;scloud->points.push_back(p);}
-	for(unsigned int i = 0; i < d_nr_data; i++){pcl::PointXYZRGBNormal p;p.x = Y(0,i);p.y = Y(1,i);p.z = Y(2,i);p.b = 0;p.g = 0;p.r = 255;dcloud->points.push_back(p);}		
+	for(unsigned int i = 0; i < d_nr_data; i++){pcl::PointXYZRGBNormal p;p.x = Y(0,i);p.y = Y(1,i);p.z = Y(2,i);p.b = 0;p.g = 0;p.r = 255;dcloud->points.push_back(p);}
 	viewer->addPointCloud<pcl::PointXYZRGBNormal> (scloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(scloud), "scloud");
 	viewer->addPointCloud<pcl::PointXYZRGBNormal> (dcloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dcloud), "dcloud");
 	//printf("pre\n");
-    viewer->spin();
+	viewer->spin();
 	//printf("post\n");
 	viewer->removeAllPointClouds();
 
@@ -228,7 +249,7 @@ void Registration::show(Eigen::MatrixXd X, Eigen::MatrixXd Y, Eigen::VectorXd W)
 	viewer->addPointCloud<pcl::PointXYZRGBNormal> (scloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(scloud), "scloud");
 	viewer->addPointCloud<pcl::PointXYZRGBNormal> (dcloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dcloud), "dcloud");
 	//printf("pre spin\n");
-    viewer->spin();
+	viewer->spin();
 	//printf("post spin\n");
 	viewer->removeAllPointClouds();
 }

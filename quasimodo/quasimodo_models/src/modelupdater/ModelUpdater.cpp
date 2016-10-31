@@ -2372,7 +2372,10 @@ int setupPriors(int method,float current_occlusions, float current_overlaps, flo
 	return 0;
 }
 
-void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, std::vector<cv::Mat> & dynmask, vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Matrix4d> poses, vector<RGBDFrame*> frames, bool debugg){
+void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, std::vector<cv::Mat> & dynmask, vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Matrix4d> poses, vector<RGBDFrame*> frames, bool debugg, std::string savePath){
+	static int segment_run_counter = -1;
+	segment_run_counter++;
+
 	double computeMovingDynamicStatic_startTime = getTime();
 
 	SegmentationResults sr;
@@ -2443,6 +2446,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	DistanceWeightFunction2PPR3 * dfuncTMP		= new DistanceWeightFunction2PPR3(dggdnfunc);
 	dfunc = dfuncTMP;
 	dfuncTMP->startreg				= 0.00;
+	dfuncTMP->max_under_mean		= false;
 	dfuncTMP->debugg_print			= false;
 	dfuncTMP->bidir					= true;
 	dfuncTMP->zeromean				= false;
@@ -2457,6 +2461,11 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	dfuncTMP->compute_infront		= true;
 	dfuncTMP->ggd					= true;
 	dfuncTMP->reset();
+
+	if(savePath.size() != 0){
+		dfuncTMP->savePath = std::string(savePath)+"/segment_"+std::to_string(segment_run_counter)+"_dfunc.m";
+	}
+
 	dfunc->computeModel(dvec);
 
 	GeneralizedGaussianDistribution * ggdnfunc	= new GeneralizedGaussianDistribution(true,true);
@@ -2479,6 +2488,12 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	nfuncTMP->ggd					= true;
 	nfuncTMP->reset();
 	nfunc->computeModel(nvec);
+
+	if(savePath.size() != 0){
+		nfuncTMP->savePath = std::string(savePath)+"/segment_"+std::to_string(segment_run_counter)+"_nfunc.m";
+	}
+
+
 
 	printf("training time:     %5.5fs\n",getTime()-startTime);
 
@@ -2556,9 +2571,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 		total_Dynw += getTime()-startTime;
 
-		cv::Mat priorsimg;
-		priorsimg.create(height,width,CV_32FC3);
-		float * priorsdata = (float*)priorsimg.data;
+
 
 		startTime = getTime();
 		unsigned char * detdata = (unsigned char*)(frame->det_dilate.data);
@@ -2571,10 +2584,6 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 						current_occlusions[ind],current_overlaps[ind],bg_occlusions[ind],bg_overlaps[ind],valids[offset+ind],
 						priors[3*(offset+ind)+0], priors[3*(offset+ind)+1],priors[3*(offset+ind)+2],
 						prior_weights[2*(offset+ind)+0], prior_weights[2*(offset+ind)+1]);
-
-				priorsdata[3*ind+0]			= priors[3*(offset+ind)+0];
-				priorsdata[3*ind+1]			= priors[3*(offset+ind)+1];
-				priorsdata[3*ind+2]			= priors[3*(offset+ind)+2];
 
 				if(probs[0][ind] > 0.00000001){frameConnections++;}
 				if(probs[1][ind] > 0.00000001){frameConnections++;}
@@ -2618,25 +2627,8 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 		if(debugg != 0){printf("local inference time: %10.10fs\n\n",getTime()-start_inf);}
 
-		//		cv::Mat edgeimg;
-		//		edgeimg.create(height,width,CV_32FC3);
-		//		float * edgedata = (float*)edgeimg.data;
 
-		//		for(int j = 0; j < width*height; j++){
-		//			edgedata[3*j+0] = 0;
-		//			edgedata[3*j+1] = 1-probs[0][j];
-		//			edgedata[3*j+2] = 1-probs[1][j];
-		//		}
 
-		//		cv::Mat labelimg;
-		//		labelimg.create(height,width,CV_32FC3);
-		//		float * labelimgdata = (float*)labelimg.data;
-		//		for(unsigned long ind = 0; ind < nr_pixels;ind++){
-		//			double label = g->what_segment(ind);
-		//			labelimgdata[3*ind+0] = 0;
-		//			labelimgdata[3*ind+1] = label;
-		//			labelimgdata[3*ind+2] = 1-label;
-		//		}
 
 		//		cv::Mat detrgb;
 		//		detrgb.create(height,width,CV_8UC3);
@@ -2656,6 +2648,84 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		//		cv::namedWindow( "priors"		, cv::WINDOW_AUTOSIZE );		cv::imshow( "priors",		priorsimg );
 		//		cv::namedWindow( "labelimg"		, cv::WINDOW_AUTOSIZE );		cv::imshow( "labelimg",		labelimg );
 		//		cv::waitKey(0);
+
+
+		if(savePath.size() != 0){
+			cv::Mat edgeimg;
+			edgeimg.create(height,width,CV_8UC3);
+			unsigned char * edgedata = (unsigned char*)edgeimg.data;
+
+			for(int j = 0; j < width*height; j++){
+				edgedata[3*j+0] = 0;
+				edgedata[3*j+1] = 255.0*(1-probs[0][j]);
+				edgedata[3*j+2] = 255.0*(1-probs[1][j]);
+			}
+
+			cv::Mat labelimg;
+			labelimg.create(height,width,CV_8UC3);
+			unsigned char * labelimgdata = (unsigned char*)labelimg.data;
+			for(unsigned long ind = 0; ind < nr_pixels;ind++){
+				double label = g->what_segment(ind);
+				labelimgdata[3*ind+0] = 255*label;
+				labelimgdata[3*ind+1] = 255*label;
+				labelimgdata[3*ind+2] = 255*label;
+			}
+
+			cv::Mat priorsimg;
+			priorsimg.create(height,width,CV_8UC3);
+			unsigned char * priorsdata = (unsigned char*)priorsimg.data;
+			for(unsigned long ind = 0; ind < nr_pixels;ind++){
+				priorsdata[3*ind+0]			= 255.0*priors[3*(offset+ind)+2];
+				priorsdata[3*ind+1]			= 255.0*priors[3*(offset+ind)+1];
+				priorsdata[3*ind+2]			= 255.0*priors[3*(offset+ind)+0];
+			}
+
+			cv::Mat current_overlapsimg;
+			current_overlapsimg.create(height,width,CV_8UC3);
+			unsigned char * current_overlapsdata = (unsigned char*)current_overlapsimg.data;
+			for(unsigned long ind = 0; ind < nr_pixels;ind++){
+				current_overlapsdata[3*ind+0]			= 255.0*current_overlaps[ind];
+				current_overlapsdata[3*ind+1]			= 255.0*current_overlaps[ind];
+				current_overlapsdata[3*ind+2]			= 255.0*current_overlaps[ind];
+			}
+
+			cv::Mat bg_overlapsimg;
+			bg_overlapsimg.create(height,width,CV_8UC3);
+			unsigned char * bg_overlapsdata = (unsigned char*)bg_overlapsimg.data;
+			for(unsigned long ind = 0; ind < nr_pixels;ind++){
+				bg_overlapsdata[3*ind+0]			= 255.0*bg_overlaps[ind];
+				bg_overlapsdata[3*ind+1]			= 255.0*bg_overlaps[ind];
+				bg_overlapsdata[3*ind+2]			= 255.0*bg_overlaps[ind];
+			}
+
+			cv::Mat current_occlusionsimg;
+			current_occlusionsimg.create(height,width,CV_8UC3);
+			unsigned char * current_occlusionsdata = (unsigned char*)current_occlusionsimg.data;
+			for(unsigned long ind = 0; ind < nr_pixels;ind++){
+				current_occlusionsdata[3*ind+0]			= 255.0*current_occlusions[ind];
+				current_occlusionsdata[3*ind+1]			= 255.0*current_occlusions[ind];
+				current_occlusionsdata[3*ind+2]			= 255.0*current_occlusions[ind];
+			}
+
+			cv::Mat bg_occlusionsimg;
+			bg_occlusionsimg.create(height,width,CV_8UC3);
+			unsigned char * bg_occlusionsdata = (unsigned char*)bg_occlusionsimg.data;
+			for(unsigned long ind = 0; ind < nr_pixels;ind++){
+				bg_occlusionsdata[3*ind+0]			= 255.0*bg_occlusions[ind];
+				bg_occlusionsdata[3*ind+1]			= 255.0*bg_occlusions[ind];
+				bg_occlusionsdata[3*ind+2]			= 255.0*bg_occlusions[ind];
+			}
+
+			cv::imwrite( savePath+"/segment_"+std::to_string(segment_run_counter)+"_frame_"+std::to_string(i)+"_current_overlapsimg.png", current_overlapsimg );
+			cv::imwrite( savePath+"/segment_"+std::to_string(segment_run_counter)+"_frame_"+std::to_string(i)+"_bg_overlapsimg.png", bg_overlapsimg );
+			cv::imwrite( savePath+"/segment_"+std::to_string(segment_run_counter)+"_frame_"+std::to_string(i)+"_current_occlusionsimg.png", current_occlusionsimg );
+			cv::imwrite( savePath+"/segment_"+std::to_string(segment_run_counter)+"_frame_"+std::to_string(i)+"_bg_occlusionsimg.png", bg_occlusionsimg );
+			cv::imwrite( savePath+"/segment_"+std::to_string(segment_run_counter)+"_frame_"+std::to_string(i)+"_edgeimg.png", edgeimg );
+			cv::imwrite( savePath+"/segment_"+std::to_string(segment_run_counter)+"_frame_"+std::to_string(i)+"_rgb.png", frame->rgb  );
+			cv::imwrite( savePath+"/segment_"+std::to_string(segment_run_counter)+"_frame_"+std::to_string(i)+"_priors.png", priorsimg );
+			cv::imwrite( savePath+"/segment_"+std::to_string(segment_run_counter)+"_frame_"+std::to_string(i)+"_labelimg.png", labelimg );
+		}
+
 
 
 
@@ -2802,7 +2872,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			for(unsigned int j = 0; j < interframe_connectionId[i].size();j++){
 				double weight = interframe_connectionStrength[i][j];
 				unsigned long other = interframe_connectionId[i][j];
-				if(weight > 0.01 && labels[i] != labels[other]){//g->what_segment(i) != g->what_segment(other)){
+				if(weight > 0.01 && labels[i] != labels[other]){
 					if(rand() <= prob*RAND_MAX){
 						trueadds++;
 						g -> add_edge( i, other, weight, weight );
@@ -2999,44 +3069,83 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		}
 		movemask.push_back(m);
 		dynmask.push_back(d);
+	}
+
+	if(savePath.size() != 0){
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_sample (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+		cloud_sample->points.resize(current_point);
+		cloud_sample->width = current_point;
+		cloud_sample->height = 1;
+		for(unsigned int i = 0; i < current_point; i++){
+			cloud_sample->points[i].r = priors[3*i+0]*255.0;
+			cloud_sample->points[i].g = priors[3*i+1]*255.0;
+			cloud_sample->points[i].b = priors[3*i+2]*255.0;
+		}
+		pcl::io::savePCDFileBinaryCompressed (savePath+"/segment_"+std::to_string(segment_run_counter)+"_priors.pcd", *cloud_sample);
 
 
-		//		unsigned short * depthdata	= (unsigned short	*)(frames[i]->depth.data);
-		//		cv::Mat debuggimg;
-		//		debuggimg.create(height,width,CV_8UC3);
-		//		unsigned char * debuggimgdata = (unsigned char*)debuggimg.data;
-		//		cv::Mat edgeimg;
-		//		edgeimg.create(height,width,CV_32FC3);
-		//		float * edgedata = (float*)edgeimg.data;
-		//		for(unsigned int label = 0; label < labelID.size(); label++){
-		//			int lid = labelID[label];
-		//			printf("lid: %i\n",lid);
-		//			if(lid <= 0){continue;}
-		//			bool hasdata = false;
-		//			for(int j = 0; j < width*height; j++){
-		//				if(ddata[j] == lid){
-		//					debuggimgdata[3*j+0] = 255;
-		//					debuggimgdata[3*j+1] = 255;
-		//					debuggimgdata[3*j+2] = 255;
-		//					hasdata = true;
-		//				}else{
-		//					debuggimgdata[3*j+0] = 0;
-		//					debuggimgdata[3*j+1] = 0;
-		//					debuggimgdata[3*j+2] = 0;
-		//				}
-		//				if(depthdata[j] == 0){
-		//					debuggimgdata[3*j+0] = 255;
-		//					debuggimgdata[3*j+1] = 0;
-		//					debuggimgdata[3*j+2] = 255;
-		//				}
-		//			}
-		//			if(hasdata){
-		//				cv::namedWindow( "rgb"	,			cv::WINDOW_AUTOSIZE );		cv::imshow( "rgb",			frames[i]->rgb );
-		//				cv::namedWindow( "debuggimg"	,	cv::WINDOW_AUTOSIZE );		cv::imshow( "debuggimg",	debuggimg );
-		//				cv::namedWindow( "edgeimg"	,		cv::WINDOW_AUTOSIZE );		cv::imshow( "edgeimg",		edgeimg );
-		//				cv::waitKey(0);
-		//			}
-		//		}
+		for(unsigned int i = 0; i < current_point; i++){
+			cloud_sample->points[i].r = 0;
+			cloud_sample->points[i].g = 0;
+			cloud_sample->points[i].b = 255;
+		}
+
+		for(unsigned int c = 0; c < sr.component_dynamic.size(); c++){
+			for(unsigned int i = 0; i < sr.component_dynamic[c].size(); i++){
+				cloud_sample->points[sr.component_dynamic[c][i]].r = 0;
+				cloud_sample->points[sr.component_dynamic[c][i]].g = 255;
+				cloud_sample->points[sr.component_dynamic[c][i]].b = 0;
+			}
+		}
+
+		for(unsigned int c = 0; c < sr.component_moving.size(); c++){
+			for(unsigned int i = 0; i < sr.component_moving[c].size(); i++){
+				cloud_sample->points[sr.component_moving[c][i]].r = 255;
+				cloud_sample->points[sr.component_moving[c][i]].g = 0;
+				cloud_sample->points[sr.component_moving[c][i]].b = 0;
+			}
+		}
+		pcl::io::savePCDFileBinaryCompressed (savePath+"/segment_"+std::to_string(segment_run_counter)+"_classes.pcd", *cloud_sample);
+
+		for(unsigned int i = 0; i < current_point; i++){
+			cloud_sample->points[i].r = 0;
+			cloud_sample->points[i].g = 0;
+			cloud_sample->points[i].b = 255;
+		}
+
+		for(unsigned int c = 0; c < sr.component_dynamic.size(); c++){
+			int randr = rand()%256;
+			int randg = rand()%256;
+			int randb = rand()%256;
+			if(randr*randr + randg*randg + (255-randr)*(255-randr) < 1000){
+				randr = rand()%256;
+				randg = rand()%256;
+				randb = rand()%256;
+			}
+			for(unsigned int i = 0; i < sr.component_dynamic[c].size(); i++){
+				cloud_sample->points[sr.component_dynamic[c][i]].r = randr;
+				cloud_sample->points[sr.component_dynamic[c][i]].g = randg;
+				cloud_sample->points[sr.component_dynamic[c][i]].b = randb;
+			}
+		}
+
+		for(unsigned int c = 0; c < sr.component_moving.size(); c++){
+			int randr = rand()%256;
+			int randg = rand()%256;
+			int randb = rand()%256;
+			if(randr*randr + randg*randg + (255-randr)*(255-randr) < 1000){
+				randr = rand()%256;
+				randg = rand()%256;
+				randb = rand()%256;
+			}
+			for(unsigned int i = 0; i < sr.component_moving[c].size(); i++){
+				cloud_sample->points[sr.component_moving[c][i]].r = randr;
+				cloud_sample->points[sr.component_moving[c][i]].g = randg;
+				cloud_sample->points[sr.component_moving[c][i]].b = randb;
+			}
+		}
+		pcl::io::savePCDFileBinaryCompressed (savePath+"/segment_"+std::to_string(segment_run_counter)+"_clusters.pcd", *cloud_sample);
+
 	}
 
 	if(debugg){

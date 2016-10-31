@@ -29,6 +29,8 @@ namespace reglib
 {
 	class RGBDFrame{
 		public:
+		static int saveId;
+
 		std::string keyval;
 		Camera * camera;
 		unsigned long id;

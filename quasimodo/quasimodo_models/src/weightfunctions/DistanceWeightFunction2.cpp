@@ -7,6 +7,8 @@ DistanceWeightFunction2::DistanceWeightFunction2(){
 	p = 0.5;
 	f = PNORM;
 	convergence_threshold = 0.0001;
+	savePath = "";
+	saveData.str("");
 }
 DistanceWeightFunction2::~DistanceWeightFunction2(){}
 

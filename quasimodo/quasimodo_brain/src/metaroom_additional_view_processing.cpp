@@ -622,6 +622,7 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 	sweep->recomputeModelPoints();
 
 	reglib::Model * fullmodel = new reglib::Model();
+	fullmodel->savePath = savePath+"/";
 	fullmodel->frames = sweep->frames;
 	fullmodel->relativeposes = sweep->relativeposes;
 	fullmodel->modelmasks = sweep->modelmasks;
@@ -658,6 +659,10 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 		delete cd2;
 
 		reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.25);
+		if(savePath.size() != 0){
+			bgmassreg->savePath = savePath+"/processAV_"+std::to_string(fullmodel->id);
+		}
+
 		bgmassreg->timeout = 300;
 		bgmassreg->viewer = viewer;
 		bgmassreg->use_surface = true;
@@ -814,6 +819,7 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 	if(viewgroup_nrviews == (additional_nrviews+metaroom_nrviews) && !recomputeRelativePoses){
 		printf("time to read old\n");
 		fullmodel = new reglib::Model();
+		fullmodel->savePath = saveVisuals_sp+"/";
 
 		for(unsigned int i = 0; i < viewgroup_nrviews; i++){
 			cv::Mat fullmask;
@@ -829,13 +835,6 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
         fullmodel = processAV(path,compute_edges,saveVisuals_sp);
 		writeXml(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes);
 	}
-
-    if(saveVisuals.size() > 0){
-        for(unsigned int i = 0; i < fullmodel->frames.size(); i++){
-
-        }
-    }
-
 
 	return fullmodel;
 }
@@ -943,7 +942,7 @@ printf("bgs.size() = %i\n",bgs.size());
 		auto sweep = SimpleXMLParser<PointType>::loadRoomFromXML(path, std::vector<std::string>{},false);
 
 		printf("models.front()->frames.size() = %i\n",models.front()->frames.size());
-		quasimodo_brain::segment(bgs,models,internal,external,dynamic,visualization_lvl > 0);
+		quasimodo_brain::segment(bgs,models,internal,external,dynamic,visualization_lvl > 0,saveVisuals);
 
 		remove_old_seg(sweep_folder);
 

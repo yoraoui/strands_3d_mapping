@@ -32,6 +32,8 @@ using namespace Eigen;
 
 		int last_changed;
 
+		std::string savePath;
+
 		std::vector<superpoint> points;
 
 		std::vector< std::vector<cv::KeyPoint> >	all_keypoints;
