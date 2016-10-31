@@ -614,11 +614,8 @@ RGBDFrame * RGBDFrame::clone(){
 //	return probs2;
 //}
 
-RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capturetime_, Eigen::Matrix4d pose_, bool compute_normals){
-
-	std::set<int> myset;
-
-
+RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capturetime_, Eigen::Matrix4d pose_, bool compute_normals, std::string savePath){
+    printf("savepath: %s\n",savePath.c_str());
 	bool verbose = false;
 	if(verbose)
 		printf("------------------------------\n");
@@ -633,6 +630,11 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	depth = depth_;
 	capturetime = capturetime_;
 	pose = pose_;
+
+    if(savePath.size() != 0){
+        cv::imwrite( savePath+"/rgb.png", rgb );
+        cv::imwrite( savePath+"/depth.png", depth );
+    }
 
 	IplImage iplimg = rgb_;
 	IplImage* img = &iplimg;
@@ -929,7 +931,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	DistanceWeightFunction2PPR2 * funcB = new DistanceWeightFunction2PPR2();
 	funcR->zeromean		= funcG->zeromean	= funcB->zeromean	= true;
 	funcR->maxp			= funcG->maxp		= funcB->maxp		= 0.999999999999999999;
-	funcR->startreg		= funcG->startreg	= funcB->startreg	= 1.0;
+    funcR->startreg		= funcG->startreg	= funcB->startreg	= 0.1;
 	funcR->debugg_print = funcG->debugg_print = funcB->debugg_print = false;
 	funcR->maxd			= funcG->maxd		= funcB->maxd		= 256.0;
 	funcR->histogram_size = funcG->histogram_size = funcB->histogram_size = 256;
@@ -1102,7 +1104,9 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 		printf("%s::%i time: %5.5fs\n",__PRETTY_FUNCTION__,__LINE__,getTime()-startTime); startTime = getTime();
 	printf("complete time to create RGBD image: %5.5fs\n",getTime()-completeStartTime);
 
-	//getImageProbs();
+    //getImageProbs();
+    saveCombinedImages("");
+    saveCombinedProcessedImages("");
 }
 
 RGBDFrame::~RGBDFrame(){
@@ -1308,7 +1312,7 @@ RGBDFrame * RGBDFrame::load(Camera * cam, std::string path){
 		size = file.tellg();
 		buffer = new char [size];
 		file.seekg (0, std::ios::beg);
-		file.read (buffer, size);
+        file.read (buffer, size);
 		file.close();
 
 		double * buffer_double = (double *)buffer;
@@ -1485,7 +1489,7 @@ std::vector< std::vector<float> > RGBDFrame::getImageProbs(bool depthonly){
 	for(unsigned int i = 0; i < nr_pixels;i++){
 		//dxc[i] = 1.0-std::max(dedata[3*i+1],cedata[3*i+1]);
 		//dyc[i] = 1.0-std::max(dedata[3*i+2],cedata[3*i+2]);
-
+//ProcessedImages
 
 
 
@@ -1514,6 +1518,65 @@ std::vector< std::vector<float> > RGBDFrame::getImageProbs(bool depthonly){
 	probs2.push_back(dxc);
 	probs2.push_back(dyc);
 	return probs2;
+}
+
+void RGBDFrame::saveCombinedImages(std::string path){
+    unsigned int width = camera->width;
+    unsigned int height = camera->height;
+    cv::Mat combined;
+    combined.create(camera->height,2*camera->width,CV_8UC3);
+    unsigned char   * combineddata   = combined.data;
+    unsigned char   * rgbdata   = rgb.data;
+    unsigned short  * depthdata = (unsigned short *)(depth.data);
+
+    for(unsigned long h = 0; h < height;h++){
+        for(unsigned long w = 0; w < width;w++){
+            combineddata[3*(h*(2*width)+w)+0] = rgbdata[3*(h*width+w)+0];
+            combineddata[3*(h*(2*width)+w)+1] = rgbdata[3*(h*width+w)+1];
+            combineddata[3*(h*(2*width)+w)+2] = rgbdata[3*(h*width+w)+2];
+            combineddata[3*(h*(2*width)+w+width)+0] = depthdata[h*width+w]/256;
+            combineddata[3*(h*(2*width)+w+width)+1] = depthdata[h*width+w]/256;
+            combineddata[3*(h*(2*width)+w+width)+2] = depthdata[h*width+w]/256;
+        }
+    }
+
+    cv::namedWindow( "combined"	, cv::WINDOW_AUTOSIZE );
+    cv::imshow( "combined",	combined );
+    cv::waitKey(0);
+}
+void RGBDFrame::saveCombinedProcessedImages(std::string path){
+    unsigned int width = camera->width;
+    unsigned int height = camera->height;
+    cv::Mat combined;
+    combined.create(camera->height,3*camera->width,CV_8UC3);
+    unsigned char   * combineddata   = combined.data;
+    float  * normalsdata = (float *)(normals.data);
+    float  * cedata = (float *)(ce.data);
+    float  * dedata = (float *)(de.data);
+
+    for(unsigned long h = 0; h < height;h++){
+        for(unsigned long w = 0; w < width;w++){
+             if(normalsdata[3*(h*width+w)+0] > 1){
+                combineddata[3*(h*(3*width)+w+0*width)+0] = 255.0*normalsdata[3*(h*width+w)+0];
+                combineddata[3*(h*(3*width)+w+0*width)+1] = 255.0*normalsdata[3*(h*width+w)+1];
+                combineddata[3*(h*(3*width)+w+0*width)+2] = 255.0*normalsdata[3*(h*width+w)+2];
+            }else{
+                combineddata[3*(h*(3*width)+w+0*width)+0] = 0;
+                combineddata[3*(h*(3*width)+w+0*width)+1] = 0;
+                combineddata[3*(h*(3*width)+w+0*width)+2] = 0;
+            }
+            combineddata[3*(h*(3*width)+w+1*width)+0] = 255.0*cedata[3*(h*width+w)+0];
+            combineddata[3*(h*(3*width)+w+1*width)+1] = 255.0*cedata[3*(h*width+w)+1];
+            combineddata[3*(h*(3*width)+w+1*width)+2] = 255.0*cedata[3*(h*width+w)+2];
+            combineddata[3*(h*(3*width)+w+2*width)+0] = 255.0*dedata[3*(h*width+w)+0];
+            combineddata[3*(h*(3*width)+w+2*width)+1] = 255.0*dedata[3*(h*width+w)+1];
+            combineddata[3*(h*(3*width)+w+2*width)+2] = 255.0*dedata[3*(h*width+w)+2];
+        }
+    }
+
+    cv::namedWindow( "combined"	, cv::WINDOW_AUTOSIZE );
+    cv::imshow( "combined",	combined );
+    cv::waitKey(0);
 }
 
 }

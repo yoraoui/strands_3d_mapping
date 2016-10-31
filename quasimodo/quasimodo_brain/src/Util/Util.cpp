@@ -249,7 +249,7 @@ Eigen::Matrix4d getMat(tf::StampedTransform tf){
 	return epose.matrix();
 }
 
-reglib::Model * load_metaroom_model(std::string sweep_xml){
+reglib::Model * load_metaroom_model(std::string sweep_xml, std::string savePath){
 	int slash_pos = sweep_xml.find_last_of("/");
 	std::string sweep_folder = sweep_xml.substr(0, slash_pos) + "/";
 	printf("load_metaroom_model(%s)\n",sweep_folder.c_str());
@@ -281,7 +281,7 @@ reglib::Model * load_metaroom_model(std::string sweep_xml){
 		//cam->print();
 
 		Eigen::Matrix4d m = m2*getMat(roomData.vIntermediateRoomCloudTransformsRegistered[i]);
-		reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,roomData.vIntermediateRGBImages[i],5.0*roomData.vIntermediateDepthImages[i],0, m);
+        reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,roomData.vIntermediateRGBImages[i],5.0*roomData.vIntermediateDepthImages[i],0, m,true,savePath);
 
 		current_room_frames.push_back(frame);
 		if(sweepmodel == 0){

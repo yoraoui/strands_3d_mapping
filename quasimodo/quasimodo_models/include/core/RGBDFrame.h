@@ -52,7 +52,7 @@ namespace reglib
 		std::vector< std::vector<double> > intersections;
 
 		RGBDFrame();
-		RGBDFrame(Camera * camera_,cv::Mat rgb_, cv::Mat depth_, double capturetime_ = 0, Eigen::Matrix4d pose_ = Eigen::Matrix4d::Identity(), bool compute_normals = true);
+        RGBDFrame(Camera * camera_,cv::Mat rgb_, cv::Mat depth_, double capturetime_ = 0, Eigen::Matrix4d pose_ = Eigen::Matrix4d::Identity(), bool compute_normals = true, std::string savePath = "");
 		~RGBDFrame();
 
 		void show(bool stop = false);
@@ -68,6 +68,9 @@ namespace reglib
 		std::vector<superpoint> getSuperPoints(Eigen::Matrix4d cp = Eigen::Matrix4d::Identity(), unsigned int step = 1, bool zeroinclude = true);
 
 		std::vector< std::vector<float> > getImageProbs(bool depthonly = false);
+
+        void saveCombinedImages(std::string path);
+        void saveCombinedProcessedImages(std::string path);
 	};
 }
 

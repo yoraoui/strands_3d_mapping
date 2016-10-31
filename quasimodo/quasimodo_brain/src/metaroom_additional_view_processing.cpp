@@ -134,6 +134,7 @@ std::vector< ros::Publisher > m_PublisherStatuss;
 std::vector< ros::Publisher > out_pubs;
 std::vector< ros::Publisher > model_pubs;
 
+std::string saveVisuals = "";
 
 std::string posepath = "testposes.xml";
 std::vector<Eigen::Matrix4d> sweepPoses;
@@ -378,7 +379,7 @@ int readNumberOfViews(std::string xmlFile){
 	return count;
 }
 
-void readViewXML(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames, std::vector<Eigen::Matrix4d> & poses, bool compute_edges = true){
+void readViewXML(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames, std::vector<Eigen::Matrix4d> & poses, bool compute_edges = true, std::string savePath = ""){
 
 	QFile file(xmlFile.c_str());
 
@@ -497,7 +498,7 @@ void readViewXML(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames,
 				token = xmlReader->readNext();//Pose
 				elementName = xmlReader->name().toString();
 
-				reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb,depth, time, regpose);
+                reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb,depth, time, regpose,true,savePath);
 				frames.push_back(frame);
 				poses.push_back(pose);
 			}
@@ -528,7 +529,7 @@ void setBaseSweep(std::string path){
 	}
 }
 
-reglib::Model * processAV(std::string path, bool compute_edges = true){
+reglib::Model * processAV(std::string path, bool compute_edges = true, std::string savePath = ""){
 	printf("processAV: %s\n",path.c_str());
 
 	int slash_pos = path.find_last_of("/");
@@ -567,7 +568,7 @@ reglib::Model * processAV(std::string path, bool compute_edges = true){
 		}
 	}
 
-	reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path);
+    reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path,savePath);
 	for(unsigned int i = 0; (i < sweep->frames.size()) && (sweep->frames.size() == sweepPoses.size()) ; i++){
 		sweep->frames[i]->pose	= sweep->frames.front()->pose * sweepPoses[i];
 		sweep->relativeposes[i] = sweepPoses[i];
@@ -606,7 +607,7 @@ reglib::Model * processAV(std::string path, bool compute_edges = true){
 		masks.push_back(new reglib::ModelMask(fullmask));
 
 		reglib::Camera * cam		= sweep->frames.front()->camera->clone();
-		reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],time, m);//a.matrix());
+        reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],time, m,true,savePath);//a.matrix());
 		frames.push_back(frame);
 
 		both_unrefined.push_back(sweep->frames.front()->pose.inverse()*m);
@@ -779,7 +780,7 @@ std::vector<Eigen::Matrix4d> readPoseXML(std::string xmlFile){
 	return poses;
 }
 
-reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true){
+reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::string saveVisuals_sp = ""){
 	printf("processing: %s\n",path.c_str());
 
 	if ( ! boost::filesystem::exists( path ) ){return 0;}
@@ -822,12 +823,18 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true){
 			fullmodel->modelmasks.push_back(new reglib::ModelMask(fullmask));
 		}
 
-		readViewXML(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes,compute_edges);
+        readViewXML(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes,compute_edges,saveVisuals_sp);
 		fullmodel->recomputeModelPoints();
 	}else{
-		fullmodel = processAV(path,compute_edges);
+        fullmodel = processAV(path,compute_edges,saveVisuals_sp);
 		writeXml(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes);
 	}
+
+    if(saveVisuals.size() > 0){
+        for(unsigned int i = 0; i < fullmodel->frames.size(); i++){
+
+        }
+    }
 
 
 	return fullmodel;
@@ -856,7 +863,7 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 
 	printf("current_roomData loaded\n");
 
-	reglib::Model * fullmodel = getAVMetaroom(path);
+    reglib::Model * fullmodel = getAVMetaroom(path,true,saveVisuals);
 
 	printf("fullmodel->frames.size() = %i\n",fullmodel->frames.size());
 
@@ -1649,8 +1656,9 @@ int main(int argc, char** argv){
 		else if(std::string(argv[i]).compare("-once") == 0){					once		= true;}
 		else if(std::string(argv[i]).compare("-nobase") == 0){					baseSetting = false;}
 		else if(std::string(argv[i]).compare("-recomputeRelativePoses") == 0){	recomputeRelativePoses = true;}
-		else if(std::string(argv[i]).compare("-v_init") == 0){	visualization_lvl_regini = 1;inputstate = 17;}
-		else if(std::string(argv[i]).compare("-v_reg") == 0){	visualization_lvl_regref = 1;inputstate = 18;}
+        else if(std::string(argv[i]).compare("-v_init") == 0){	visualization_lvl_regini = 1;inputstate = 17;}
+        else if(std::string(argv[i]).compare("-v_reg") == 0){	visualization_lvl_regref = 1;inputstate = 18;}
+        else if(std::string(argv[i]).compare("-saveVisuals") == 0){inputstate = 19;}
 		else if(inputstate == 0){
 			segsubs.push_back(n.subscribe(std::string(argv[i]), 1000, chatterCallback));
 		}else if(inputstate == 1){
@@ -1688,10 +1696,11 @@ int main(int argc, char** argv){
 			setBaseSweep(std::string(argv[i]));
 		}else if(inputstate == 17){
 			visualization_lvl_regini = atoi(argv[i]);
-		}else if(inputstate == 18){
-			visualization_lvl_regref = atoi(argv[i]);
-		}
-
+        }else if(inputstate == 18){
+            visualization_lvl_regref = atoi(argv[i]);
+        }else if(inputstate == 19){
+            saveVisuals = std::string(argv[i]);
+        }
 	}
 
 	if(visualization_lvl != 0 || visualization_lvl_regref != 0 || visualization_lvl_regini != 0){
