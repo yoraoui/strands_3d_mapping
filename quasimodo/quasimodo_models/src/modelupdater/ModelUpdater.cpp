@@ -3073,12 +3073,16 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		cloud_sample->width = current_point;
 		cloud_sample->height = 1;
 		for(unsigned int i = 0; i < current_point; i++){
+			cloud_sample->points[i]	= cloud->points[i];
 			cloud_sample->points[i].r = priors[3*i+0]*255.0;
 			cloud_sample->points[i].g = priors[3*i+1]*255.0;
 			cloud_sample->points[i].b = priors[3*i+2]*255.0;
 		}
 		pcl::io::savePCDFileBinaryCompressed (savePath+"/segment_"+std::to_string(segment_run_counter)+"_priors.pcd", *cloud_sample);
 
+//		viewer->removeAllPointClouds();
+//		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
+//		viewer->spin();
 
 		for(unsigned int i = 0; i < current_point; i++){
 			cloud_sample->points[i].r = 0;
@@ -3102,6 +3106,9 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			}
 		}
 		pcl::io::savePCDFileBinaryCompressed (savePath+"/segment_"+std::to_string(segment_run_counter)+"_classes.pcd", *cloud_sample);
+//		viewer->removeAllPointClouds();
+//		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
+//		viewer->spin();
 
 		for(unsigned int i = 0; i < current_point; i++){
 			cloud_sample->points[i].r = 0;
@@ -3113,11 +3120,11 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			int randr = rand()%256;
 			int randg = rand()%256;
 			int randb = rand()%256;
-			if(randr*randr + randg*randg + (255-randr)*(255-randr) < 1000){
-				randr = rand()%256;
-				randg = rand()%256;
-				randb = rand()%256;
-			}
+//			if(randr*randr + randg*randg + (255-randr)*(255-randr) < 1000){
+//				randr = rand()%256;
+//				randg = rand()%256;
+//				randb = rand()%256;
+//			}
 			for(unsigned int i = 0; i < sr.component_dynamic[c].size(); i++){
 				cloud_sample->points[sr.component_dynamic[c][i]].r = randr;
 				cloud_sample->points[sr.component_dynamic[c][i]].g = randg;
@@ -3129,11 +3136,11 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			int randr = rand()%256;
 			int randg = rand()%256;
 			int randb = rand()%256;
-			if(randr*randr + randg*randg + (255-randr)*(255-randr) < 1000){
-				randr = rand()%256;
-				randg = rand()%256;
-				randb = rand()%256;
-			}
+//			if(randr*randr + randg*randg + (255-randr)*(255-randr) < 1000){
+//				randr = rand()%256;
+//				randg = rand()%256;
+//				randb = rand()%256;
+//			}
 			for(unsigned int i = 0; i < sr.component_moving[c].size(); i++){
 				cloud_sample->points[sr.component_moving[c][i]].r = randr;
 				cloud_sample->points[sr.component_moving[c][i]].g = randg;
@@ -3141,6 +3148,9 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			}
 		}
 		pcl::io::savePCDFileBinaryCompressed (savePath+"/segment_"+std::to_string(segment_run_counter)+"_clusters.pcd", *cloud_sample);
+//		viewer->removeAllPointClouds();
+//		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
+//		viewer->spin();
 
 		cloud->width = cloud->points.size();
 		cloud->height = 1;
@@ -3155,6 +3165,9 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		cloud_sample->width = cloud_sample->points.size();
 		cloud_sample->height = 1;
 		pcl::io::savePCDFileBinaryCompressed (savePath+"/segment_"+std::to_string(segment_run_counter)+"_dynamicobjects.pcd", *cloud_sample);
+//		viewer->removeAllPointClouds();
+//		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
+//		viewer->spin();
 
 	}
 
