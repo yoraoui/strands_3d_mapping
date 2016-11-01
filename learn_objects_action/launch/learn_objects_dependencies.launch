@@ -15,6 +15,8 @@
 
   <machine name="$(arg machine)" address="$(arg machine)" env-loader="$(optenv ROS_ENV_LOADER )" user="$(arg user)" default="true" />
 
+	<node machine="$(arg machine)" pkg="quasimodo_brain" type="metaroom_additional_view_processing" name="metaroom_additional_view_processing" output="screen" respawn="true"/>
+
     <node machine="$(arg machine)" pkg="object_view_generator" type="view_points_service.py" name="object_view_generator" output="screen" respawn="true">
 	<param name="object_view_map_topic" value="$(arg object_view_map_topic)"/>
     </node>

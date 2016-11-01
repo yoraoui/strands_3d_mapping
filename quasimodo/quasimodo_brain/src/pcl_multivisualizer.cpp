@@ -54,17 +54,18 @@ int main(int argc, char** argv){
 		for( double h = 0; h+0.5 < hgrid; h++ ){
 			int v1(0);
 			viewer->createViewPort ( double(w+0)/wgrid, double(h+0)/hgrid, double(w+1)/wgrid,  double(h+1)/hgrid, v1);
-			double bgcr = 1;//0.1*double(rand()%10);
-			double bgcg = 1;//0.1*double(rand()%10);
-			double bgcb = 1;//0.1*double(rand()%10);
-
-//			printf("%3.3f %3.3f %3.3f %3.3f -> %3.3f %3.3f %3.3f\n", double(w+0)/wgrid, double(h+0)/hgrid, double(w+1)/wgrid,  double(h+1)/hgrid, bgcr,bgcg,bgcb);
-
-			viewer->setBackgroundColor (bgcr,bgcg,bgcb, v1);
 			inds.push_back(v1);
-//			viewer->spin();
 		}
 	}
+
+//	int v1(0);
+//	viewer->createViewPort ( 0, 0, 1, 1, v1);
+//	viewer->spin();
+//	viewer->setBackgroundColor (1.0,1.0,1.0, v1);
+//	viewer->spin();
+//	viewer->createViewPort ( 0, 0, 1, 1, v1);
+//	viewer->spin();
+//	viewer->setBackgroundColor (1.0,1.0,1.0, v1);
 
 	for( int i = 0; i < clouds.size(); i++ ){
 		for( int j = 0; j < clouds[i].size(); j++ ){
@@ -73,57 +74,40 @@ int main(int argc, char** argv){
 
 		viewer->addText (argv[1+i], 10, 10,0,0,0, std::to_string(i), inds[i]);
 		printf("%i -> %i\n",i,inds[i]);
-		viewer->spin();
+		viewer->setBackgroundColor (1.0,1.0,1.0, inds[i]+1);
 
 	}
 
 	viewer->spin();
 
+
 	for( int i = 0; i < clouds.size(); i++ ){
 		viewer->removeAllPointClouds(inds[i]);
-
 	}
 
 	int v1(0);
 	viewer->createViewPort ( 0, 0, 1, 1, v1);
+	viewer->setBackgroundColor (255.0, 255.0, 255.0,v1+1);
 
 	for( int i = 0; i < clouds.size(); i++ ){
 		for( int j = 0; j < clouds[i].size(); j++ ){
 			viewer->addPointCloud<pcl::PointXYZRGBNormal> (clouds[i][j], pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(clouds[i][j]), std::to_string(i)+"_"+std::to_string(j),v1);
 		}
-		//viewer->spinOnce();
-		//	}
-		//	//void pcl::visualization::PCLVisualizerInteractorStyle::saveScreenshot	(	const std::string & 	file	)
-		//	if(save){
-		//		printf("saving: %s\n",filename.c_str());
-		//		viewer->saveScreenshot(filename);
-		viewer->spin();
+		viewer->spinOnce();
+		std::string path = std::string(argv[1+i]);
+		path.pop_back();
+		path.pop_back();
+		path.pop_back();
+		path += "png";
+		printf("path: %s\n",path.c_str());
+
+		viewer->saveScreenshot(path);
+		viewer->spinOnce();
+		//viewer->spin();
 		viewer->removeAllPointClouds(v1);
 	}
-
-
-
-//	viewer->addText ("Radius: 0.01", 10, 10, "v1 text", v1);
-//	pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb (cloud);
-//	viewer->addPointCloud<pcl::PointXYZRGB> (cloud, rgb, "sample cloud1", v1);
-
-//	int v2(0);
-//	viewer->createViewPort (0.5, 0.0, 1.0, 1.0, v2);
-//	viewer->setBackgroundColor (0.3, 0.3, 0.3, v2);
-//	viewer->addText ("Radius: 0.1", 10, 10, "v2 text", v2);
-//	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZRGB> single_color (cloud, 0, 255, 0);
-//	viewer->addPointCloud<pcl::PointXYZRGB> (cloud, single_color, "sample cloud2", v2);
-
-
-
 	viewer->spin();
 
-//	if(!save){
-
-//	}else{
-//
-//	}
-//	viewer->removeAllPointClouds();
 
 	printf("done...\n");
 	return 0;
