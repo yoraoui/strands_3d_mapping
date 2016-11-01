@@ -2725,10 +2725,6 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			cv::imwrite( savePath+"/segment_"+std::to_string(segment_run_counter)+"_frame_"+std::to_string(i)+"_priors.png", priorsimg );
 			cv::imwrite( savePath+"/segment_"+std::to_string(segment_run_counter)+"_frame_"+std::to_string(i)+"_labelimg.png", labelimg );
 		}
-
-
-
-
 		delete g;
 
 		Eigen::Matrix4d p = poses[i];
@@ -2745,9 +2741,9 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				point.x = m00*x + m01*y + m02*z + m03;
 				point.y = m10*x + m11*y + m12*z + m13;
 				point.z = m20*x + m21*y + m22*z + m23;
-				point.r = priors[3*(offset+ind)+0]*255.0;
-				point.g = priors[3*(offset+ind)+1]*255.0;
-				point.b = priors[3*(offset+ind)+2]*255.0;
+				point.r = frame->rgb.data[3*ind+2];//priors[3*(offset+ind)+0]*255.0;
+				point.g = frame->rgb.data[3*ind+1];//priors[3*(offset+ind)+1]*255.0;
+				point.b = frame->rgb.data[3*ind+0];//priors[3*(offset+ind)+2]*255.0;
 				cloud->points.push_back(point);
 			}
 		}
@@ -3145,6 +3141,20 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			}
 		}
 		pcl::io::savePCDFileBinaryCompressed (savePath+"/segment_"+std::to_string(segment_run_counter)+"_clusters.pcd", *cloud_sample);
+
+		cloud->width = cloud->points.size();
+		cloud->height = 1;
+		pcl::io::savePCDFileBinaryCompressed (savePath+"/segment_"+std::to_string(segment_run_counter)+"_full.pcd", *cloud);
+
+		cloud_sample->points.resize(0);
+		for(unsigned int c = 0; c < sr.component_dynamic.size(); c++){
+			for(unsigned int i = 0; i < sr.component_dynamic[c].size(); i++){
+				cloud_sample->points.push_back(cloud->points[sr.component_dynamic[c][i]]);
+			}
+		}
+		cloud_sample->width = cloud_sample->points.size();
+		cloud_sample->height = 1;
+		pcl::io::savePCDFileBinaryCompressed (savePath+"/segment_"+std::to_string(segment_run_counter)+"_dynamicobjects.pcd", *cloud_sample);
 
 	}
 
