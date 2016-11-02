@@ -58,15 +58,6 @@ int main(int argc, char** argv){
 		}
 	}
 
-//	int v1(0);
-//	viewer->createViewPort ( 0, 0, 1, 1, v1);
-//	viewer->spin();
-//	viewer->setBackgroundColor (1.0,1.0,1.0, v1);
-//	viewer->spin();
-//	viewer->createViewPort ( 0, 0, 1, 1, v1);
-//	viewer->spin();
-//	viewer->setBackgroundColor (1.0,1.0,1.0, v1);
-
 	for( int i = 0; i < clouds.size(); i++ ){
 		for( int j = 0; j < clouds[i].size(); j++ ){
 			viewer->addPointCloud<pcl::PointXYZRGBNormal> (clouds[i][j], pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(clouds[i][j]), std::to_string(i)+"_"+std::to_string(j),inds[i]);
@@ -92,6 +83,7 @@ int main(int argc, char** argv){
 	for( int i = 0; i < clouds.size(); i++ ){
 		for( int j = 0; j < clouds[i].size(); j++ ){
 			viewer->addPointCloud<pcl::PointXYZRGBNormal> (clouds[i][j], pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(clouds[i][j]), std::to_string(i)+"_"+std::to_string(j),v1);
+			viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3,  std::to_string(i)+"_"+std::to_string(j),v1);
 		}
 		viewer->spinOnce();
 		std::string path = std::string(argv[1+i]);

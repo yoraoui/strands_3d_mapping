@@ -2330,7 +2330,7 @@ int setupPriors(int method,float current_occlusions, float current_overlaps, flo
 	if(method == 3){
 		if(valid){
 			float minprob = 0.01;
-			float bias = 0.005;
+			float bias = 0.01;
 			float overlap_same_prob = 0.75;
 
 			//Prob behind all bg
@@ -3020,6 +3020,14 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				sr.scores_moving.push_back(score0);
 				sr.total_moving.push_back(totsum);
 			}
+		}
+	}
+
+	for(unsigned long ind = 0; ind < nr_pixels; ind++){
+		unsigned int ol = objectlabel[ind];
+		if(ol != 0 && labelID[ol] == 0){
+			objectlabel[ind] = 0;
+			labels[ind] = 0;
 		}
 	}
 

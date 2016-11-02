@@ -1373,7 +1373,7 @@ void RGBDFrame::saveCombinedProcessedImages(std::string path){
 
     for(unsigned long h = 0; h < height;h++){
         for(unsigned long w = 0; w < width;w++){
-             if(normalsdata[3*(h*width+w)+0] > 1){
+			 if(normalsdata[3*(h*width+w)+0] <= 1){
 				combineddata[3*(h*(3*width)+w+0*width)+0] = 255.0*fabs(normalsdata[3*(h*width+w)+0]);
 				combineddata[3*(h*(3*width)+w+0*width)+1] = 255.0*fabs(normalsdata[3*(h*width+w)+1]);
 				combineddata[3*(h*(3*width)+w+0*width)+2] = 255.0*fabs(normalsdata[3*(h*width+w)+2]);

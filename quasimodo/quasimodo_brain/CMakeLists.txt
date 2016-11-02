@@ -146,6 +146,10 @@ add_executable(			pcl_multivisualizer src/pcl_multivisualizer.cpp)
 add_dependencies(		pcl_multivisualizer roscpp quasimodo_msgs_generate_messages_cpp object_manager_msgs_generate_messages_cpp semantic_map_msgs_generate_messages_cpp)
 target_link_libraries(	pcl_multivisualizer quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
+add_executable(			zoomer src/zoomer.cpp)
+add_dependencies(		zoomer roscpp quasimodo_msgs_generate_messages_cpp object_manager_msgs_generate_messages_cpp semantic_map_msgs_generate_messages_cpp)
+target_link_libraries(	zoomer quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+
 
 #############
 ## Install ##

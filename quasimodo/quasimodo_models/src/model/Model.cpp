@@ -564,9 +564,9 @@ pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr Model::getPCLnormalcloud(int step, 
             p.g = 255;
             p.r =   0;
         }else{
-            p.r = sp.feature(0);
+			p.b = sp.feature(0);
             p.g = sp.feature(1);
-            p.b = sp.feature(2);
+			p.r = sp.feature(2);
         }
         cloud_ptr->points.push_back(p);
     }
@@ -587,9 +587,9 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Model::getPCLcloud(int step, bool color){
 			p.g = 255;
 			p.r =   0;
 		}else{
-			p.r = sp.feature(0);
+			p.b = sp.feature(0);
 			p.g = sp.feature(1);
-			p.b = sp.feature(2);
+			p.r = sp.feature(2);
 		}
 		cloud_ptr->points.push_back(p);
 	}
