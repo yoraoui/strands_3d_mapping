@@ -104,12 +104,9 @@ target_link_libraries(quasimodo_ModelUpdater quasimodo_Mesher quasimodo_model qu
 
 
 # Mark executables and/or libraries for installation
-install(TARGETS quasimodo_weightlib quasimodo_core quasimodo_reglib quasimodo_massreglib quasimodo_modelmask quasimodo_model quasimodo_Mesher quasimodo_ModelUpdater
+install(TARGETS quasimodo_SignalProcessing quasimodo_distribution quasimodo_weightlib quasimodo_superpoint quasimodo_ReprojectionResult quasimodo_OcclusionScore quasimodo_core quasimodo_reglib quasimodo_massreglib quasimodo_modelmask quasimodo_model quasimodo_Mesher quasimodo_ModelUpdater
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-#install(DIRECTORY launch
-#  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-#)

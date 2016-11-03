@@ -568,91 +568,80 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 		}
 	}
 
-	{
-		reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path,savePath);
-		std::vector<reglib::RGBDFrame *> frames;
-		std::vector<reglib::ModelMask *> masks;
-		std::vector<Eigen::Matrix4d> unrefined;
+//	{
+//		reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path,savePath);
+//		std::vector<reglib::RGBDFrame *> frames;
+//		std::vector<reglib::ModelMask *> masks;
+//		std::vector<Eigen::Matrix4d> unrefined;
 
-		std::vector<Eigen::Matrix4d> both_unrefined;
-		//both_unrefined.push_back(Eigen::Matrix4d::Identity());
+//		std::vector<Eigen::Matrix4d> both_unrefined;
+//		//both_unrefined.push_back(Eigen::Matrix4d::Identity());
 
+//		std::vector<double> times;
+//		for(unsigned int i = 0; i < 3000 &&  i < viewrgbs.size(); i++){
+//			printf("additional view: %i\n",i);
+//			geometry_msgs::TransformStamped msg;
+//			tf::transformStampedTFToMsg(viewtfs[i], msg);
+//			long sec = msg.header.stamp.sec;
+//			long nsec = msg.header.stamp.nsec;
+//			double time = double(sec)+1e-9*double(nsec);
 
+//			Eigen::Matrix4d m = quasimodo_brain::getMat(viewtfs[i]);
 
-		std::vector<double> times;
-		for(unsigned int i = 0; i < 3000 &&  i < viewrgbs.size(); i++){
-			printf("additional view: %i\n",i);
-			geometry_msgs::TransformStamped msg;
-			tf::transformStampedTFToMsg(viewtfs[i], msg);
-			long sec = msg.header.stamp.sec;
-			long nsec = msg.header.stamp.nsec;
-			double time = double(sec)+1e-9*double(nsec);
+//			unrefined.push_back(m);
+//			times.push_back(time);
 
-			Eigen::Matrix4d m = quasimodo_brain::getMat(viewtfs[i]);
+//			cv::Mat fullmask;
+//			fullmask.create(480,640,CV_8UC1);
+//			unsigned char * maskdata = (unsigned char *)fullmask.data;
+//			for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
+//			masks.push_back(new reglib::ModelMask(fullmask));
 
-			cout << m << endl << endl;
+//			reglib::Camera * cam		= sweep->frames.front()->camera->clone();
+//			reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],time, m,true,savePath);//a.matrix());
+//			frames.push_back(frame);
 
-			unrefined.push_back(m);
-			times.push_back(time);
+//			both_unrefined.push_back(quasimodo_brain::getMat(viewtfs[0]).inverse()*m);
+//		}
 
-			cv::Mat fullmask;
-			fullmask.create(480,640,CV_8UC1);
-			unsigned char * maskdata = (unsigned char *)fullmask.data;
-			for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
-			masks.push_back(new reglib::ModelMask(fullmask));
+//		if(frames.size() > 0){
+//			reglib::Model * fullmodel = new reglib::Model();
+//			fullmodel->points.clear();
+//			reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.25);
+//			if(savePath.size() != 0){
+//				bgmassreg->savePath = savePath+"/processAV_"+std::to_string(fullmodel->id);
+//			}
 
-			reglib::Camera * cam		= sweep->frames.front()->camera->clone();
-			reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],time, m,true,savePath);//a.matrix());
-			frames.push_back(frame);
+//			bgmassreg->timeout = 300;
+//			bgmassreg->viewer = viewer;
+//			bgmassreg->use_surface = true;
+//			bgmassreg->use_depthedge = false;
+//			bgmassreg->visualizationLvl = visualization_lvl_regref;
 
-			both_unrefined.push_back(quasimodo_brain::getMat(viewtfs[0]).inverse()*m);
-		}
+//			bgmassreg->maskstep = 2;
+//			bgmassreg->nomaskstep = 2;
 
+//			bgmassreg->nomask = true;
+//			bgmassreg->stopval = 0.0005;
+//			//bgmassreg->addModel(sweep);
+//			bgmassreg->setData(frames,masks);
 
-		if(frames.size() > 0){
+//			reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
+//			delete bgmassreg;
 
+//			for(unsigned int i = 0; i < frames.size(); i++){
+//				fullmodel->frames.push_back(frames[i]);
+//				fullmodel->modelmasks.push_back(masks[i]);
+//				fullmodel->relativeposes.push_back(bgmfr.poses[i]);
+//			}
+//			fullmodel->recomputeModelPoints();
 
-			reglib::Model * fullmodel = new reglib::Model();
-			fullmodel->points.clear();
-			reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.25);
-			if(savePath.size() != 0){
-				bgmassreg->savePath = savePath+"/processAV_"+std::to_string(fullmodel->id);
-			}
-
-			bgmassreg->timeout = 300;
-			bgmassreg->viewer = viewer;
-			bgmassreg->use_surface = true;
-			bgmassreg->use_depthedge = false;
-			bgmassreg->visualizationLvl = visualization_lvl_regref;
-
-			bgmassreg->maskstep = 2;
-			bgmassreg->nomaskstep = 2;
-
-			bgmassreg->nomask = true;
-			bgmassreg->stopval = 0.0005;
-			//bgmassreg->addModel(sweep);
-			bgmassreg->setData(frames,masks);
-
-			reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
-			delete bgmassreg;
-
-			for(unsigned int i = 0; i < frames.size(); i++){
-				fullmodel->frames.push_back(frames[i]);
-				fullmodel->modelmasks.push_back(masks[i]);
-				fullmodel->relativeposes.push_back(bgmfr.poses[i]);
-			}
-			fullmodel->recomputeModelPoints();
-
-			if(savePath.size() != 0){
-				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = fullmodel->getPCLnormalcloud(1, false);
-				pcl::io::savePCDFileBinaryCompressed (savePath+"/processAV_"+std::to_string(fullmodel->id)+"_fused.pcd", *cld);
-			}
-		}
-
-
-
-		exit(0);
-	}
+//			if(savePath.size() != 0){
+//				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = fullmodel->getPCLnormalcloud(1, false);
+//				pcl::io::savePCDFileBinaryCompressed (savePath+"/processAV_"+std::to_string(fullmodel->id)+"_fused.pcd", *cld);
+//			}
+//		}
+//	}
 
     reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path,savePath);
 	for(unsigned int i = 0; (i < sweep->frames.size()) && (sweep->frames.size() == sweepPoses.size()) ; i++){

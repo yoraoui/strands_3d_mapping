@@ -103,7 +103,7 @@ target_link_libraries(	massregPCD quasimodo_ModelDatabase quasimodo_ModelUpdater
 
 add_executable(			voPCD src/voPCD.cpp)
 add_dependencies(		voPCD roscpp quasimodo_msgs_generate_messages_cpp)
-target_link_libraries(	voPCD quasimodo_ModelDatabase quasimodo_ModelUpdater image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(	voPCD quasimodo_brain_util quasimodo_ModelDatabase quasimodo_ModelUpdater image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
 
 add_executable(			velodyne2 src/velodyne2.cpp)
@@ -160,7 +160,7 @@ target_link_libraries(	zoomer quasimodo_brain_util quasimodo_ModelDatabase quasi
 
 # Mark executables and/or libraries for installation
 
-install(TARGETS quasimodo_ModelDatabase preload_object_data modelserver robot_listener
+install(TARGETS zoomer pcl_multivisualizer quasimodo_brain_util quasimodo_ModelDatabase preload_object_data modelserver robot_listener massregPCD voPCD velodyne2 MeshTest test_align2 test_segment segment_room_pairs test_segment_room_pairs segmentationserver metaroom_additional_view_processing AnnotationTool
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
