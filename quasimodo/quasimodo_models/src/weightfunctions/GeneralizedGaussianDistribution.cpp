@@ -19,6 +19,7 @@ GeneralizedGaussianDistribution::GeneralizedGaussianDistribution(bool refine_std
     power       = power_;
     update();
     debugg_print = false;
+	regularization = 0;
 }
 
 GeneralizedGaussianDistribution::~GeneralizedGaussianDistribution(){

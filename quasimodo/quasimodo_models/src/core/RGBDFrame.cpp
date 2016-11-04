@@ -771,9 +771,9 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 		}
 	}
 
-	delete funcR;
-	delete funcG;
-	delete funcB;
+//	delete funcR;
+//	delete funcG;
+//	delete funcB;
 	delete ggdfuncR;
 	delete ggdfuncG;
 	delete ggdfuncB;
