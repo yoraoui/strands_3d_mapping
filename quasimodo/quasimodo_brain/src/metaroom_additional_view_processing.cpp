@@ -152,6 +152,7 @@ void signal_callback_handler(int signum){
 }
 
 void remove_old_seg(std::string sweep_folder){
+	printf("remove_old_seg\n");
 	DIR *dir;
 	struct dirent *ent;
 	if ((dir = opendir (sweep_folder.c_str())) != NULL) {
