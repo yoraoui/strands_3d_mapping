@@ -372,23 +372,23 @@ std::vector<tf::StampedTransform> semantic_map_registration_transforms::loadCorr
                                                                           std::string sweep_params_file,
                                                                           bool verbose)
 {
-printf("%s::%i\n",__FILE__,__LINE__);
+if(false){printf("%s::%i\n",__FILE__,__LINE__);}
     // load calibrated data
     std::vector<tf::StampedTransform> allTransforms = semantic_map_registration_transforms::loadRegistrationTransforms(transforms_file, verbose);
-printf("%s::%i\n",__FILE__,__LINE__);
+if(false){printf("%s::%i\n",__FILE__,__LINE__);}
     std::vector<tf::StampedTransform> empty;
     std::vector<tf::StampedTransform> toRet;
     SweepParameters calibrate_sweep_parameters;
-printf("%s::%i\n",__FILE__,__LINE__);
+if(false){printf("%s::%i\n",__FILE__,__LINE__);}
     semantic_map_registration_transforms::loadSweepParameters(calibrate_sweep_parameters, verbose, sweep_params_file);
-printf("%s::%i\n",__FILE__,__LINE__);
+if(false){printf("%s::%i\n",__FILE__,__LINE__);}
     // find matching transforms for current sweep parameters from calibrate sweep parameters
     int number_of_positions = my_sweep_params.getNumberOfIntermediatePositions();
     for (int k=0; k<number_of_positions; k++){
-printf("%s::%i\n",__FILE__,__LINE__);
+if(false){printf("%s::%i\n",__FILE__,__LINE__);}
         int corresp_pos;
         my_sweep_params.findCorrespondingPosition(calibrate_sweep_parameters,k, corresp_pos);
-printf("%s::%i\n",__FILE__,__LINE__);
+if(false){printf("%s::%i\n",__FILE__,__LINE__);}
         if (corresp_pos == -1){
             cerr<<"Error while finding corresponding registered transform. Sweep parameters: "<<my_sweep_params<<endl;
             return empty; // could not find a corresponding position
@@ -396,17 +396,17 @@ printf("%s::%i\n",__FILE__,__LINE__);
         int my_pan, my_tilt, their_pan, their_tilt;
         my_sweep_params.getAnglesForPosition(my_pan, my_tilt, k);
         calibrate_sweep_parameters.getAnglesForPosition(their_pan, their_tilt, corresp_pos);
-printf("%s::%i\n",__FILE__,__LINE__);
+if(false){printf("%s::%i\n",__FILE__,__LINE__);}
         if ((my_pan != their_pan) ||(my_tilt != their_tilt)){
             cerr<<"Error while finding corresponding registered transform. Sweep parameters: "<<my_sweep_params<<endl;
             cerr<<"Calibrated sweep parameters "<<calibrate_sweep_parameters<<endl;
             cerr<<"Current position "<<k<<". Sweep angles "<<my_pan<<" "<<my_tilt<<". Calibrated sweep angles "<<their_pan<<" "<<their_tilt<<endl;
             return empty;
         }
-printf("%s::%i\n",__FILE__,__LINE__);
+if(false){printf("%s::%i\n",__FILE__,__LINE__);}
         toRet.push_back(allTransforms[corresp_pos]); // add the corresponding transform
     }
-    printf("%s::%i\n",__FILE__,__LINE__);
+    if(false){printf("%s::%i\n",__FILE__,__LINE__);}
 
     return toRet;
 }

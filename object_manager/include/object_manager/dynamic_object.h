@@ -44,11 +44,12 @@ public:
         }
     };
 
-   DynamicObject(bool verbose = false);
+	DynamicObject(bool verbose = false);
    ~DynamicObject();
 
    void setTime(boost::posix_time::ptime);
    void setCloud(CloudPtr);
+   void setLabel(std::string label_);
 
    std::vector<tf::StampedTransform> getAdditionalViewTransforms();
    void addAdditionalViewTransform(tf::StampedTransform);

@@ -20,12 +20,18 @@ DynamicObject::DynamicObject(bool verbose) : m_points(new Cloud()), m_normals(ne
     m_roomStringId = "";
     m_noAdditionalViews = 0;
     m_AdditionalViewsTransformToObservation.setIdentity();
+	//m_label = "";
 }
+
+
 
 DynamicObject::~DynamicObject()
 {
 
 }
+
+
+void DynamicObject::setLabel(std::string label){m_label = label;}
 
 void DynamicObject::setTime(boost::posix_time::ptime time)
 {
