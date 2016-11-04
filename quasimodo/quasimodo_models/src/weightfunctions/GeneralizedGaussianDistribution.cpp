@@ -21,7 +21,9 @@ GeneralizedGaussianDistribution::GeneralizedGaussianDistribution(bool refine_std
     debugg_print = false;
 }
 
-GeneralizedGaussianDistribution::~GeneralizedGaussianDistribution(){}
+GeneralizedGaussianDistribution::~GeneralizedGaussianDistribution(){
+	numcdf_vec.clear();
+}
 
 double GeneralizedGaussianDistribution::fitMul3(double mul, double mean, double std_mid, double power, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen){
     int iter = 25;

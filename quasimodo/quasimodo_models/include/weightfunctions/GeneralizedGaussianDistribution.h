@@ -42,11 +42,11 @@ public:
     ~GeneralizedGaussianDistribution();
     virtual void train(std::vector<float> & hist, unsigned int nr_bins = 0);
     virtual void update();
-    virtual double getInp(double x);
+	virtual double getInp(double x = 0);
     virtual double getNoise();
-    virtual void setNoise(double x);
-    virtual double getval(double x);
-    virtual double getcdf(double x);
+	virtual void setNoise(double x = 0);
+	virtual double getval(double x = 0);
+	virtual double getcdf(double x = 0);
     virtual void print();
 
     //virtual void getMaxdMind(double & maxd, double & mind, double prob = 0.1);

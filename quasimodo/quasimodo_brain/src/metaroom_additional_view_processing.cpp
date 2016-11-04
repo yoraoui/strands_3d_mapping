@@ -1159,7 +1159,9 @@ printf("bgs.size() = %i\n",bgs.size());
 						std::stringstream ss_obj;
 						ss_obj<<boost::posix_time::to_simple_string(sweep.roomLogStartTime);
 						ss_obj<<"_object_";ss_obj<<(dynamicCounter-1);
-						roomObject->m_label = ss_obj.str();
+						std::string tmp = ss_obj.str();
+						printf("ss_obj.str(): %s\n",tmp.c_str());
+						roomObject->m_label = tmp;
 						std::string xml_file = objectparser.saveAsXML(roomObject);
 						printf("xml_file: %s\n",xml_file.c_str());
 					}
