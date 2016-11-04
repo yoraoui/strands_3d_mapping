@@ -263,12 +263,18 @@ reglib::Model * load_metaroom_model(std::string sweep_xml, std::string savePath)
 	dummy.push_back("RoomIntermediateCloud");
 	dummy.push_back("IntermediatePosition");
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(sweep_folder+"/room.xml",dummy);
-
+printf("loaded room XML\n");
 	reglib::Model * sweepmodel = 0;
 	Eigen::Matrix4d m2 = getMat(roomData.vIntermediateRoomCloudTransforms[0]);
 	std::vector<reglib::RGBDFrame * > current_room_frames;
-	for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++){
 
+
+	printf("roomData.vIntermediateRoomClouds.size() = %i\n",roomData.vIntermediateRoomClouds.size());
+	printf("roomData.vIntermediateRoomCloudCamParamsCorrected.size() = %i\n",roomData.vIntermediateRoomCloudCamParamsCorrected.size());
+	printf("roomData.vIntermediateRoomCloudTransformsRegistered.size() = %i\n",roomData.vIntermediateRoomCloudTransformsRegistered.size());
+
+	for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++){
+		printf("loading intermedite %i\n",i);
 		cv::Mat fullmask;
 		fullmask.create(480,640,CV_8UC1);
 		unsigned char * maskdata = (unsigned char *)fullmask.data;
