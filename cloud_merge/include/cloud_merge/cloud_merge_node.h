@@ -483,10 +483,8 @@ void CloudMergeNode<PointType>::controlCallback(const std_msgs::String& controlS
             std::string roomXMLPath = parser.saveRoomAsXML(aSemanticRoom);
             ROS_INFO_STREAM("Saved semantic room");
 
-            if (m_bRegisterAndCorrectSweep)
-            {
-
-				printf("LINE: %i\n",__LINE__);
+			if (m_bRegisterAndCorrectSweep)
+			{
                 // load precalibrated camera poses
 //                std::vector<tf::StampedTransform> regTransforms = semantic_map_registration_transforms::loadRegistrationTransforms("default", true);
                std::vector<tf::StampedTransform> corresponding_registeredPoses;
@@ -543,9 +541,7 @@ void CloudMergeNode<PointType>::controlCallback(const std_msgs::String& controlS
                     reg.saveOrbFeatures<PointType>(aSemanticRoom,base_path);
 
                 }
-            }
-
-			printf("LINE: %i\n",__LINE__);
+			}
 
             // Pulbish room observation
             semantic_map::RoomObservation obs_msg;
