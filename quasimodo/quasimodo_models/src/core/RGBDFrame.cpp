@@ -777,7 +777,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 //	delete ggdfuncR;
 //	delete ggdfuncG;
 //	delete ggdfuncB;
-exit(0);
+//exit(0);
 
 	if(savePath.size() != 0){cv::imwrite( std::string(savestr)+"re_prob.png", 127.0*re );}
 	if(savePath.size() != 0){cv::imwrite( std::string(savestr)+"ge_prob.png", 127.0*ge );}
@@ -996,7 +996,8 @@ pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr RGBDFrame::getPCLcloud(){
 	cloud->height	= height;
 	cloud->points.resize(width*height);
 
-	for(unsigned int w = 0; w < width; w++){
+	for(unsigned int w = 0; w <Profiling timer expired
+ width; w++){
 		for(unsigned int h = 0; h < height;h++){
 			int ind = h*width+w;
 			double z = idepth*double(depthdata[ind]);
