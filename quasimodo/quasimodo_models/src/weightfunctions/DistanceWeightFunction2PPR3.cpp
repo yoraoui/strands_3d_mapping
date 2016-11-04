@@ -82,7 +82,7 @@ DistanceWeightFunction2PPR3::DistanceWeightFunction2PPR3(Distribution * dist_,	d
 	dist    = dist_;//new GeneralizedGaussianDistribution(true,true);//GaussianDistribution();//GeneralizedGaussianDistribution();//GaussianDistribution();
 }
 
-DistanceWeightFunction2PPR3::DistancfuncZeWeightFunction2PPR3(	double maxd_, int histogram_size_){
+DistanceWeightFunction2PPR3::DistanceWeightFunction2PPR3(	double maxd_, int histogram_size_){
 
 	fixed_histogram_size = false;
 
