@@ -1823,14 +1823,6 @@ int main(int argc, char** argv){
 		if(roomObservationSubs.size() == 0){
 			roomObservationSubs.push_back(n.subscribe("/local_metric_map/room_observations", 1000, roomObservationCallback));
 		}
-
-		//		if(m_DynamicObjectsServiceServers.size() == 0){
-		//			m_DynamicObjectsServiceServers.push_back(n.advertiseService("/object_manager_node/ObjectManager/DynamicObjectsService", dynamicObjectsServiceCallback));
-		//		}
-
-		//		if(m_GetDynamicObjectServiceServers.size() == 0){
-		//			m_GetDynamicObjectServiceServers.push_back(n.advertiseService("/object_manager_node/ObjectManager/GetDynamicObjectService", getDynamicObjectServiceCallback));
-		//		}
 	}
 
 	printf("overall_folder: %s\n",overall_folder.c_str());
