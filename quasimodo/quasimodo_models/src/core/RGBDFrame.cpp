@@ -996,8 +996,7 @@ pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr RGBDFrame::getPCLcloud(){
 	cloud->height	= height;
 	cloud->points.resize(width*height);
 
-	for(unsigned int w = 0; w <Profiling timer expired
- width; w++){
+	for(unsigned int w = 0; w < width; w++){
 		for(unsigned int h = 0; h < height;h++){
 			int ind = h*width+w;
 			double z = idepth*double(depthdata[ind]);
