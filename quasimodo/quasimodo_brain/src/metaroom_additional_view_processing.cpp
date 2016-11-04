@@ -152,7 +152,7 @@ void signal_callback_handler(int signum){
 }
 
 void remove_old_seg(std::string sweep_folder){
-	printf("remove_old_seg\n");
+	printf("remove_old_seg: %s\n",sweep_folder.c_str());
 	DIR *dir;
 	struct dirent *ent;
 	if ((dir = opendir (sweep_folder.c_str())) != NULL) {
@@ -193,6 +193,8 @@ void remove_old_seg(std::string sweep_folder){
 		}
 		closedir (dir);
 	}
+
+	printf("done remove_old_seg\n");
 }
 
 void writePose(QXmlStreamWriter* xmlWriter, Eigen::Matrix4d pose){
@@ -1041,6 +1043,7 @@ printf("bgs.size() = %i\n",bgs.size());
 		else{					returnval = 3;}
 
 		for(unsigned int i = 0; i < models.size(); i++){
+			printf("processing model %i\n",i);
 			std::vector<cv::Mat> internal_masks = internal[i];
 			std::vector<cv::Mat> external_masks = external[i];
 			std::vector<cv::Mat> dynamic_masks	= dynamic[i];
