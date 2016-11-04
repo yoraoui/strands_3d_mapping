@@ -235,6 +235,8 @@ std::vector<Eigen::Matrix4f> getRegisteredViewPoses(const std::string& poses_fil
 }
 
 Eigen::Matrix4d getMat(tf::StampedTransform tf){
+
+	printf("getMat\n");
 	//Transform
 	geometry_msgs::TransformStamped tfstmsg;
 	tf::transformStampedTFToMsg (tf, tfstmsg);
@@ -246,6 +248,8 @@ Eigen::Matrix4d getMat(tf::StampedTransform tf){
 	pose.position.z		= tfmsg.translation.z;
 	Eigen::Affine3d epose;
 	tf::poseMsgToEigen(pose, epose);
+
+	std::cout << epose.matrix() << std::endl << std::endl;
 	return epose.matrix();
 }
 
@@ -260,10 +264,48 @@ reglib::Model * load_metaroom_model(std::string sweep_xml, std::string savePath)
 	dummy.push_back("IntermediatePosition");
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(sweep_folder+"/room.xml",dummy);
 
+
+
+
+//	printf("roomData.vIntermediateRoomCloudTransforms.size(): %i\n",roomData.vIntermediateRoomCloudTransforms.size());
+//	for (size_t i=0; i<roomData.vIntermediateRoomCloudTransforms.size(); i++){
+//		getMat(roomData.vIntermediateRoomCloudTransforms[i]);
+//	}
+
+//	printf("roomData.vIntermediateRoomCloudTransformsRegistered.size(): %i\n",roomData.vIntermediateRoomCloudTransformsRegistered.size());
+//	for (size_t i=0; i<roomData.vIntermediateRoomCloudTransformsRegistered.size(); i++){
+//		getMat(roomData.vIntermediateRoomCloudTransformsRegistered[i]);
+//	}
+
+
+//	printf("roomData.vIntermediateRoomCloudCamParamsCorrected.size(): %i\n",roomData.vIntermediateRoomCloudCamParamsCorrected.size());
+//	for (size_t i=0; i<roomData.vIntermediateRoomCloudCamParamsCorrected.size(); i++){
+//		image_geometry::PinholeCameraModel aCameraModel = roomData.vIntermediateRoomCloudCamParamsCorrected[i];
+//		reglib::Camera * cam		= new reglib::Camera();
+//		cam->fx = aCameraModel.fx();
+//		cam->fy = aCameraModel.fy();
+//		cam->cx = aCameraModel.cx();
+//		cam->cy = aCameraModel.cy();
+//		cam->print();
+//		delete cam;
+//	}
+
+
+//	printf("roomData.vIntermediateRoomCloudCamParams.size(): %i\n",roomData.vIntermediateRoomCloudCamParams.size());
+//	for (size_t i=0; i<roomData.vIntermediateRoomCloudCamParams.size(); i++){
+//		image_geometry::PinholeCameraModel aCameraModel = roomData.vIntermediateRoomCloudCamParams[i];
+//		reglib::Camera * cam		= new reglib::Camera();
+//		cam->fx = aCameraModel.fx();
+//		cam->fy = aCameraModel.fy();
+//		cam->cx = aCameraModel.cx();
+//		cam->cy = aCameraModel.cy();
+//		cam->print();
+//		delete cam;
+//	}
+//exit(0);
+
 	reglib::Model * sweepmodel = 0;
-
 	Eigen::Matrix4d m2 = getMat(roomData.vIntermediateRoomCloudTransforms[0]);
-
 	std::vector<reglib::RGBDFrame * > current_room_frames;
 	for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++){
 
@@ -273,6 +315,7 @@ reglib::Model * load_metaroom_model(std::string sweep_xml, std::string savePath)
 		for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
 
 		image_geometry::PinholeCameraModel aCameraModel = roomData.vIntermediateRoomCloudCamParamsCorrected[i];
+		//image_geometry::PinholeCameraModel aCameraModel = roomData.vIntermediateRoomCloudCamParams[i];
 		reglib::Camera * cam		= new reglib::Camera();
 		cam->fx = aCameraModel.fx();
 		cam->fy = aCameraModel.fy();
@@ -281,6 +324,8 @@ reglib::Model * load_metaroom_model(std::string sweep_xml, std::string savePath)
 		//cam->print();
 
 		Eigen::Matrix4d m = m2*getMat(roomData.vIntermediateRoomCloudTransformsRegistered[i]);
+		//Eigen::Matrix4d m =      getMat(roomData.vIntermediateRoomCloudTransforms[i]);
+
         reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,roomData.vIntermediateRGBImages[i],5.0*roomData.vIntermediateDepthImages[i],0, m,true,savePath);
 
 		current_room_frames.push_back(frame);
@@ -292,6 +337,7 @@ reglib::Model * load_metaroom_model(std::string sweep_xml, std::string savePath)
 			sweepmodel->modelmasks.push_back(new reglib::ModelMask(fullmask));
 		}
 	}
+
 
 	sweepmodel->recomputeModelPoints();
 

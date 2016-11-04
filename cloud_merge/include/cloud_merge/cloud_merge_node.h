@@ -434,7 +434,7 @@ void CloudMergeNode<PointType>::controlCallback(const std_msgs::String& controlS
     }
 
     if (controlString.data == "end_sweep")
-    {
+	{
         ROS_INFO_STREAM("Pan tilt sweep stopped");
         m_bAquisitionPhase = false;
 
@@ -485,6 +485,8 @@ void CloudMergeNode<PointType>::controlCallback(const std_msgs::String& controlS
 
             if (m_bRegisterAndCorrectSweep)
             {
+
+				printf("LINE: %i\n",__LINE__);
                 // load precalibrated camera poses
 //                std::vector<tf::StampedTransform> regTransforms = semantic_map_registration_transforms::loadRegistrationTransforms("default", true);
                std::vector<tf::StampedTransform> corresponding_registeredPoses;
@@ -542,6 +544,8 @@ void CloudMergeNode<PointType>::controlCallback(const std_msgs::String& controlS
 
                 }
             }
+
+			printf("LINE: %i\n",__LINE__);
 
             // Pulbish room observation
             semantic_map::RoomObservation obs_msg;
