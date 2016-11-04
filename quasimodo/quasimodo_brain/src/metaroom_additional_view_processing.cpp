@@ -1161,7 +1161,8 @@ printf("bgs.size() = %i\n",bgs.size());
 						ss_obj<<"_object_";ss_obj<<(dynamicCounter-1);
 						std::string tmp = ss_obj.str();
 						printf("ss_obj.str(): %s\n",tmp.c_str());
-						roomObject->m_label = tmp;
+						//roomObject->m_label = tmp;
+						roomObject->setLabel(tmp);
 						std::string xml_file = objectparser.saveAsXML(roomObject);
 						printf("xml_file: %s\n",xml_file.c_str());
 					}
