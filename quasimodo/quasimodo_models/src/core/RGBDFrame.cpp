@@ -771,12 +771,12 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 		}
 	}
 
-//	delete funcR;
-//	delete funcG;
-//	delete funcB;
-	delete ggdfuncR;
-	delete ggdfuncG;
-	delete ggdfuncB;
+	delete funcR;
+	delete funcG;
+	delete funcB;
+//	delete ggdfuncR;
+//	delete ggdfuncG;
+//	delete ggdfuncB;
 exit(0);
 
 	if(savePath.size() != 0){cv::imwrite( std::string(savestr)+"re_prob.png", 127.0*re );}

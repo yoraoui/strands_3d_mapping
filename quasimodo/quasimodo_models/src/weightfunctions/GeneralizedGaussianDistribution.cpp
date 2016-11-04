@@ -166,10 +166,11 @@ double GeneralizedGaussianDistribution::getcdf(double x){
 
     double part = (x-start)/(stop-start);
     if(part < 0){return 0;}
-    if(part >= 1){return 1;}
+   // if(part >= 1){return 1;}
     part *= double(numcdf_vec.size()-1);
     unsigned int id0 = part;
     unsigned int id1 = id0+1;
+	if(id1 >= numcdf_vec.size()){return 1;}
     double w0 = double(id1)-part;
     double w1 = part-double(id0);
     double cdfx = numcdf_vec[id0]*w0 + numcdf_vec[id1]*w1;
@@ -197,7 +198,7 @@ void GeneralizedGaussianDistribution::update_numcdf_vec(unsigned int bins, doubl
     for(unsigned int i = 0; i < bins; i++){
         double x = start+double(i)*step+0.5*step;
         numcdf_vec[i] = sum;
-        sum += getval(x);
+		if(i < bins-1){sum += getval(x);}
     }
     for(unsigned int i = 0; i < bins; i++){numcdf_vec[i] /= sum;}
 }
