@@ -143,6 +143,7 @@ reglib::Camera * basecam;
 bool recomputeRelativePoses = false;
 
 
+void sendMetaroomToServer(std::string path);
 bool testDynamicObjectServiceCallback(std::string path);
 bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res);
 
@@ -383,7 +384,7 @@ int readNumberOfViews(std::string xmlFile){
 }
 
 void readViewXML(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames, std::vector<Eigen::Matrix4d> & poses, bool compute_edges = true, std::string savePath = ""){
-
+	//printf("readViewXML: compute_edges: %i\n",compute_edges);
 	QFile file(xmlFile.c_str());
 
 	if (!file.exists())
@@ -501,7 +502,7 @@ void readViewXML(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames,
 				token = xmlReader->readNext();//Pose
 				elementName = xmlReader->name().toString();
 
-                reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb,depth, time, regpose,true,savePath);
+				reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb,depth, time, regpose,true,savePath,compute_edges);
 				frames.push_back(frame);
 				poses.push_back(pose);
 			}
@@ -938,7 +939,7 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 
 	quasimodo_brain::cleanPath(path);
 	int returnval = 0;
-	printf("processing: %s\n",path.c_str());
+    printf("processMetaroom: %s\n",path.c_str());
 
 	if ( ! boost::filesystem::exists( path ) ){return 0;}
 
@@ -982,7 +983,7 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 	//	std::cout << roomTransform << std::endl;
 
 //	return 0;
-//exit(0);
+
 
 	DynamicObjectXMLParser objectparser(sweep_folder, true);
 
@@ -992,16 +993,23 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 
 	int prevind = -1;
 	std::vector<std::string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<pcl::PointXYZRGB>(overall_folder);
+	//printf("sweep_xmls: %i\n",sweep_xmls.size());
 	for (unsigned int i = 0; i < sweep_xmls.size(); i++){
 		SimpleXMLParser<pcl::PointXYZRGB>::RoomData other_roomData  = parser.loadRoomFromXML(sweep_xmls[i],std::vector<std::string>(),false,false);
 		std::string other_waypointid = other_roomData.roomWaypointId;
+		//printf("%i: %s\n",i,sweep_xmls[i].c_str());
 
 		if(sweep_xmls[i].compare(path) == 0){break;}
 		if(other_waypointid.compare(current_waypointid) == 0){prevind = i;}
 	}
 
+    printf("prevind: %i\n",prevind);
+    printf("current: %s\n",path.c_str());
+
 	int nextind = sweep_xmls.size();
-	for (unsigned int i = (sweep_xmls.size()-1); i >= 0 ; i--){
+	for (int i = int(sweep_xmls.size()-1); i >= 0 ; i--){
+		if(i < 0){break;}
+		//printf("%i / %i \n",i,sweep_xmls.size());
 		SimpleXMLParser<pcl::PointXYZRGB>::RoomData other_roomData  = parser.loadRoomFromXML(sweep_xmls[i],std::vector<std::string>(),false,false);
 		std::string other_waypointid = other_roomData.roomWaypointId;
 
@@ -1022,7 +1030,9 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 		printf("prev: %s\n",prev.c_str());
 		reglib::Model * bg = getAVMetaroom(prev);
 		bgs.push_back(bg);
-	}
+    }else{
+        printf("no previous...\n");
+    }
 
 //	if(nextind < sweep_xmls.size()){
 //		std::string next = sweep_xmls[nextind];
@@ -1382,6 +1392,7 @@ printf("bgs.size() = %i\n",bgs.size());
 	for(unsigned int i = 0; i < out_pubs.size(); i++){out_pubs[i].publish(msg);}
 	ros::spinOnce();
 
+	//sendMetaroomToServer(path);
 	return returnval;
 }
 
@@ -1420,14 +1431,13 @@ void trainMetaroom(std::string path){
 }
 
 std::vector<reglib::Model *> loadModels(std::string path){
-	printf("loadModels: %s\n",path.c_str());
 	std::vector<reglib::Model *> models;
 	int slash_pos = path.find_last_of("/");
 	std::string sweep_folder = path.substr(0, slash_pos) + "/";
 
 	std::vector<reglib::RGBDFrame *> frames;
 	std::vector<Eigen::Matrix4d> poses;
-	readViewXML(sweep_folder+"ViewGroup.xml",frames,poses);
+	readViewXML(sweep_folder+"ViewGroup.xml",frames,poses,false);
 
 	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("dynamic_obj*.xml"));
 	for (auto objectFile : objectFiles){
@@ -1442,7 +1452,7 @@ std::vector<reglib::Model *> loadModels(std::string path){
 		}
 
 		file.open(QIODevice::ReadOnly);
-		ROS_INFO_STREAM("Parsing xml file: "<<object.c_str());
+		//ROS_INFO_STREAM("Parsing xml file: "<<object.c_str());
 
 		reglib::Model * mod = new reglib::Model();
 		QXmlStreamReader* xmlReader = new QXmlStreamReader(&file);
@@ -1475,7 +1485,7 @@ std::vector<reglib::Model *> loadModels(std::string path){
 					if (attributes.hasAttribute("image_number")){
 						QString depthpath = attributes.value("image_number").toString();
 						number = atoi(depthpath.toStdString().c_str());
-						printf("number: %i\n",number);
+						//printf("number: %i\n",number);
 					}else{break;}
 
 					mod->frames.push_back(frames[number]->clone());
@@ -1490,7 +1500,6 @@ std::vector<reglib::Model *> loadModels(std::string path){
 	}
 
 	for(unsigned int i = 0; i < frames.size(); i++){delete frames[i];}
-
 	return models;
 }
 
@@ -1501,11 +1510,12 @@ void addModelToModelServer(reglib::Model * model){
 }
 
 void sendMetaroomToServer(std::string path){
-	std::vector<reglib::Model *> mods = loadModels(path);
-	for(unsigned int i = 0; i < mods.size(); i++){
-		addModelToModelServer(mods[i]);
-		mods[i]->fullDelete();
-		delete mods[i];
+	std::vector<reglib::Model *> models = loadModels(path);
+	for(unsigned int i = 0; i < models.size(); i++){
+		printf("%i\n",i);
+		addModelToModelServer(models[i]);
+		models[i]->fullDelete();
+		delete models[i];
 	}
 }
 
@@ -1812,19 +1822,19 @@ int main(int argc, char** argv){
 		}
 
 		if(segsubs.size() == 0){
-			segsubs.push_back(n.subscribe("/some/inputtopic", 1000, chatterCallback));
+            segsubs.push_back(n.subscribe("/quasimodo/segmentation/in", 1000, chatterCallback));
 		}
 
-		if(out_pubs.size() == 0){
-			out_pubs.push_back(n.advertise<std_msgs::String>("/some/topic", 1000));
+        if(out_pubs.size() == 0){
+            out_pubs.push_back(n.advertise<std_msgs::String>("/quasimodo/segmentation/out/path", 1000));
 		}
 
 		if(model_pubs.size() == 0){
-			model_pubs.push_back(n.advertise<quasimodo_msgs::model>("/model/out/topic", 1000));
+            model_pubs.push_back(n.advertise<quasimodo_msgs::model>("/quasimodo/segmentation/out/model", 1000));
 		}
 
 		if(sendsubs.size() == 0){
-			sendsubs.push_back(n.subscribe("/model/out/topic/path", 1000, sendCallback));
+            sendsubs.push_back(n.subscribe("/quasimodo/segmentation/send", 1000, sendCallback));
 		}
 
 		if(roomObservationSubs.size() == 0){
@@ -1837,7 +1847,16 @@ int main(int argc, char** argv){
 	for(unsigned int i = 0; i < raresfiles.size(); i++){			segmentRaresFiles(		raresfiles[i], raresfiles_resegment[i]);}
 	for(unsigned int i = 0; i < trainMetarooms.size(); i++){		trainMetaroom(			trainMetarooms[i]);}
 	for(unsigned int i = 0; i < processMetarooms.size(); i++){		processMetaroom(		processMetarooms[i]);}
-	for(unsigned int i = 0; i < sendMetaroomToServers.size(); i++){	sendMetaroomToServer(	sendMetaroomToServers[i]);}
+	for(unsigned int i = 0; i < sendMetaroomToServers.size(); i++){
+		vector<string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<PointType>(sendMetaroomToServers[i]);
+		for (auto sweep_xml : sweep_xmls) {
+			printf("sweep_xml: %s\n",sweep_xml.c_str());
+			quasimodo_brain::cleanPath(sweep_xml);
+			int slash_pos = sweep_xml.find_last_of("/");
+			std::string sweep_folder = sweep_xml.substr(0, slash_pos) + "/";
+			sendMetaroomToServer(sweep_folder);
+		}
+	}
 
 	if(!once){ros::spin();}
 	printf("done...\n");

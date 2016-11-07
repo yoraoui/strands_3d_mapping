@@ -452,7 +452,7 @@ void ModelUpdater::makeInitialSetup(){
 		return ;
 	}
 
-	MassRegistrationPPR2 * massreg = new MassRegistrationPPR2(0.05);
+	MassRegistrationPPR2 * massreg = new MassRegistrationPPR2(0.0);
 	massreg->timeout = 4*massreg_timeout;
 	massreg->viewer = viewer;
 	massreg->visualizationLvl = show_init_lvl;

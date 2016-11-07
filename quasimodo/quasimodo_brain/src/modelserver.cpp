@@ -640,22 +640,27 @@ bool runSearch(ModelDatabase * database, reglib::Model * model, int number_of_se
 std::set<int> searchset;
 
 void addNewModel(reglib::Model * model){
+printf("%s::%i\n",__FILE__,__LINE__);
 	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model, reg);
 	mu->occlusion_penalty               = occlusion_penalty;
 	mu->massreg_timeout                 = massreg_timeout;
 	mu->viewer							= viewer;
 
+printf("%s::%i\n",__FILE__,__LINE__);
 	mu->show_init_lvl					= show_init_lvl;//init show
 	mu->show_refine_lvl					= show_refine_lvl;//refine show
 	mu->show_scoring					= show_scoring;//fuse scoring show
 	reg->visualizationLvl				= show_reg_lvl;
 
+printf("%s::%i\n",__FILE__,__LINE__);
 	mu->makeInitialSetup();
 
 
 	delete mu;
 	delete reg;
+
+printf("%s::%i\n",__FILE__,__LINE__);
 
 	reglib::Model * newmodelHolder = new reglib::Model();
 	newmodelHolder->submodels.push_back(model);
@@ -666,11 +671,12 @@ void addNewModel(reglib::Model * model){
 	}else{
 		newmodelHolder->recomputeModelPoints();
 	}
-
+printf("%s::%i\n",__FILE__,__LINE__);
 	modeldatabase->add(newmodelHolder);
 	addToDB(modeldatabase, newmodelHolder,false);
 	show_sorted();
 
+printf("%s::%i\n",__FILE__,__LINE__);
 	bool do_next = true;
 	while(do_next && run_search){
 		printf("running search loop\n");
@@ -696,335 +702,13 @@ void addNewModel(reglib::Model * model){
 	publishDatabasePCD();
 	dumpDatabase(savepath);
 
-
-
-
-
-	//	modeldatabase->add(newmodelHolder);
-	//    addToDB(modeldatabase, newmodelHolder,false);
-	//    for(unsigned int i = 0; i < modeldatabase->models.size(); i++){
-	//        publish_history(modeldatabase->models[i]->getHistory());
-	//    }
-	//    /*
-	//    for(unsigned int i = 0; i < modeldatabase->models.size(); i++){
-	//        publish_history(modeldatabase->models[i]->getHistory());
-	//    }*/
-	//	show_sorted();
-	//    publishDatabasePCD();
-	//    dumpDatabase(savepath);
-
-
-	//	modeldatabase->add(model);
-	//	addToDB(modeldatabase, model,false);
-	//	for(unsigned int i = 0; i < modeldatabase->models.size(); i++){
-	//		publish_history(modeldatabase->models[i]->getHistory());
-	//	}
-	//	publishDatabasePCD();
-	//	dumpDatabase(savepath);
-
-
-	//	for(unsigned int m = 0; run_search && m < modeldatabase->models.size(); m++){
-	//		printf("looking at: %i\n",int(modeldatabase->models[m]->last_changed));
-	//		reglib::Model * currentTest = modeldatabase->models[m];
-	//		if(currentTest->last_changed > current_model_update_before){
-	//			printf("changed: %i\n",int(m));
-
-	//			double start = getTime();
-
-	//			new_search_result = false;
-	//			models_new_pub.publish(getModelMSG(currentTest));
-
-	//			while(getTime()-start < search_timeout){
-	//				ros::spinOnce();
-	//				if(new_search_result){
-
-	//					for(unsigned int i = 0; i < sresult.retrieved_images.size(); i++){
-
-	//						int maxval = 0;
-	//						int maxind = 0;
-
-	//						int dilation_size = 0;
-	//						cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT,
-	//																	cv::Size( 2*dilation_size + 1, 2*dilation_size+1 ),
-	//																	cv::Point( dilation_size, dilation_size ) );
-	//						for(unsigned int j = 0; j < sresult.retrieved_images[i].images.size(); j++){
-	//							//framekeys
-
-	//							cv_bridge::CvImagePtr ret_image_ptr;
-	//							try {ret_image_ptr = cv_bridge::toCvCopy(sresult.retrieved_images[i].images[j], sensor_msgs::image_encodings::BGR8);}
-	//							catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
-
-	//							cv_bridge::CvImagePtr ret_mask_ptr;
-	//							try {ret_mask_ptr = cv_bridge::toCvCopy(sresult.retrieved_masks[i].images[j], sensor_msgs::image_encodings::MONO8);}
-	//							catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
-
-	//							cv_bridge::CvImagePtr ret_depth_ptr;
-	//							try {ret_depth_ptr = cv_bridge::toCvCopy(sresult.retrieved_depths[i].images[j], sensor_msgs::image_encodings::MONO16);}
-	//							catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
-
-	//							cv::Mat rgbimage	= ret_image_ptr->image;
-	//							cv::Mat maskimage	= ret_mask_ptr->image;
-	//							cv::Mat depthimage	= ret_depth_ptr->image;
-
-	//							cv::Mat erosion_dst;
-	//							cv::erode( maskimage, erosion_dst, element );
-
-	//							unsigned short * depthdata = (unsigned short * )depthimage.data;
-	//							unsigned char * rgbdata = (unsigned char * )rgbimage.data;
-	//							unsigned char * maskdata = (unsigned char * )erosion_dst.data;
-	//							int count = 0;
-	//							for(int pixel = 0; pixel < depthimage.rows*depthimage.cols;pixel++){
-	//								if(depthdata[pixel] > 0 && maskdata[pixel] > 0){
-	//									count++;
-	//								}
-	//							}
-	//							if(count > maxval){
-	//								maxval = count;
-	//								maxind = j;
-	//							}
-	//						}
-
-	//						//for(unsigned int j = 0; j < 1 && j < sresult.retrieved_images[i].images.size(); j++){
-	//						if(maxval > 100){//Atleast some pixels has to be in the mask...
-	//							std::string key = sresult.retrieved_image_paths[i].strings[maxind];
-	//							printf("searchresult key:%s\n",key.c_str());
-	//							if(framekeys.count(key) == 0){
-
-	//								int j = maxind;
-
-	//								cv_bridge::CvImagePtr ret_image_ptr;
-	//								try {ret_image_ptr = cv_bridge::toCvCopy(sresult.retrieved_images[i].images[j], sensor_msgs::image_encodings::BGR8);}
-	//								catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
-
-	//								cv_bridge::CvImagePtr ret_mask_ptr;
-	//								try {ret_mask_ptr = cv_bridge::toCvCopy(sresult.retrieved_masks[i].images[j], sensor_msgs::image_encodings::MONO8);}
-	//								catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
-
-	//								cv_bridge::CvImagePtr ret_depth_ptr;
-	//								try {ret_depth_ptr = cv_bridge::toCvCopy(sresult.retrieved_depths[i].images[j], sensor_msgs::image_encodings::MONO16);}
-	//								catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
-
-	//								cv::Mat rgbimage	= ret_image_ptr->image;
-	//								cv::Mat maskimage	= ret_mask_ptr->image;
-	//								cv::Mat depthimage	= ret_depth_ptr->image;
-	//								for (int ii = 0; ii < depthimage.rows; ++ii) {
-	//									for (int jj = 0; jj < depthimage.cols; ++jj) {
-	//										depthimage.at<uint16_t>(ii, jj) *= 5;
-	//									}
-	//								}
-
-
-	//								cv::Mat erosion_dst;
-	//								cv::erode( maskimage, erosion_dst, element );
-
-	//								//								cv::Mat overlap	= rgbimage.clone();
-	//								//								unsigned short * depthdata = (unsigned short * )depthimage.data;
-	//								//								unsigned char * rgbdata = (unsigned char * )rgbimage.data;
-	//								//								unsigned char * maskdata = (unsigned char * )maskimage.data;
-	//								//								unsigned char * overlapdata = (unsigned char * )overlap.data;
-	//								//								for(int pixel = 0; pixel < depthimage.rows*depthimage.cols;pixel++){
-	//								//									if(depthdata[pixel] > 0 && maskdata[pixel] > 0){
-	//								//										overlapdata[3*pixel+0] = rgbdata[3*pixel+0];
-	//								//										overlapdata[3*pixel+1] = rgbdata[3*pixel+1];
-	//								//										overlapdata[3*pixel+2] = rgbdata[3*pixel+2];
-	//								//									}else{
-	//								//										overlapdata[3*pixel+0] = 0;
-	//								//										overlapdata[3*pixel+1] = 0;
-	//								//										overlapdata[3*pixel+2] = 0;
-	//								//									}
-	//								//								}
-	//								//																	cv::namedWindow( "rgbimage", cv::WINDOW_AUTOSIZE );			cv::imshow( "rgbimage", rgbimage );
-	//								//																	cv::namedWindow( "maskimage", cv::WINDOW_AUTOSIZE );		cv::imshow( "maskimage", maskimage );
-	//								//																	cv::namedWindow( "depthimage", cv::WINDOW_AUTOSIZE );		cv::imshow( "depthimage", 100*depthimage );
-	//								//																	cv::namedWindow( "overlap", cv::WINDOW_AUTOSIZE );			cv::imshow( "overlap", overlap );
-
-	//								Eigen::Affine3d epose = Eigen::Affine3d::Identity();
-	//								reglib::RGBDFrame * frame = new reglib::RGBDFrame(cameras[0],rgbimage, depthimage, 0, epose.matrix());
-	//								frame->keyval = key;
-
-	//								//                                    cv::namedWindow( "maskimage", cv::WINDOW_AUTOSIZE );			cv::imshow( "maskimage", maskimage );
-	//								//                                    frame->show(true);
-	//								//reglib::Model * searchmodel = new reglib::Model(frame,maskimage);
-	//								reglib::Model * searchmodel = new reglib::Model(frame,erosion_dst);
-	//								bool res = searchmodel->testFrame(0);
-
-	//								reglib::Model * searchmodelHolder = new reglib::Model();
-	//								searchmodelHolder->submodels.push_back(searchmodel);
-	//								searchmodelHolder->submodels_relativeposes.push_back(Eigen::Matrix4d::Identity());
-	//								searchmodelHolder->last_changed = ++current_model_update;
-	//								searchmodelHolder->recomputeModelPoints();
-
-	//								//searchmodelHolder->showHistory(viewer);
-
-
-	//								//								if(cv::waitKey(0) != 'n'){
-	//								//Todo:: check new model is not flat or L shape
-
-	//								printf("--- trying to add serach results, if more then one addToDB: results added-----\n");
-	//								//addToDB(modeldatabase, searchmodel,false,true);
-	//								addToDB(modeldatabase, searchmodelHolder,false,true);
-	//								show_sorted();
-	//							}
-	//						}
-
-
-	//						/*
-	////							for(unsigned int j = 0; j < sresult.retrieved_images[i].images.size(); j++){
-	////								//framekeys
-
-	////								cv_bridge::CvImagePtr ret_image_ptr;
-	////								try {ret_image_ptr = cv_bridge::toCvCopy(sresult.retrieved_images[i].images[j], sensor_msgs::image_encodings::BGR8);}
-	////								catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
-
-	////								cv_bridge::CvImagePtr ret_mask_ptr;
-	////								try {ret_mask_ptr = cv_bridge::toCvCopy(sresult.retrieved_masks[i].images[j], sensor_msgs::image_encodings::MONO8);}
-	////								catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
-
-	////								cv_bridge::CvImagePtr ret_depth_ptr;
-	////								try {ret_depth_ptr = cv_bridge::toCvCopy(sresult.retrieved_depths[i].images[j], sensor_msgs::image_encodings::MONO16);}
-	////								catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
-
-	////								cv::Mat rgbimage	= ret_image_ptr->image;
-	////								cv::Mat maskimage	= ret_mask_ptr->image;
-	////								cv::Mat depthimage	= ret_depth_ptr->image;
-
-	////								cv::Mat erosion_dst;
-	////								cv::erode( maskimage, erosion_dst, element );
-
-	////								unsigned short * depthdata = (unsigned short * )depthimage.data;
-	////								unsigned char * rgbdata = (unsigned char * )rgbimage.data;
-	////								unsigned char * maskdata = (unsigned char * )erosion_dst.data;
-	////								int count = 0;
-	////								for(int pixel = 0; pixel < depthimage.rows*depthimage.cols;pixel++){
-	////									if(depthdata[pixel] > 0 && maskdata[pixel] > 0){
-	////										count++;
-	////									}
-	////								}
-	////								if(count > maxval){
-	////									maxval = count;
-	////									maxind = j;
-	////								}
-	////							}
-
-	////							//for(unsigned int j = 0; j < 1 && j < sresult.retrieved_images[i].images.size(); j++){
-	////							if(maxval > 100){//Atleast some pixels has to be in the mask...
-	////								std::string key = sresult.retrieved_image_paths[i].strings[maxind];
-	////								printf("searchresult key:%s\n",key.c_str());
-	////								if(framekeys.count(key) == 0){
-
-	////									int j = maxind;
-
-	////									cv_bridge::CvImagePtr ret_image_ptr;
-	////									try {ret_image_ptr = cv_bridge::toCvCopy(sresult.retrieved_images[i].images[j], sensor_msgs::image_encodings::BGR8);}
-	////									catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
-
-	////									cv_bridge::CvImagePtr ret_mask_ptr;
-	////									try {ret_mask_ptr = cv_bridge::toCvCopy(sresult.retrieved_masks[i].images[j], sensor_msgs::image_encodings::MONO8);}
-	////									catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
-
-	////									cv_bridge::CvImagePtr ret_depth_ptr;
-	////									try {ret_depth_ptr = cv_bridge::toCvCopy(sresult.retrieved_depths[i].images[j], sensor_msgs::image_encodings::MONO16);}
-	////									catch (cv_bridge::Exception& e) {ROS_ERROR("cv_bridge exception: %s", e.what());exit(-1);}
-
-	////									cv::Mat rgbimage	= ret_image_ptr->image;
-	////									cv::Mat maskimage	= ret_mask_ptr->image;
-	////									cv::Mat depthimage	= ret_depth_ptr->image;
-	////									for (int ii = 0; ii < depthimage.rows; ++ii) {
-	////										for (int jj = 0; jj < depthimage.cols; ++jj) {
-	////											depthimage.at<uint16_t>(ii, jj) *= 5;
-	////										}
-	////									}
-
-
-	////									cv::Mat erosion_dst;
-	////									cv::erode( maskimage, erosion_dst, element );
-
-	////									//								cv::Mat overlap	= rgbimage.clone();
-	////									//								unsigned short * depthdata = (unsigned short * )depthimage.data;
-	////									//								unsigned char * rgbdata = (unsigned char * )rgbimage.data;
-	////									//								unsigned char * maskdata = (unsigned char * )maskimage.data;
-	////									//								unsigned char * overlapdata = (unsigned char * )overlap.data;
-	////									//								for(int pixel = 0; pixel < depthimage.rows*depthimage.cols;pixel++){
-	////									//									if(depthdata[pixel] > 0 && maskdata[pixel] > 0){
-	////									//										overlapdata[3*pixel+0] = rgbdata[3*pixel+0];
-	////									//										overlapdata[3*pixel+1] = rgbdata[3*pixel+1];
-	////									//										overlapdata[3*pixel+2] = rgbdata[3*pixel+2];
-	////									//									}else{
-	////									//										overlapdata[3*pixel+0] = 0;
-	////									//										overlapdata[3*pixel+1] = 0;
-	////									//										overlapdata[3*pixel+2] = 0;
-	////									//									}
-	////									//								}
-	////									//								cv::namedWindow( "rgbimage", cv::WINDOW_AUTOSIZE );			cv::imshow( "rgbimage", rgbimage );
-	////									//								cv::namedWindow( "maskimage", cv::WINDOW_AUTOSIZE );		cv::imshow( "maskimage", maskimage );
-	////									//								cv::namedWindow( "depthimage", cv::WINDOW_AUTOSIZE );		cv::imshow( "depthimage", 100*depthimage );
-	////									//								cv::namedWindow( "overlap", cv::WINDOW_AUTOSIZE );			cv::imshow( "overlap", overlap );
-
-	////									Eigen::Affine3d epose = Eigen::Affine3d::Identity();
-	////									reglib::RGBDFrame * frame = new reglib::RGBDFrame(cameras[0],rgbimage, depthimage, 0, epose.matrix());
-	////									frame->keyval = key;
-	////									frame->show(true);
-	////									//reglib::Model * searchmodel = new reglib::Model(frame,maskimage);
-	////									reglib::Model * searchmodel = new reglib::Model(frame,erosion_dst);
-	////									bool res = searchmodel->testFrame(0);
-
-	////									reglib::Model * searchmodelHolder = new reglib::Model();
-	////									searchmodelHolder->submodels.push_back(searchmodel);
-	////									searchmodelHolder->submodels_relativeposes.push_back(Eigen::Matrix4d::Identity());
-	////									searchmodelHolder->last_changed = ++current_model_update;
-	////									searchmodelHolder->recomputeModelPoints();
-
-
-	////									//								if(cv::waitKey(0) != 'n'){
-	////									//Todo:: check new model is not flat or L shape
-
-	////									printf("--- trying to add serach results, if more then one addToDB: results added-----\n");
-	////									//addToDB(modeldatabase, searchmodel,false,true);
-	////									addToDB(modeldatabase, searchmodelHolder,false,true);
-	////									show_sorted();
-	////									//								}
-	////								}
-
-	////							}
-	//							*/
-	//					}
-
-	//					break;
-	//				}else{
-	//					printf("searching... timeout in %3.3f\n", +start +search_timeout - getTime());
-	//					usleep(100000);
-	//				}
-	//			}
-	//		}
-	//		//exit(0);
-	//	}
-
-	//	for(unsigned int i = 0; i < modeldatabase->models.size(); i++){
-	//		for(unsigned int j = 0; j < modeldatabase->models[i]->submodels.size(); j++){
-	//			if( modeldatabase->models[i]->submodels[j]->frames.front() == frontframe){
-	//				Eigen::Matrix4d pose = frontframe->pose * modeldatabase->models[i]->submodels_relativeposes[j].inverse();
-
-	//				pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = modeldatabase->models[i]->submodels[j]->getPCLcloud(1,true);
-	//				pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZRGB> ());
-	//				pcl::transformPointCloud (*cloud, *transformed_cloud, pose);
-
-
-	//				sensor_msgs::PointCloud2 input;
-	//				pcl::toROSMsg (*transformed_cloud,input);//, *transformed_cloud);
-	//				input.header.frame_id = "/map";
-	//				model_last_pub.publish(input);
-	//			}
-	//		}
-	//	}
-
-	//	newmodel = 0;
-	//	sweepid_counter++;
-
+printf("%s::%i\n",__FILE__,__LINE__);
 }
 
 void modelCallback(const quasimodo_msgs::model & m){
+	printf("%s::%i\n",__FILE__,__LINE__);
 	quasimodo_msgs::model mod = m;
-	addNewModel(quasimodo_brain::getModelFromMSG(mod));
+	addNewModel(quasimodo_brain::getModelFromMSG(mod,false));
 }
 
 bool nextNew = true;
@@ -1672,24 +1356,21 @@ int main(int argc, char **argv){
 
 	if(modeldatabase == 0){modeldatabase	= new ModelDatabaseRetrieval(n);}
 
-
-	if(input_model_subs.size() == 0){input_model_subs.push_back(n.subscribe("/model/out/topic", 100, modelCallback));}
+	//if(input_model_subs.size() == 0){input_model_subs.push_back(n.subscribe("/model/out/topic", 100, modelCallback));}
+	if(input_model_subs.size() == 0){input_model_subs.push_back(n.subscribe("/quasimodo/segmentation/out/model", 100, modelCallback));}
 
 	if(visualization){
-		viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("viewer"));
+		viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("Modelserver Viewer"));
 		viewer->addCoordinateSystem(0.1);
-		viewer->setBackgroundColor(0.0,0.0,0.0);
+		viewer->setBackgroundColor(1.0,0.0,1.0);
 	}
 
 	ros::Duration(1.0).sleep();
 	chatter_pub = n.advertise<std_msgs::String>("modelserver", 1000);
-//	sleep(1);
 	std_msgs::String msg;
 	msg.data = "starting";
 	chatter_pub.publish(msg);
 	ros::spinOnce();
-//	sleep(1);
-
 	ros::spin();
 	return 0;
 }

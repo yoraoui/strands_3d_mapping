@@ -292,12 +292,44 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 	return probs;
 }
 
+//RGBDFrame * RGBDFrame::clone(){
+//    return new RGBDFrame(camera->clone(), rgb.clone(),depth.clone(),capturetime, pose, true);
+//}
+
 RGBDFrame * RGBDFrame::clone(){
-	return new RGBDFrame(camera->clone(), rgb.clone(),depth.clone(),capturetime, pose, true);
+//    printf("clone()\n");
+//    exit(0);
+	RGBDFrame * frame = new RGBDFrame();
+	frame->camera = camera->clone();
+	frame->rgb = rgb.clone();
+	frame->depth = depth.clone();
+	frame->keyval = keyval;
+	frame->capturetime = capturetime;
+	frame->pose = pose;
+	frame->sweepid = sweepid;
+	frame->det_dilate = det_dilate.clone();
+	frame->normals = normals.clone();
+	frame->depthedges = depthedges.clone();
+	frame->de = de.clone();
+	frame->ce = ce.clone();
+	frame->ce = ce.clone();
+	frame->ce = ce.clone();
+
+	unsigned int width = camera->width;
+	unsigned int height = camera->height;
+	unsigned int nr_pixels = width*height;
+
+	frame->connections = connections;
+	frame->intersections = intersections;
+	frame->nr_labels = nr_labels;
+	frame->labels = new int[nr_pixels];
+	for(int i = 0; i < nr_pixels; i++){frame->labels[i] = labels[i];}
+
+	return frame;//new RGBDFrame(camera->clone(), rgb.clone(),depth.clone(),capturetime, pose, true);
 }
 
-RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capturetime_, Eigen::Matrix4d pose_, bool compute_normals, std::string savePath){
-    printf("savepath: %s\n",savePath.c_str());
+RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capturetime_, Eigen::Matrix4d pose_, bool compute_normals, std::string savePath, bool compute_imgedges){
+	printf("savepath: %s\n",savePath.c_str());
 	bool verbose = false;
 	if(verbose)
 		printf("------------------------------\n");
@@ -321,7 +353,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	if(savePath.size() != 0){
 		cv::imwrite( std::string(savestr)+"rgb.png", rgb );
 		cv::imwrite( std::string(savestr)+"depth.png", depth );
-    }
+	}
 
 	IplImage iplimg = rgb_;
 	IplImage* img = &iplimg;
@@ -358,6 +390,14 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	float * dedata = (float*)de.data;
 	for(int i = 0; i < 3*nr_pixels; i++){dedata[i] = 0;}
 
+	ce.create(height,width,CV_32FC3);
+	float * cedata = (float*)ce.data;
+	for(int i = 0; i < 3*nr_pixels; i++){cedata[i] = 0;}
+
+	depthedges.create(height,width,CV_8UC1);
+	unsigned char * depthedgesdata = (unsigned char *)depthedges.data;
+	for(int i = 0; i < nr_pixels; i++){depthedgesdata[i] = 0;}
+if(compute_imgedges){
 	std::vector<double> Xvec;
 	int step = 1;
 	for(unsigned int w = step; w < width-step;w++){
@@ -484,102 +524,9 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	float * bedata = (float*)be.data;
 	for(int i = 0; i < 3*nr_pixels; i++){bedata[i] = 0;}
 
-	ce.create(height,width,CV_32FC3);
-	float * cedata = (float*)ce.data;
-	for(int i = 0; i < 3*nr_pixels; i++){cedata[i] = 0;}
-
 	std::vector<double> XvecR;
 	std::vector<double> XvecG;
 	std::vector<double> XvecB;
-
-//	for(unsigned int w = step; w < width-step;w++){
-//		for(unsigned int h = step; h < height-step;h++){
-//			int ind = h*width+w;
-//			float b = float(blurdata[3*ind+0]);
-//			float g = float(blurdata[3*ind+1]);
-//			float r = float(blurdata[3*ind+2]);
-
-//			if(w > 2 && w < width-1){
-//				float b0 = float(blurdata[3*(ind-2)+0]);
-//				float b1 = float(blurdata[3*(ind-1)+0]);
-//				float b2 = b;
-//				float b3 = float(blurdata[3*(ind+1)+0]);
-
-
-//				float bpred1 = b1 + (b1-b0);
-//				float bpred2 = b2 - (b3-b2);
-
-//				//printf("%3.3f %3.3f %3.3f %3.3f ->  %3.3f %3.3f ->  %3.3f %3.3f ->  %3.3f\n",b0,b1,b2,b3,bpred1,bpred2,fabs(b2-bpred1),fabs(b1-bpred2),fabs(b2-bpred1) + fabs(b1-bpred2));
-
-//				bedata[3*ind+1] = 0.5*(fabs(b2-bpred1) + fabs(b1-bpred2));
-//				XvecB.push_back(bedata[3*ind+1]);
-
-
-//				float g0 = float(blurdata[3*(ind-2)+1]);
-//				float g1 = float(blurdata[3*(ind-1)+1]);
-//				float g2 = g;
-//				float g3 = float(blurdata[3*(ind+1)+1]);
-
-//				float gpred1 = g1 + (g1-g0);
-//				float gpred2 = g2 - (g3-g2);
-
-//				gedata[3*ind+1] = 0.5*(fabs(g2-gpred1) + fabs(g1-gpred2));
-//				XvecG.push_back(gedata[3*ind+1]);
-
-
-//				float r0 = float(blurdata[3*(ind-2)+2]);
-//				float r1 = float(blurdata[3*(ind-1)+2]);
-//				float r2 = r;
-//				float r3 = float(blurdata[3*(ind+1)+2]);
-
-//				float rpred1 = r1 + (r1-r0);
-//				float rpred2 = r2 - (r3-r2);
-
-//				redata[3*ind+1] = 0.5*(fabs(r2-rpred1) + fabs(r1-rpred2));
-//				XvecR.push_back(redata[3*ind+1]);
-
-
-//			}
-
-//			if(h > 2 && h < height-1){
-//				float b0 = float(blurdata[3*(ind-2*width)+0]);
-//				float b1 = float(blurdata[3*(ind-1*width)+0]);
-//				float b2 = b;
-//				float b3 = float(blurdata[3*(ind+1*width)+0]);
-
-//				float bpred1 = b1 + (b1-b0);
-//				float bpred2 = b2 - (b3-b2);
-
-//				bedata[3*ind+2] = 0.5*(fabs(b2-bpred1) + fabs(b1-bpred2));
-//				XvecB.push_back(bedata[3*ind+2]);
-
-
-//				float g0 = float(blurdata[3*(ind-2*width)+1]);
-//				float g1 = float(blurdata[3*(ind-1*width)+1]);
-//				float g2 = g;
-//				float g3 = float(blurdata[3*(ind+1*width)+1]);
-
-//				float gpred1 = g1 + (g1-g0);
-//				float gpred2 = g2 - (g3-g2);
-
-//				gedata[3*ind+2] = 0.5*(fabs(g2-gpred1) + fabs(g1-gpred2));
-//				XvecG.push_back(gedata[3*ind+2]);
-
-
-//				float r0 = float(blurdata[3*(ind-2*width)+2]);
-//				float r1 = float(blurdata[3*(ind-1*width)+2]);
-//				float r2 = r;
-//				float r3 = float(blurdata[3*(ind+1*width)+2]);
-
-//				float rpred1 = r1 + (r1-r0);
-//				float rpred2 = r2 - (r3-r2);
-
-//				redata[3*ind+2] = 0.5*(fabs(r2-rpred1) + fabs(r1-rpred2));
-//				XvecR.push_back(redata[3*ind+2]);
-
-//			}
-//		}
-//	}
 
 	for(unsigned int w = 1; w < width-1;w++){
 		for(unsigned int h = 0; h < height;h++){
@@ -607,33 +554,6 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 			XvecR.push_back(redata[3*ind+1]);
 		}
 	}
-
-//	for(unsigned int w = 1; w < width-1;w++){
-//		for(unsigned int h = 0; h < height;h++){
-//			int ind = h*width+w;
-//			bedata[3*ind+1] = fabs(blurdata[3*(ind+0)+0]-0.5*(blurdata[3*(ind+1)+0] + blurdata[3*(ind-1)+0]));
-//			XvecB.push_back(bedata[3*ind+1]);
-
-//			gedata[3*ind+1] = fabs(blurdata[3*(ind+0)+1]-0.5*(blurdata[3*(ind+1)+1] + blurdata[3*(ind-1)+1]));
-//			XvecG.push_back(gedata[3*ind+1]);
-
-//			redata[3*ind+1] = fabs(blurdata[3*(ind+0)+2]-0.5*(blurdata[3*(ind+1)+2] + blurdata[3*(ind-1)+2]));
-//			XvecR.push_back(redata[3*ind+1]);
-//		}
-//	}
-//	for(unsigned int w = 0; w < width;w++){
-//		for(unsigned int h = 1; h < height-1;h++){
-//			int ind = h*width+w;
-//			bedata[3*ind+2] = fabs(blurdata[3*(ind+0)+0]-0.5*(blurdata[3*(ind+width)+0] + blurdata[3*(ind-width)+0]));
-//			XvecB.push_back(bedata[3*ind+1]);
-
-//			gedata[3*ind+2] = fabs(blurdata[3*(ind+0)+1]-0.5*(blurdata[3*(ind+width)+1] + blurdata[3*(ind-width)+1]));
-//			XvecG.push_back(gedata[3*ind+1]);
-
-//			redata[3*ind+2] = fabs(blurdata[3*(ind+0)+2]-0.5*(blurdata[3*(ind+width)+2] + blurdata[3*(ind-width)+2]));
-//			XvecR.push_back(redata[3*ind+1]);
-//		}
-//	}
 
 
 	if(savePath.size() != 0){cv::imwrite( std::string(savestr)+"re_diff.png", 3.0*re );}
@@ -774,10 +694,6 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	delete funcR;
 	delete funcG;
 	delete funcB;
-//	delete ggdfuncR;
-//	delete ggdfuncG;
-//	delete ggdfuncB;
-//exit(0);
 
 	if(savePath.size() != 0){cv::imwrite( std::string(savestr)+"re_prob.png", 127.0*re );}
 	if(savePath.size() != 0){cv::imwrite( std::string(savestr)+"ge_prob.png", 127.0*ge );}
@@ -827,12 +743,13 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	cv::dilate( det, det_dilate, getStructuringElement( cv::MORPH_RECT, cv::Size( 2*dilation_size + 1, 2*dilation_size+1 ), cv::Point( dilation_size, dilation_size ) ) );
 	unsigned char * det_dilatedata = (unsigned char*)det_dilate.data;
 
-	depthedges.create(height,width,CV_8UC1);
-	unsigned char * depthedgesdata = (unsigned char *)depthedges.data;
+//	depthedges.create(height,width,CV_8UC1);
+//	unsigned char * depthedgesdata = (unsigned char *)depthedges.data;
 	for(int i = 0; i < nr_pixels; i++){
 		//depthedgesdata[i] = 255*((dedata[3*i+1] > 0.5) || (dedata[3*i+2] > 0.5) || (cedata[3*i+1]*maxima_dxdata[i] > 0.5) || (cedata[3*i+2]*maxima_dydata[i] > 0.5));
 		depthedgesdata[i] = 255*(((cedata[3*i+1]*maxima_dxdata[i] > 0.5) || (cedata[3*i+2]*maxima_dydata[i] > 0.5)) && (det_dilatedata[i] == 0));
 	}
+}
 	//	cv::namedWindow( "depthedges", cv::WINDOW_AUTOSIZE );			cv::imshow( "depthedges",	depthedges);
 	//	cv::waitKey(0);
 
@@ -924,7 +841,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 		printf("%s::%i time: %5.5fs\n",__PRETTY_FUNCTION__,__LINE__,getTime()-startTime); startTime = getTime();
 	printf("complete time to create RGBD image: %5.5fs\n",getTime()-completeStartTime);
 
-    //getImageProbs();
+	//getImageProbs();
 	if(savePath.size() != 0){
 		saveCombinedImages(std::string(savestr)+"Combined.png");
 		saveCombinedProcessedImages(std::string(savestr)+"CombinedProcessed.png");
@@ -1134,7 +1051,7 @@ RGBDFrame * RGBDFrame::load(Camera * cam, std::string path){
 		size = file.tellg();
 		buffer = new char [size];
 		file.seekg (0, std::ios::beg);
-        file.read (buffer, size);
+		file.read (buffer, size);
 		file.close();
 
 		double * buffer_double = (double *)buffer;
@@ -1317,11 +1234,11 @@ std::vector< std::vector<float> > RGBDFrame::getImageProbs(bool depthonly){
 
 		if(!depthonly){
 			if(!det_dilatedata[i]){
-                dxc[i] = 1.0-std::max(dedata[3*i+1],0.8f*cedata[3*i+1]);
-                dyc[i] = 1.0-std::max(dedata[3*i+2],0.8f*cedata[3*i+2]);
+				dxc[i] = 1.0-std::max(dedata[3*i+1],0.8f*cedata[3*i+1]);
+				dyc[i] = 1.0-std::max(dedata[3*i+2],0.8f*cedata[3*i+2]);
 			}else{
-                dxc[i] = 1.0-std::max(dedata[3*i+1],0.8f*cedata[3*i+1]);
-                dyc[i] = 1.0-std::max(dedata[3*i+2],0.8f*cedata[3*i+2]);
+				dxc[i] = 1.0-std::max(dedata[3*i+1],0.8f*cedata[3*i+1]);
+				dyc[i] = 1.0-std::max(dedata[3*i+2],0.8f*cedata[3*i+2]);
 			}
 		}else{
 			dxc[i] = 1.0-dedata[3*i+1];
@@ -1343,56 +1260,56 @@ std::vector< std::vector<float> > RGBDFrame::getImageProbs(bool depthonly){
 }
 
 void RGBDFrame::saveCombinedImages(std::string path){
-    unsigned int width = camera->width;
-    unsigned int height = camera->height;
-    cv::Mat combined;
-    combined.create(camera->height,2*camera->width,CV_8UC3);
-    unsigned char   * combineddata   = combined.data;
-    unsigned char   * rgbdata   = rgb.data;
-    unsigned short  * depthdata = (unsigned short *)(depth.data);
+	unsigned int width = camera->width;
+	unsigned int height = camera->height;
+	cv::Mat combined;
+	combined.create(camera->height,2*camera->width,CV_8UC3);
+	unsigned char   * combineddata   = combined.data;
+	unsigned char   * rgbdata   = rgb.data;
+	unsigned short  * depthdata = (unsigned short *)(depth.data);
 
-    for(unsigned long h = 0; h < height;h++){
-        for(unsigned long w = 0; w < width;w++){
-            combineddata[3*(h*(2*width)+w)+0] = rgbdata[3*(h*width+w)+0];
-            combineddata[3*(h*(2*width)+w)+1] = rgbdata[3*(h*width+w)+1];
-            combineddata[3*(h*(2*width)+w)+2] = rgbdata[3*(h*width+w)+2];
-            combineddata[3*(h*(2*width)+w+width)+0] = depthdata[h*width+w]/256;
-            combineddata[3*(h*(2*width)+w+width)+1] = depthdata[h*width+w]/256;
-            combineddata[3*(h*(2*width)+w+width)+2] = depthdata[h*width+w]/256;
-        }
-    }
+	for(unsigned long h = 0; h < height;h++){
+		for(unsigned long w = 0; w < width;w++){
+			combineddata[3*(h*(2*width)+w)+0] = rgbdata[3*(h*width+w)+0];
+			combineddata[3*(h*(2*width)+w)+1] = rgbdata[3*(h*width+w)+1];
+			combineddata[3*(h*(2*width)+w)+2] = rgbdata[3*(h*width+w)+2];
+			combineddata[3*(h*(2*width)+w+width)+0] = depthdata[h*width+w]/256;
+			combineddata[3*(h*(2*width)+w+width)+1] = depthdata[h*width+w]/256;
+			combineddata[3*(h*(2*width)+w+width)+2] = depthdata[h*width+w]/256;
+		}
+	}
 
 	cv::imwrite( path, combined );
 }
 void RGBDFrame::saveCombinedProcessedImages(std::string path){
-    unsigned int width = camera->width;
-    unsigned int height = camera->height;
-    cv::Mat combined;
-    combined.create(camera->height,3*camera->width,CV_8UC3);
-    unsigned char   * combineddata   = combined.data;
-    float  * normalsdata = (float *)(normals.data);
-    float  * cedata = (float *)(ce.data);
-    float  * dedata = (float *)(de.data);
+	unsigned int width = camera->width;
+	unsigned int height = camera->height;
+	cv::Mat combined;
+	combined.create(camera->height,3*camera->width,CV_8UC3);
+	unsigned char   * combineddata   = combined.data;
+	float  * normalsdata = (float *)(normals.data);
+	float  * cedata = (float *)(ce.data);
+	float  * dedata = (float *)(de.data);
 
-    for(unsigned long h = 0; h < height;h++){
-        for(unsigned long w = 0; w < width;w++){
+	for(unsigned long h = 0; h < height;h++){
+		for(unsigned long w = 0; w < width;w++){
 			 if(normalsdata[3*(h*width+w)+0] <= 1){
 				combineddata[3*(h*(3*width)+w+0*width)+0] = 255.0*fabs(normalsdata[3*(h*width+w)+0]);
 				combineddata[3*(h*(3*width)+w+0*width)+1] = 255.0*fabs(normalsdata[3*(h*width+w)+1]);
 				combineddata[3*(h*(3*width)+w+0*width)+2] = 255.0*fabs(normalsdata[3*(h*width+w)+2]);
-            }else{
-                combineddata[3*(h*(3*width)+w+0*width)+0] = 0;
-                combineddata[3*(h*(3*width)+w+0*width)+1] = 0;
-                combineddata[3*(h*(3*width)+w+0*width)+2] = 0;
-            }
-            combineddata[3*(h*(3*width)+w+1*width)+0] = 255.0*cedata[3*(h*width+w)+0];
-            combineddata[3*(h*(3*width)+w+1*width)+1] = 255.0*cedata[3*(h*width+w)+1];
-            combineddata[3*(h*(3*width)+w+1*width)+2] = 255.0*cedata[3*(h*width+w)+2];
-            combineddata[3*(h*(3*width)+w+2*width)+0] = 255.0*dedata[3*(h*width+w)+0];
-            combineddata[3*(h*(3*width)+w+2*width)+1] = 255.0*dedata[3*(h*width+w)+1];
-            combineddata[3*(h*(3*width)+w+2*width)+2] = 255.0*dedata[3*(h*width+w)+2];
-        }
-    }
+			}else{
+				combineddata[3*(h*(3*width)+w+0*width)+0] = 0;
+				combineddata[3*(h*(3*width)+w+0*width)+1] = 0;
+				combineddata[3*(h*(3*width)+w+0*width)+2] = 0;
+			}
+			combineddata[3*(h*(3*width)+w+1*width)+0] = 255.0*cedata[3*(h*width+w)+0];
+			combineddata[3*(h*(3*width)+w+1*width)+1] = 255.0*cedata[3*(h*width+w)+1];
+			combineddata[3*(h*(3*width)+w+1*width)+2] = 255.0*cedata[3*(h*width+w)+2];
+			combineddata[3*(h*(3*width)+w+2*width)+0] = 255.0*dedata[3*(h*width+w)+0];
+			combineddata[3*(h*(3*width)+w+2*width)+1] = 255.0*dedata[3*(h*width+w)+1];
+			combineddata[3*(h*(3*width)+w+2*width)+2] = 255.0*dedata[3*(h*width+w)+2];
+		}
+	}
 
 	cv::imwrite( path, combined );
 

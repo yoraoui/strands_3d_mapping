@@ -54,7 +54,7 @@ namespace reglib
 		std::vector< std::vector<double> > intersections;
 
 		RGBDFrame();
-        RGBDFrame(Camera * camera_,cv::Mat rgb_, cv::Mat depth_, double capturetime_ = 0, Eigen::Matrix4d pose_ = Eigen::Matrix4d::Identity(), bool compute_normals = true, std::string savePath = "");
+		RGBDFrame(Camera * camera_,cv::Mat rgb_, cv::Mat depth_, double capturetime_ = 0, Eigen::Matrix4d pose_ = Eigen::Matrix4d::Identity(), bool compute_normals = true, std::string savePath = "", bool compute_imgedges = true);
 		~RGBDFrame();
 
 		void show(bool stop = false);

@@ -45,7 +45,7 @@ std::vector<Eigen::Matrix4f> getRegisteredViewPosesFromFile(std::string poses_fi
 reglib::Model * loadFromRaresFormat(std::string path);
 
 double getTime();
-reglib::Model * getModelFromMSG(quasimodo_msgs::model & msg);
+reglib::Model * getModelFromMSG(quasimodo_msgs::model & msg, bool compute_edges = true);
 
 void addToModelMSG(quasimodo_msgs::model & msg, reglib::Model * model, Eigen::Affine3d rp = Eigen::Affine3d::Identity(), bool addClouds = false);
 quasimodo_msgs::model getModelMSG(reglib::Model * model, bool addClouds = false);

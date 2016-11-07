@@ -115,7 +115,7 @@ double getTime(){
 	return double(start1.tv_sec+(start1.tv_usec/1000000.0));
 }
 
-reglib::Model * getModelFromMSG(quasimodo_msgs::model & msg){
+reglib::Model * getModelFromMSG(quasimodo_msgs::model & msg, bool compute_edges){
 	reglib::Model * model = new reglib::Model();
 
 	for(unsigned int i = 0; i < msg.local_poses.size(); i++){
@@ -144,7 +144,7 @@ reglib::Model * getModelFromMSG(quasimodo_msgs::model & msg){
 			cam->cy = camera.K[5];
 		}
 
-		reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, double(capture_time.sec)+double(capture_time.nsec)/1000000000.0, epose.matrix());
+		reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, double(capture_time.sec)+double(capture_time.nsec)/1000000000.0, epose.matrix(),true,"",compute_edges);
 		model->frames.push_back(frame);
 
 		geometry_msgs::Pose	pose1 = msg.local_poses[i];
