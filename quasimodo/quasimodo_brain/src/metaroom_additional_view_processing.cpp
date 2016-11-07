@@ -1519,8 +1519,12 @@ void sendMetaroomToServer(std::string path){
 	}
 }
 
-
 void sendCallback(const std_msgs::String::ConstPtr& msg){sendMetaroomToServer(msg->data);}
+
+void processAndSendCallback(const std_msgs::String::ConstPtr& msg){
+	processMetaroom(msg->data);
+	sendCallback(msg);
+}
 
 bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res){
 	printf("bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res)\n");
@@ -1728,6 +1732,8 @@ int main(int argc, char** argv){
 	std::vector<ros::Subscriber> segsubs;
 	std::vector<ros::Subscriber> sendsubs;
 	std::vector<ros::Subscriber> roomObservationSubs;
+	std::vector<ros::Subscriber> processAndSendsubs;
+
 
 	std::vector<std::string> trainMetarooms;
 	std::vector<std::string> sendMetaroomToServers;
@@ -1839,6 +1845,10 @@ int main(int argc, char** argv){
 
 		if(roomObservationSubs.size() == 0){
 			roomObservationSubs.push_back(n.subscribe("/local_metric_map/room_observations", 1000, roomObservationCallback));
+		}
+
+		if(processAndSendsubs.size() == 0){
+			processAndSendsubs.push_back(n.subscribe("/object_learning/learned_object_xml", 1000, processAndSendCallback));
 		}
 	}
 
