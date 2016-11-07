@@ -1,10 +1,12 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(quasimodo_object_search)
+project(quasimodo_conversions)
+
+add_definitions(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED)
+find_package(catkin REQUIRED COMPONENTS roscpp quasimodo_msgs soma_llsd_msgs mongodb_store)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -96,9 +98,9 @@ find_package(catkin REQUIRED)
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES quasimodo_object_search2
-#  CATKIN_DEPENDS other_catkin_pkg
+  INCLUDE_DIRS include
+  LIBRARIES conversions
+  CATKIN_DEPENDS quasimodo_msgs soma_llsd_msgs
 #  DEPENDS system_lib
 )
 
@@ -108,29 +110,29 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-# include_directories(include)
+include_directories(include ${catkin_INCLUDE_DIRS})
 
 ## Declare a C++ library
-# add_library(quasimodo_object_search2
-#   src/${PROJECT_NAME}/quasimodo_object_search2.cpp
-# )
+add_library(conversions
+  src/${PROJECT_NAME}/conversions.cpp include/${PROJECT_NAME}/conversions.h
+)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
-# add_dependencies(quasimodo_object_search2 ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(conversions ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
-# add_executable(quasimodo_object_search2_node src/quasimodo_object_search2_node.cpp)
+# add_executable(quasimodo_conversions_node src/quasimodo_conversions_node.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-# add_dependencies(quasimodo_object_search2_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(quasimodo_conversions_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(quasimodo_object_search2_node
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(conversions
+  ${catkin_LIBRARIES}
+)
 
 #############
 ## Install ##
@@ -146,14 +148,8 @@ catkin_package(
 #   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 # )
 
-## Mark executable scripts (Python etc.) for installation
-## in contrast to setup.py, you can choose the destination
-install(DIRECTORY scripts/
-        DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-        USE_SOURCE_PERMISSIONS)
-
 ## Mark executables and/or libraries for installation
-# install(TARGETS quasimodo_object_search2 quasimodo_object_search2_node
+# install(TARGETS quasimodo_conversions quasimodo_conversions_node
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -178,7 +174,7 @@ install(DIRECTORY scripts/
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_quasimodo_object_search2.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_quasimodo_conversions.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
