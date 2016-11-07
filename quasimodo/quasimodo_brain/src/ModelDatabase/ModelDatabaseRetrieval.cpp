@@ -85,13 +85,13 @@ std::vector<reglib::Model *> ModelDatabaseRetrieval::search(reglib::Model * mode
 
 			printf("---------------ids in searchresult: %i----------------\n",result.vocabulary_ids.size());
 			for(unsigned int i = 0; i < result.vocabulary_ids.size(); i++){
-				int ind = result.vocabulary_ids[i];
+				int ind = std::stoi(result.vocabulary_ids[i]);
 				printf("found object with ind: %i\n",ind);
 			}
 			printf("----------------------------------------------\n");
 
 			for(unsigned int i = 0; i < result.vocabulary_ids.size(); i++){
-				int ind = result.vocabulary_ids[i];
+				int ind = std::stoi(result.vocabulary_ids[i]);
 				printf("found object with ind: %i\n",ind);
 				if(vocabulary_ids.count(ind) == 0){	printf("does not exist in db, continue\n"); continue; }
 				reglib::Model * search_model = vocabulary_ids[ind];
