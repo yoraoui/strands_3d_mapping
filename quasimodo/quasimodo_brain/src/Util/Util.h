@@ -57,6 +57,7 @@ reglib::Model * load_metaroom_model(std::string sweep_xml, std::string savePath 
 
 void segment(std::vector< reglib::Model * > bgs, std::vector< reglib::Model * > models, std::vector< std::vector< cv::Mat > > & internal, std::vector< std::vector< cv::Mat > > & external, std::vector< std::vector< cv::Mat > > & dynamic, int debugg = 0, std::string savePath = "");
 std::vector<reglib::Model *> loadModelsXML(std::string path);
+std::vector<reglib::Model *> loadModelsPCDs(std::string path);
 
 }
 

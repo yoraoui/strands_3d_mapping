@@ -540,4 +540,85 @@ void segment(std::vector< reglib::Model * > bgs, std::vector< reglib::Model * > 
 }
 */
 
+std::vector<std::string> getFileList(std::string path){
+	std::vector<std::string> files;
+
+	DIR *dp;
+	struct dirent *ep;
+	dp = opendir (path.c_str());
+	if (dp != NULL) {
+		while (ep = readdir (dp)){
+			if (ep->d_type != DT_DIR) {
+				files.push_back(std::string(ep->d_name));
+			}
+		}
+		closedir (dp);
+	}else{
+		printf("Couldn't open %s\n",path.c_str());
+	}
+
+	return files;
+}
+
+std::vector<std::string> getFolderList(std::string path){
+	std::vector<std::string> files;
+
+	DIR *dp;
+	struct dirent *ep;
+	dp = opendir (path.c_str());
+	if (dp != NULL) {
+		while (ep = readdir (dp)){
+			std::string data = std::string(ep->d_name);
+			if (data.compare(".") != 0 && data.compare("..") != 0 && ep->d_type == DT_DIR) {
+				files.push_back(data);
+			}
+		}
+		closedir (dp);
+	}else{
+		printf("Couldn't open %s\n",path.c_str());
+	}
+	return files;
+}
+
+void recursiveGetFolderList(std::vector<std::string> & folders, std::string path){
+	std::vector<std::string> list = getFolderList(path);
+	for(unsigned int i = 0; i < list.size(); i++){
+		folders.push_back(path+"/"+list[i]);
+		recursiveGetFolderList(folders, path+"/"+list[i]);
+	}
+}
+
+std::vector<std::string> recursiveGetFolderList(std::string path){
+	std::vector<std::string> folders;
+	recursiveGetFolderList(folders, path);
+	return folders;
+}
+
+std::vector<reglib::Model *> loadModelsPCDs(std::string path){
+	std::vector<reglib::Model *> models;
+
+	std::vector<std::string> folders = getFolderList(path);//recursiveGetFolderList(path);//getFolderList(path);//
+	for(unsigned int i = 0; i < folders.size(); i++){
+		printf("folders: %s\n",folders[i].c_str());
+		std::string views = path+folders[i]+"/views";
+		std::vector<std::string> files = getFileList(views);
+
+		std::vector<std::string> cloudspaths;
+		std::vector<std::string> indexpaths;
+		std::vector<std::string> posepaths;
+
+		for(unsigned int j = 0; j < files.size(); j++){
+			std::string file = views+"/"+files[j];
+			printf("Files: %s\n",file.c_str());
+			if ((files[j].find("cloud") != std::string::npos) && (files[j].find(".pcd") !=std::string::npos)){cloudspaths.push_back(file);}
+			if (files[j].find("indices") != std::string::npos){indexpaths.push_back(file);}
+			if (files[j].find("pose") != std::string::npos){posepaths.push_back(file);}
+		}
+
+		printf("%i %i %i\n",cloudspaths.size(),indexpaths.size(),posepaths.size());
+	}
+
+	return models;
+}
+
 }

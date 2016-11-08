@@ -1522,6 +1522,9 @@ void sendMetaroomToServer(std::string path){
 void sendCallback(const std_msgs::String::ConstPtr& msg){sendMetaroomToServer(msg->data);}
 
 void processAndSendCallback(const std_msgs::String::ConstPtr& msg){
+	printf("================================================================================\n");
+	printf("============================processAndSendCallback==============================\n");
+	printf("================================================================================\n");
 	processMetaroom(msg->data);
 	sendCallback(msg);
 }
@@ -1769,8 +1772,8 @@ int main(int argc, char** argv){
 		else if(std::string(argv[i]).compare("-nobase") == 0){					baseSetting = false;}
 		else if(std::string(argv[i]).compare("-recomputeRelativePoses") == 0){	recomputeRelativePoses = true;}
         else if(std::string(argv[i]).compare("-v_init") == 0){	visualization_lvl_regini = 1;inputstate = 17;}
-        else if(std::string(argv[i]).compare("-v_reg") == 0){	visualization_lvl_regref = 1;inputstate = 18;}
-        else if(std::string(argv[i]).compare("-saveVisuals") == 0){inputstate = 19;}
+		else if(std::string(argv[i]).compare("-v_reg") == 0){	visualization_lvl_regref = 1;inputstate = 18;}
+		else if(std::string(argv[i]).compare("-saveVisuals") == 0){				inputstate = 19;}
 		else if(inputstate == 0){
 			segsubs.push_back(n.subscribe(std::string(argv[i]), 1000, chatterCallback));
 		}else if(inputstate == 1){
@@ -1810,10 +1813,11 @@ int main(int argc, char** argv){
 			visualization_lvl_regini = atoi(argv[i]);
         }else if(inputstate == 18){
             visualization_lvl_regref = atoi(argv[i]);
-        }else if(inputstate == 19){
-            saveVisuals = std::string(argv[i]);
-        }
+		}else if(inputstate == 19){
+			saveVisuals = std::string(argv[i]);
+		}
 	}
+
 
 	if(visualization_lvl != 0 || visualization_lvl_regref != 0 || visualization_lvl_regini != 0){
 		viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("3D Viewer"));

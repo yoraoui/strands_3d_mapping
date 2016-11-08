@@ -1278,6 +1278,7 @@ int main(int argc, char **argv){
 
 
 	std::vector<ros::Subscriber> input_model_subs;
+	std::vector<std::string> modelpcds;
 
 	int inputstate = -1;
 	for(int i = 1; i < argc;i++){
@@ -1302,9 +1303,10 @@ int main(int argc, char **argv){
 		else if(std::string(argv[i]).compare("-v_scoring") == 0 || std::string(argv[i]).compare("-v_score") == 0 || std::string(argv[i]).compare("-v_sco") == 0){	printf("visualization scoring turned on\n");        visualization = true; show_scoring = true;}
 		else if(std::string(argv[i]).compare("-v_db") == 0){        printf("visualization db turned on\n");             visualization = true; show_db = true;}
 		else if(std::string(argv[i]).compare("-intopic") == 0){	printf("intopic input state\n");	inputstate = 11;}
-		else if(std::string(argv[i]).compare("-mdb") == 0){	printf("intopic input state\n");	inputstate = 12;}
-		else if(std::string(argv[i]).compare("-show_search") == 0){	printf("show_search\n");	show_search = true;}
+		else if(std::string(argv[i]).compare("-mdb") == 0){	printf("intopic input state\n");		inputstate = 12;}
+		else if(std::string(argv[i]).compare("-show_search") == 0){	printf("show_search\n");		show_search = true;}
 		else if(std::string(argv[i]).compare("-show_modelbuild") == 0){	printf("show_modelbuild\n");	visualization = true; show_modelbuild = true;}
+		else if(std::string(argv[i]).compare("-loadModelsPCDs") == 0){								inputstate = 13;}
 		else if(inputstate == 1){
 			reglib::Camera * cam = reglib::Camera::load(std::string(argv[i]));
 			delete cameras[0];
@@ -1351,10 +1353,16 @@ int main(int argc, char **argv){
 				if(modeldatabase != 0){delete modeldatabase;}
 				modeldatabase	= new ModelDatabaseRetrieval(n);
 			}
+		}else if(inputstate == 13){
+			modelpcds.push_back( std::string(argv[i]) );
 		}
 	}
 
 	if(modeldatabase == 0){modeldatabase	= new ModelDatabaseRetrieval(n);}
+
+	for(unsigned int i = 0; i < modelpcds.size(); i++){
+		std::vector<reglib::Model *> mods = quasimodo_brain::loadModelsPCDs(modelpcds[i]);
+	}
 
 	//if(input_model_subs.size() == 0){input_model_subs.push_back(n.subscribe("/model/out/topic", 100, modelCallback));}
 	if(input_model_subs.size() == 0){input_model_subs.push_back(n.subscribe("/quasimodo/segmentation/out/model", 100, modelCallback));}
