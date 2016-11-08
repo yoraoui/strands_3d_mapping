@@ -1362,7 +1362,11 @@ int main(int argc, char **argv){
 
 	for(unsigned int i = 0; i < modelpcds.size(); i++){
 		std::vector<reglib::Model *> mods = quasimodo_brain::loadModelsPCDs(modelpcds[i]);
+		for(unsigned int j = 0; j < mods.size(); j++){
+			modeldatabase->add(mods[j]);
+		}
 	}
+
 
 	//if(input_model_subs.size() == 0){input_model_subs.push_back(n.subscribe("/model/out/topic", 100, modelCallback));}
 	if(input_model_subs.size() == 0){input_model_subs.push_back(n.subscribe("/quasimodo/segmentation/out/model", 100, modelCallback));}

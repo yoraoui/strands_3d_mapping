@@ -76,11 +76,11 @@ reglib::Model * loadFromRaresFormat(std::string path){
 	}
 
 
-//	if(model->relativeposes.size() == 0){
-//		model->submodels_relativeposes.push_back(Eigen::Matrix4d::Identity());
-//	}else{
-//		model->submodels_relativeposes.push_back(model->relativeposes.front().inverse() * sweep->frames.front()->pose);
-//	}
+	//	if(model->relativeposes.size() == 0){
+	//		model->submodels_relativeposes.push_back(Eigen::Matrix4d::Identity());
+	//	}else{
+	//		model->submodels_relativeposes.push_back(model->relativeposes.front().inverse() * sweep->frames.front()->pose);
+	//	}
 
 
 	return model;
@@ -263,8 +263,9 @@ reglib::Model * load_metaroom_model(std::string sweep_xml, std::string savePath)
 	dummy.push_back("RoomIntermediateCloud");
 	dummy.push_back("IntermediatePosition");
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(sweep_folder+"/room.xml",dummy);
-printf("loaded room XML\n");
+	printf("loaded room XML: %s\n",(sweep_folder+"/room.xml").c_str());
 	reglib::Model * sweepmodel = 0;
+	printf("%i\n",roomData.vIntermediateRoomCloudTransforms.size());
 	Eigen::Matrix4d m2 = getMat(roomData.vIntermediateRoomCloudTransforms[0]);
 	std::vector<reglib::RGBDFrame * > current_room_frames;
 
@@ -292,7 +293,7 @@ printf("loaded room XML\n");
 		Eigen::Matrix4d m = m2*getMat(roomData.vIntermediateRoomCloudTransformsRegistered[i]);
 		//Eigen::Matrix4d m =      getMat(roomData.vIntermediateRoomCloudTransforms[i]);
 
-        reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,roomData.vIntermediateRGBImages[i],5.0*roomData.vIntermediateDepthImages[i],0, m,true,savePath);
+		reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,roomData.vIntermediateRGBImages[i],5.0*roomData.vIntermediateDepthImages[i],0, m,true,savePath);
 
 		current_room_frames.push_back(frame);
 		if(sweepmodel == 0){
@@ -594,6 +595,51 @@ std::vector<std::string> recursiveGetFolderList(std::string path){
 	return folders;
 }
 
+Eigen::Matrix4f getRegisteredViewPoses(const std::string& poses_file){
+	Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
+	std::ifstream in(poses_file);
+	if (!in.is_open()){
+		cout<<"ERROR: cannot find poses file "<<poses_file<<endl;
+		return transform;
+	}
+	cout<<"Loading view pose from "<<poses_file<<endl;
+
+
+	float temp;
+	for (size_t j=0; j<4; j++){
+		for (size_t k=0; k<4; k++){
+			in >> temp;
+			transform(j,k) = temp;
+		}
+	}
+	in.close();
+	return transform;
+}
+
+std::vector<int> getIndsFromFile(const std::string& poses_file){
+	std::vector<int> indexes;
+	std::ifstream in(poses_file);
+	if (!in.is_open()){
+		cout<<"ERROR: cannot find idnex file "<<poses_file<<endl;
+		return indexes;
+	}
+	cout<<"Loading indexes from "<<poses_file<<endl;
+
+
+	std::string line;
+	while ( getline (in,line) )
+	{
+		indexes.push_back(std::stoi(line));
+
+	}
+	in.close();
+
+	return indexes;
+}
+
+
+
+
 std::vector<reglib::Model *> loadModelsPCDs(std::string path){
 	std::vector<reglib::Model *> models;
 
@@ -616,6 +662,110 @@ std::vector<reglib::Model *> loadModelsPCDs(std::string path){
 		}
 
 		printf("%i %i %i\n",cloudspaths.size(),indexpaths.size(),posepaths.size());
+		if((cloudspaths.size() == indexpaths.size()) && (cloudspaths.size() == posepaths.size())){
+			std::sort (cloudspaths.begin(), cloudspaths.end());
+			std::sort (indexpaths.begin(), indexpaths.end());
+			std::sort (posepaths.begin(), posepaths.end());
+
+
+			reglib::Model * model = new reglib::Model();
+
+//			for(unsigned int i = 0; i < msg.local_poses.size(); i++){
+//				sensor_msgs::CameraInfo		camera			= msg.frames[i].camera;
+//				ros::Time					capture_time	= msg.frames[i].capture_time;
+//				geometry_msgs::Pose			pose			= msg.frames[i].pose;
+
+//				cv_bridge::CvImagePtr			rgb_ptr;
+//				try{							rgb_ptr = cv_bridge::toCvCopy(msg.frames[i].rgb, sensor_msgs::image_encodings::BGR8);}
+//				catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
+//				cv::Mat rgb = rgb_ptr->image;
+
+//				cv_bridge::CvImagePtr			depth_ptr;
+//				try{							depth_ptr = cv_bridge::toCvCopy(msg.frames[i].depth, sensor_msgs::image_encodings::MONO16);}
+//				catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
+//				cv::Mat depth = depth_ptr->image;
+
+//				Eigen::Affine3d epose;
+//				tf::poseMsgToEigen(pose, epose);
+
+//				reglib::Camera * cam		= new reglib::Camera();
+//				if(camera.K[0] > 0){
+//					cam->fx = camera.K[0];
+//					cam->fy = camera.K[4];
+//					cam->cx = camera.K[2];
+//					cam->cy = camera.K[5];
+//				}
+
+//			}
+//
+
+			for(unsigned int j =  0; j  < cloudspaths.size(); j++){
+				std::string cloudpath = cloudspaths[j];
+				std::string indexpath = indexpaths[j];
+				std::string posepath = posepaths[j];
+				printf("loading: %s %s %s\n", cloudpath.c_str(),indexpath.c_str(),posepath.c_str());
+
+				pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+				if (pcl::io::loadPCDFile<pcl::PointXYZRGB> (cloudpath, *cloud) != -1){
+					Eigen::Matrix4f pose = getRegisteredViewPoses(posepath);
+					std::vector<int> indexes = getIndsFromFile(indexpath);
+					std::cout << pose << std::endl << std::endl;
+					std::cout << indexes.size() << std::endl;
+
+					unsigned int width = cloud->width;
+					unsigned int height = cloud->height;
+					cv::Mat rgb;
+					rgb.create(height,width,CV_8UC3);
+					unsigned char   * rgbdata   = rgb.data;
+
+					cv::Mat depth;
+					depth.create(height,width,CV_16UC1);
+					unsigned short  * depthdata = (unsigned short *)(depth.data);
+
+					reglib::Camera * cam = new reglib::Camera();//figure out cam params
+
+					//TODO figure out optical centre and focal lengths from cloud...
+//					for(unsigned int w = 0; w < width; w++){
+//						for(unsigned int w = 0; w < width; w++){
+//						pcl::PointXYZRGB p = cloud->points[k];
+//						float x = p.x;
+//						float y = p.y;
+//						float z = p.z;
+//						}
+//					}
+
+					for(unsigned int k = 0; k < width*height; k++){
+						pcl::PointXYZRGB p = cloud->points[k];
+						rgbdata[3*k+0] = p.b;
+						rgbdata[3*k+1] = p.g;
+						rgbdata[3*k+2] = p.r;
+						if(!std::isnan(p.z)){
+							depthdata[k] = 5000*p.z;
+						}else{
+							depthdata[k] = 0;
+						}
+					}
+
+
+					cv::Mat mask;
+					mask.create(height,width,CV_8UC1);
+					unsigned char   * maskdata   = mask.data;
+					for(unsigned int k = 0; k < indexes.size(); k++){maskdata[indexes[k]] = 255;}
+
+					reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, 0 , pose.cast<double>() , true,"",false);
+					model->frames.push_back(frame);
+					model->relativeposes.push_back(model->frames.front()->pose.inverse() * pose.cast<double>());
+					model->modelmasks.push_back(new reglib::ModelMask(mask));
+				}else{
+					printf ("Couldn't read pcd file\n");
+				}
+			}
+
+			model->recomputeModelPoints();
+			models.push_back(model);
+		}else{
+			printf("number of clouds, indices and poses dont match... ignoring\n");
+		}
 	}
 
 	return models;
