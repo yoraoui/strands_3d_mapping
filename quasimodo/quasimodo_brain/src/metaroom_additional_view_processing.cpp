@@ -648,6 +648,11 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 //	}
 
     reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path,savePath);
+	if(sweep->frames.size() == 0){
+		printf("no frames in sweep, returning\n");
+		return sweep;
+	}
+
 	for(unsigned int i = 0; (i < sweep->frames.size()) && (sweep->frames.size() == sweepPoses.size()) ; i++){
 		sweep->frames[i]->pose	= sweep->frames.front()->pose * sweepPoses[i];
 		sweep->relativeposes[i] = sweepPoses[i];
@@ -960,6 +965,8 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 
 	printf("fullmodel->frames.size() = %i\n",fullmodel->frames.size());
 
+
+
 //	fullmodel->fullDelete();
 //	delete fullmodel;
 //	return 0;
@@ -975,6 +982,13 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 	std::vector<reglib::RGBDFrame*> fr;
 	std::vector<reglib::ModelMask*> mm;
 	fullmodel->getData(po, fr, mm);
+
+	if(fr.size() == 0){
+		printf("no frames in model, returning\n");
+		fullmodel->fullDelete();
+		delete fullmodel;
+		return 0;
+	}
 	//	fullmodel->points = mu->getSuperPoints(po,fr,mm,1,false);
 	//	fullmodel->recomputeModelPoints();
 	//	SemanticRoom<PointType> observation = SemanticRoomXMLParser<PointType>::loadRoomFromXML(path,false);
@@ -1029,7 +1043,13 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 		std::string prev = sweep_xmls[prevind];
 		printf("prev: %s\n",prev.c_str());
 		reglib::Model * bg = getAVMetaroom(prev);
-		bgs.push_back(bg);
+		if(bg->frames.size() == 0){
+			printf("no frames in bg\n");
+			bg->fullDelete();
+			delete bg;
+		}else{
+			bgs.push_back(bg);
+		}
     }else{
         printf("no previous...\n");
     }

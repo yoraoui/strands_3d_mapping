@@ -29,7 +29,7 @@ Model::Model(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d pose){
 
     relativeposes.push_back(pose);
     frames.push_back(frame);
-    modelmasks.push_back(new ModelMask(mask));
+	modelmasks.push_back(new ModelMask(mask));
 
 	savePath = "";
     //recomputeModelPoints();
@@ -589,7 +589,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Model::getPCLcloud(int step, bool color){
 		}else{
 			p.b = sp.feature(0);
 			p.g = sp.feature(1);
-			p.r = sp.feature(2);
+			p.b = sp.feature(2);
 		}
 		cloud_ptr->points.push_back(p);
 	}

@@ -9,8 +9,9 @@ namespace reglib
 
 int ModelMask_id = 0;
 
-ModelMask::ModelMask(cv::Mat mask_){
+ModelMask::ModelMask(cv::Mat mask_, std::string label_){
 	mask = mask_;
+	label = label_;
 	sweepid = -1;
 
 	id = ModelMask_id++;

@@ -21,6 +21,10 @@ void sortXMLs(std::vector<std::string> & sweeps){
 reglib::Model * loadFromRaresFormat(std::string path){
 	reglib::Model * model = new reglib::Model();
 	reglib::Model * sweep = load_metaroom_model(path);
+	if(sweep->frames.size() == 0){
+		printf("no frames in sweep, returning\n");
+		return sweep;
+	}
 
 	model->submodels.push_back(sweep);
 	model->submodels_relativeposes.push_back(Eigen::Matrix4d::Identity());
@@ -264,6 +268,12 @@ reglib::Model * load_metaroom_model(std::string sweep_xml, std::string savePath)
 	dummy.push_back("IntermediatePosition");
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(sweep_folder+"/room.xml",dummy);
 	printf("loaded room XML: %s\n",(sweep_folder+"/room.xml").c_str());
+
+	if(roomData.vIntermediateRoomClouds.size() == 0 ){
+		printf("WARNING:: no clouds in room\n");
+		return new reglib::Model();
+	}
+
 	reglib::Model * sweepmodel = 0;
 	printf("%i\n",roomData.vIntermediateRoomCloudTransforms.size());
 	Eigen::Matrix4d m2 = getMat(roomData.vIntermediateRoomCloudTransforms[0]);

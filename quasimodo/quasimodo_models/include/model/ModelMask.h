@@ -19,6 +19,7 @@ namespace reglib
 	class ModelMask{
 		public:
 		int id;
+		std::string label;
 		cv::Mat mask;
 		int width;
 		int height;
@@ -27,7 +28,7 @@ namespace reglib
 		std::vector<int> testh;
 		int sweepid;
 
-		ModelMask(cv::Mat mask_);
+		ModelMask(cv::Mat mask_, std::string label_ = "");
 		~ModelMask();
 		cv::Mat getMask();
 	};
