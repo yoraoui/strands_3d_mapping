@@ -94,6 +94,8 @@
 #include <stdlib.h>
 #include <signal.h>
 
+#include <quasimodo_conversions/conversions.h>
+
 
 std::vector< ros::ServiceServer > m_DynamicObjectsServiceServers;
 std::vector< ros::ServiceServer > m_GetDynamicObjectServiceServers;
@@ -133,6 +135,7 @@ ros::Publisher model_pub;
 std::vector< ros::Publisher > m_PublisherStatuss;
 std::vector< ros::Publisher > out_pubs;
 std::vector< ros::Publisher > model_pubs;
+ros::Publisher roomObservationCallback_pubs;
 
 std::string saveVisuals = "";
 
@@ -140,12 +143,15 @@ std::string posepath = "testposes.xml";
 std::vector<Eigen::Matrix4d> sweepPoses;
 reglib::Camera * basecam;
 
+ros::NodeHandle * np;
+
 bool recomputeRelativePoses = false;
 
 
 void sendMetaroomToServer(std::string path);
 bool testDynamicObjectServiceCallback(std::string path);
 bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res);
+void processSweepForDatabase(std::string path, std::string savePath);
 
 void signal_callback_handler(int signum){
 	printf("Caught signal %d\n",signum);
@@ -572,82 +578,82 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 		}
 	}
 
-//	{
-//		reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path,savePath);
-//		std::vector<reglib::RGBDFrame *> frames;
-//		std::vector<reglib::ModelMask *> masks;
-//		std::vector<Eigen::Matrix4d> unrefined;
+	//	{
+	//		reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path,savePath);
+	//		std::vector<reglib::RGBDFrame *> frames;
+	//		std::vector<reglib::ModelMask *> masks;
+	//		std::vector<Eigen::Matrix4d> unrefined;
 
-//		std::vector<Eigen::Matrix4d> both_unrefined;
-//		//both_unrefined.push_back(Eigen::Matrix4d::Identity());
+	//		std::vector<Eigen::Matrix4d> both_unrefined;
+	//		//both_unrefined.push_back(Eigen::Matrix4d::Identity());
 
-//		std::vector<double> times;
-//		for(unsigned int i = 0; i < 3000 &&  i < viewrgbs.size(); i++){
-//			printf("additional view: %i\n",i);
-//			geometry_msgs::TransformStamped msg;
-//			tf::transformStampedTFToMsg(viewtfs[i], msg);
-//			long sec = msg.header.stamp.sec;
-//			long nsec = msg.header.stamp.nsec;
-//			double time = double(sec)+1e-9*double(nsec);
+	//		std::vector<double> times;
+	//		for(unsigned int i = 0; i < 3000 &&  i < viewrgbs.size(); i++){
+	//			printf("additional view: %i\n",i);
+	//			geometry_msgs::TransformStamped msg;
+	//			tf::transformStampedTFToMsg(viewtfs[i], msg);
+	//			long sec = msg.header.stamp.sec;
+	//			long nsec = msg.header.stamp.nsec;
+	//			double time = double(sec)+1e-9*double(nsec);
 
-//			Eigen::Matrix4d m = quasimodo_brain::getMat(viewtfs[i]);
+	//			Eigen::Matrix4d m = quasimodo_brain::getMat(viewtfs[i]);
 
-//			unrefined.push_back(m);
-//			times.push_back(time);
+	//			unrefined.push_back(m);
+	//			times.push_back(time);
 
-//			cv::Mat fullmask;
-//			fullmask.create(480,640,CV_8UC1);
-//			unsigned char * maskdata = (unsigned char *)fullmask.data;
-//			for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
-//			masks.push_back(new reglib::ModelMask(fullmask));
+	//			cv::Mat fullmask;
+	//			fullmask.create(480,640,CV_8UC1);
+	//			unsigned char * maskdata = (unsigned char *)fullmask.data;
+	//			for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
+	//			masks.push_back(new reglib::ModelMask(fullmask));
 
-//			reglib::Camera * cam		= sweep->frames.front()->camera->clone();
-//			reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],time, m,true,savePath);//a.matrix());
-//			frames.push_back(frame);
+	//			reglib::Camera * cam		= sweep->frames.front()->camera->clone();
+	//			reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],time, m,true,savePath);//a.matrix());
+	//			frames.push_back(frame);
 
-//			both_unrefined.push_back(quasimodo_brain::getMat(viewtfs[0]).inverse()*m);
-//		}
+	//			both_unrefined.push_back(quasimodo_brain::getMat(viewtfs[0]).inverse()*m);
+	//		}
 
-//		if(frames.size() > 0){
-//			reglib::Model * fullmodel = new reglib::Model();
-//			fullmodel->points.clear();
-//			reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.25);
-//			if(savePath.size() != 0){
-//				bgmassreg->savePath = savePath+"/processAV_"+std::to_string(fullmodel->id);
-//			}
+	//		if(frames.size() > 0){
+	//			reglib::Model * fullmodel = new reglib::Model();
+	//			fullmodel->points.clear();
+	//			reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.25);
+	//			if(savePath.size() != 0){
+	//				bgmassreg->savePath = savePath+"/processAV_"+std::to_string(fullmodel->id);
+	//			}
 
-//			bgmassreg->timeout = 300;
-//			bgmassreg->viewer = viewer;
-//			bgmassreg->use_surface = true;
-//			bgmassreg->use_depthedge = false;
-//			bgmassreg->visualizationLvl = visualization_lvl_regref;
+	//			bgmassreg->timeout = 300;
+	//			bgmassreg->viewer = viewer;
+	//			bgmassreg->use_surface = true;
+	//			bgmassreg->use_depthedge = false;
+	//			bgmassreg->visualizationLvl = visualization_lvl_regref;
 
-//			bgmassreg->maskstep = 2;
-//			bgmassreg->nomaskstep = 2;
+	//			bgmassreg->maskstep = 2;
+	//			bgmassreg->nomaskstep = 2;
 
-//			bgmassreg->nomask = true;
-//			bgmassreg->stopval = 0.0005;
-//			//bgmassreg->addModel(sweep);
-//			bgmassreg->setData(frames,masks);
+	//			bgmassreg->nomask = true;
+	//			bgmassreg->stopval = 0.0005;
+	//			//bgmassreg->addModel(sweep);
+	//			bgmassreg->setData(frames,masks);
 
-//			reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
-//			delete bgmassreg;
+	//			reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
+	//			delete bgmassreg;
 
-//			for(unsigned int i = 0; i < frames.size(); i++){
-//				fullmodel->frames.push_back(frames[i]);
-//				fullmodel->modelmasks.push_back(masks[i]);
-//				fullmodel->relativeposes.push_back(bgmfr.poses[i]);
-//			}
-//			fullmodel->recomputeModelPoints();
+	//			for(unsigned int i = 0; i < frames.size(); i++){
+	//				fullmodel->frames.push_back(frames[i]);
+	//				fullmodel->modelmasks.push_back(masks[i]);
+	//				fullmodel->relativeposes.push_back(bgmfr.poses[i]);
+	//			}
+	//			fullmodel->recomputeModelPoints();
 
-//			if(savePath.size() != 0){
-//				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = fullmodel->getPCLnormalcloud(1, false);
-//				pcl::io::savePCDFileBinaryCompressed (savePath+"/processAV_"+std::to_string(fullmodel->id)+"_fused.pcd", *cld);
-//			}
-//		}
-//	}
+	//			if(savePath.size() != 0){
+	//				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = fullmodel->getPCLnormalcloud(1, false);
+	//				pcl::io::savePCDFileBinaryCompressed (savePath+"/processAV_"+std::to_string(fullmodel->id)+"_fused.pcd", *cld);
+	//			}
+	//		}
+	//	}
 
-    reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path,savePath);
+	reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path,savePath);
 	if(sweep->frames.size() == 0){
 		printf("no frames in sweep, returning\n");
 		return sweep;
@@ -691,7 +697,7 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 		masks.push_back(new reglib::ModelMask(fullmask));
 
 		reglib::Camera * cam		= sweep->frames.front()->camera->clone();
-        reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],time, m,true,savePath);//a.matrix());
+		reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],time, m,true,savePath);//a.matrix());
 		frames.push_back(frame);
 
 		both_unrefined.push_back(sweep->frames.front()->pose.inverse()*m);
@@ -718,7 +724,7 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 		refinement->visualizationLvl	= visualization_lvl_regini;
 		refinement->normalize_matchweights = false;
 		refinement->target_points = 4000;
-////double register_setup_start = getTime();
+		////double register_setup_start = getTime();
 
 		reglib::CloudData * cd1 = sweep->getCD(sweep->points.size());
 		refinement->setDst(cd1);
@@ -726,8 +732,8 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 		fullmodel->points = frames.front()->getSuperPoints(Eigen::Matrix4d::Identity(),1,false);
 		reglib::CloudData * cd2	= fullmodel->getCD(fullmodel->points.size());
 		refinement->setSrc(cd2);
-//////printf("register_setup_start:          %5.5f\n",getTime()-register_setup_start);
-////double register_compute_start = getTime();
+		//////printf("register_setup_start:          %5.5f\n",getTime()-register_setup_start);
+		////double register_compute_start = getTime();
 		Eigen::Matrix4d guess = both_unrefined[1]*both_unrefined[0].inverse();
 
 		reglib::FusionResults fr = refinement->getTransform(guess);
@@ -752,8 +758,8 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 		bgmassreg->use_surface = true;
 		bgmassreg->use_depthedge = false;
 		bgmassreg->visualizationLvl = visualization_lvl_regref;
-//		bgmassreg->maskstep = 5;
-//		bgmassreg->nomaskstep = 5;
+		//		bgmassreg->maskstep = 5;
+		//		bgmassreg->nomaskstep = 5;
 
 		bgmassreg->maskstep = 5;
 		bgmassreg->nomaskstep = 5;
@@ -928,10 +934,10 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 			fullmodel->modelmasks.push_back(new reglib::ModelMask(fullmask));
 		}
 
-        readViewXML(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes,compute_edges,saveVisuals_sp);
+		readViewXML(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes,compute_edges,saveVisuals_sp);
 		fullmodel->recomputeModelPoints();
 	}else{
-        fullmodel = processAV(path,compute_edges,saveVisuals_sp);
+		fullmodel = processAV(path,compute_edges,saveVisuals_sp);
 		writeXml(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes);
 	}
 
@@ -940,16 +946,32 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 
 int totalcounter = 0;
 
-int processMetaroom(std::string path, bool store_old_xml = true){
+
+int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = true){
+	//	CloudPtr denoisedcloud (new Cloud());
+	//	CloudPtr fullcloud (new Cloud());
+
+
+
+	//	denoisedcloud->width = 0;
+	//	denoisedcloud->height = 1;
+
+	//	fullcloud->width = 0;
+	//	fullcloud->height = 1;
 
 	quasimodo_brain::cleanPath(path);
 	int returnval = 0;
-    printf("processMetaroom: %s\n",path.c_str());
-
-	if ( ! boost::filesystem::exists( path ) ){return 0;}
+	printf("processMetaroom: %s\n",path.c_str());
 
 	int slash_pos = path.find_last_of("/");
 	std::string sweep_folder = path.substr(0, slash_pos) + "/";
+
+
+	//	pcl::io::savePCDFileBinaryCompressed(std::string(buf),*fullcloud);
+
+	if ( ! boost::filesystem::exists( path ) ){return 0;}
+
+
 
 	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("*object*.xml"));
 	store_old_xml = objectFiles.size() == 0;
@@ -961,15 +983,16 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 
 	printf("current_roomData loaded\n");
 
-    reglib::Model * fullmodel = getAVMetaroom(path,true,saveVisuals);
+	reglib::Model * fullmodel = getAVMetaroom(path,true,saveVisuals);
 
 	printf("fullmodel->frames.size() = %i\n",fullmodel->frames.size());
 
 
 
-//	fullmodel->fullDelete();
-//	delete fullmodel;
-//	return 0;
+
+	//	pcl::io::savePCDFileBinaryCompressed(sweep_folder+"/dynamic_clusters.pcd",*dyncloud);
+	//	pcl::io::savePCDFileBinaryCompressed(sweep_folder+"/denoised_cloud.pcd",*denoisedcloud);
+	//	pcl::io::savePCDFileBinaryCompressed(sweep_folder+"/full_cloud.pcd",*fullcloud);
 
 
 	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
@@ -996,7 +1019,7 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 	//	printf("roomTransform\n");
 	//	std::cout << roomTransform << std::endl;
 
-//	return 0;
+	//	return 0;
 
 
 	DynamicObjectXMLParser objectparser(sweep_folder, true);
@@ -1017,8 +1040,8 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 		if(other_waypointid.compare(current_waypointid) == 0){prevind = i;}
 	}
 
-    printf("prevind: %i\n",prevind);
-    printf("current: %s\n",path.c_str());
+	printf("prevind: %i\n",prevind);
+	printf("current: %s\n",path.c_str());
 
 	int nextind = sweep_xmls.size();
 	for (int i = int(sweep_xmls.size()-1); i >= 0 ; i--){
@@ -1050,17 +1073,17 @@ int processMetaroom(std::string path, bool store_old_xml = true){
 		}else{
 			bgs.push_back(bg);
 		}
-    }else{
-        printf("no previous...\n");
-    }
+	}else{
+		printf("no previous...\n");
+	}
 
-//	if(nextind < sweep_xmls.size()){
-//		std::string next = sweep_xmls[nextind];
-//		printf("next: %s\n",next.c_str());
-//		reglib::Model * nxt = getAVMetaroom(next);
-//		bgs.push_back(nxt);
-//	}
-printf("bgs.size() = %i\n",bgs.size());
+	//	if(nextind < sweep_xmls.size()){
+	//		std::string next = sweep_xmls[nextind];
+	//		printf("next: %s\n",next.c_str());
+	//		reglib::Model * nxt = getAVMetaroom(next);
+	//		bgs.push_back(nxt);
+	//	}
+	printf("bgs.size() = %i\n",bgs.size());
 	if(bgs.size() > 0){
 		auto sweep = SimpleXMLParser<PointType>::loadRoomFromXML(path, std::vector<std::string>{},false);
 
@@ -1173,6 +1196,7 @@ printf("bgs.size() = %i\n",bgs.size());
 
 				if(masks.size() > 0){
 
+
 					if(store_old_xml){
 						std::stringstream ss;
 						ss << "object_";
@@ -1200,6 +1224,8 @@ printf("bgs.size() = %i\n",bgs.size());
 					char buf [1024];
 					sprintf(buf,"%s/dynamic_obj%10.10i.pcd",sweep_folder.c_str(),dynamicCounter-1);
 					pcl::io::savePCDFileBinaryCompressed(std::string(buf),*cloud_cluster);
+
+					*dyncloud += *cloud_cluster;
 
 
 					//					std::string objectpcd = std::string(buf);//object.substr(0,object.size()-4);
@@ -1395,6 +1421,18 @@ printf("bgs.size() = %i\n",bgs.size());
 		returnval = 1;
 	}
 
+	if(dyncloud->points.size()){
+		dyncloud->width = dyncloud->points.size();
+		dyncloud->height = 1;
+		pcl::io::savePCDFileBinaryCompressed(sweep_folder+"/dynamic_clusters.pcd",*dyncloud);
+	}
+
+
+
+	//	pcl::io::savePCDFileBinaryCompressed(sweep_folder+"/dynamic_clusters.pcd",*dyncloud);
+	//	pcl::io::savePCDFileBinaryCompressed(sweep_folder+"/denoised_cloud.pcd",*denoisedcloud);
+	//	pcl::io::savePCDFileBinaryCompressed(sweep_folder+"/full_cloud.pcd",*fullcloud);
+
 	for(unsigned int i = 0; i < bgs.size(); i++){
 		bgs[i]->fullDelete();
 		delete bgs[i];
@@ -1416,7 +1454,10 @@ printf("bgs.size() = %i\n",bgs.size());
 	return returnval;
 }
 
-void chatterCallback(const std_msgs::String::ConstPtr& msg){processMetaroom(msg->data);}
+void chatterCallback(const std_msgs::String::ConstPtr& msg){
+	CloudPtr dyncloud (new Cloud());
+	processMetaroom(dyncloud,msg->data);
+}
 
 void trainMetaroom(std::string path){
 	printf("processing: %s\n",path.c_str());
@@ -1545,7 +1586,8 @@ void processAndSendCallback(const std_msgs::String::ConstPtr& msg){
 	printf("================================================================================\n");
 	printf("============================processAndSendCallback==============================\n");
 	printf("================================================================================\n");
-	processMetaroom(msg->data);
+	CloudPtr dyncloud (new Cloud());
+	processMetaroom(dyncloud,msg->data);
 	sendCallback(msg);
 }
 
@@ -1676,6 +1718,9 @@ bool segmentRaresFiles(std::string path, bool resegment){
 	for (auto sweep_xml : sweep_xmls) {
 		printf("sweep_xml: %s\n",sweep_xml.c_str());
 
+		//processSweepForDatabase(sweep_xml,"");
+
+
 		quasimodo_brain::cleanPath(sweep_xml);
 		int slash_pos = sweep_xml.find_last_of("/");
 		std::string sweep_folder = sweep_xml.substr(0, slash_pos) + "/";
@@ -1691,8 +1736,8 @@ bool segmentRaresFiles(std::string path, bool resegment){
 			myfile << "dummy";
 			myfile.close();
 
-
-			processMetaroom(sweep_xml);
+			CloudPtr dyncloud (new Cloud());
+			processMetaroom(dyncloud,sweep_xml);
 		}
 
 	}
@@ -1709,7 +1754,9 @@ bool testDynamicObjectServiceCallback(std::string path){
 
 void roomObservationCallback(const semantic_map_msgs::RoomObservationConstPtr& obs_msg) {
 	std::cout<<"Room obs message received"<<std::endl;
-	int ret = processMetaroom(obs_msg->xml_file_name);
+
+	CloudPtr dyncloud (new Cloud());
+	int ret = processMetaroom(dyncloud,obs_msg->xml_file_name);
 
 	std_msgs::String msg;
 	if(ret == 0){
@@ -1721,7 +1768,192 @@ void roomObservationCallback(const semantic_map_msgs::RoomObservationConstPtr& o
 	if(ret == 2){ROS_ERROR_STREAM("No moving objects found.");}
 	if(ret == 3){ROS_ERROR_STREAM("Moving objects found.");}
 
+	sensor_msgs::PointCloud2 input;
+	pcl::toROSMsg (*dyncloud,input);
+	input.header.frame_id = "/map";
+	roomObservationCallback_pubs.publish(input);
+
 	for(unsigned int i = 0; i < m_PublisherStatuss.size(); i++){m_PublisherStatuss[i].publish(msg);}
+}
+
+void processSweepForDatabase(std::string path, std::string savePath){
+	printf("processSweepForDatabase(%s)\n",path.c_str());
+	if ( ! boost::filesystem::exists( path ) ){return;}
+
+	int slash_pos = path.find_last_of("/");
+	std::string sweep_folder = path.substr(0, slash_pos) + "/";
+
+	printf("sweep_folder: %s\n",sweep_folder.c_str());
+
+
+//	ros::ServiceClient client = n->serviceClient<soma_llsd::InsertScene>("/soma_llsd/insert_scene");
+//	ROS_INFO("Waiting for /soma_llsd/insert_scene service...");
+//    if (!client.waitForExistence(ros::Duration(1.0))) {
+//        ROS_INFO("Failed to get /soma_llsd/insert_scene service!");
+//        return;
+//    }
+//    ROS_INFO("Got /soma_llsd/insert_scene service");
+
+//    segment.id = std::to_string(model.model_id);
+
+//    size_t counter = 0;
+//    for (const quasimodo_msgs::rgbd_frame& frame : model.frames) {
+//        soma_llsd::InsertScene scene;
+//        scene.request.rgb_img = frame.rgb;
+//        scene.request.depth_img = frame.depth;
+//        scene.request.camera_info = frame.camera;
+//        scene.request.robot_pose = frame.pose; // not good actually but whatevs
+//        scene.request.cloud = model.clouds[counter];
+
+//        if (!client.call(scene)) {
+//            ROS_ERROR("Failed to call service /soma_llsd/insert_scene");
+//            return;
+//        }
+
+
+
+
+
+
+
+
+
+
+
+	reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path,savePath);
+	for(unsigned int i = 0; i < sweep->frames.size(); i++){
+		reglib::RGBDFrame * frame = sweep->frames[i];
+		geometry_msgs::Pose		pose;
+		tf::poseEigenToMsg (Eigen::Affine3d(frame->pose), pose);
+
+		cv_bridge::CvImage rgbBridgeImage;
+		rgbBridgeImage.image = frame->rgb;
+		rgbBridgeImage.encoding = "bgr8";
+		cv_bridge::CvImage depthBridgeImage;
+		depthBridgeImage.image = frame->depth;
+		depthBridgeImage.encoding = "mono16";
+//		cv_bridge::CvImage maskBridgeImage;
+//		maskBridgeImage.image			= model->modelmasks[i]->getMask();
+//		maskBridgeImage.encoding		= "mono8";
+//		msg.local_poses[startsize+i]			= pose1;
+//		msg.frames[startsize+i].capture_time	= ros::Time();
+//		msg.frames[startsize+i].pose			= pose2;
+//		msg.frames[startsize+i].frame_id		= model->frames[i]->id;
+//		msg.frames[startsize+i].rgb				= *(rgbBridgeImage.toImageMsg());
+//		msg.frames[startsize+i].depth			= *(depthBridgeImage.toImageMsg());
+//		msg.masks[startsize+i]					= *(maskBridgeImage.toImageMsg());
+
+//		msg.frames[startsize+i].camera.K[0] = model->frames[i]->camera->fx;
+//		msg.frames[startsize+i].camera.K[4] = model->frames[i]->camera->fy;
+//		msg.frames[startsize+i].camera.K[2] = model->frames[i]->camera->cx;
+//		msg.frames[startsize+i].camera.K[5] = model->frames[i]->camera->cy;
+
+//		sensor_msgs::PointCloud2 output;
+//		if(addClouds){pcl::toROSMsg(*(model->frames[i]->getPCLcloud()), output);}
+//		msg.clouds.push_back(output);
+	}
+
+
+//	int startsize = msg.local_poses.size();
+//	msg.local_poses.resize(startsize+model->relativeposes.size());
+//	msg.frames.resize(startsize+model->frames.size());
+//	msg.masks.resize(startsize+model->modelmasks.size());
+//	for(unsigned int i = 0; i < model->relativeposes.size(); i++){
+//		geometry_msgs::Pose		pose1;
+//		tf::poseEigenToMsg (Eigen::Affine3d(model->relativeposes[i])*rp, pose1);
+//		geometry_msgs::Pose		pose2;
+//		tf::poseEigenToMsg (Eigen::Affine3d(model->frames[i]->pose)*rp, pose2);
+//		cv_bridge::CvImage rgbBridgeImage;
+//		rgbBridgeImage.image = model->frames[i]->rgb;
+//		rgbBridgeImage.encoding = "bgr8";
+//		cv_bridge::CvImage depthBridgeImage;
+//		depthBridgeImage.image = model->frames[i]->depth;
+//		depthBridgeImage.encoding = "mono16";
+//		cv_bridge::CvImage maskBridgeImage;
+//		maskBridgeImage.image			= model->modelmasks[i]->getMask();
+//		maskBridgeImage.encoding		= "mono8";
+//		msg.local_poses[startsize+i]			= pose1;
+//		msg.frames[startsize+i].capture_time	= ros::Time();
+//		msg.frames[startsize+i].pose			= pose2;
+//		msg.frames[startsize+i].frame_id		= model->frames[i]->id;
+//		msg.frames[startsize+i].rgb				= *(rgbBridgeImage.toImageMsg());
+//		msg.frames[startsize+i].depth			= *(depthBridgeImage.toImageMsg());
+//		msg.masks[startsize+i]					= *(maskBridgeImage.toImageMsg());
+
+//		msg.frames[startsize+i].camera.K[0] = model->frames[i]->camera->fx;
+//		msg.frames[startsize+i].camera.K[4] = model->frames[i]->camera->fy;
+//		msg.frames[startsize+i].camera.K[2] = model->frames[i]->camera->cx;
+//		msg.frames[startsize+i].camera.K[5] = model->frames[i]->camera->cy;
+
+//		sensor_msgs::PointCloud2 output;
+//		if(addClouds){pcl::toROSMsg(*(model->frames[i]->getPCLcloud()), output);}
+//		msg.clouds.push_back(output);
+//	}
+//	for(unsigned int i = 0; i < model->submodels_relativeposes.size(); i++){
+//		addToModelMSG(msg,model->submodels[i],Eigen::Affine3d(model->submodels_relativeposes[i])*rp,addClouds);
+//	}
+
+
+	sweep->fullDelete();
+	delete sweep;
+	exit(0);
+	//		int additional_nrviews = 0;
+	//		QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("*object*.xml"));
+	//		for (auto objectFile : objectFiles){
+	//			printf("objectFile: %s\n",(sweep_folder+objectFile.toStdString()).c_str());
+	//			auto object = loadDynamicObjectFromSingleSweep<PointType>(sweep_folder+objectFile.toStdString(),false);
+	//			additional_nrviews += object.vAdditionalViews.size();
+	//		}
+
+	//		SimpleXMLParser<pcl::PointXYZRGB> parser;
+	//		SimpleXMLParser<pcl::PointXYZRGB>::RoomData current_roomData  = parser.loadRoomFromXML(path,std::vector<std::string>{"RoomIntermediateCloud","IntermediatePosition"});
+	//		int metaroom_nrviews = current_roomData.vIntermediateRoomClouds.size();
+
+
+	//		printf("viewgroup_nrviews: %i\n",viewgroup_nrviews);
+	//		printf("additional_nrviews: %i\n",additional_nrviews);
+	//		printf("metaroom_nrviews: %i\n",metaroom_nrviews);
+
+	//		reglib::Model * fullmodel;
+	//		if(viewgroup_nrviews == (additional_nrviews+metaroom_nrviews) && !recomputeRelativePoses){
+	//			printf("time to read old\n");
+	//			fullmodel = new reglib::Model();
+	//			fullmodel->savePath = saveVisuals_sp+"/";
+
+	//			for(unsigned int i = 0; i < viewgroup_nrviews; i++){
+	//				cv::Mat fullmask;
+	//				fullmask.create(480,640,CV_8UC1);
+	//				unsigned char * maskdata = (unsigned char *)fullmask.data;
+	//				for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
+	//				fullmodel->modelmasks.push_back(new reglib::ModelMask(fullmask));
+	//			}
+
+	//			readViewXML(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes,compute_edges,saveVisuals_sp);
+	//			fullmodel->recomputeModelPoints();
+	//		}else{
+	//			fullmodel = processAV(path,compute_edges,saveVisuals_sp);
+	//			writeXml(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes);
+	//		}
+
+	//		return fullmodel;
+	//	}
+
+
+
+	//	quasimodo_msgs::model	model;
+	//	soma_llsd_msgs::Segment segment;
+	//model_to_soma_segment(ros::NodeHandle& n, const quasimodo_msgs::model& model, soma_llsd_msgs::Segment& segment);
+}
+
+bool testPath(std::string path){
+	printf("bool testPath(%s)\n",path.c_str());
+
+	vector<string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<PointType>(path);
+	for (auto sweep_xml : sweep_xmls) {
+		printf("sweep_xml: %s\n",sweep_xml.c_str());
+		processSweepForDatabase(sweep_xml,"");
+	}
+	return false;
 }
 
 
@@ -1751,6 +1983,7 @@ int main(int argc, char** argv){
 
 	ros::init(argc, argv, "metaroom_additional_view_processing");
 	ros::NodeHandle n;
+	np = &n;
 
 	std::vector<ros::Subscriber> segsubs;
 	std::vector<ros::Subscriber> sendsubs;
@@ -1761,6 +1994,7 @@ int main(int argc, char** argv){
 	std::vector<std::string> trainMetarooms;
 	std::vector<std::string> sendMetaroomToServers;
 	std::vector<std::string> processMetarooms;
+	std::vector<std::string> testpaths;
 
 	std::vector<bool>		 raresfiles_resegment;
 	std::vector<std::string> raresfiles;
@@ -1791,9 +2025,10 @@ int main(int argc, char** argv){
 		else if(std::string(argv[i]).compare("-once") == 0){					once		= true;}
 		else if(std::string(argv[i]).compare("-nobase") == 0){					baseSetting = false;}
 		else if(std::string(argv[i]).compare("-recomputeRelativePoses") == 0){	recomputeRelativePoses = true;}
-        else if(std::string(argv[i]).compare("-v_init") == 0){	visualization_lvl_regini = 1;inputstate = 17;}
+		else if(std::string(argv[i]).compare("-v_init") == 0){	visualization_lvl_regini = 1;inputstate = 17;}
 		else if(std::string(argv[i]).compare("-v_reg") == 0){	visualization_lvl_regref = 1;inputstate = 18;}
 		else if(std::string(argv[i]).compare("-saveVisuals") == 0){				inputstate = 19;}
+		else if(std::string(argv[i]).compare("-testpaths") == 0){				inputstate = 20;}
 		else if(inputstate == 0){
 			segsubs.push_back(n.subscribe(std::string(argv[i]), 1000, chatterCallback));
 		}else if(inputstate == 1){
@@ -1831,10 +2066,12 @@ int main(int argc, char** argv){
 			setBaseSweep(std::string(argv[i]));
 		}else if(inputstate == 17){
 			visualization_lvl_regini = atoi(argv[i]);
-        }else if(inputstate == 18){
-            visualization_lvl_regref = atoi(argv[i]);
+		}else if(inputstate == 18){
+			visualization_lvl_regref = atoi(argv[i]);
 		}else if(inputstate == 19){
 			saveVisuals = std::string(argv[i]);
+		}else if(inputstate == 20){
+			testpaths.push_back(std::string(argv[i]));
 		}
 	}
 
@@ -1852,19 +2089,19 @@ int main(int argc, char** argv){
 		}
 
 		if(segsubs.size() == 0){
-            segsubs.push_back(n.subscribe("/quasimodo/segmentation/in", 1000, chatterCallback));
+			segsubs.push_back(n.subscribe("/quasimodo/segmentation/in", 1000, chatterCallback));
 		}
 
-        if(out_pubs.size() == 0){
-            out_pubs.push_back(n.advertise<std_msgs::String>("/quasimodo/segmentation/out/path", 1000));
+		if(out_pubs.size() == 0){
+			out_pubs.push_back(n.advertise<std_msgs::String>("/quasimodo/segmentation/out/path", 1000));
 		}
 
 		if(model_pubs.size() == 0){
-            model_pubs.push_back(n.advertise<quasimodo_msgs::model>("/quasimodo/segmentation/out/model", 1000));
+			model_pubs.push_back(n.advertise<quasimodo_msgs::model>("/quasimodo/segmentation/out/model", 1000));
 		}
 
 		if(sendsubs.size() == 0){
-            sendsubs.push_back(n.subscribe("/quasimodo/segmentation/send", 1000, sendCallback));
+			sendsubs.push_back(n.subscribe("/quasimodo/segmentation/send", 1000, sendCallback));
 		}
 
 		if(roomObservationSubs.size() == 0){
@@ -1876,11 +2113,18 @@ int main(int argc, char** argv){
 		}
 	}
 
+
+	roomObservationCallback_pubs = n.advertise<sensor_msgs::PointCloud2>("/quasimodo/segmentation/roomObservation/dynamic_clusters", 1000);
+
 	printf("overall_folder: %s\n",overall_folder.c_str());
 
-	for(unsigned int i = 0; i < raresfiles.size(); i++){			segmentRaresFiles(		raresfiles[i], raresfiles_resegment[i]);}
+	for(unsigned int i = 0; i < testpaths.size(); i++){testPath(testpaths[i]);}
+	for(unsigned int i = 0; i < raresfiles.size(); i++){segmentRaresFiles(		raresfiles[i], raresfiles_resegment[i]);}
 	for(unsigned int i = 0; i < trainMetarooms.size(); i++){		trainMetaroom(			trainMetarooms[i]);}
-	for(unsigned int i = 0; i < processMetarooms.size(); i++){		processMetaroom(		processMetarooms[i]);}
+	for(unsigned int i = 0; i < processMetarooms.size(); i++){
+		CloudPtr dyncloud (new Cloud());
+		processMetaroom(dyncloud,processMetarooms[i]);
+	}
 	for(unsigned int i = 0; i < sendMetaroomToServers.size(); i++){
 		vector<string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<PointType>(sendMetaroomToServers[i]);
 		for (auto sweep_xml : sweep_xmls) {

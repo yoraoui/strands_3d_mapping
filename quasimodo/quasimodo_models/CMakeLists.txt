@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
 	#metaroom_xml_parser
 	#semantic_map
 	pcl_ros
+	quasimodo_conversions
 )
 
 

@@ -15,9 +15,9 @@
 #include "quasimodo_msgs/retrieval_query_result.h"
 #include "quasimodo_msgs/retrieval_query.h"
 #include "quasimodo_msgs/retrieval_result.h"
-#include "soma2_msgs/SOMA2Object.h"
+#include "soma_msgs/SOMAObject.h"
 
-#include "soma_manager/SOMA2InsertObjs.h"
+#include "soma_manager/SOMAInsertObjs.h"
 
 //#include "modelupdater/ModelUpdater.h"
 //#include "/home/johane/catkin_ws_dyn/src/quasimodo_models/include/modelupdater/ModelUpdater.h"
@@ -89,11 +89,15 @@ ros::Publisher model_places_pub;
 ros::Publisher model_last_pub;
 ros::Publisher chatter_pub;
 
+//<<<<<<< HEAD
 ros::ServiceClient retrieval_client;
 ros::ServiceClient conversion_client;
 ros::ServiceClient insert_client;
 
-ros::ServiceClient soma2add;
+//ros::ServiceClient soma2add;
+////=======
+//ros::ServiceClient soma_add;
+//>>>>>>> integrate_object_search
 
 double occlusion_penalty = 10;
 double massreg_timeout = 120;
@@ -233,10 +237,10 @@ void show_sorted(){
 	showModels(results);
 }
 
-std::vector<soma2_msgs::SOMA2Object> getSOMA2ObjectMSGs(reglib::Model * model){
-	std::vector<soma2_msgs::SOMA2Object> msgs;
+std::vector<soma_msgs::SOMAObject> getSOMA2ObjectMSGs(reglib::Model * model){
+	std::vector<soma_msgs::SOMAObject> msgs;
 	for(unsigned int i = 0; i < model->frames.size(); i++){
-		soma2_msgs::SOMA2Object msg;
+		soma_msgs::SOMAObject msg;
 		char buf [1024];
 		sprintf(buf,"id_%i_%i",int(model->id),int(model->frames[i]->id));
 		msg.id				= std::string(buf);
@@ -332,10 +336,25 @@ std::vector<soma2_msgs::SOMA2Object> getSOMA2ObjectMSGs(reglib::Model * model){
 }
 
 void publishModel(reglib::Model * model){
-	soma_manager::SOMA2InsertObjs objs;
-	objs.request.objects = getSOMA2ObjectMSGs(model);
-	if (soma2add.call(objs)){
-	}else{ROS_ERROR("Failed to call service soma2add");}
+//<<<<<<< HEAD
+//	soma_manager::SOMA2InsertObjs objs;
+//	objs.request.objects = getSOMA2ObjectMSGs(model);
+//	if (soma2add.call(objs)){
+//	}else{ROS_ERROR("Failed to call service soma2add");}
+//=======
+//	//	std::vector<soma_msgs::SOMAObject> somamsgs = getSOMA2ObjectMSGs(model);
+//	soma_manager::SOMAInsertObjs objs;
+//	objs.request.objects = getSOMA2ObjectMSGs(model);
+//	if (soma_add.call(objs)){//Add frame to model server
+//		////			int frame_id = ifsrv.response.frame_id;
+//	}else{ROS_ERROR("Failed to call service soma_add");}
+
+//	//	for(int i = 0; i < somamsgs.size(); i++){
+//	//		if (soma_add.call(somamsgs[i])){//Add frame to model server
+//	////			int frame_id = ifsrv.response.frame_id;
+//	//		 }else{ROS_ERROR("Failed to call service soma_add");}
+//	//	 }
+//>>>>>>> integrate_object_search
 }
 
 
@@ -1258,8 +1277,13 @@ int main(int argc, char **argv){
 	ros::ServiceServer service4 = n.advertiseService("get_model", getModel);
 	ROS_INFO("Ready to add use get_model.");
 
-	soma2add = n.serviceClient<soma_manager::SOMA2InsertObjs>("soma2/insert_objs");
-	ROS_INFO("Ready to add use soma2add.");
+//<<<<<<< HEAD
+//	soma2add = n.serviceClient<soma_manager::SOMA2InsertObjs>("soma2/insert_objs");
+//	ROS_INFO("Ready to add use soma2add.");
+//=======
+//	soma_add = n.serviceClient<soma_manager::SOMAInsertObjs>("soma/insert_objs");
+//	ROS_INFO("Ready to add use soma_add.");
+//>>>>>>> integrate_object_search
 
 	ros::Subscriber sub = n.subscribe("/retrieval_result", 1, retrievalCallback);
 	ROS_INFO("Ready to add recieve search results.");

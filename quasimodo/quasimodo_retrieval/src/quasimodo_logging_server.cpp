@@ -14,9 +14,9 @@
 #include <tf_conversions/tf_eigen.h>
 #include <eigen_conversions/eigen_msg.h>
 
-// for logging to soma2 in mongodb
-#include <soma2_msgs/SOMA2Object.h>
-#include <soma_manager/SOMA2InsertObjs.h>
+// for logging to soma in mongodb
+#include <soma_msgs/SOMAObject.h>
+#include <soma_manager/SOMAInsertObjs.h>
 #include <mongodb_store/MongoInsert.h>
 
 using namespace std;
@@ -40,7 +40,7 @@ public:
 
     void callback(const quasimodo_msgs::retrieval_query_result& res)
     {
-        soma_manager::SOMA2InsertObjs::Request soma_req;
+        soma_manager::SOMAInsertObjs::Request soma_req;
 
         size_t N = res.result.retrieved_clouds.size();
         soma_req.objects.resize(N);
@@ -70,7 +70,7 @@ public:
             soma_req.objects[i].id = res.result.retrieved_image_paths[i].strings[0];
         }
 
-        std::sort(soma_req.objects.begin(), soma_req.objects.end(), [](const soma2_msgs::SOMA2Object& o1, const soma2_msgs::SOMA2Object& o2) {
+        std::sort(soma_req.objects.begin(), soma_req.objects.end(), [](const soma_msgs::SOMAObject& o1, const soma_msgs::SOMAObject& o2) {
             return o1.logtimestamp < o2.logtimestamp;
         });
 
@@ -85,8 +85,8 @@ public:
         soma_req.objects[N].id = "retrieval_query";
         */
 
-        ros::ServiceClient soma_service = n.serviceClient<soma_manager::SOMA2InsertObjs>("/soma2/insert_objects");
-        soma_manager::SOMA2InsertObjs::Response soma_resp;
+        ros::ServiceClient soma_service = n.serviceClient<soma_manager::SOMAInsertObjs>("/soma/insert_objects");
+        soma_manager::SOMAInsertObjs::Response soma_resp;
         try {
             if (soma_service.call(soma_req, soma_resp)) {
                 cout << "Successfully inserted queries!" << endl;
@@ -103,7 +103,7 @@ public:
         mongodb_store::MongoInsert::Request db_req;
         //db_req.
 
-        ros::ServiceClient db_service = n.serviceClient<mongodb_store::MongoInsert>("/soma2/insert_objects");
+        ros::ServiceClient db_service = n.serviceClient<mongodb_store::MongoInsert>("/soma/insert_objects");
         mongodb_store::MongoInsert::Response db_resp;
         if (db_service.call(db_req, db_resp)) {
             cout << "Successfully inserted queries!" << endl;
