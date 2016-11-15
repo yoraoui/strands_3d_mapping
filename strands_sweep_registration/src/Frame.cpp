@@ -15,6 +15,13 @@
 
 int frame_id = 0;
 
+Frame::Frame(Camera * camera_){
+	id = frame_id;
+	frame_id++;
+	camera = camera_;
+	featuretype = 0;
+}
+
 Frame::Frame(Camera * camera_, float * rgb_data_, float * depth_data_){
 	id = frame_id;
 	frame_id++;
@@ -133,6 +140,7 @@ void Frame::recalculateFullPoints(){
 	float centerY		= camera->cy;
 	float invFocalX		= 1.0f/camera->fx;
     float invFocalY		= 1.0f/camera->fy;
+	//keypoint_location.clear(); //We should probably clear this....
 	for(unsigned int i = 0; i < keypoints.size(); i++){
 		float w = keypoints.at(i).pt.x;
 		float h = keypoints.at(i).pt.y;

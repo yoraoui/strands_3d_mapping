@@ -26,8 +26,8 @@ using namespace std;
 
 typedef actionlib::SimpleActionServer<calibrate_sweeps::CalibrateSweepsAction> Server;
 
-std::string runCalibration(int min_num_sweeps = 1, int max_num_sweeps = 100000, std::string sweep_location = "", std::string save_location = ""){
-
+std::string runCalibration(int min_num_sweeps = 1, int max_num_sweeps = 100000, std::string sweep_location = "", std::string save_location = "",
+						   bool newParams = true, float fx = 534.191590, float fy = 534.016892, float cx = 315.622746, float cy = 238.568515){
 	if (sweep_location=="")
 	{
 		passwd* pw = getpwuid(getuid());
@@ -45,8 +45,23 @@ std::string runCalibration(int min_num_sweeps = 1, int max_num_sweeps = 100000, 
 		return "";
 	}
 
+	//SweepParameters complete_sweep_parameters (-160, 20, 160, -30, 30, 30);
+	SweepParameters complete_sweep_parameters	(-160, 20, 160, -30, 30,  30);
 
-	SweepParameters complete_sweep_parameters (-160, 20, 160, -30, 30, 30);
+	SweepParameters medium_sweep_parameters		(-160, 20, 160, -30, -30, -30);
+	SweepParameters short_sweep_parameters		(-160, 40, 160, -30, -30, -30);
+	SweepParameters shortest_sweep_parameters	(-160, 60, 140, -30, -30, -30);
+
+	SweepParameters medium_sweep_parameters2	(-160, 20, 160, -30, 30, -30);
+	SweepParameters short_sweep_parameters2		(-160, 40, 160, -30, 30, -30);
+	SweepParameters shortest_sweep_parameters2	(-160, 60, 140, -30, 30, -30);
+
+	ROS_INFO_STREAM("complete_sweep_parameters paramters " << complete_sweep_parameters);
+	ROS_INFO_STREAM("medium_sweep_parameters   paramters " << medium_sweep_parameters);
+	ROS_INFO_STREAM("short_sweep_parameters    paramters " << short_sweep_parameters);
+	ROS_INFO_STREAM("shortest_sweep_parameters paramters " << shortest_sweep_parameters);
+
+
 	ROS_INFO_STREAM("Calibrating using sweeps with paramters "<<complete_sweep_parameters);
 
 	ROS_INFO_STREAM("Sweeps will be read from "<<sweep_location);
@@ -111,48 +126,101 @@ std::string runCalibration(int min_num_sweeps = 1, int max_num_sweeps = 100000, 
 //    	534.191590 0.000000 315.622746
 //		0.000000 534.016892 238.568515
 //0.000000 0.000000 1.000000
-printf("%f %f %f %f\n",534.191590, 534.016892,315.622746, 238.568515);
-	rc->initializeCamera(534.191590, 534.016892,315.622746, 238.568515, 640, 480);
-//exit(0);
-	// initialize camera parameters from the sweep
-	/*
-	if (matchingObservations.size()){
-		SemanticRoom<PointType> aRoom = SemanticRoomXMLParser<PointType>::loadRoomFromXML(matchingObservations[0],true);
-		if (aRoom.getIntermediateCloudCameraParameters().size()){
-			image_geometry::PinholeCameraModel aCameraModel = aRoom.getIntermediateCloudCameraParameters()[0];
-			rc->initializeCamera(aCameraModel.fx(), aCameraModel.fy(), aCameraModel.cx(), aCameraModel.cy(), aCameraModel.fullResolution().width, aCameraModel.fullResolution().height);
-		} else {
-			// no camera parameters saved with the sweep -> initialize optimizer with default parameters
-			rc->initializeCamera(540.0, 540.0,319.5, 219.5, 640, 480);
-		}
-	}*/
+//printf("%f %f %f %f\n",534.191590, 534.016892,315.622746, 238.568515);
+//	rc->initializeCamera(534.191590, 534.016892,315.622746, 238.568515, 640, 480);
 
+
+
+	if(newParams){
+		//printf("%f %f %f %f\n",fx,fy,cx,cy);
+		rc->initializeCamera(fx,fy,cx,cy, 640, 480);
+	}else{
+		// initialize camera parameters from the sweep
+		if (matchingObservations.size()){
+			SemanticRoom<PointType> aRoom = SemanticRoomXMLParser<PointType>::loadRoomFromXML(matchingObservations.front(),true);
+			if (aRoom.getIntermediateCloudCameraParameters().size()){
+				image_geometry::PinholeCameraModel aCameraModel = aRoom.getIntermediateCloudCameraParameters()[0];
+				rc->initializeCamera(aCameraModel.fx(), aCameraModel.fy(), aCameraModel.cx(), aCameraModel.cy(), aCameraModel.fullResolution().width, aCameraModel.fullResolution().height);
+			} else {
+				// no camera parameters saved with the sweep -> initialize optimizer with default parameters
+				rc->initializeCamera(540.0, 540.0,319.5, 219.5, 640, 480);
+			}
+		}else{
+			exit(0);
+		}
+	}
+
+	CloudPtr dummy_cloud (new Cloud());
+	dummy_cloud->width = 640;
+	dummy_cloud->height = 480;
+	dummy_cloud->points.resize(dummy_cloud->width*dummy_cloud->height);
+
+//exit(0);
+
+//	SweepParameters complete_sweep_parameters	(-160, 20, 160, -30, 30,  30);
+//	SweepParameters medium_sweep_parameters		(-160, 20, 160, -30, 30, -30);
+//	SweepParameters short_sweep_parameters		(-160, 40, 160, -30, 30, -30);
+//	SweepParameters shortest_sweep_parameters	(-160, 60, 140, -30, 30, -30);
 
 	for (size_t i=0; i<max_num_sweeps && i<matchingObservations.size(); i++)
 	{
+		printf("sweep: %i\n",i);
 		// check if sweep parameters correspond
-		SemanticRoom<PointType> aRoom = SemanticRoomXMLParser<PointType>::loadRoomFromXML(matchingObservations[i],true);
-		if (aRoom.m_SweepParameters != complete_sweep_parameters){
-			ROS_INFO_STREAM("Skipping "<<matchingObservations[i]<<" sweep parameters not correct: "<<aRoom.m_SweepParameters<<" Required parameters "<<complete_sweep_parameters);
-			continue; // not a match
-		}
 
-		// check if the orb features have already been computed
+		unsigned found = matchingObservations[i].find_last_of("/");
+		std::string base_path = matchingObservations[i].substr(0,found+1);
+		RegistrationFeatures reg(false);
+		//reg.saveOrbFeatures<PointType>(aRoom,base_path);
+
 		std::vector<semantic_map_registration_features::RegistrationFeatures> features = semantic_map_registration_features::loadRegistrationFeaturesFromSingleSweep(matchingObservations[i], false);
-		if (features.size() == 0)
-		{
-			// recompute orb
-
-			unsigned found = matchingObservations[i].find_last_of("/");
-			std::string base_path = matchingObservations[i].substr(0,found+1);
-			RegistrationFeatures reg(false);
+		if (features.size() == 0){
+			SemanticRoom<PointType> aRoom = SemanticRoomXMLParser<PointType>::loadRoomFromXML(matchingObservations[i],true);
 			reg.saveOrbFeatures<PointType>(aRoom,base_path);
 		}
 		rc->addToTrainingORBFeatures(matchingObservations[i]);
-	}
 
+/*
+		if		 (aRoom.m_SweepParameters == complete_sweep_parameters){
+			printf("complete_sweep_parameters\n");
+
+			if (features.size() == 0){reg.saveOrbFeatures<PointType>(aRoom,base_path);}
+			rc->addToTrainingORBFeatures(matchingObservations[i]);
+
+		}else if (aRoom.m_SweepParameters == medium_sweep_parameters   || aRoom.m_SweepParameters == medium_sweep_parameters2 ){
+			printf("medium_sweep_parameters\n");
+
+			for(unsigned int j = 0; j < before.size(); j++){
+				after.push_back(before[j]);
+			}
+
+			while(after.size() < 51){after.push_back(dummy_cloud);}
+			aRoom.setIntermediateClouds(after);
+
+			if (features.size() == 0){reg.saveOrbFeatures<PointType>(aRoom,base_path);}
+			rc->addToTrainingORBFeatures(matchingObservations[i]);
+
+		}else if (aRoom.m_SweepParameters == short_sweep_parameters    || aRoom.m_SweepParameters == short_sweep_parameters2 ){
+			printf("short_sweep_parameters\n");
+		}else if (aRoom.m_SweepParameters == shortest_sweep_parameters || aRoom.m_SweepParameters == shortest_sweep_parameters2 ){
+			printf("shortest_sweep_parameters\n");
+		}else{
+			printf("sweep has no known type\n");
+			std::cout <<"sweep parameters not correct: " << aRoom.m_SweepParameters << std::endl << std::endl << std::endl << std::endl;
+		}
+*/
+
+//		if (aRoom.m_SweepParameters != complete_sweep_parameters){
+//			ROS_INFO_STREAM("Skipping "<<matchingObservations[i]<<" sweep parameters not correct: "<<aRoom.m_SweepParameters<<" Required parameters "<<complete_sweep_parameters);
+//			continue; // not a match
+//		}
+
+//		// check if the orb features have already been computed
+
+		//
+	}
 	// perform calibration
 	std::vector<Eigen::Matrix4f> cameraPoses = rc->train();
+
 	std::vector<tf::StampedTransform> registeredPoses;
 
 	for (auto eigenPose : cameraPoses)
@@ -171,6 +239,17 @@ printf("%f %f %f %f\n",534.191590, 534.016892,315.622746, 238.568515);
 	registeredPoses.clear();
 	registeredPoses = semantic_map_registration_transforms::loadRegistrationTransforms(registeredPosesFile);
 	ROS_INFO_STREAM("Calibration poses saved at: "<<registeredPosesFile);
+
+	std::vector<tf::StampedTransform> complete_registeredPoses = registeredPoses;
+
+	std::vector<tf::StampedTransform> medium_registeredPoses;
+	for(unsigned int i = 0; i < 17; i+=1){medium_registeredPoses.push_back(registeredPoses[i]);}
+
+	std::vector<tf::StampedTransform> short_registeredPoses;
+	for(unsigned int i = 0; i < 17; i+=2){short_registeredPoses.push_back(registeredPoses[i]);}
+
+	std::vector<tf::StampedTransform> shortest_registeredPoses;
+	for(unsigned int i = 0; i < 17; i+=3){shortest_registeredPoses.push_back(registeredPoses[i]);}
 
 	std::string sweepParametersFile = semantic_map_registration_transforms::saveSweepParameters(complete_sweep_parameters);
 	ROS_INFO_STREAM("Calibration sweep parameters saved at: "<<sweepParametersFile);
@@ -192,12 +271,13 @@ printf("%f %f %f %f\n",534.191590, 534.016892,315.622746, 238.568515);
 	std::string camParamsFile = semantic_map_registration_transforms::saveCameraParameters(aCameraModel);
 	ROS_INFO_STREAM("Camera parameters saved at: "<<camParamsFile);
 
+
+
 	// update sweeps with new poses and new camera parameters
 
 	SemanticRoomXMLParser<PointType> reg_parser(saveLocation);
 
-	for (auto usedObs : matchingObservations)
-	{
+	for (auto usedObs : matchingObservations){
 		SemanticRoom<PointType> aRoom = SemanticRoomXMLParser<PointType>::loadRoomFromXML(usedObs,true);
 		auto origTransforms = aRoom.getIntermediateCloudTransforms();
 		aRoom.clearIntermediateCloudRegisteredTransforms();
@@ -225,16 +305,16 @@ printf("%f %f %f %f\n",534.191590, 534.016892,315.622746, 238.568515);
 		semantic_map_room_utilities::rebuildRegisteredCloud<PointType>(aRoom);
 		// transform to global frame of reference
 		tf::StampedTransform origin = origTransforms[0];
-		CloudPtr completeCloud = aRoom.getCompleteRoomCloud();
-		pcl_ros::transformPointCloud(*completeCloud, *completeCloud,origin);
-		aRoom.setCompleteRoomCloud(completeCloud);
-		string room_path = reg_parser.saveRoomAsXML(aRoom);
+//		CloudPtr completeCloud = aRoom.getCompleteRoomCloud();
+//		pcl_ros::transformPointCloud(*completeCloud, *completeCloud,origin);
+//		aRoom.setCompleteRoomCloud(completeCloud);
+		string room_path = reg_parser.saveRoomAsXML(aRoom,"room.xml",true);
 		ROS_INFO_STREAM("..done");
 		// recompute ORB features
-		unsigned found = room_path.find_last_of("/");
-		std::string base_path = room_path.substr(0,found+1);
-		RegistrationFeatures reg(false);
-		reg.saveOrbFeatures<PointType>(aRoom,base_path);
+//		unsigned found = room_path.find_last_of("/");
+//		std::string base_path = room_path.substr(0,found+1);
+//		RegistrationFeatures reg(false);
+//		reg.saveOrbFeatures<PointType>(aRoom,base_path);
 	}
 	delete rc;
 	return saveLocation;
@@ -317,7 +397,7 @@ void execute(const calibrate_sweeps::CalibrateSweepsGoalConstPtr& goal, Server* 
             if (!boost::filesystem::create_directory(saveLocation))
             {
                 ROS_ERROR_STREAM("Could not create folder where to save calibration data "+saveLocation);
-                 as->setAborted(res,"Could not create folder where to save calibration data "+saveLocation);
+				 as->setAborted(res,"Could not create folder where to /media/johane/SSDstorage/final_tsc_semantic_maps/semantic_maps//20160808/patrol_run_110/room_0/save calibration data "+saveLocation);
                  return;
             }
         }
@@ -484,6 +564,69 @@ int main(int argc, char** argv)
   ROS_INFO_STREAM("Calibrate sweep action server initialized");
   server.start();
   ros::Subscriber sub = n.subscribe("calibrate_sweeps_action_server/run", 1000, runCallback);
+
+  bool runCalib = false;
+  std::vector<std::string> recalibPaths;
+  //std::string recalibPath = std::string(getenv ("HOME"))+"/.semanticMap/";
+  bool loadParams = false;
+  float fx = 535;
+  float fy = 535;
+  float cx = 0.5*(640.0-1);
+  float cy = 0.5*(480.0-1);
+
+  int max_sweeps = 100;
+
+  int inputstate = -1;
+  for(unsigned int i = 1; i < argc; i++){
+	  if(std::string(argv[i]).compare("-run") == 0){
+		  runCalib = true;
+		  inputstate = 0;
+	  }else if(std::string(argv[i]).compare("-fx") == 0){
+		  inputstate = 1;
+	  }else if(std::string(argv[i]).compare("-fy") == 0){
+		  inputstate = 2;
+	  }else if(std::string(argv[i]).compare("-cx") == 0){
+		  inputstate = 3;
+	  }else if(std::string(argv[i]).compare("-cy") == 0){
+		  inputstate = 4;
+	  }else if(std::string(argv[i]).compare("-max_sweeps") == 0){
+		  inputstate = 5;
+	  }else if(std::string(argv[i]).compare("-loadParams") == 0){
+		  loadParams = true;
+	  }else if(inputstate == 0){
+		  recalibPaths.push_back(std::string(argv[i]));
+	  }else if(inputstate == 1){
+		  loadParams = true;
+		  fx = atof(argv[i]);
+	  }else if(inputstate == 2){
+		  loadParams = true;
+		  fy = atof(argv[i]);
+	  }else if(inputstate == 3){
+		  loadParams = true;
+		  cx = atof(argv[i]);
+	  }else if(inputstate == 4){
+		  loadParams = true;
+		  cy = atof(argv[i]);
+	  }else if(inputstate == 5){
+		  max_sweeps = atoi(argv[i]);
+	  }
+  }
+
+  if(runCalib){
+	if(recalibPaths.size() == 0){
+		recalibPaths.push_back(std::string(getenv ("HOME"))+"/.semanticMap/");
+	}
+	for(unsigned int i = 0; i < recalibPaths.size(); i++){
+		if(loadParams){
+			runCalibration(1,max_sweeps,recalibPaths[i], "",loadParams,fx,fy,cx,cy);
+		}else{
+			runCalibration(1,max_sweeps,recalibPaths[i], "");
+		}
+		//bool newParams = true, float fx = 534.191590, float fy = 534.016892, float cx = 315.622746, float cy = 238.568515
+	}
+	exit(0);
+  }
+
   ros::spin();
   return 0;
 }

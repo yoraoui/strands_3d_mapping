@@ -17,16 +17,40 @@ Camera::Camera(float fx_, float fy_, float cx_, float cy_,	int width_,	int heigh
 	for(int i = 0; i < width*height; i++){
 		pixelsFunctions[i] = new PixelFunction(); 
 	}
+
+
+	coefs_degree = 1;
+	coefs_width = width/40;
+	coefs_height = height/40;
+
+
+	multiplierCoeffs = new double[coefs_degree*coefs_width*coefs_height];
 	
 	version = 2;
+
+	getMultiplier(55, 55, 1);
 };
 
 Camera::~Camera(){
+	delete[] multiplierCoeffs;
+
 	for(int i = 0; i < width*height; i++){
 		delete pixelsFunctions[i]; 
 	}
 	delete[] pixelsFunctions;
-};
+}
+
+double Camera::getMultiplier(double w, double h, double z){
+	double wgrid = w/(coefs_width+1);
+	double hgrid = h/(coefs_height+1);
+
+	double pw = wgrid-double(int(wgrid));
+	double ph = hgrid-double(int(hgrid));
+
+	printf("%f %f -> %f %f -> %f %f\n",w,h,wgrid,hgrid,pw,ph);
+exit(0);
+	return 1;
+}
 
 void Camera::save(std::string path){
 	std::vector<char *> pixeldata_char;

@@ -95,6 +95,7 @@ public:
     bool getSaveIntermediateClouds();
     void setSaveIntermediateClouds(bool saveIntermediate);
     auto getIntermediateClouds() -> decltype (m_vIntermediateRoomClouds);
+	void setIntermediateClouds(std::vector< CloudPtr > clouds_);
 
     void clearIntermediateCloudRegisteredTransforms();
     void addIntermediateRoomCloudRegisteredTransform(tf::StampedTransform cloud_reg_tf);

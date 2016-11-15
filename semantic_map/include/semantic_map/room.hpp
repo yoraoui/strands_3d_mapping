@@ -166,6 +166,38 @@ auto SemanticRoom<PointType>::getIntermediateClouds() -> decltype(m_vIntermediat
 {
     return m_vIntermediateRoomClouds;
 }
+/*
+typedef pcl::PointCloud<PointType> Cloud;
+typedef typename Cloud::Ptr CloudPtr;
+
+struct IntermediatePositionImages
+{
+	std::vector<cv::Mat>                vIntermediateDepthImages;
+	std::vector<cv::Mat>                vIntermediateRGBImages;
+	tf::StampedTransform                intermediateDepthTransform;
+	tf::StampedTransform                intermediateRGBTransform;
+	image_geometry::PinholeCameraModel  intermediateRGBCamParams;
+	image_geometry::PinholeCameraModel  intermediateDepthCamParams;
+	int                                 numRGBImages, numDepthImages;
+	bool                                images_loaded;
+};
+
+private:
+
+CloudPtr                                         m_DynamicClustersCloud;
+bool                                             m_DynamicClustersLoaded;
+std::string                                      m_DynamicClustersFilename;
+// intermediate room clouds
+std::vector<CloudPtr>                            m_vIntermediateRoomClouds;
+*/
+
+template <class PointType>
+void SemanticRoom<PointType>::setIntermediateClouds(std::vector< CloudPtr > clouds_)
+{
+	printf("setIntermediateClouds\n");
+	m_vIntermediateRoomClouds = clouds_;
+}
+//std::vector<CloudPtr>                            m_vIntermediateRoomClouds;
 
 template <class PointType>
 void SemanticRoom<PointType>::addIntermediateRoomCloudRegisteredTransform(tf::StampedTransform cloud_reg_tf)

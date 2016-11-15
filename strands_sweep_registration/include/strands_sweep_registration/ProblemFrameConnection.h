@@ -15,10 +15,12 @@ class ProblemFrameConnection {
 
 	std::vector< Eigen::Vector3f > full_src_points;
 	std::vector< Eigen::Vector3f > full_dst_points;
+	std::vector< float > full_noisemul;
 
 
 	std::vector< Eigen::Vector3f > src_points;
 	std::vector< Eigen::Vector3f > dst_points;
+	std::vector< float > noisemul;
 
 	std::vector< float > possible_matches_fdistance;
 	std::vector< float > possible_matches_edistance;
@@ -29,7 +31,7 @@ class ProblemFrameConnection {
 	std::vector<int> dst_matches;
 
 	ProblemFrameConnection(ceres::Problem & problem, Frame * src_, Frame * dst_, double * shared_params, double * src_variable_, double * dst_variable_, float weight = 1, bool show = false);
-	void addMatchesToProblem(ceres::Problem & problem, std::vector< CostFunction * > & costfunctions);
+	void addMatchesToProblem(ceres::Problem & problem, std::vector< CostFunction * > & costfunctions, double hubersize = 0.1);
 	void addMatchesToProblem(ceres::Problem & problem, float weight = 1);
 	void findPossibleMatches(float di = 1, float pi = 0, Eigen::Matrix4f pose = Eigen::Matrix4f::Identity());
 	void recalculatePoints();

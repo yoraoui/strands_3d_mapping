@@ -10,6 +10,8 @@
 #include "ProblemFrameConnection.h"
 
 #include <pcl/common/transformation_from_correspondences.h>
+#include <pcl/visualization/pcl_visualizer.h>
+#include <pcl_ros/transforms.h>
 
 class RobotContainer
 {
@@ -35,6 +37,12 @@ class RobotContainer
 	std::vector<Sweep *> sweeps;
 	std::vector<bool> alignedSweep;
 
+
+	std::vector<std::string> paths;
+
+	bool viewer_initialized;
+	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
+
 	RobotContainer(unsigned int gx_,unsigned int todox_,unsigned int gy_,unsigned int todoy_);
 	~RobotContainer();
 
@@ -50,6 +58,8 @@ class RobotContainer
     std::vector<Eigen::Matrix4f> alignAndStoreSweeps();
 
     void saveAllSweeps(std::string path);
+
+	void show();
 
 private:
     void saveSweep(Sweep*, std::string path);

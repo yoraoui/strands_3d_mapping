@@ -13,9 +13,11 @@ ProblemFrameConnection::ProblemFrameConnection(ceres::Problem & problem, Frame *
 	recalculatePoints();
 }
 
-void ProblemFrameConnection::addMatchesToProblem(ceres::Problem & problem, std::vector< CostFunction * > & costfunctions){
-	for(unsigned int i = 0; i < costfunctions.size() && i < 1000; i++ ){
-		problem.AddResidualBlock(costfunctions.at(i), 0 , src_variable, dst_variable, params);
+void ProblemFrameConnection::addMatchesToProblem(ceres::Problem & problem, std::vector< CostFunction * > & costfunctions, double hubersize){
+	//printf("addMatchesToProblem: %i\n",costfunctions.size());
+	for(unsigned int i = 0; i < costfunctions.size() && i < 2000; i++ ){
+		//problem.AddResidualBlock(costfunctions.at(i), 0 , src_variable, dst_variable, params);
+		problem.AddResidualBlock(costfunctions.at(i), new ceres::HuberLoss(hubersize) , src_variable, dst_variable, params);
 	}
 }
 
@@ -33,7 +35,7 @@ void ProblemFrameConnection::addMatchesToProblem(ceres::Problem & problem, float
         //CostFunction* err = new pair3DError(src_kp.pt.x,src_kp.pt.y,sz,dst_kp.pt.x,dst_kp.pt.y,dz,weight/pow(sz*sz+dz*dz,2));
         CostFunction* err = new pair3DError(src_kp.pt.x,src_kp.pt.y,sz,dst_kp.pt.x,dst_kp.pt.y,dz,weight);
         problem.AddResidualBlock(err, 0, src_variable, dst_variable, params);
-        problem.AddResidualBlock(err, new ceres::HuberLoss(0.1), src_variable, dst_variable, params);
+		//problem.AddResidualBlock(err, new ceres::HuberLoss(0.1), src_variable, dst_variable, params);
 	}
 }
 
@@ -165,6 +167,7 @@ void ProblemFrameConnection::findPossibleMatches(float di, float pi, Eigen::Matr
 void ProblemFrameConnection::recalculatePoints(){
 	src_points.clear();
 	dst_points.clear();
+	noisemul.clear();
 	
 	for(unsigned int i = 0; i < src_possible_matches_id.size(); i++){
 		int src_kp_id = src_possible_matches_id.at(i);
@@ -184,6 +187,10 @@ void ProblemFrameConnection::recalculatePoints(){
 
 		src_points.push_back(Eigen::Vector3f(sx,sy,sz));
 		dst_points.push_back(Eigen::Vector3f(dx,dy,dz));
+		double snoise = sz*sz;
+		double dnoise = dz*dz;
+		double noise = sqrt( snoise*snoise + dnoise*dnoise );
+		noisemul.push_back( noise );
 	}
 }
 
