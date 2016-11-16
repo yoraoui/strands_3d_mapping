@@ -28,7 +28,9 @@ class Camera {
 		
 		Camera(	float fx_, float fy_, float cx_, float cy_,	int width_,	int height_);
 		virtual ~Camera();
-		
+
+		virtual double * getCoeffs(unsigned int w, unsigned int h);
+		virtual double getGridMultiplier(unsigned int w, unsigned int h, double z);
 		virtual double getMultiplier(double w, double h, double z);
 		virtual void save(std::string path);
 		virtual void load(std::string path);

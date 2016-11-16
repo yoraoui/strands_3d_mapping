@@ -462,7 +462,7 @@ void RobotContainer::show(){
 		viewer_initialized = true;
 	}
 
-	for(unsigned int pa = 0; pa < paths.size(); pa++){
+	for(unsigned int pa = 0; pa < paths.size(); pa += 60){
 		std::string path = paths[pa];
 		printf("path: %s\n",path.c_str());
 
@@ -648,12 +648,12 @@ Solver::Summary summary;
 	//        }
 	//    }
 
-
+	printf("1st forward X loop\n");
 	//1st forward X loop
 	std::vector< std::vector< ProblemFrameConnection * > > x1_vec;
 	x1_vec.resize(todoy);
 	for(unsigned int s = 0; s < sweeps.size(); s++){
-		printf("1st forward X loop: %i\n",s);
+
 		Sweep * sweep = sweeps.at(s);
 		for(unsigned int x = 0; x < todox-1; x++){
 			for(unsigned int y = 0; y < todoy; y++){
@@ -667,20 +667,20 @@ Solver::Summary summary;
 	for(unsigned int y = 0; y < todoy; y++){
 		std::vector< CostFunction * > matches = getMatchesRansac(x1_vec.at(y));
 		for(unsigned int i = 0; i < x1_vec.at(y).size(); i++){
-			if(i % 100 == 0){printf("%i\n",i);}
+			//if(i % 100 == 0){printf("%i\n",i);}
 			x1_vec.at(y).at(i)->addMatchesToProblem(problem, matches);
-			if(y == 0 && i == 300){Solve(options, &problem, &summary);}
+			//if(y == 0 && i == 300){Solve(options, &problem, &summary);}
 		}
 	}
 
-	Solve(options, &problem, &summary);
+	//Solve(options, &problem, &summary);
 //show();
-
+	printf("1st forward Y loop:\n");
 	//1st forward Y loop
 	std::vector< std::vector< ProblemFrameConnection * > > y1_vec;
 	y1_vec.resize(todox);
 	for(unsigned int s = 0; s < sweeps.size(); s++){
-		printf("1st forward Y loop: %i\n",s);
+
 		Sweep * sweep = sweeps.at(s);
 		for(unsigned int x = 0; x < todox; x++){
 			for(unsigned int y = 0; y < todoy-1; y++){
@@ -702,12 +702,12 @@ Solver::Summary summary;
 //show();
 
 	//std::cout << summary.FullReport() << "\n";
+	printf("2t forward X loop\n");
 
 	//2nd forward X loop
 	std::vector< std::vector< ProblemFrameConnection * > > x2_vec;
 	x2_vec.resize(todoy);
 	for(unsigned int s = 0; s < sweeps.size(); s++){
-		printf("2t forward X loop: %i\n",s);
 		Sweep * sweep = sweeps.at(s);
 		for(unsigned int x = 0; x < todox-2; x++){
 			for(unsigned int y = 0; y < todoy; y++){
@@ -725,7 +725,7 @@ Solver::Summary summary;
 		}
 	}
 
-	Solve(options, &problem, &summary);
+	//Solve(options, &problem, &summary);
 //show();
 	//std::cout << summary.FullReport() << "\n";
 
@@ -740,10 +740,11 @@ Solver::Summary summary;
 	//	}
 
 	//Loop closure
+	printf("Loop closure\n");
 	std::vector< std::vector< ProblemFrameConnection * > > loop_vec;
 	loop_vec.resize(todoy);
 	for(unsigned int s = 0; s < sweeps.size(); s++){
-		printf("Loop closure: %i\n",s);
+
 		Sweep * sweep = sweeps.at(s);
 		for(unsigned int y = 0; y < todoy; y++){
 			ProblemFrameConnection * pc = new ProblemFrameConnection(problem, sweep->frames[0][y],sweep->frames[todox-1][y], shared_params, poses[0][y], poses[todox-1][y],1,false);
@@ -761,7 +762,7 @@ Solver::Summary summary;
 
 	Solve(options, &problem, &summary);
 	std::cout << summary.FullReport() << "\n";
-show();
+//show();
 
 //	pair3DError::optimizeCameraParams = true;
 //	Solve(options, &problem, &summary);

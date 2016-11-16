@@ -15,7 +15,7 @@ ProblemFrameConnection::ProblemFrameConnection(ceres::Problem & problem, Frame *
 
 void ProblemFrameConnection::addMatchesToProblem(ceres::Problem & problem, std::vector< CostFunction * > & costfunctions, double hubersize){
 	//printf("addMatchesToProblem: %i\n",costfunctions.size());
-	for(unsigned int i = 0; i < costfunctions.size() && i < 2000; i++ ){
+	for(unsigned int i = 0; i < costfunctions.size() && i < 1000; i++ ){
 		//problem.AddResidualBlock(costfunctions.at(i), 0 , src_variable, dst_variable, params);
 		problem.AddResidualBlock(costfunctions.at(i), new ceres::HuberLoss(hubersize) , src_variable, dst_variable, params);
 	}
