@@ -82,7 +82,7 @@ namespace reglib
 		void setVisualizationLvl(unsigned int lvl);
 
 		virtual FusionResults getTransform(Eigen::MatrixXd guess);
-		virtual void show(Eigen::MatrixXd X, Eigen::MatrixXd Y);
+		virtual void show(Eigen::MatrixXd X, Eigen::MatrixXd Y, bool stop = true);
 		virtual void show(Eigen::MatrixXd X, Eigen::MatrixXd Y, Eigen::VectorXd W);
 
 		virtual void show(Eigen::MatrixXd X, Eigen::MatrixXd Xn, Eigen::MatrixXd Y, Eigen::MatrixXd Yn);

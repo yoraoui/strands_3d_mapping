@@ -19,7 +19,7 @@ FusionResults Registration::getTransform(Eigen::MatrixXd guess){
 	return FusionResults(guess,0);
 }
 
-void Registration::show(Eigen::MatrixXd X, Eigen::MatrixXd Y){
+void Registration::show(Eigen::MatrixXd X, Eigen::MatrixXd Y, bool stop){
 
 	//printf("start show\n");
 	unsigned int s_nr_data = X.cols();
@@ -27,7 +27,7 @@ void Registration::show(Eigen::MatrixXd X, Eigen::MatrixXd Y){
 	//printf("nr datas: %i %i\n",s_nr_data,d_nr_data);
 
 
-viewer->removeAllPointClouds();
+	viewer->removeAllPointClouds();
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr scloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dcloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 
@@ -40,7 +40,11 @@ viewer->removeAllPointClouds();
 	viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "scloud");
 	viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "dcloud");
 	//printf("pre\n");
-    viewer->spin();
+	if(stop){
+		viewer->spin();
+	}else{
+		viewer->spinOnce();
+	}
 	//printf("post\n");
 	viewer->removeAllPointClouds();
 

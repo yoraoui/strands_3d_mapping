@@ -56,6 +56,9 @@ using namespace quasimodo_brain;
 
 bool visualization = false;
 bool show_db = false;//Full database show
+bool save_db = false;//Full database save
+int save_db_counter = 0;
+
 int show_init_lvl = 0;//init show
 int show_refine_lvl = 0;//refine show
 int show_reg_lvl = 0;//registration show
@@ -109,7 +112,7 @@ int sweepid_counter = 0;
 
 int current_model_update = 0;
 
-bool myfunction (reglib::Model * i,reglib::Model * j) { return i->frames.size() > j->frames.size(); }
+bool myfunction (reglib::Model * i,reglib::Model * j) { return (i->frames.size() + i->submodels.size())  > (j->frames.size() + j->submodels.size()); }
 
 quasimodo_msgs::retrieval_result sresult;
 bool new_search_result = false;
@@ -192,9 +195,10 @@ void retrievalCallback(const quasimodo_msgs::retrieval_query_result & qr){
 }
 
 void showModels(std::vector<reglib::Model *> mods){
-	viewer->removeAllPointClouds();
+	//viewer->removeAllPointClouds();
 	float maxx = 0;
 
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr	conccloud	(new pcl::PointCloud<pcl::PointXYZRGB>);
 	for(unsigned int i = 0; i < mods.size(); i++){
 		pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = mods[i]->getPCLcloud(1, false);
 		float meanx = 0;
@@ -220,17 +224,36 @@ void showModels(std::vector<reglib::Model *> mods){
 		for(unsigned int j = 0; j < cloud->points.size(); j++){minx = std::min(cloud->points[j].x , minx);}
 		for(unsigned int j = 0; j < cloud->points.size(); j++){cloud->points[j].x += maxx-minx + 0.15;}
 		for(unsigned int j = 0; j < cloud->points.size(); j++){maxx = std::max(cloud->points[j].x,maxx);}
-		char buf [1024];
-		sprintf(buf,"cloud%i",i);
-		viewer->addPointCloud<pcl::PointXYZRGB> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cloud), buf);
+
+//		char buf [1024];
+//		sprintf(buf,"cloud%i",i);
+//		viewer->addPointCloud<pcl::PointXYZRGB> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cloud), buf);
+
+		*conccloud += *cloud;
 	}
-	viewer->spin();
+
+	if( save_db ){
+		printf("save_db\n");
+		char buf [1024];
+		sprintf(buf,"quasimodoDB_%i.pcd",save_db_counter);
+		pcl::io::savePCDFileBinaryCompressed(buf, *conccloud);
+		save_db_counter++;
+	}
+
+	if(show_db && visualization){
+		viewer->removeAllPointClouds();
+		viewer->addPointCloud<pcl::PointXYZRGB> (conccloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(conccloud), "conccloud");
+		viewer->spin();
+	}
+
+//	printf("show_sorted()\n");
+//	exit(0);
 }
 
 int savecounter = 0;
 void show_sorted(){
-	if(!show_db){return;}
-	if(!visualization){return;}
+	if(!show_db && !save_db ){return;}
+	//if(!visualization){return;}
 	std::vector<reglib::Model *> results;
 	for(unsigned int i = 0; i < modeldatabase->models.size(); i++){results.push_back(modeldatabase->models[i]);}
 	std::sort (results.begin(), results.end(), myfunction);
@@ -397,8 +420,8 @@ bool indexFrame(quasimodo_msgs::index_frame::Request  & req, quasimodo_msgs::ind
 
 bool addToDB(ModelDatabase * database, reglib::Model * model, bool add);//, bool deleteIfFail = false);
 bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Model * model2){
-//	std::map<int , reglib::Model *>	new_models;
-//	std::map<int , reglib::Model *>	updated_models;
+
+	printf("addIfPossible\n");
 
 	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model2, reg);
@@ -465,7 +488,7 @@ bool addToDB(ModelDatabase * database, reglib::Model * model, bool add){// = tru
 		model->last_changed = ++current_model_update;
 	}
 
-	std::vector<reglib::Model * > res = modeldatabase->search(model,3);
+	std::vector<reglib::Model * > res = modeldatabase->search(model,1);
 	if(show_search){showModels(res);}
 
 	for(unsigned int i = 0; i < res.size(); i++){
@@ -659,27 +682,23 @@ bool runSearch(ModelDatabase * database, reglib::Model * model, int number_of_se
 std::set<int> searchset;
 
 void addNewModel(reglib::Model * model){
-printf("%s::%i\n",__FILE__,__LINE__);
 	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model, reg);
 	mu->occlusion_penalty               = occlusion_penalty;
 	mu->massreg_timeout                 = massreg_timeout;
 	mu->viewer							= viewer;
 
-printf("%s::%i\n",__FILE__,__LINE__);
 	mu->show_init_lvl					= show_init_lvl;//init show
 	mu->show_refine_lvl					= show_refine_lvl;//refine show
 	mu->show_scoring					= show_scoring;//fuse scoring show
 	reg->visualizationLvl				= show_reg_lvl;
 
-printf("%s::%i\n",__FILE__,__LINE__);
 	mu->makeInitialSetup();
 
 
 	delete mu;
 	delete reg;
 
-printf("%s::%i\n",__FILE__,__LINE__);
 
 	reglib::Model * newmodelHolder = new reglib::Model();
 	newmodelHolder->submodels.push_back(model);
@@ -690,12 +709,11 @@ printf("%s::%i\n",__FILE__,__LINE__);
 	}else{
 		newmodelHolder->recomputeModelPoints();
 	}
-printf("%s::%i\n",__FILE__,__LINE__);
+
 	modeldatabase->add(newmodelHolder);
 	addToDB(modeldatabase, newmodelHolder,false);
 	show_sorted();
 
-printf("%s::%i\n",__FILE__,__LINE__);
 	bool do_next = true;
 	while(do_next && run_search){
 		printf("running search loop\n");
@@ -720,12 +738,9 @@ printf("%s::%i\n",__FILE__,__LINE__);
 	for(unsigned int i = 0; i < modeldatabase->models.size(); i++){publish_history(modeldatabase->models[i]->getHistory());}
 	publishDatabasePCD();
 	dumpDatabase(savepath);
-
-printf("%s::%i\n",__FILE__,__LINE__);
 }
 
 void modelCallback(const quasimodo_msgs::model & m){
-	printf("%s::%i\n",__FILE__,__LINE__);
 	quasimodo_msgs::model mod = m;
 	addNewModel(quasimodo_brain::getModelFromMSG(mod,false));
 }
@@ -741,8 +756,6 @@ bool modelFromFrame(quasimodo_msgs::model_from_frame::Request  & req, quasimodo_
 	//printf("======================================\nmodelFromFrame\n======================================\n");
 	uint64 frame_id = req.frame_id;
 	uint64 isnewmodel = req.isnewmodel;
-
-	//printf("%i and %i\n",int(frame_id),int(isnewmodel));
 
 	printf("modelFromFrame %i and %i\n",int(frame_id),int(isnewmodel));
 
@@ -1326,6 +1339,7 @@ int main(int argc, char **argv){
 		else if(std::string(argv[i]).compare("-v_register") == 0 || std::string(argv[i]).compare("-v_reg") == 0){	printf("visualization registration turned on\n");	visualization = true; inputstate = 10;}
 		else if(std::string(argv[i]).compare("-v_scoring") == 0 || std::string(argv[i]).compare("-v_score") == 0 || std::string(argv[i]).compare("-v_sco") == 0){	printf("visualization scoring turned on\n");        visualization = true; show_scoring = true;}
 		else if(std::string(argv[i]).compare("-v_db") == 0){        printf("visualization db turned on\n");             visualization = true; show_db = true;}
+		else if(std::string(argv[i]).compare("-s_db") == 0){        printf("save db turned on\n"); save_db = true;}
 		else if(std::string(argv[i]).compare("-intopic") == 0){	printf("intopic input state\n");	inputstate = 11;}
 		else if(std::string(argv[i]).compare("-mdb") == 0){	printf("intopic input state\n");		inputstate = 12;}
 		else if(std::string(argv[i]).compare("-show_search") == 0){	printf("show_search\n");		show_search = true;}

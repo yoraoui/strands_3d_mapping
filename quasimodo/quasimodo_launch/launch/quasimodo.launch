@@ -1,6 +1,7 @@
 <launch>
 
-    <arg name="data_path" default="/home/strands/.semanticMap"/>
+<!--    <arg name="data_path" default="/home/strands/.semanticMap"/> -->
+	<arg name="data_path" default="/media/johane/SSDstorage/final_tsc_semantic_maps//semantic_maps/"/>
     <arg name="vocabulary_path" default="$(arg data_path)/vocabulary"/>
     <arg name="occlusion_penalty" default="5"/>
     <arg name="massreg_timeout" default="60"/>
@@ -10,6 +11,7 @@
 
     <arg name="topicname" default="/some/topic"/>
 
+    <!--
     <include file="$(find retrieval_processing)/launch/processing.launch">
         <arg name="data_path" value="$(arg data_path)"/>
         <arg name="add_previous_maps" value="$(arg add_previous_maps)"/>
@@ -18,7 +20,14 @@
     <include file="$(find quasimodo_retrieval)/launch/retrieval.launch">
         <arg name="vocabulary_path" value="$(arg vocabulary_path)"/>
     </include>
-
+    -->
+    
+    <include file="$(find quasimodo_object_search)/launch/object_search.launch">
+        <arg name="data_path" value="$(arg data_path)"/>
+        <arg name="enable_incremental" value="true"/>
+    </include>
+    
+<!--
     <include file="$(find quasimodo_brain)/launch/modelserver.launch">
         <arg name="occlusion_penalty" value="$(arg occlusion_penalty)"/>
         <arg name="massreg_timeout" value="$(arg massreg_timeout)"/>
@@ -29,5 +38,5 @@
     <include file="$(find quasimodo_brain)/launch/robot_listener.launch">
         <arg name="topicname" value="$(arg topicname)"/>
     </include>
-
+-->
 </launch>

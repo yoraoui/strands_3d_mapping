@@ -134,6 +134,7 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 
 void Model::addAllSuperPoints(std::vector<superpoint> & spvec, Eigen::Matrix4d pose, boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer){
 	for(unsigned int i = 0; i < frames.size(); i++){
+		//printf("addAllSuperPoints: %i\n",i);
 		addSuperPoints(spvec, pose*relativeposes[i], frames[i], modelmasks[i], viewer);
 	}
 
@@ -589,7 +590,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Model::getPCLcloud(int step, bool color){
 		}else{
 			p.b = sp.feature(0);
 			p.g = sp.feature(1);
-			p.b = sp.feature(2);
+			p.r = sp.feature(2);
 		}
 		cloud_ptr->points.push_back(p);
 	}

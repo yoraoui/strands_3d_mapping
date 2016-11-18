@@ -25,7 +25,7 @@ MassRegistrationPPR2::MassRegistrationPPR2(double startreg, bool visualize){
 	DistanceWeightFunction2PPR2 * dwf = new DistanceWeightFunction2PPR2();
 	dwf->update_size		= true;
 	dwf->startreg			= startreg;
-	dwf->debugg_print		= false;
+	dwf->debugg_print		= true;
 	func					= dwf;
 
 
@@ -1363,7 +1363,7 @@ void MassRegistrationPPR2::addData(RGBDFrame* frame, ModelMask * mmask){
 		}
 	}
 
-	printf("depthedge_count: %i\n",depthedge_count);
+	//printf("depthedge_count: %i\n",depthedge_count);
 	if(depthedge_count > 10){
 		double * depthedge_ap = new double[3*depthedge_count];
 		double * depthedge_ai = new double[3*depthedge_count];
@@ -3086,6 +3086,7 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 	std::vector<Eigen::Matrix4d> poses0 = poses;
 
 	for(long funcupdate=0; funcupdate < 100; ++funcupdate) {
+		double start_noise = func->getNoise();
 		if(getTime()-total_time_start > timeout){break;}
 		//if(visualizationLvl == 2){if(use_depthedge){showEdges(poses);}std::vector<Eigen::MatrixXd> Xv;for(unsigned long j = 0; j < nr_frames; j++){Xv.push_back(transformed_points[j]);}sprintf(buf,"image%5.5i.png",imgcount++);show(Xv,false,std::string(buf),imgcount); showEdges(poses);}
 		if(visualizationLvl == 2){
@@ -3119,7 +3120,7 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 			poses0 = poses;
 			rematch_time += getTime()-rematch_time_start;
 
-			for(long lala = 0; lala < 3; lala++){
+			for(long lala = 0; lala < 5; lala++){
 				if(visualizationLvl > 0){
 					printf("funcupdate: %i rematching: %i lala: %i\n",funcupdate,rematching,lala);
 					printf("total_time:          %5.5f\n",getTime()-total_time_start);
@@ -3211,7 +3212,17 @@ MassFusionResults MassRegistrationPPR2::getTransforms(std::vector<Eigen::Matrix4
 		//if(func->noiseval >= kpfunc->noiseval && 0.01*func->noiseval   < func->regularization){break;}
 		//if(func->noiseval < kpfunc->noiseval  && 0.01*kpfunc->noiseval < kpfunc->regularization){break;}
 		//if(ratio > 0.99){break;}
-		if(func->noiseval > 10.0*func->regularization && ratio > 0.75){break;}
+
+		double change = 1-noise_after/start_noise;
+
+		if(visualizationLvl > 0){
+			printf("start_noise: %5.5f noise_before: %5.5f noise_after: %5.5f \n found ratio: %f/%f -> %f\n",start_noise, noise_before,noise_after,noise_after,start_noise,noise_after/start_noise);
+			printf("check1: %10.10f > 20.0 * %10.10f -> %i\n",func->noiseval,func->regularization, func->noiseval > 20.0*func->regularization);
+			printf("change: %f\n",change);
+		}
+
+
+		if(func->noiseval > 20.0*func->regularization && fabs(change) < 0.01){break;}// && ratio < 0.9){break;}
 	}
 
 	//	printf("total_time:          %5.5f\n",getTime()-total_time_start);

@@ -604,8 +604,9 @@ bool annotate(std::string path){
 
 			cv::namedWindow( "Annotation tool",				cv::WINDOW_AUTOSIZE );	cv::imshow( "Annotation tool",img );
 			char c = cv::waitKey(0);
-
-			if(c == -29){
+printf("%i\n",int(c));
+			if(c == 27){break;}
+			else if(c == -29){
 				state = 4;
 			}else if(state == 0){
 				if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')  || (c >= '0' && c <= '9') || c == ' '){classname += c;}

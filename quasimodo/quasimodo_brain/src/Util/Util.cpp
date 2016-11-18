@@ -260,7 +260,7 @@ Eigen::Matrix4d getMat(tf::StampedTransform tf){
 reglib::Model * load_metaroom_model(std::string sweep_xml, std::string savePath){
 	int slash_pos = sweep_xml.find_last_of("/");
 	std::string sweep_folder = sweep_xml.substr(0, slash_pos) + "/";
-	printf("load_metaroom_model(%s)\n",sweep_folder.c_str());
+//	printf("load_metaroom_model(%s)\n",sweep_folder.c_str());
 
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
 	std::vector<std::string> dummy;
@@ -280,12 +280,12 @@ reglib::Model * load_metaroom_model(std::string sweep_xml, std::string savePath)
 	std::vector<reglib::RGBDFrame * > current_room_frames;
 
 
-	printf("roomData.vIntermediateRoomClouds.size() = %i\n",roomData.vIntermediateRoomClouds.size());
-	printf("roomData.vIntermediateRoomCloudCamParamsCorrected.size() = %i\n",roomData.vIntermediateRoomCloudCamParamsCorrected.size());
-	printf("roomData.vIntermediateRoomCloudTransformsRegistered.size() = %i\n",roomData.vIntermediateRoomCloudTransformsRegistered.size());
+//	printf("roomData.vIntermediateRoomClouds.size() = %i\n",roomData.vIntermediateRoomClouds.size());
+//	printf("roomData.vIntermediateRoomCloudCamParamsCorrected.size() = %i\n",roomData.vIntermediateRoomCloudCamParamsCorrected.size());
+//	printf("roomData.vIntermediateRoomCloudTransformsRegistered.size() = %i\n",roomData.vIntermediateRoomCloudTransformsRegistered.size());
 
 	for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++){
-		printf("loading intermedite %i\n",i);
+		//printf("loading intermedite %i\n",i);
 		cv::Mat fullmask;
 		fullmask.create(480,640,CV_8UC1);
 		unsigned char * maskdata = (unsigned char *)fullmask.data;
@@ -331,15 +331,15 @@ void segment(std::vector< reglib::Model * > bgs, std::vector< reglib::Model * > 
 		viewer->setBackgroundColor(1.0,1.0,1.0);
 	}
 
-	reglib::MassRegistrationPPR2 * massregmod = new reglib::MassRegistrationPPR2(0.05);
+	reglib::MassRegistrationPPR2 * massregmod = new reglib::MassRegistrationPPR2(0.15);
 	if(savePath.size() != 0){
 		massregmod->savePath = savePath+"/segment_"+std::to_string(models.front()->id);
 	}
 	massregmod->timeout = 1200;
 	massregmod->viewer = viewer;
 	massregmod->visualizationLvl = debugg > 1;
-	massregmod->maskstep = 10;//std::max(1,int(0.4*double(models[i]->frames.size())));
-	massregmod->nomaskstep = 10;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
+	massregmod->maskstep = 11;//std::max(1,int(0.4*double(models[i]->frames.size())));
+	massregmod->nomaskstep = 11;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
 	massregmod->nomask = true;
 	massregmod->stopval = 0.0001;
 

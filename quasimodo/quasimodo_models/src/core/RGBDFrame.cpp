@@ -329,7 +329,7 @@ RGBDFrame * RGBDFrame::clone(){
 }
 
 RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capturetime_, Eigen::Matrix4d pose_, bool compute_normals, std::string savePath, bool compute_imgedges){
-	printf("savepath: %s\n",savePath.c_str());
+	//printf("savepath: %s\n",savePath.c_str());
 	bool verbose = false;
 	if(verbose)
 		printf("------------------------------\n");
@@ -839,7 +839,7 @@ if(compute_imgedges){
 	}
 	if(verbose)
 		printf("%s::%i time: %5.5fs\n",__PRETTY_FUNCTION__,__LINE__,getTime()-startTime); startTime = getTime();
-	printf("complete time to create RGBD image: %5.5fs\n",getTime()-completeStartTime);
+	//printf("complete time to create RGBD image: %5.5fs\n",getTime()-completeStartTime);
 
 	//getImageProbs();
 	if(savePath.size() != 0){
