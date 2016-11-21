@@ -1736,7 +1736,7 @@ void sendRoomToSomaLLSD(std::string path){
 	std::vector< cv::Mat > depths;
 
 
-
+	bool allOk = true;
 	QXmlStreamReader* xmlReader = new QXmlStreamReader(&file);
 	while (!xmlReader->atEnd() && !xmlReader->hasError())
 	{
@@ -1873,13 +1873,14 @@ void sendRoomToSomaLLSD(std::string path){
 				K(0,2) = cx;
 				K(1,2) = cy;
 				soma_llsd_msgs::Scene scene;
-				quasimodo_conversions::raw_frames_to_soma_scene(rgb,depth,cloud, pose, K,waypoint, episode_id,scene);
+				allOk = allOk && quasimodo_conversions::raw_frames_to_soma_scene(*np,rgb,depth,cloud, pose, K,waypoint, episode_id,scene);
 				scenes.push_back(scene);
 			}
 		}
 	}
 	delete xmlReader;
 
+	if(!allOk){printf("failed to add all scenes to soma, not adding segments\n");return;}
 	//Scenes added to database...
 
 	std::ofstream sceneidfile;
@@ -1889,7 +1890,6 @@ void sendRoomToSomaLLSD(std::string path){
 		std::cout << "-------------------------------------------------\n" << scenes[i].id << std::endl;
 	}
 	sceneidfile.close();
-
 
 	//		string id
 	//		string meta_data
@@ -1913,7 +1913,7 @@ void sendRoomToSomaLLSD(std::string path){
 
 		std::vector< std::string > scid;
 		std::vector< cv::Mat > masks;
-		std::vector< Eigen::Matrix4d > poses;
+		std::vector< Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix<double, 4, 4> > > poses;
 
 
 		QXmlStreamReader* xmlReader = new QXmlStreamReader(&objfile);
@@ -1955,18 +1955,13 @@ void sendRoomToSomaLLSD(std::string path){
 		}
 		delete xmlReader;
 
-//		bool result = true;
-//		soma_llsd_msgs::Segment response;
-//		if(result){
-//			std::string segmentid = respose.segment_id;
-//		}
-
+		soma_llsd_msgs::Segment segment;
+		if(quasimodo_conversions::add_masks_to_soma_segment(*np,scid, masks, poses,segment)){
+			for(unsigned int i = 0; i < soma_segment_id_pubs.size(); i++){
+				//soma_segment_id_pubs[i].publish(segment.id);
+			}
+		}
 	}
-
-//	for(unsigned int i = 0; i < frames.size(); i++){delete frames[i];}
-//	return models;
-
-
 }
 
 void processSweep(std::string path, std::string savePath){

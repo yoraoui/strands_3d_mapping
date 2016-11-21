@@ -182,7 +182,7 @@ void soma_observation_to_frame(ros::NodeHandle& n, const soma_llsd_msgs::Observa
 
 // ### response has id field! ###
 
-void raw_frames_to_soma_scene(ros::NodeHandle& n, const cv::Mat& rgb, const cv::Mat& depth,
+bool raw_frames_to_soma_scene(ros::NodeHandle& n, const cv::Mat& rgb, const cv::Mat& depth,
                               const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& cloud,
                               const Eigen::Matrix4d& pose, const Eigen::Matrix3d& K,
                               const std::string& waypoint, const std::string episode_id,
@@ -192,7 +192,7 @@ void raw_frames_to_soma_scene(ros::NodeHandle& n, const cv::Mat& rgb, const cv::
     ROS_INFO("Waiting for /soma_llsd/insert_scene service...");
     if (!client.waitForExistence(ros::Duration(1.0))) {
         ROS_INFO("Failed to get /soma_llsd/insert_scene service!");
-        return;
+		return false;
     }
     ROS_INFO("Got /soma_llsd/insert_scene service");
 
@@ -224,22 +224,23 @@ void raw_frames_to_soma_scene(ros::NodeHandle& n, const cv::Mat& rgb, const cv::
     scene_srv.request.waypoint = waypoint;
     scene_srv.request.episode_id = episode_id;
 
-    if (!client.call(scene_srv) || scene_srv.response.result) {
+	if (!client.call(scene_srv) || !scene_srv.response.result) {
         ROS_ERROR("Failed to call service /soma_llsd/insert_scene");
-        return;
+		return false;
     }
 
     scene = scene_srv.response.response;
+	return true;
 }
 
-void add_masks_to_soma_segment(ros::NodeHandle& n, std::vector<std::string>& scene_ids, std::vector<cv::Mat>& masks,
+bool add_masks_to_soma_segment(ros::NodeHandle& n, std::vector<std::string>& scene_ids, std::vector<cv::Mat>& masks,
                                std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d> >& poses, soma_llsd_msgs::Segment& segment)
 {
     ros::ServiceClient client = n.serviceClient<soma_llsd::InsertSegment>("/soma_llsd/insert_segment");
     ROS_INFO("Waiting for /soma_llsd/insert_segment service...");
     if (!client.waitForExistence(ros::Duration(1.0))) {
         ROS_INFO("Failed to get /soma_llsd/insert_segment service!");
-        return;
+		return false;
     }
     ROS_INFO("Got /soma_llsd/insert_segment service");
 
@@ -253,12 +254,13 @@ void add_masks_to_soma_segment(ros::NodeHandle& n, std::vector<std::string>& sce
         segment_srv.request.observations[i].scene_id = scene_ids[i];
     }
 
-    if (!client.call(segment_srv) || segment_srv.response.result) {
+	if (!client.call(segment_srv) || !segment_srv.response.result) {
         ROS_ERROR("Failed to call service /soma_llsd/insert_segment");
-        return;
+		return false;
     }
 
     segment = segment_srv.response.response;
+	return true;
 }
 
 } // namespace quasimodo_conversions
