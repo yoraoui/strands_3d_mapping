@@ -55,14 +55,13 @@ bool SemanticRoomXMLParser<PointType>::setRootFolderFromRoomXml(std::string room
 template <class PointType>
 std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointType>& aRoom, std::string xmlFile, bool verbose )
 {    
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+	printf("saveRoomAsXML\n");
     // create folder structure
     QString roomLogName(aRoom.getRoomLogName().c_str());
     int index = roomLogName.indexOf('_');
     QString date = roomLogName.left(index);
     QString patrol = roomLogName.right(roomLogName.size()-index-1);
 
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
     QString dateFolder = QString(m_RootFolder)+date;
     if (!QDir(dateFolder).exists())
     {
@@ -75,7 +74,6 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
         QDir().mkdir(patrolFolder);
     }
 
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
     QString roomFolder = patrolFolder + "room_" + QString::number(aRoom.getRoomRunNumber())+ "/";
     if (!QDir(roomFolder).exists())
     {
@@ -85,7 +83,6 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
     xmlFile = roomFolder.toStdString() + xmlFile;
     ROS_INFO_STREAM("Saving room at "<<xmlFile);
 
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
     QFile file(xmlFile.c_str());
     if (file.exists())
     {
@@ -101,7 +98,6 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
 
 
 
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
     QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
     xmlWriter->setDevice(&file);
 
@@ -123,7 +119,6 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
     xmlWriter->writeCharacters(aRoom.getRoomStringId().c_str());
     xmlWriter->writeEndElement();
 
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
     // RoomLogStartTime
     xmlWriter->writeStartElement("RoomLogStartTime");
     boost::posix_time::ptime roomLogStartTime = aRoom.getRoomLogStartTime();
@@ -141,31 +136,15 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
     QString cloudFilename("complete_cloud.pcd");
     QString completeCloudFilename = roomFolder + cloudFilename; // add the folder prefix
     xmlWriter->writeAttribute("filename",cloudFilename);
-    xmlWriter->writeEndElement();
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+	xmlWriter->writeEndElement();
     if (aRoom.getCompleteRoomCloudLoaded()) // only save the cloud file if it's been loaded
-    {
-		//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+	{
         QFile file(completeCloudFilename);
 //        if (!file.exists())
-        {
-			//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+		{
             if (aRoom.getCompleteRoomCloud()->points.size()>0)
-            {
-
-				//if(verbose){printf("aRoom.getCompleteRoomCloud()->points.size(): %i\n",aRoom.getCompleteRoomCloud()->points.size());}
-				//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
-				std::string fullcloudpath = completeCloudFilename.toStdString();
-				if(verbose){printf("fullcloudpath: %s\n",fullcloudpath.c_str());}
-
-				//CloudPtr fullcld = aRoom.getCompleteRoomCloud();
-
-				Cloud fullcld = *(aRoom.getCompleteRoomCloud());
-
-				//pcl::io::savePCDFileBinary(completeCloudFilename.toStdString(), *aRoom.getCompleteRoomCloud());
-				//pcl::io::savePCDFileBinary(fullcloudpath, *fullcld);
-				pcl::io::savePCDFileBinaryCompressed(fullcloudpath, fullcld);
-				//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+			{
+				pcl::io::savePCDFileBinary(completeCloudFilename.toStdString(), *aRoom.getCompleteRoomCloud());
                 if (verbose)
                 {
                     ROS_INFO_STREAM("Saving complete cloud file name "<<completeCloudFilename.toStdString());
@@ -173,7 +152,7 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
             }
         }
     }
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+
     // RoomInteriorCloud
     xmlWriter->writeStartElement("RoomInteriorCloud");
     QString interiorCloudFilenameLocal("interior_cloud.pcd");
@@ -187,7 +166,7 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
         {
             if (aRoom.getInteriorRoomCloud()->points.size()>0)
             {
-                pcl::io::savePCDFileBinary(interiorCloudFilename.toStdString(), *aRoom.getInteriorRoomCloud());
+				pcl::io::savePCDFileBinary(interiorCloudFilename.toStdString(), *aRoom.getInteriorRoomCloud());
                 if (verbose)
                 {
                     ROS_INFO_STREAM("Saving interior cloud file name "<<interiorCloudFilename.toStdString());
@@ -196,7 +175,7 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
         }
         aRoom.setInteriorRoomCloud(interiorCloudFilename.toStdString());
     }
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+
     // RoomDeNoisedCloud
     xmlWriter->writeStartElement("RoomDeNoisedCloud");
     QString denoisedCloudFilenameLocal("denoised_cloud.pcd");
@@ -210,7 +189,7 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
         {
             if (aRoom.getDeNoisedRoomCloud()->points.size())
             {
-                pcl::io::savePCDFileBinary(denoisedCloudFilename.toStdString(), *aRoom.getDeNoisedRoomCloud());
+				pcl::io::savePCDFileBinary(denoisedCloudFilename.toStdString(), *aRoom.getDeNoisedRoomCloud());
                 if (verbose)
                 {
                     ROS_INFO_STREAM("Saving denoised cloud file name "<<denoisedCloudFilename.toStdString());
@@ -218,12 +197,12 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
             }
         }
     }
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+
     // RoomDynamicClusters
     QString dynamicClustersFilenameLocal("dynamic_clusters.pcd");
     QString dynamicClustersFilename = roomFolder + dynamicClustersFilenameLocal; // add the folder prefix
     QFile dynamicClustersFile(dynamicClustersFilename);
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+
 	//
 
 
@@ -232,7 +211,7 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
 		printf("there are dynamic clusters found\n");
         //            if (!dynamicClustersFile.exists())
         //            {
-        pcl::io::savePCDFileBinary(dynamicClustersFilename.toStdString(), *aRoom.getDynamicClustersCloud());
+		pcl::io::savePCDFileBinary(dynamicClustersFilename.toStdString(), *aRoom.getDynamicClustersCloud());
 
         if (verbose)
         {
@@ -252,7 +231,7 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
             xmlWriter->writeEndElement();
         }
     }
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+
 
 
     // RoomCentroid
@@ -261,7 +240,7 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
     QString centroidS = QString::number(centroid(0))+" "+QString::number(centroid(1))+" "+QString::number(centroid(2))+" "+QString::number(centroid(3));
     xmlWriter->writeCharacters(centroidS);
     xmlWriter->writeEndElement();
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+
     // Room Transform
     xmlWriter->writeStartElement("RoomTransform");
     Eigen::Matrix4f transform = aRoom.getRoomTransform();
@@ -272,7 +251,7 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
     }
     xmlWriter->writeCharacters(transformS);
     xmlWriter->writeEndElement();
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+
     // RoomIntermediateClouds
     xmlWriter->writeStartElement("RoomIntermediateClouds");
     xmlWriter->writeAttribute("pan_start",QString::number(aRoom.m_SweepParameters.m_pan_start));
@@ -298,7 +277,7 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
             ss << "intermediate_cloud"<<std::setfill('0')<<std::setw(4)<<i<<".pcd";
             intermediateCloudLocalPath = ss.str().c_str();
             intermediateCloudPath = roomFolder + intermediateCloudLocalPath;
-        }
+		}
         xmlWriter->writeAttribute("filename",intermediateCloudLocalPath);
 
         if(roomIntermediateCloudsLoaded[i] && aRoom.getSaveIntermediateClouds())
@@ -306,14 +285,14 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
             QFile file(intermediateCloudPath);
             if (!file.exists())
             {
-                pcl::io::savePCDFileBinary(intermediateCloudPath.toStdString(), *roomIntermediateClouds[i]);
+				pcl::io::savePCDFileBinary(intermediateCloudPath.toStdString(), *roomIntermediateClouds[i]);
                 if (verbose)
                 {
                     ROS_INFO_STREAM("Saving intermediate cloud file name "<<intermediateCloudPath.toStdString());
                 }
             }
         }
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+
         // RoomIntermediateCloudTransform
         xmlWriter->writeStartElement("RoomIntermediateCloudTransform");
 
@@ -367,7 +346,7 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
 
         //                ROS_INFO_STREAM("TF message "<<msg<<"\nStamp "<<msg.header.stamp.sec<<"."<<msg.header.stamp.nsec);
         xmlWriter->writeEndElement(); // RoomIntermediateCloudTransform
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+
         // RoomIntermediateCloudRegisteredTransform
         std::vector<tf::StampedTransform> roomIntermediateCloudTransformsRegistered = aRoom.getIntermediateCloudTransformsRegistered();
         // TODO: this is not the case as I might be registering only the lower sweep.
@@ -390,7 +369,7 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
 
         image_geometry::PinholeCameraModel aCameraModel = roomIntermediateCloudCameraParameters[i];
         const sensor_msgs::CameraInfo & camInfo = aCameraModel.cameraInfo();
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+
         // size
         cv::Size imageSize = aCameraModel.fullResolution();
         xmlWriter->writeAttribute("width",QString::number(camInfo.width));
@@ -417,7 +396,7 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
         }
         xmlWriter->writeAttribute("D",DString);
         //            ROS_INFO_STREAM("D matrix "<<DString.toStdString());
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+
         // R matrix
         QString RString;
         for (size_t j=0; j<9;j++)
@@ -445,7 +424,7 @@ std::string SemanticRoomXMLParser<PointType>::saveRoomAsXML(SemanticRoom<PointTy
     }
     //        }
     xmlWriter->writeEndElement(); // RoomIntermediateClouds
-//if(verbose){printf("saveRoomAsXML: %i\n",__LINE__);}
+
     // Intermediate cloud images
     saveIntermediateImagesToXML(aRoom,xmlWriter, roomFolder.toStdString());
 
