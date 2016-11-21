@@ -392,8 +392,11 @@ double scoreCurrent3(double mul, double mean, double stddiv, double power, std::
 		double inp = -0.5*pow(dx,power);
 		if(inp < cutoff_exp){sum += Y[i];}
 		else{
-			double diff = Y[i]*Y[i]*(mul*exp(inp) - Y[i]);
-			if(diff > 0){	sum += costpen*diff;}
+			//double diff = Y[i]*Y[i]*(mul*exp(inp) - Y[i]);
+			double diff = (mul*exp(inp) - Y[i]);
+			//			if(diff > 0){	sum += costpen*diff;}
+			//			else{			sum -= diff;}
+			if(diff > 0){	sum += diff*diff;}
 			else{			sum -= diff;}
 		}
 	}
@@ -459,7 +462,8 @@ double scoreCurrent2(double bias, double mul, double mean, double stddiv, std::v
 		if(inp < cutoff_exp){sum += Y[i];}
 		else{
 			double diff = mul*exp(info*dx*dx) - Y[i];
-			if(diff > 0){	sum += costpen*diff;}
+			//if(diff > 0){	sum += costpen*diff;}
+			if(diff > 0){	sum += diff*diff;}
 			else{			sum -= diff;}
 		}
 	}

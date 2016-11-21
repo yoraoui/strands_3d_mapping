@@ -99,6 +99,9 @@
 #include <soma_llsd/GetScene.h>
 #include <soma_llsd/InsertScene.h>
 
+#include <metaroom_detections/metaroom_detections.h>
+#include <iostream>
+#include <tuple>
 
 std::vector< ros::ServiceServer > m_DynamicObjectsServiceServers;
 std::vector< ros::ServiceServer > m_GetDynamicObjectServiceServers;
@@ -641,7 +644,7 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 
 		both_unrefined.push_back(sweep->frames.front()->pose.inverse()*m);
 	}
-//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+	//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( sweep, reg);
 	mu->occlusion_penalty               = 15;
@@ -649,13 +652,13 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 	mu->viewer							= viewer;
 
 	sweep->recomputeModelPoints();
-//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+	//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 	reglib::Model * fullmodel = new reglib::Model();
 	fullmodel->savePath = savePath+"/";
 	fullmodel->frames = sweep->frames;
 	fullmodel->relativeposes = sweep->relativeposes;
 	fullmodel->modelmasks = sweep->modelmasks;
-//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+	//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 	if(frames.size() > 0){
 
 		reglib::RegistrationRefinement * refinement = new reglib::RegistrationRefinement();
@@ -706,7 +709,7 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 		bgmassreg->stopval = 0.0005;
 		bgmassreg->addModel(sweep);
 		bgmassreg->setData(frames,masks);
-//		exit(0);
+		//		exit(0);
 		//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 
 		reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
@@ -879,13 +882,16 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 
 	if ( ! boost::filesystem::exists( path ) ){return 0;}
 
+
+
+
 	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("*object*.xml"));
 	store_old_xml = objectFiles.size() == 0;
 
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
 
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData current_roomData  = parser.loadRoomFromXML(path,std::vector<std::string>());
-//	if(current_roomData.roomWaypointId.compare("ReceptionDesk") != 0){return 0;}
+	//	if(current_roomData.roomWaypointId.compare("ReceptionDesk") != 0){return 0;}
 
 	current_roomData  = parser.loadRoomFromXML(path,std::vector<std::string>{"RoomIntermediateCloud","IntermediatePosition"});
 	if(current_roomData.vIntermediateRoomClouds.size() != 17){return 0;}
@@ -965,14 +971,36 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 		printf("no previous...\n");
 	}
 
+
 	if(bgs.size() > 0){
+
+		std::vector<cv::Mat> peopleMasks;
+		for(unsigned int i = 0; i < models.front()->frames.size(); i++){
+			cv::Mat peoplemask;
+			int width = models.front()->frames[i]->camera->width;
+			int height = models.front()->frames[i]->camera->height;
+			peoplemask.create(height,width,CV_8UC1);
+			unsigned int nr_pixels = width*height;
+			for(unsigned int j = 0; j < nr_pixels; j++){peoplemask.data[j] = 0;}
+			peopleMasks.push_back(peoplemask);
+		}
+
+		std::vector<std::vector<std::tuple<float, float, float, float> > > detections;
+		detections = metaroom_detections::detections_for_xml(path, "intermediate_deep_detection");
+
+		unsigned int count = 0;
+		for (std::vector<std::tuple<float, float, float, float> >& image_dets : detections) {
+			for (std::tuple<float, float, float, float>& det : image_dets) {
+				cv::rectangle(peopleMasks[count], cv::Rect(std::get<0>(det),std::get<1>(det),std::get<2>(det),std::get<3>(det)), cv::Scalar(255,255,255), -1);
+			}
+			count++;
+		}
+
 		auto sweep = SimpleXMLParser<PointType>::loadRoomFromXML(path, std::vector<std::string>{},false);
 
-		printf("models.front()->frames.size() = %i\n",models.front()->frames.size());
 		quasimodo_brain::segment(bgs,models,internal,external,dynamic,visualization_lvl,saveVisuals);
 
 		remove_old_seg(sweep_folder);
-
 		if(models.size() == 0){	returnval = 2;}
 		else{					returnval = 3;}
 
@@ -1000,6 +1028,7 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 				CloudPtr cloud_cluster (new Cloud());
 
 				Eigen::Matrix4d first = model->frames.front()->pose;
+				int peopleoverlaps = 0;
 
 				for(unsigned int j = 0; j < mod_fr.size(); j++){
 					reglib::RGBDFrame * frame = mod_fr[j];
@@ -1027,10 +1056,12 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 					const unsigned int width	= camera->width;
 					const unsigned int height	= camera->height;
 
+					cv::Mat peoplemask = peopleMasks[j];
+
 					cv::Mat mask;
 					mask.create(height,width,CV_8UC1);
 					unsigned char * maskdata = (unsigned char *)(mask.data);
-
+					unsigned char * peoplemaskdata = (unsigned char *)(peoplemask.data);
 
 					bool containsData = false;
 					for(unsigned int w = 0; w < width;w++){
@@ -1058,6 +1089,7 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 									sumy += p.y;
 									sumz += p.z;
 									sum ++;
+									if(peoplemaskdata[ind] != 0){peopleoverlaps++;}
 								}
 							}else{
 								maskdata[ind] = 0;
@@ -1075,121 +1107,125 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 				cloud_cluster->height = 1;
 				cloud_cluster->is_dense = true;
 
+				printf("peopleoverlaps: %i\n",peopleoverlaps);
+
 				if(masks.size() > 0){
+					if(peopleoverlaps == 0){
 
+						if(store_old_xml){
+							std::stringstream ss;
+							ss << "object_";
+							ss << (dynamicCounter-1);
 
-					if(store_old_xml){
-						std::stringstream ss;
-						ss << "object_";
-						ss << (dynamicCounter-1);
-
-						// create and save dynamic object
-						DynamicObject::Ptr roomObject(new DynamicObject());
-						roomObject->setCloud(cloud_cluster);
-						roomObject->setTime(sweep.roomLogStartTime);
-						roomObject->m_roomLogString = sweep.roomLogName;
-						roomObject->m_roomStringId = sweep.roomWaypointId;
-						roomObject->m_roomRunNumber = sweep.roomRunNumber;
-						//				        // create label from room log time; could be useful later on, and would resolve ambiguities
-						std::stringstream ss_obj;
-						ss_obj<<boost::posix_time::to_simple_string(sweep.roomLogStartTime);
-						ss_obj<<"_object_";ss_obj<<(dynamicCounter-1);
-						std::string tmp = ss_obj.str();
-						printf("ss_obj.str(): %s\n",tmp.c_str());
-						//roomObject->m_label = tmp;
-						roomObject->setLabel(tmp);
-						std::string xml_file = objectparser.saveAsXML(roomObject);
-						printf("xml_file: %s\n",xml_file.c_str());
-					}
-
-					char buf [1024];
-					sprintf(buf,"%s/dynamic_obj%10.10i.pcd",sweep_folder.c_str(),dynamicCounter-1);
-					pcl::io::savePCDFileBinaryCompressed(std::string(buf),*cloud_cluster);
-
-					*dyncloud += *cloud_cluster;
-
-
-					//					std::string objectpcd = std::string(buf);//object.substr(0,object.size()-4);
-					//					std::cout << objectpcd.substr(0,objectpcd.size()-4) << std::endl;
-
-					sprintf(buf,"%s/dynamic_obj%10.10i.xml",sweep_folder.c_str(),dynamicCounter-1);
-					printf("saving dynamic objec: %s\n",buf);
-					QFile file(buf);
-					if (file.exists()){file.remove();}
-					if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save dynamic object as XML"<<std::endl;}
-					QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
-					xmlWriter->setDevice(&file);
-
-					xmlWriter->writeStartDocument();
-					xmlWriter->writeStartElement("Object");
-					xmlWriter->writeAttribute("object_number", QString::number(dynamicCounter-1));
-					xmlWriter->writeAttribute("classname", QString(""));
-					xmlWriter->writeAttribute("instancename", QString(""));
-					xmlWriter->writeAttribute("tags", QString(""));
-					xmlWriter->writeStartElement("Mean");
-					xmlWriter->writeAttribute("x", QString::number(sumx/sum));
-					xmlWriter->writeAttribute("y", QString::number(sumy/sum));
-					xmlWriter->writeAttribute("z", QString::number(sumz/sum));
-					xmlWriter->writeEndElement();
-
-
-					for(unsigned int j = 0; j < masks.size(); j++){
-						char buf [1024];
-						sprintf(buf,"%s/dynamicmask_%i_%i.png",sweep_folder.c_str(),dynamicCounter-1,imgnr[j]);
-						cv::imwrite(buf, masks[j] );
-
-						int width = masks[j].cols;
-						int height = masks[j].rows;
-
-						int maxw = 0;
-						int minw = width;
-						int maxh = 0;
-						int minh = height;
-						for(int w = 0; w < width; w++){
-							for(int h = 0; h < height; h++){
-								if(masks[j].data[h*width+w] != 0){
-									maxw = std::max(maxw,w);
-									minw = std::min(minw,w);
-									maxh = std::max(maxh,h);
-									minh = std::min(minh,h);
-								}
-							}
+							// create and save dynamic object
+							DynamicObject::Ptr roomObject(new DynamicObject());
+							roomObject->setCloud(cloud_cluster);
+							roomObject->setTime(sweep.roomLogStartTime);
+							roomObject->m_roomLogString = sweep.roomLogName;
+							roomObject->m_roomStringId = sweep.roomWaypointId;
+							roomObject->m_roomRunNumber = sweep.roomRunNumber;
+							//				        // create label from room log time; could be useful later on, and would resolve ambiguities
+							std::stringstream ss_obj;
+							ss_obj<<boost::posix_time::to_simple_string(sweep.roomLogStartTime);
+							ss_obj<<"_object_";ss_obj<<(dynamicCounter-1);
+							std::string tmp = ss_obj.str();
+							printf("ss_obj.str(): %s\n",tmp.c_str());
+							//roomObject->m_label = tmp;
+							roomObject->setLabel(tmp);
+							std::string xml_file = objectparser.saveAsXML(roomObject);
+							printf("xml_file: %s\n",xml_file.c_str());
 						}
 
-						double ratio = 0.15;
-						int diffw = maxw-minw;
-						int diffh = maxh-minh;
+						char buf [1024];
+						sprintf(buf,"%s/dynamic_obj%10.10i.pcd",sweep_folder.c_str(),dynamicCounter-1);
+						pcl::io::savePCDFileBinaryCompressed(std::string(buf),*cloud_cluster);
 
-						maxw = std::min(width-1	,int(maxw+ratio*diffw));
-						minw = std::max(0		,int(minw-ratio*diffw));
-						maxh = std::min(height-1,int(maxh+ratio*diffh));
-						minh = std::max(0		,int(minh-ratio*diffh));
-
-						diffw = maxw-minw;
-						diffh = maxh-minh;
-
-						cv::Mat image = mod_fr[imgnr[j]]->rgb.clone();
-						cv::Rect myROI(minw, minh, diffw, diffh);
-						cv::Mat localimg = image(myROI);
+						*dyncloud += *cloud_cluster;
 
 
-						char buf2 [1024];
-						sprintf(buf2,"/home/johane/imgregion/region%10.10i.png",totalcounter++);
-						cv::imwrite(buf2, localimg );
+						//					std::string objectpcd = std::string(buf);//object.substr(0,object.size()-4);
+						//					std::cout << objectpcd.substr(0,objectpcd.size()-4) << std::endl;
 
-						printf("saving dynamic mask: dynamicmask_%i_%i.png\n",dynamicCounter-1,imgnr[j]);
+						sprintf(buf,"%s/dynamic_obj%10.10i.xml",sweep_folder.c_str(),dynamicCounter-1);
+						printf("saving dynamic objec: %s\n",buf);
+						QFile file(buf);
+						if (file.exists()){file.remove();}
+						if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save dynamic object as XML"<<std::endl;}
+						QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
+						xmlWriter->setDevice(&file);
 
-						sprintf(buf,"dynamicmask_%i_%i.png",dynamicCounter-1,imgnr[j]);
-						xmlWriter->writeStartElement("Mask");
-						xmlWriter->writeAttribute("filename", QString(buf));
-						xmlWriter->writeAttribute("image_number", QString::number(imgnr[j]));
+						xmlWriter->writeStartDocument();
+						xmlWriter->writeStartElement("Object");
+						xmlWriter->writeAttribute("object_number", QString::number(dynamicCounter-1));
+						xmlWriter->writeAttribute("classname", QString(""));
+						xmlWriter->writeAttribute("instancename", QString(""));
+						xmlWriter->writeAttribute("tags", QString(""));
+						xmlWriter->writeStartElement("Mean");
+						xmlWriter->writeAttribute("x", QString::number(sumx/sum));
+						xmlWriter->writeAttribute("y", QString::number(sumy/sum));
+						xmlWriter->writeAttribute("z", QString::number(sumz/sum));
 						xmlWriter->writeEndElement();
-					}
 
-					xmlWriter->writeEndElement();
-					xmlWriter->writeEndDocument();
-					delete xmlWriter;
+
+						for(unsigned int j = 0; j < masks.size(); j++){
+							char buf [1024];
+							sprintf(buf,"%s/dynamicmask_%i_%i.png",sweep_folder.c_str(),dynamicCounter-1,imgnr[j]);
+							cv::imwrite(buf, masks[j] );
+
+							int width = masks[j].cols;
+							int height = masks[j].rows;
+
+							int maxw = 0;
+							int minw = width;
+							int maxh = 0;
+							int minh = height;
+							for(int w = 0; w < width; w++){
+								for(int h = 0; h < height; h++){
+									if(masks[j].data[h*width+w] != 0){
+										maxw = std::max(maxw,w);
+										minw = std::min(minw,w);
+										maxh = std::max(maxh,h);
+										minh = std::min(minh,h);
+									}
+								}
+							}
+
+							double ratio = 0.15;
+							int diffw = maxw-minw;
+							int diffh = maxh-minh;
+
+							maxw = std::min(width-1	,int(maxw+ratio*diffw));
+							minw = std::max(0		,int(minw-ratio*diffw));
+							maxh = std::min(height-1,int(maxh+ratio*diffh));
+							minh = std::max(0		,int(minh-ratio*diffh));
+
+							diffw = maxw-minw;
+							diffh = maxh-minh;
+
+							cv::Mat image = mod_fr[imgnr[j]]->rgb.clone();
+							cv::Rect myROI(minw, minh, diffw, diffh);
+							cv::Mat localimg = image(myROI);
+
+
+							char buf2 [1024];
+							sprintf(buf2,"/home/johane/imgregion/region%10.10i.png",totalcounter++);
+							cv::imwrite(buf2, localimg );
+
+							printf("saving dynamic mask: dynamicmask_%i_%i.png\n",dynamicCounter-1,imgnr[j]);
+
+							sprintf(buf,"dynamicmask_%i_%i.png",dynamicCounter-1,imgnr[j]);
+							xmlWriter->writeStartElement("Mask");
+							xmlWriter->writeAttribute("filename", QString(buf));
+							xmlWriter->writeAttribute("image_number", QString::number(imgnr[j]));
+							xmlWriter->writeEndElement();
+						}
+
+						xmlWriter->writeEndElement();
+						xmlWriter->writeEndDocument();
+						delete xmlWriter;
+					}
 					dynamicCounter++;
+
 				}else{break;}
 			}
 
@@ -1360,7 +1396,7 @@ void trainMetaroom(std::string path){
 	bgmassreg->stopval = 0.0005;
 	bgmassreg->setData(fullmodel->frames,fullmodel->modelmasks);
 	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(fullmodel->relativeposes);
-exit(0);
+	exit(0);
 	savePoses(overall_folder+"/"+posepath,bgmfr.poses,17);
 	fullmodel->fullDelete();
 	delete fullmodel;
@@ -1899,12 +1935,12 @@ void processSweepForDatabase(std::string path, std::string savePath){
 		sweep->frames[i]->pose *= change;
 	}
 
-//	string meta_data
-//	uint32 timestamp
-//	tf/tfMessage transform
-//	---
-//	bool result
-//	soma_llsd_msgs/Scene response
+	//	string meta_data
+	//	uint32 timestamp
+	//	tf/tfMessage transform
+	//	---
+	//	bool result
+	//	soma_llsd_msgs/Scene response
 
 	ros::ServiceClient client = np->serviceClient<soma_llsd::InsertScene>("/soma_llsd/insert_scene");
 	ROS_INFO("Waiting for /soma_llsd/insert_scene service...");
@@ -1952,10 +1988,10 @@ void processSweepForDatabase(std::string path, std::string savePath){
 		scene.request.waypoint = current_waypointid;
 		scene.request.episode_id = roomData.roomRunNumber;
 
-//		if (!client.call(scene)) {
-//			ROS_ERROR("Failed to call service /soma_llsd/insert_scene");
-//			return;
-//		}
+		//		if (!client.call(scene)) {
+		//			ROS_ERROR("Failed to call service /soma_llsd/insert_scene");
+		//			return;
+		//		}
 
 
 		cv_bridge::CvImage maskBridgeImage;
@@ -1968,7 +2004,7 @@ void processSweepForDatabase(std::string path, std::string savePath){
 		obs.image_mask = *(maskBridgeImage.toImageMsg());
 		obs.pose = segpose;
 		obs.id = "frame"+std::to_string(frame->id);
-//        obs.timestamp = ros::Time::now().nsec;
+		//        obs.timestamp = ros::Time::now().nsec;
 		sweepsegment.observations.push_back(obs);
 	}
 

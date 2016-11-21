@@ -59,6 +59,10 @@
   <build_depend>semantic_map_msgs</build_depend>
   <build_depend>object_manager_msgs</build_depend>
   <build_depend>object_manager</build_depend>
+  
+  <build_depend>local_metric_map_people_rejection</build_depend>
+  <run_depend>local_metric_map_people_rejection</run_depend>
+  
   <run_depend>object_manager</run_depend>
   <run_depend>object_manager_msgs</run_depend>
   <run_depend>semantic_map_msgs</run_depend>

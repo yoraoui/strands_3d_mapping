@@ -2447,7 +2447,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	dfunc = dfuncTMP;
 	dfuncTMP->startreg				= 0.00;
 	dfuncTMP->max_under_mean		= false;
-	dfuncTMP->debugg_print			= false;
+	dfuncTMP->debugg_print			= true;
 	dfuncTMP->bidir					= true;
 	dfuncTMP->zeromean				= false;
 	dfuncTMP->maxp					= 0.9999;

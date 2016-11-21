@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(quasimodo_brain)
 
 
-find_package(catkin REQUIRED COMPONENTS roscpp soma_msgs object_manager object_manager_msgs semantic_map_msgs soma_manager quasimodo_msgs quasimodo_conversions quasimodo_models message_runtime pcl_ros metaroom_xml_parser eigen_conversions cv_bridge)
+find_package(catkin REQUIRED COMPONENTS roscpp soma_msgs object_manager object_manager_msgs semantic_map_msgs soma_manager local_metric_map_people_rejection quasimodo_msgs quasimodo_conversions quasimodo_models message_runtime pcl_ros metaroom_xml_parser eigen_conversions cv_bridge)
 
 
 set(CMAKE_CXX_FLAGS "-O4 -g -pg -Wunknown-pragmas -Wno-unknown-pragmas -Wsign-compare -fPIC -std=c++0x -o popcnt -mssse3")

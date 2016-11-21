@@ -75,7 +75,7 @@ std::vector<int> partition_graph(std::vector< std::vector< float > > & scores);
 inline double getNoise(double depth){return depth*depth;}
 
 inline double getInformation(double depth){
-	if(depth == 0 || depth > 4){return 0.00000000001;}
+	//if(depth == 0 || depth > 4){return 0.00000000001;}
 	double n = getNoise(depth);
 	return 1.0/(n*n);
 }
