@@ -141,6 +141,7 @@ ros::Publisher model_pub;
 std::vector< ros::Publisher > m_PublisherStatuss;
 std::vector< ros::Publisher > out_pubs;
 std::vector< ros::Publisher > model_pubs;
+std::vector< ros::Publisher > soma_segment_id_pubs;
 ros::Publisher roomObservationCallback_pubs;
 
 std::string saveVisuals = "";
@@ -1660,6 +1661,314 @@ bool testDynamicObjectServiceCallback(std::string path){
 }
 
 
+
+cv::Mat getMaskImg(cv::Mat image, cv::Mat mask){
+	unsigned int width = image.rows;
+	unsigned int height = image.cols;
+	int maxw = 0;
+	int minw = width;
+	int maxh = 0;
+	int minh = height;
+	for(int w = 0; w < width; w++){
+		for(int h = 0; h < height; h++){
+			if(mask.data[h*width+w] != 0){
+				maxw = std::max(maxw,w);
+				minw = std::min(minw,w);
+				maxh = std::max(maxh,h);
+				minh = std::min(minh,h);
+			}
+		}
+	}
+
+	double ratio = 0.15;
+	int diffw = maxw-minw;
+	int diffh = maxh-minh;
+
+	maxw = std::min(int(width-1 ),int(maxw+ratio*diffw));
+	minw = std::max(int(0		),int(minw-ratio*diffw));
+	maxh = std::min(int(height-1),int(maxh+ratio*diffh));
+	minh = std::max(int(0		),int(minh-ratio*diffh));
+
+	diffw = maxw-minw;
+	diffh = maxh-minh;
+
+	cv::Rect myROI(minw, minh, diffw, diffh);
+	cv::Mat localimg = image(myROI);
+	return localimg;
+}
+
+geometry_msgs::Pose getPoseMSG(Eigen::Matrix4d pose){
+	geometry_msgs::Pose		pose1;
+	tf::poseEigenToMsg (Eigen::Affine3d(pose), pose1);
+	return pose1;
+}
+
+void sendRoomToSomaLLSD(std::string path){
+	printf("sendRoomToSomaLLSD(%s)\n",path.c_str());
+
+
+	if ( ! boost::filesystem::exists( path ) ){return;}
+
+
+	SimpleXMLParser<pcl::PointXYZRGB> parser;
+	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(path,std::vector<std::string>(),false,false);
+	std::string waypoint = roomData.roomWaypointId;
+	std::string episode_id = roomData.roomLogName;
+
+
+
+	int slash_pos = path.find_last_of("/");
+	std::string sweep_folder = path.substr(0, slash_pos) + "/";
+
+
+	QFile file((sweep_folder+"ViewGroup.xml").c_str());
+	if (!file.exists()){
+		ROS_ERROR("Could not open file %s to load room.",(sweep_folder+"ViewGroup.xml").c_str());
+		return;
+	}
+
+	file.open(QIODevice::ReadOnly);
+	ROS_INFO_STREAM("Parsing xml file: "<<(sweep_folder+"ViewGroup.xml").c_str());
+
+	std::vector< soma_llsd_msgs::Scene > scenes;
+	std::vector< Eigen::Matrix4d > regposes;
+	std::vector< cv::Mat > rgbs;
+	std::vector< cv::Mat > depths;
+
+
+
+	QXmlStreamReader* xmlReader = new QXmlStreamReader(&file);
+	while (!xmlReader->atEnd() && !xmlReader->hasError())
+	{
+		QXmlStreamReader::TokenType token = xmlReader->readNext();
+		if (token == QXmlStreamReader::StartDocument)
+			continue;
+
+		if (xmlReader->hasError())
+		{
+			ROS_ERROR("XML error: %s",xmlReader->errorString().toStdString().c_str());
+			return;
+		}
+
+		QString elementName = xmlReader->name().toString();
+
+		if (token == QXmlStreamReader::StartElement)
+		{
+
+			if (xmlReader->name() == "View")
+			{
+				cv::Mat rgb;
+				cv::Mat depth;
+				//printf("elementName: %s\n",elementName.toStdString().c_str());
+				QXmlStreamAttributes attributes = xmlReader->attributes();
+				if (attributes.hasAttribute("RGB"))
+				{
+					std::string imgpath = attributes.value("RGB").toString().toStdString();
+					printf("rgb filename:   %s\n",(sweep_folder+"/"+imgpath).c_str());
+					rgb = cv::imread(sweep_folder+"/"+imgpath, CV_LOAD_IMAGE_UNCHANGED);
+				}else{break;}
+
+
+				if (attributes.hasAttribute("DEPTH"))
+				{
+					std::string imgpath = attributes.value("DEPTH").toString().toStdString();
+					printf("depth filename: %s\n",(sweep_folder+"/"+imgpath).c_str());
+					depth = cv::imread(sweep_folder+"/"+imgpath, CV_LOAD_IMAGE_UNCHANGED);
+				}else{break;}
+
+
+				token = xmlReader->readNext();//Stamp
+				elementName = xmlReader->name().toString();
+
+				token = xmlReader->readNext();//sec
+				elementName = xmlReader->name().toString();
+				int sec = atoi(xmlReader->readElementText().toStdString().c_str());
+
+				token = xmlReader->readNext();//nsec
+				elementName = xmlReader->name().toString();
+				int nsec = atoi(xmlReader->readElementText().toStdString().c_str());
+				token = xmlReader->readNext();//end stamp
+
+				token = xmlReader->readNext();//Camera
+				elementName = xmlReader->name().toString();
+
+				token = xmlReader->readNext();//fx
+				float fx = atof(xmlReader->readElementText().toStdString().c_str());
+
+				token = xmlReader->readNext();//fy
+				float fy = atof(xmlReader->readElementText().toStdString().c_str());
+
+				token = xmlReader->readNext();//cx
+				float cx = atof(xmlReader->readElementText().toStdString().c_str());
+
+				token = xmlReader->readNext();//cy
+				float cy = atof(xmlReader->readElementText().toStdString().c_str());
+
+				token = xmlReader->readNext();//Camera
+				elementName = xmlReader->name().toString();
+
+				double time = double(sec)+double(nsec)/double(1e9);
+
+				token = xmlReader->readNext();//RegisteredPose
+				elementName = xmlReader->name().toString();
+
+				Eigen::Matrix4d regpose = getPose(xmlReader);
+				regposes.push_back(regpose);
+
+				token = xmlReader->readNext();//RegisteredPose
+				elementName = xmlReader->name().toString();
+
+
+				token = xmlReader->readNext();//Pose
+				elementName = xmlReader->name().toString();
+
+				Eigen::Matrix4d pose = getPose(xmlReader);
+
+				token = xmlReader->readNext();//Pose
+				elementName = xmlReader->name().toString();
+
+				rgbs.push_back(rgb);
+				depths.push_back(depth);
+
+
+				unsigned char *		rgbdata		= (unsigned char *)rgb.data;
+				unsigned short *	depthdata	= (unsigned short *)depth.data;
+				const unsigned int width	= rgb.cols;
+				const unsigned int height	= rgb.rows;
+
+				const double idepth			= 0.001/5.0;
+				const double ifx			= 1.0/fx;
+				const double ify			= 1.0/fy;
+
+				pcl::PointCloud<pcl::PointXYZRGB>::Ptr	cloud	(new pcl::PointCloud<pcl::PointXYZRGB>);
+				cloud->width	= width;
+				cloud->height	= height;
+				cloud->points.resize(width*height);
+
+				for(unsigned int w = 0; w < width; w++){
+					for(unsigned int h = 0; h < height;h++){
+						int ind = h*width+w;
+						double z = idepth*double(depthdata[ind]);
+
+						pcl::PointXYZRGB p;
+						p.b = rgbdata[3*ind+0];
+						p.g = rgbdata[3*ind+1];
+						p.r = rgbdata[3*ind+2];
+						if(z > 0){
+							p.x = (double(w) - cx) * z * ifx;
+							p.y = (double(h) - cy) * z * ify;
+							p.z = z;
+						}else{
+							p.x = NAN;
+							p.y = NAN;
+							p.z = NAN;
+						}
+						cloud->points[ind] = p;
+					}
+				}
+
+				Eigen::Matrix3d K = Eigen::Matrix3d::Zero();
+				K(0,0) = fx;
+				K(1,1) = fy;
+				K(0,2) = cx;
+				K(1,2) = cy;
+				soma_llsd_msgs::Scene scene;
+				quasimodo_conversions::raw_frames_to_soma_scene(rgb,depth,cloud, pose, K,waypoint, episode_id,scene);
+				scenes.push_back(scene);
+			}
+		}
+	}
+	delete xmlReader;
+
+	//Scenes added to database...
+
+	std::ofstream sceneidfile;
+	sceneidfile.open (sweep_folder+"/sceneids.txt");
+	for(unsigned int i = 0; i < scenes.size(); i++){
+		sceneidfile << scenes[i].id;
+		std::cout << "-------------------------------------------------\n" << scenes[i].id << std::endl;
+	}
+	sceneidfile.close();
+
+
+	//		string id
+	//		string meta_data
+	//		string[] related_scenes
+	//		Observation[] observations
+	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("dynamic_obj*.xml"));
+	for (auto objectFile : objectFiles){
+
+		std::string object = sweep_folder+objectFile.toStdString();
+		printf("object: %s\n",object.c_str());
+
+		QFile objfile(object.c_str());
+
+		if (!objfile.exists()){
+			ROS_ERROR("Could not open file %s to masks.",object.c_str());
+			continue;
+		}
+
+		objfile.open(QIODevice::ReadOnly);
+		ROS_INFO_STREAM("Parsing xml file: "<<object.c_str());
+
+		std::vector< std::string > scid;
+		std::vector< cv::Mat > masks;
+		std::vector< Eigen::Matrix4d > poses;
+
+
+		QXmlStreamReader* xmlReader = new QXmlStreamReader(&objfile);
+
+		while (!xmlReader->atEnd() && !xmlReader->hasError()){
+			QXmlStreamReader::TokenType token = xmlReader->readNext();
+			if (token == QXmlStreamReader::StartDocument)
+				continue;
+
+			if (xmlReader->hasError()){
+				ROS_ERROR("XML error: %s",xmlReader->errorString().toStdString().c_str());
+				break;
+			}
+
+			QString elementName = xmlReader->name().toString();
+
+			if (token == QXmlStreamReader::StartElement){
+				if (xmlReader->name() == "Mask"){
+					int number = 0;
+					cv::Mat mask;
+					QXmlStreamAttributes attributes = xmlReader->attributes();
+					if (attributes.hasAttribute("filename")){
+						QString maskpath = attributes.value("filename").toString();
+						mask = cv::imread(sweep_folder+"/"+(maskpath.toStdString().c_str()), CV_LOAD_IMAGE_UNCHANGED);
+					}else{break;}
+
+
+					if (attributes.hasAttribute("image_number")){
+						QString depthpath = attributes.value("image_number").toString();
+						number = atoi(depthpath.toStdString().c_str());
+						printf("number: %i\n",number);
+					}else{break;}
+
+					scid.push_back(scenes[number].id);
+					poses.push_back(regposes[number]);
+					masks.push_back(mask);
+				}
+			}
+		}
+		delete xmlReader;
+
+//		bool result = true;
+//		soma_llsd_msgs::Segment response;
+//		if(result){
+//			std::string segmentid = respose.segment_id;
+//		}
+
+	}
+
+//	for(unsigned int i = 0; i < frames.size(); i++){delete frames[i];}
+//	return models;
+
+
+}
+
 void processSweep(std::string path, std::string savePath){
 
 
@@ -1692,10 +2001,15 @@ void processSweep(std::string path, std::string savePath){
 		if(sweep_xmls[i].compare(path) == 0){break;}
 		prevind = i;
 	}
+
 	if(prevind >= 0){//Submit last metaroom results
+		//Add previous metaroom to soma llsd
+		sendRoomToSomaLLSD(sweep_xmls[prevind]);
 		sendMetaroomToServer(sweep_xmls[prevind]);
 	}
 }
+
+
 
 void roomObservationCallback(const semantic_map_msgs::RoomObservationConstPtr& obs_msg) {
 
@@ -2108,7 +2422,9 @@ bool testPath(std::string path){
 	for (auto sweep_xml : sweep_xmls) {
 		//printf("sweep_xml: %s\n",sweep_xml.c_str());
 		//processSweep(sweep_xml,"");
-		processSweepForDatabase(sweep_xml,"");
+		//processSweepForDatabase(sweep_xml,"");
+
+		sendRoomToSomaLLSD(sweep_xml);
 	}
 	return false;
 }
@@ -2268,6 +2584,10 @@ int main(int argc, char** argv){
 
 		if(processAndSendsubs.size() == 0){
 			processAndSendsubs.push_back(n.subscribe("/object_learning/learned_object_xml", 1000, chatterCallback));//processAndSendCallback));
+		}
+
+		if(soma_segment_id_pubs.size() == 0){
+			soma_segment_id_pubs.push_back(n.advertise<std_msgs::String>("/quasimodo/segmentation/out/soma_segment_id", 1000));
 		}
 	}
 

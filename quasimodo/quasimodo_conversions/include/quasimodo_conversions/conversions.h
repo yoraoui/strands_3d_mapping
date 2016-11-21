@@ -14,6 +14,11 @@
 
 namespace quasimodo_conversions {
 
+
+void convert_to_img_msg(const cv::Mat& cv_image, sensor_msgs::Image& ros_image);
+void convert_to_depth_msg(const cv::Mat& cv_image, sensor_msgs::Image& ros_image);
+void convert_to_mask_msg(const cv::Mat& cv_image, sensor_msgs::Image& ros_image);
+
 void model_to_soma_segment(ros::NodeHandle& n, const quasimodo_msgs::model& model, soma_llsd_msgs::Segment& segment);
 void soma_segment_to_model(ros::NodeHandle& n, const soma_llsd_msgs::Segment& segment, quasimodo_msgs::model& model);
 void soma_observation_to_frame(ros::NodeHandle& n, const soma_llsd_msgs::Observation& obs, quasimodo_msgs::rgbd_frame& frame);
