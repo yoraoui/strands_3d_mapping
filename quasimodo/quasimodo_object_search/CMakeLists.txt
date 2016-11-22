@@ -1,14 +1,21 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(quasimodo_object_search)
 
+add_definitions(-std=c++11)
+
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED)
+find_package(catkin REQUIRED COMPONENTS quasimodo_msgs pcl_ros mongodb_store)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
+# Find PCL
+find_package(PCL 1.6 REQUIRED COMPONENTS common io search visualization surface kdtree features surface segmentation octree filter keypoints)
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -108,7 +115,7 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-# include_directories(include)
+include_directories(${catkin_INCLUDE_DIRS})
 
 ## Declare a C++ library
 # add_library(quasimodo_object_search2
@@ -121,16 +128,17 @@ catkin_package(
 # add_dependencies(quasimodo_object_search2 ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
-# add_executable(quasimodo_object_search2_node src/quasimodo_object_search2_node.cpp)
+add_executable(visualize_database_node src/visualize_database_node.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(quasimodo_object_search2_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(quasimodo_object_search2_node
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(visualize_database_node
+  ${PCL_LIBRARIES}
+  ${catkin_LIBRARIES}
+)
 
 #############
 ## Install ##
