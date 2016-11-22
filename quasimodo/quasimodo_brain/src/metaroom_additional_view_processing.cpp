@@ -570,7 +570,6 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 	unsigned int current_counter = metaroom_frames.size();
 
 	std::vector<reglib::RGBDFrame * > av_frames;
-	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("*object*.xml"));
 	for (auto objectFile : objectFiles){
 		auto object = loadDynamicObjectFromSingleSweep<PointType>(sweep_folder+objectFile.toStdString(),false);
 		for (unsigned int i=0; i<object.vAdditionalViews.size(); i++){
