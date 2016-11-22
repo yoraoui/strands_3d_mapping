@@ -520,12 +520,12 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 	unsigned char * maskdata = (unsigned char *)fullmask.data;
 	for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
 
+
 	std::vector<reglib::RGBDFrame * > metaroom_frames;
 	for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++){
 		printf("loading intermedite %i\n",i);
 		if(i >= counter){
 			image_geometry::PinholeCameraModel aCameraModel = roomData.vIntermediateRoomCloudCamParamsCorrected[i];
-			//image_geometry::PinholeCameraModel aCameraModel = roomData.vIntermediateRoomCloudCamParams[i];
 			reglib::Camera * cam		= new reglib::Camera();
 			cam->fx = aCameraModel.fx();
 			cam->fy = aCameraModel.fy();
@@ -544,7 +544,6 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 			metaroom_frames.push_back(frames[i]);
 		}
 
-		metaroom_frames.back()->camera->print();
 
 		if(sweepmodel == 0){
 			sweepmodel = new reglib::Model(metaroom_frames.back(),fullmask);
@@ -568,35 +567,52 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 	std::vector<cv::Mat> viewdepths;
 	std::vector<tf::StampedTransform > viewtfs;
 
+	unsigned int current_counter = metaroom_frames.size();
+
+	std::vector<reglib::RGBDFrame * > av_frames;
 	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("*object*.xml"));
 	for (auto objectFile : objectFiles){
 		auto object = loadDynamicObjectFromSingleSweep<PointType>(sweep_folder+objectFile.toStdString(),false);
 		for (unsigned int i=0; i<object.vAdditionalViews.size(); i++){
+			if(current_counter <= counter){
+				av_frames.push_back(frames[current_counter]);
+			}else{
+				CloudPtr cloud = object.vAdditionalViews[i];
 
-			counter++;
+				cv::Mat rgb;
+				rgb.create(cloud->height,cloud->width,CV_8UC3);
+				unsigned char * rgbdata = (unsigned char *)rgb.data;
 
-			CloudPtr cloud = object.vAdditionalViews[i];
+				cv::Mat depth;
+				depth.create(cloud->height,cloud->width,CV_16UC1);
+				unsigned short * depthdata = (unsigned short *)depth.data;
 
-			cv::Mat rgb;
-			rgb.create(cloud->height,cloud->width,CV_8UC3);
-			unsigned char * rgbdata = (unsigned char *)rgb.data;
+				unsigned int nr_data = cloud->height * cloud->width;
+				for(unsigned int j = 0; j < nr_data; j++){
+					PointType p = cloud->points[j];
+					rgbdata[3*j+0]	= p.b;
+					rgbdata[3*j+1]	= p.g;
+					rgbdata[3*j+2]	= p.r;
+					depthdata[j]	= short(5000.0 * p.z);
+				}
 
-			cv::Mat depth;
-			depth.create(cloud->height,cloud->width,CV_16UC1);
-			unsigned short * depthdata = (unsigned short *)depth.data;
+				geometry_msgs::TransformStamped msg;
+				tf::transformStampedTFToMsg(object.vAdditionalViewsTransforms[i], msg);
+				long sec = msg.header.stamp.sec;
+				long nsec = msg.header.stamp.nsec;
+				double time = double(sec)+1e-9*double(nsec);
 
-			unsigned int nr_data = cloud->height * cloud->width;
-			for(unsigned int j = 0; j < nr_data; j++){
-				PointType p = cloud->points[j];
-				rgbdata[3*j+0]	= p.b;
-				rgbdata[3*j+1]	= p.g;
-				rgbdata[3*j+2]	= p.r;
-				depthdata[j]	= short(5000.0 * p.z);
+				Eigen::Matrix4d m = quasimodo_brain::getMat(object.vAdditionalViewsTransforms[i]);
+
+				reglib::Camera * cam		= metaroom_frames.front()->camera->clone();
+				reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,rgb,depth,time, m,true,savePath);//a.matrix());
+
+				sprintf(buf,"%s/frame_%5.5i",sweep_folder.c_str(),current_counter);
+				frame->save(std::string(buf));
+				cam->save(std::string(buf)+"_camera");
+				av_frames.push_back(frame);
 			}
-
-			viewrgbs.push_back(rgb);
-			viewdepths.push_back(depth);
-			viewtfs.push_back(object.vAdditionalViewsTransforms[i]);
+			current_counter++;
 		}
 	}
 
@@ -619,13 +635,8 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 //	std::vector<double> times;
 //	for(unsigned int i = 0; i < 3000 &&  i < viewrgbs.size(); i++){
 //		printf("additional view: %i\n",i);
-//		geometry_msgs::TransformStamped msg;
-//		tf::transformStampedTFToMsg(viewtfs[i], msg);
-//		long sec = msg.header.stamp.sec;
-//		long nsec = msg.header.stamp.nsec;
-//		double time = double(sec)+1e-9*double(nsec);
 
-//		Eigen::Matrix4d m = quasimodo_brain::getMat(viewtfs[i]);
+//
 
 //		cout << m << endl << endl;
 
