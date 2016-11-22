@@ -23,7 +23,7 @@ Camera::Camera(){
 Camera::~Camera(){}
 
 void Camera::save(std::string path){
-	printf("save camera to %s\n",path.c_str());
+	printf("Camera::save(%s)\n",path.c_str());
 	unsigned long buffersize = 7*sizeof(double);
 	char* buffer = new char[buffersize];
 	double * buffer_double = (double *)buffer;
@@ -62,12 +62,13 @@ Camera * Camera::clone(){
 }
 
 Camera * Camera::load(std::string path){
+	printf("Camera::load(%s)\n",path.c_str());
 	Camera * cam = new Camera();
 
 	std::streampos size;
 	char * buffer;
 
-	std::ifstream file (path, std::ios::in | std::ios::binary | std::ios::ate);
+	std::ifstream file (path+"_data.txt", std::ios::in | std::ios::binary | std::ios::ate);
 	if (file.is_open()){
 		size = file.tellg();
 		buffer = new char [size];

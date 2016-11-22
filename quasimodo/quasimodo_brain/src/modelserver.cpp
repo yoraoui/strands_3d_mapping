@@ -740,6 +740,13 @@ void addNewModel(reglib::Model * model){
 	dumpDatabase(savepath);
 }
 
+
+void somaCallback(const std_msgs::String & m){
+	printf("somaCallback(%s)\n",m.data.c_str());
+//	quasimodo_msgs::model mod = m;
+//	addNewModel(quasimodo_brain::getModelFromMSG(mod,false));
+}
+
 void modelCallback(const quasimodo_msgs::model & m){
 	quasimodo_msgs::model mod = m;
 	addNewModel(quasimodo_brain::getModelFromMSG(mod,false));
@@ -1315,6 +1322,7 @@ int main(int argc, char **argv){
 
 
 	std::vector<ros::Subscriber> input_model_subs;
+	std::vector<ros::Subscriber> soma_input_model_subs;
 	std::vector<std::string> modelpcds;
 
 	int inputstate = -1;
@@ -1408,6 +1416,11 @@ int main(int argc, char **argv){
 
 	//if(input_model_subs.size() == 0){input_model_subs.push_back(n.subscribe("/model/out/topic", 100, modelCallback));}
 	if(input_model_subs.size() == 0){input_model_subs.push_back(n.subscribe("/quasimodo/segmentation/out/model", 100, modelCallback));}
+
+
+
+	if(soma_input_model_subs.size() == 0){soma_input_model_subs.push_back(n.subscribe("/quasimodo/segmentation/out/soma_segment_id", 10000, somaCallback));}
+
 
 	if(visualization){
 		viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("Modelserver Viewer"));

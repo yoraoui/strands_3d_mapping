@@ -38,6 +38,32 @@
 #include <pcl/point_types.h>
 
 namespace quasimodo_brain {
+
+
+std::vector<reglib::superpoint> getSuperPoints(std::string path);
+
+std::vector<reglib::superpoint> getRoomSuperPoints(std::string path, std::string savePath);
+
+void transformSuperPoints(std::vector<reglib::superpoint> & spvec, Eigen::Matrix4d cp);
+
+void saveSuperPoints(std::string path, std::vector<reglib::superpoint> & spvec, Eigen::Matrix4d pose, float ratio_keep = 0.1);
+
+std::vector<Eigen::Matrix4d> readPoseXML(std::string xmlFile);
+
+void savePoses(std::string xmlFile, std::vector<Eigen::Matrix4d> poses, int maxposes = -1);
+
+Eigen::Matrix4d getPose(QXmlStreamReader * xmlReader);
+
+int readNumberOfViews(std::string xmlFile);
+
+void writeXml(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames, std::vector<Eigen::Matrix4d> & poses);
+
+void writePose(QXmlStreamWriter* xmlWriter, Eigen::Matrix4d pose);
+
+void remove_old_seg(std::string sweep_folder);
+
+std::string replaceAll(std::string str, std::string from, std::string to);
+
 void cleanPath(std::string & path);
 void sortXMLs(std::vector<std::string> & sweeps);
 

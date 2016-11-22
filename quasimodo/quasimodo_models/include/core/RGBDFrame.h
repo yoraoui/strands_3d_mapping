@@ -37,6 +37,7 @@ namespace reglib
 		double capturetime;
 		Eigen::Matrix4d pose;
 		int sweepid;
+		std::string soma_id;
 
 		//float * rgbdata;
 		cv::Mat det_dilate;

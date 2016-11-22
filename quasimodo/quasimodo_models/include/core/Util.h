@@ -40,6 +40,7 @@
 #include "superpoint.h"
 #include "ReprojectionResult.h"
 #include "OcclusionScore.h"
+#include "quasimodo_point.h"
 
 using ceres::NumericDiffCostFunction;
 using ceres::SizedCostFunction;
