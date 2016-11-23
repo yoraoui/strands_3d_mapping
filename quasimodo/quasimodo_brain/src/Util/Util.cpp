@@ -130,12 +130,12 @@ std::vector<Eigen::Matrix4d> readPoseXML(std::string xmlFile){
 	QFile file(xmlFile.c_str());
 
 	if (!file.exists()){
-		ROS_ERROR("Could not open file %s to load poses.",xmlFile.c_str());
+		//ROS_ERROR("Could not open file %s to load poses.",xmlFile.c_str());
 		return poses;
 	}
 
 	file.open(QIODevice::ReadOnly);
-	ROS_INFO_STREAM("Parsing xml file: "<<xmlFile.c_str());
+	//ROS_INFO_STREAM("Parsing xml file: "<<xmlFile.c_str());
 
 	QXmlStreamReader* xmlReader = new QXmlStreamReader(&file);
 
@@ -158,13 +158,13 @@ std::vector<Eigen::Matrix4d> readPoseXML(std::string xmlFile){
 				token = xmlReader->readNext();//Pose
 				elementName = xmlReader->name().toString();
 
-				std::cout << pose << std::endl << std::endl;
+				//std::cout << pose << std::endl << std::endl;
 				poses.push_back(pose);
 			}
 		}
 	}
 	delete xmlReader;
-	printf("done readPoseXML\n");
+	//printf("done readPoseXML\n");
 	return poses;
 }
 

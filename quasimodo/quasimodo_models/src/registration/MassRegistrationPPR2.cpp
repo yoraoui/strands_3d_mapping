@@ -25,7 +25,7 @@ MassRegistrationPPR2::MassRegistrationPPR2(double startreg, bool visualize){
 	DistanceWeightFunction2PPR2 * dwf = new DistanceWeightFunction2PPR2();
 	dwf->update_size		= true;
 	dwf->startreg			= startreg;
-	dwf->debugg_print		= true;
+	dwf->debugg_print		= false;
 	func					= dwf;
 
 
@@ -147,7 +147,6 @@ void MassRegistrationPPR2::addModel(Model * model){
 
 	is_ok.push_back(false);
 
-
 	long count = model->points.size()/step;
 	long i = points.size()-1;
 	if(count < 10){
@@ -183,8 +182,24 @@ void MassRegistrationPPR2::addModel(Model * model){
 	Eigen::Matrix<double, 3, Eigen::Dynamic> & tXn	= transformed_normals[i];
 	Eigen::VectorXd information (count);
 
+	std::vector<int> pind;
+	pind.resize(model->points.size());
+	for(unsigned long c = 0; c < model->points.size(); c++){
+		pind[c] = c;
+	}
+
 	for(unsigned long c = 0; c < count; c++){
-		superpoint & sp = model->points[c*step];
+		long rind = rand() % model->points.size();
+		long pind1 = pind[c];
+		pind[c] = pind[rind];
+		pind[rind] = pind1;
+	}
+
+
+
+	for(unsigned long c = 0; c < count; c++){
+		//superpoint & sp = model->points[c*step];
+		superpoint & sp = model->points[pind[c]];
 		ap[3*c+0] = sp.point(0);
 		ap[3*c+1] = sp.point(1);
 		ap[3*c+2] = sp.point(2);

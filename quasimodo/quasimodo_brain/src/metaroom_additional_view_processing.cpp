@@ -493,8 +493,6 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 
 		reglib::Camera * cam = reglib::Camera::load(std::string(buf)+"_camera");
 		if(cam == 0){break;}
-		cam->print();
-
 		reglib::RGBDFrame * frame = reglib::RGBDFrame::load(cam,std::string(buf));
 		if(frame == 0){delete cam; break;}
 		frames.push_back(frame);
@@ -560,20 +558,21 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 		sweepmodel->recomputeModelPoints();
 		quasimodo_brain::saveSuperPoints(sweep_folder+"/sweepmodel_superpoints.bin",sweepmodel->points,Eigen::Matrix4d::Identity(),1.0);
 	}
-	printf("sweepmodel fully loaded!");
+	printf("sweepmodel fully loaded!\n");
 	//Load rest of model if possible
 
-	std::vector<cv::Mat> viewrgbs;
-	std::vector<cv::Mat> viewdepths;
-	std::vector<tf::StampedTransform > viewtfs;
 
+	std::vector<Eigen::Matrix4d> both_unrefined;
+	both_unrefined.push_back(Eigen::Matrix4d::Identity());
 	unsigned int current_counter = metaroom_frames.size();
 
 	std::vector<reglib::RGBDFrame * > av_frames;
+	std::vector<reglib::ModelMask * > av_mm;
 	for (auto objectFile : objectFiles){
 		auto object = loadDynamicObjectFromSingleSweep<PointType>(sweep_folder+objectFile.toStdString(),false);
 		for (unsigned int i=0; i<object.vAdditionalViews.size(); i++){
-			if(current_counter <= counter){
+			printf("i:%i current_counter: %i counter: %i\n",i,current_counter,counter);
+			if(current_counter < counter){
 				av_frames.push_back(frames[current_counter]);
 			}else{
 				CloudPtr cloud = object.vAdditionalViews[i];
@@ -604,145 +603,119 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 				Eigen::Matrix4d m = quasimodo_brain::getMat(object.vAdditionalViewsTransforms[i]);
 
 				reglib::Camera * cam		= metaroom_frames.front()->camera->clone();
-				reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,rgb,depth,time, m,true,savePath);//a.matrix());
+				reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,rgb,depth,time, m,true,saveVisuals_sp);//a.matrix());
 
 				sprintf(buf,"%s/frame_%5.5i",sweep_folder.c_str(),current_counter);
 				frame->save(std::string(buf));
 				cam->save(std::string(buf)+"_camera");
 				av_frames.push_back(frame);
+				frames.push_back(frame);
 			}
+			both_unrefined.push_back(metaroom_frames.front()->pose.inverse()*av_frames.back()->pose);
+			av_mm.push_back(new reglib::ModelMask(fullmask));
+			//av_frames.back()->show(true);
 			current_counter++;
 		}
 	}
 
+	reglib::Model * fullmodel	= new reglib::Model();
+	fullmodel->savePath			= saveVisuals_sp+"/";
+	fullmodel->frames			= sweepmodel->frames;
+	fullmodel->relativeposes	= sweepmodel->relativeposes;
+	fullmodel->modelmasks		= sweepmodel->modelmasks;
+	fullmodel->points			= sweepmodel->points;
+	for(unsigned int i = 0; i < av_frames.size(); i++){
+		fullmodel->frames.push_back(av_frames[i]);
+		fullmodel->modelmasks.push_back(av_mm[i]);
+	}
 
-//	for(unsigned int i = 0; (i < sweep->frames.size()) && (sweep->frames.size() == sweepPoses.size()) ; i++){
-//		sweep->frames[i]->pose	= sweep->frames.front()->pose * sweepPoses[i];
-//		sweep->relativeposes[i] = sweepPoses[i];
-//		if(basecam != 0){
-//			delete sweep->frames[i]->camera;
-//			sweep->frames[i]->camera = basecam->clone();
-//		}
-//	}
+	std::vector<Eigen::Matrix4d> loadedPoses	= quasimodo_brain::readPoseXML(sweep_folder+"/fullmodel_poses.xml");
+	std::vector<reglib::superpoint> spvec		= quasimodo_brain::getSuperPoints(sweep_folder+"/fullmodel_superpoints.bin");
 
-//	std::vector<reglib::RGBDFrame *> frames;
-//	std::vector<reglib::ModelMask *> masks;
-//	std::vector<Eigen::Matrix4d> unrefined;
+	//Check if poses already computed
+	if(av_frames.size() > 0){
+		if(loadedPoses.size() != (av_frames.size()+metaroom_frames.size())){
+			printf("TIME TO RECOMPUTE\n");
 
-//	std::vector<Eigen::Matrix4d> both_unrefined;
-//	both_unrefined.push_back(Eigen::Matrix4d::Identity());
-//	std::vector<double> times;
-//	for(unsigned int i = 0; i < 3000 &&  i < viewrgbs.size(); i++){
-//		printf("additional view: %i\n",i);
+			reglib::RegistrationRefinement * refinement = new reglib::RegistrationRefinement();
+			refinement->viewer	= viewer;
+			refinement->visualizationLvl	= visualization_lvl_regini;
+			refinement->normalize_matchweights = false;
+			refinement->target_points = 4000;
 
-//
+			reglib::CloudData * cd1 = sweepmodel->getCD(sweepmodel->points.size());
+			refinement->setDst(cd1);
 
-//		cout << m << endl << endl;
+			fullmodel->points = av_frames.front()->getSuperPoints(Eigen::Matrix4d::Identity(),1,false);
+			reglib::CloudData * cd2	= fullmodel->getCD(fullmodel->points.size());
+			refinement->setSrc(cd2);
 
-//		unrefined.push_back(m);
-//		times.push_back(time);
+			Eigen::Matrix4d guess = both_unrefined[1]*both_unrefined[0].inverse();
 
-//		cv::Mat fullmask;
-//		fullmask.create(480,640,CV_8UC1);
-//		unsigned char * maskdata = (unsigned char *)fullmask.data;
-//		for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
-//		masks.push_back(new reglib::ModelMask(fullmask));
+			reglib::FusionResults fr = refinement->getTransform(guess);
+			Eigen::Matrix4d offset = fr.guess*guess.inverse();
+			for(unsigned int i = 1; i < both_unrefined.size(); i++){
+				both_unrefined[i] = offset*both_unrefined[i];
+			}
 
-//		reglib::Camera * cam		= sweep->frames.front()->camera->clone();
-//		reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],time, m,true,savePath);//a.matrix());
-//		frames.push_back(frame);
+			delete refinement;
 
-//		both_unrefined.push_back(sweep->frames.front()->pose.inverse()*m);
-//	}
+			fullmodel->points.clear();
+			delete cd1;
+			delete cd2;
 
-//	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
-//	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( sweep, reg);
-//	mu->occlusion_penalty               = 15;
-//	mu->massreg_timeout                 = 60*4;
-//	mu->viewer							= viewer;
+			reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.25);
+			if(saveVisuals_sp.size() != 0){bgmassreg->savePath = saveVisuals_sp+"/processAV_"+std::to_string(fullmodel->id);}
+			bgmassreg->timeout = 300;
+			bgmassreg->viewer = viewer;
+			bgmassreg->use_surface = true;
+			bgmassreg->use_depthedge = false;
+			bgmassreg->visualizationLvl = visualization_lvl_regref;
+			bgmassreg->maskstep = 5;
+			bgmassreg->nomaskstep = 5;
+			bgmassreg->nomask = true;
+			bgmassreg->stopval = 0.0005;
+			bgmassreg->addModel(sweepmodel);
+			bgmassreg->setData(av_frames,av_mm);
+			reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
+			delete bgmassreg;
 
-//	sweep->recomputeModelPoints();
-//	reglib::Model * fullmodel = new reglib::Model();
-//	fullmodel->savePath = savePath+"/";
-//	fullmodel->frames = sweep->frames;
-//	fullmodel->relativeposes = sweep->relativeposes;
-//	fullmodel->modelmasks = sweep->modelmasks;
-//	//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-//	if(frames.size() > 0){
+			for(unsigned int i = 0; i < av_frames.size(); i++){
+				av_frames[i]->pose = sweepmodel->frames.front()->pose * bgmfr.poses[i+1];
+				fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
+			}
 
-//		reglib::RegistrationRefinement * refinement = new reglib::RegistrationRefinement();
-//		refinement->viewer	= viewer;
-//		refinement->visualizationLvl	= visualization_lvl_regini;
-//		refinement->normalize_matchweights = false;
-//		refinement->target_points = 4000;
-//		////double register_setup_start = getTime();
+			quasimodo_brain::savePoses(sweep_folder+"/fullmodel_poses.xml", fullmodel->relativeposes);
+//relativeposes[i], frames[i], modelmasks[i]
+		}else{
+			fullmodel->relativeposes = loadedPoses;
+		}
 
-//		//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-//		reglib::CloudData * cd1 = sweep->getCD(sweep->points.size());
-//		refinement->setDst(cd1);
 
-//		fullmodel->points = frames.front()->getSuperPoints(Eigen::Matrix4d::Identity(),1,false);
-//		reglib::CloudData * cd2	= fullmodel->getCD(fullmodel->points.size());
-//		refinement->setSrc(cd2);
-//		//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-//		//////printf("register_setup_start:          %5.5f\n",getTime()-register_setup_start);
-//		////double register_compute_start = getTime();
-//		Eigen::Matrix4d guess = both_unrefined[1]*both_unrefined[0].inverse();
-
-//		reglib::FusionResults fr = refinement->getTransform(guess);
-//		Eigen::Matrix4d offset = fr.guess*guess.inverse();
-//		for(unsigned int i = 1; i < both_unrefined.size(); i++){
-//			both_unrefined[i] = offset*both_unrefined[i];
-//		}
-
-//		delete refinement;
-
-//		fullmodel->points.clear();
-//		delete cd1;
-//		delete cd2;
-
-//		reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.25);
-//		if(savePath.size() != 0){
-//			bgmassreg->savePath = savePath+"/processAV_"+std::to_string(fullmodel->id);
-//		}
-//		//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-
-//		bgmassreg->timeout = 300;
-//		bgmassreg->viewer = viewer;
-//		bgmassreg->use_surface = true;
-//		bgmassreg->use_depthedge = false;
-//		bgmassreg->visualizationLvl = visualization_lvl_regref;
-//		bgmassreg->maskstep = 5;
-//		bgmassreg->nomaskstep = 5;
-//		bgmassreg->nomask = true;
-//		bgmassreg->stopval = 0.0005;
-//		bgmassreg->addModel(sweep);
-//		bgmassreg->setData(frames,masks);
-//		//		exit(0);
-//		//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-
-//		reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
-
-//		delete bgmassreg;
-
-//		for(unsigned int i = 0; i < frames.size(); i++){frames[i]->pose = sweep->frames.front()->pose * bgmfr.poses[i+1];}
-
-//		for(unsigned int i = 0; i < frames.size(); i++){
-//			fullmodel->frames.push_back(frames[i]);
-//			fullmodel->modelmasks.push_back(masks[i]);
-//			fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
-//		}
-//		fullmodel->recomputeModelPoints();
+		fullmodel->points = sweepmodel->points;
+		if(loadedPoses.size() != (av_frames.size()+metaroom_frames.size())){//If poses changed, recompute superpoints
+			for(unsigned int i = 0; i < av_frames.size(); i++){
+				fullmodel->addSuperPoints(
+							fullmodel->points,
+							fullmodel->relativeposes[i+metaroom_frames.size()],
+							fullmodel->frames[i+metaroom_frames.size()],
+							fullmodel->modelmasks[i+metaroom_frames.size()]);
+			}
+		}
+		quasimodo_brain::saveSuperPoints(sweep_folder+"/fullmodel_superpoints.bin",fullmodel->points,Eigen::Matrix4d::Identity(),1.0);
 
 //		if(savePath.size() != 0){
 //			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = fullmodel->getPCLnormalcloud(1, false);
 //			pcl::io::savePCDFileBinaryCompressed (savePath+"/processAV_"+std::to_string(fullmodel->id)+"_fused.pcd", *cld);
 //		}
 //		//pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr Model::getPCLnormalcloud(int step, bool color){
+//
+	}else{
+		quasimodo_brain::savePoses(sweep_folder+"/fullmodel_poses.txt", fullmodel->relativeposes);
+		quasimodo_brain::saveSuperPoints(sweep_folder+"/fullmodel_superpoints.bin",fullmodel->points,Eigen::Matrix4d::Identity(),1.0);
+	}
 
-//	}else{
-//		fullmodel->points = sweep->points;
-//	}
+	printf("fullmodel->points.size() = %i\n",fullmodel->points.size());
 
 //	delete reg;
 //	delete mu;
@@ -751,7 +724,7 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 
 	//Load the unloaded frames...
 exit(0);
-
+/*
 	reglib::Model * fullmodel;
 	if(viewgroup_nrviews == (additional_nrviews+metaroom_nrviews) && !recomputeRelativePoses){
 		printf("time to read old\n");
@@ -775,7 +748,7 @@ exit(0);
 		quasimodo_brain::writeXml(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes);
 	}
 	//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-
+*/
 	return fullmodel;
 }
 
