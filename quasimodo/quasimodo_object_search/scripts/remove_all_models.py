@@ -27,7 +27,7 @@ import json
 
 pub = ()
 
-def remove_model_cb(req):
+def remove_models():
 
     msg_store = MessageStoreProxy(database='world_state', collection='quasimodo')
     # msg_store.delete(req.object_id)
@@ -51,4 +51,4 @@ if __name__ == '__main__':
 
     pub = rospy.Publisher("/model/added_to_db", data_class=Empty, queue_size=None)
 
-    rospy.spin()
+    remove_models()
