@@ -34,17 +34,16 @@ def remove_models():
     # resp = insert_modelResponse()
     # resp.object_id = req.object_id
 
-    results = msg_store.query(type=fused_world_state_object)
+    results = msg_store.query(type='quasimodo_msgs/fused_world_state_object')
 
     for message, metadata in results:
         if len(message.removed_at) == 0:
             message.removed_at = "manually removed"
-            msg_store.update_id(metadata['id'], new_obj)
+            msg_store.update_id(metadata['_id'], message)
 
     empty_msg = Empty()
     pub.publish(empty_msg)
 
-    return resp
 
 if __name__ == '__main__':
     rospy.init_node('remove_all_models', anonymous = False)
