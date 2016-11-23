@@ -37,8 +37,9 @@ def remove_model_cb(req):
     results = msg_store.query(type=fused_world_state_object)
 
     for message, metadata in results:
-        message.removed_at = "manually removed"
-        msg_store.update_id(metadata['id'], new_obj)
+        if len(message.removed_at) == 0:
+            message.removed_at = "manually removed"
+            msg_store.update_id(metadata['id'], new_obj)
 
     empty_msg = Empty()
     pub.publish(empty_msg)
