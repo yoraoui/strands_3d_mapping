@@ -1,10 +1,10 @@
 #include <tf_conversions/tf_eigen.h>
 #include <metaroom_xml_parser/load_utilities.h>
 
-#include "strands_sweep_registration/pair3DError.h"
-#include "strands_sweep_registration/RobotContainer.h"
+#include "../include/strands_sweep_registration/pair3DError.h"
+#include "../include/strands_sweep_registration/RobotContainer.h"
 
-#include "strands_sweep_registration/camera_parameters.h"
+#include "../include/strands_sweep_registration/camera_parameters.h"
 
 typedef pcl::PointXYZRGB PointType;
 typedef typename SimpleSummaryParser::EntityStruct Entities;
