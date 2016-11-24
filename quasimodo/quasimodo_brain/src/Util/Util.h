@@ -42,6 +42,8 @@
 
 namespace quasimodo_brain {
 
+std::string initSegment(ros::NodeHandle& n, reglib::Model * model);
+
 soma_llsd_msgs::Scene getScene(ros::NodeHandle& n, reglib::RGBDFrame * frame, std::string current_waypointid = "", std::string roomRunNumber = "");
 
 reglib::Camera * getCam(sensor_msgs::CameraInfo & info);

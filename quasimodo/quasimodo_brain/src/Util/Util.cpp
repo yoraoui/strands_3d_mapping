@@ -2,6 +2,10 @@
 
 namespace quasimodo_brain {
 
+std::string initSegment(ros::NodeHandle& n, reglib::Model * model){
+	return "";
+}
+
 soma_llsd_msgs::Scene getScene(ros::NodeHandle & n, reglib::RGBDFrame * frame, std::string current_waypointid, std::string roomRunNumber){
 	soma_llsd_msgs::Scene sc;
 	if(frame->soma_id.length() > 0){//Frame already connected to scene, get from db

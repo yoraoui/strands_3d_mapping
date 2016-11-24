@@ -2172,8 +2172,8 @@ void addSceneToLastMetaroom(std::string soma_id){
 
 	reglib::RGBDFrame * frame = quasimodo_brain::getFrame(srv.response.response);
 	printf("frame->soma_id: %s\n",frame->soma_id.c_str());
-	soma_llsd_msgs::Scene sc = quasimodo_brain::getScene(*np,frame,"","");
-	printf("sc.id: %s\n",sc.id.c_str());
+//	soma_llsd_msgs::Scene sc = quasimodo_brain::getScene(*np,frame,"","");
+//	printf("sc.id: %s\n",sc.id.c_str());
 
 	char buf [1024];
 	int counter = 0;
