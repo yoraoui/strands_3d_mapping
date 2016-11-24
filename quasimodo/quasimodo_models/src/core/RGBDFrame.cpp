@@ -55,6 +55,7 @@ RGBDFrame::RGBDFrame(){
 	pose = Eigen::Matrix4d::Identity();
 	keyval = "";
 	soma_id = "";
+    labels = 0;
 }
 
 bool updated = true;
@@ -331,6 +332,7 @@ RGBDFrame * RGBDFrame::clone(){
 
 RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capturetime_, Eigen::Matrix4d pose_, bool compute_normals, std::string savePath, bool compute_imgedges){
 	soma_id = "";
+    labels = 0;
 
 	//printf("savepath: %s\n",savePath.c_str());
 	bool verbose = false;

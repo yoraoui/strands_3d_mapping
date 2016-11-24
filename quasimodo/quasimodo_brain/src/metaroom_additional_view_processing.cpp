@@ -723,7 +723,6 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 
 
 	//Load the unloaded frames...
-exit(0);
 /*
 	reglib::Model * fullmodel;
 	if(viewgroup_nrviews == (additional_nrviews+metaroom_nrviews) && !recomputeRelativePoses){
