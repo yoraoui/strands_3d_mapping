@@ -2447,7 +2447,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	dfunc = dfuncTMP;
 	dfuncTMP->startreg				= 0.00;
 	dfuncTMP->max_under_mean		= false;
-	dfuncTMP->debugg_print			= true;
+	dfuncTMP->debugg_print			= false;
 	dfuncTMP->bidir					= true;
 	dfuncTMP->zeromean				= false;
 	dfuncTMP->maxp					= 0.9999;
@@ -2937,6 +2937,13 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 			double score0 = 0;
 			double score1 = 0;
+
+			double pscore0 = 0;
+			double pscore1 = 0;
+
+			double nscore0 = 0;
+			double nscore1 = 0;
+
 			double totsum = 0;
 			while(todocounter < todo.size()){
 				unsigned long cind = todo[todocounter++];
@@ -2957,11 +2964,16 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 					else{       s0 += p0 - p2;}
 					score0 += s0;
 
+					if(s0 > 0){	pscore0 += s0;}
+					else{		nscore0 += s0;}
+
 					double s1 = 0;
 					if(p0 > p2){s1 += p1 - p0;}
 					else{       s1 += p1 - p2;}
 					score1 += s1;
 
+					if(s1 > 0){	pscore1 += s1;}
+					else{		nscore1 += s1;}
 					totsum++;
 				}
 
@@ -3003,8 +3015,22 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				}
 			}
 
+			score0 = 100.0*pscore0+nscore0;
+			score1 = pscore1+nscore1;
+
+
 			labelID.push_back(0);
-			if(debugg != 0){printf("score0: %f score1: %f\n",score0,score1);}
+			if(debugg != 0){
+				if(totsum > 100){
+					printf("---------------------------\n");
+					printf("score0: %10.10f score1: %10.10f ",score0,score1);
+					printf("totsum: %10.10f\n",totsum);
+
+					printf("pscore0: %10.10f nscore0: %10.10f ",pscore0,nscore0);
+					printf("pscore1: %10.10f nscore1: %10.10f\n",pscore1,nscore1);
+				}
+			}
+
 			if(std::max(score0,score1) < 100){continue;}
 
 			if(score1 > score0){
@@ -3014,11 +3040,13 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				sr.scores_dynamic.push_back(score1);
 				sr.total_dynamic.push_back(totsum);
 			}else{
-				labelID.back() = --nr_obj_mov;
-				if(debugg != 0){printf("Moving: %f -> %f\n",score0,totsum);}
-				sr.component_moving.push_back(todo);
-				sr.scores_moving.push_back(score0);
-				sr.total_moving.push_back(totsum);
+				if(score0 > 10000){
+					labelID.back() = --nr_obj_mov;
+					if(debugg != 0){printf("Moving: %f -> %f\n",score0,totsum);}
+					sr.component_moving.push_back(todo);
+					sr.scores_moving.push_back(score0);
+					sr.total_moving.push_back(totsum);
+				}
 			}
 		}
 	}
@@ -3088,10 +3116,6 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		}
 		pcl::io::savePCDFileBinaryCompressed (savePath+"/segment_"+std::to_string(segment_run_counter)+"_priors.pcd", *cloud_sample);
 
-//		viewer->removeAllPointClouds();
-//		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
-//		viewer->spin();
-
 		for(unsigned int i = 0; i < current_point; i++){
 			cloud_sample->points[i].r = 0;
 			cloud_sample->points[i].g = 0;
@@ -3114,9 +3138,6 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			}
 		}
 		pcl::io::savePCDFileBinaryCompressed (savePath+"/segment_"+std::to_string(segment_run_counter)+"_classes.pcd", *cloud_sample);
-//		viewer->removeAllPointClouds();
-//		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
-//		viewer->spin();
 
 		for(unsigned int i = 0; i < current_point; i++){
 			cloud_sample->points[i].r = 0;
@@ -3128,11 +3149,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			int randr = rand()%256;
 			int randg = rand()%256;
 			int randb = rand()%256;
-//			if(randr*randr + randg*randg + (255-randr)*(255-randr) < 1000){
-//				randr = rand()%256;
-//				randg = rand()%256;
-//				randb = rand()%256;
-//			}
+
 			for(unsigned int i = 0; i < sr.component_dynamic[c].size(); i++){
 				cloud_sample->points[sr.component_dynamic[c][i]].r = randr;
 				cloud_sample->points[sr.component_dynamic[c][i]].g = randg;
@@ -3144,11 +3161,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			int randr = rand()%256;
 			int randg = rand()%256;
 			int randb = rand()%256;
-//			if(randr*randr + randg*randg + (255-randr)*(255-randr) < 1000){
-//				randr = rand()%256;
-//				randg = rand()%256;
-//				randb = rand()%256;
-//			}
+
 			for(unsigned int i = 0; i < sr.component_moving[c].size(); i++){
 				cloud_sample->points[sr.component_moving[c][i]].r = randr;
 				cloud_sample->points[sr.component_moving[c][i]].g = randg;
@@ -3156,9 +3169,6 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			}
 		}
 		pcl::io::savePCDFileBinaryCompressed (savePath+"/segment_"+std::to_string(segment_run_counter)+"_clusters.pcd", *cloud_sample);
-//		viewer->removeAllPointClouds();
-//		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
-//		viewer->spin();
 
 		cloud->width = cloud->points.size();
 		cloud->height = 1;
@@ -3173,12 +3183,10 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		cloud_sample->width = cloud_sample->points.size();
 		cloud_sample->height = 1;
 		pcl::io::savePCDFileBinaryCompressed (savePath+"/segment_"+std::to_string(segment_run_counter)+"_dynamicobjects.pcd", *cloud_sample);
-//		viewer->removeAllPointClouds();
-//		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
-//		viewer->spin();
-
 	}
 
+
+	printf("computeMovingDynamicStatic total time: %5.5fs\n",getTime()-computeMovingDynamicStatic_startTime);
 	if(debugg){
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_sample (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 
@@ -3266,7 +3274,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	delete[] valids;
 	delete[] priors;
 	delete[] prior_weights;
-	printf("computeMovingDynamicStatic total time: %5.5fs\n",getTime()-computeMovingDynamicStatic_startTime);
+	//printf("computeMovingDynamicStatic total time: %5.5fs\n",getTime()-computeMovingDynamicStatic_startTime);
 }
 
 /*

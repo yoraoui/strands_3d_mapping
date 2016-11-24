@@ -756,8 +756,8 @@ void segment(std::vector< reglib::Model * > bgs, std::vector< reglib::Model * > 
 	massregmod->timeout = 1200;
 	massregmod->viewer = viewer;
 	massregmod->visualizationLvl = debugg > 1;
-	massregmod->maskstep = 4;//std::max(1,int(0.4*double(models[i]->frames.size())));
-	massregmod->nomaskstep = 4;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
+	massregmod->maskstep = 6;//std::max(1,int(0.4*double(models[i]->frames.size())));
+	massregmod->nomaskstep = 6;//std::max(3,int(0.5+0.*double(models[i]->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
 	massregmod->nomask = true;
 	massregmod->stopval = 0.0001;
 

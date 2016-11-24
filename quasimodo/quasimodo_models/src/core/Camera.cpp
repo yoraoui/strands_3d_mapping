@@ -23,7 +23,7 @@ Camera::Camera(){
 Camera::~Camera(){}
 
 void Camera::save(std::string path){
-	printf("Camera::save(%s)\n",path.c_str());
+	//printf("Camera::save(%s)\n",path.c_str());
 	unsigned long buffersize = 7*sizeof(double);
 	char* buffer = new char[buffersize];
 	double * buffer_double = (double *)buffer;
@@ -62,7 +62,7 @@ Camera * Camera::clone(){
 }
 
 Camera * Camera::load(std::string path){
-	printf("Camera::load(%s)\n",path.c_str());
+	//printf("Camera::load(%s)\n",path.c_str());
 	Camera * cam = new Camera();
 
 	std::streampos size;
