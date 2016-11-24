@@ -37,7 +37,15 @@
 #include <pcl_ros/point_cloud.h>
 #include <pcl/point_types.h>
 
+#include <soma_llsd/GetScene.h>
+#include <soma_llsd/InsertScene.h>
+
 namespace quasimodo_brain {
+
+soma_llsd_msgs::Scene getScene(ros::NodeHandle& n, reglib::RGBDFrame * frame, std::string current_waypointid = "", std::string roomRunNumber = "");
+
+reglib::Camera * getCam(sensor_msgs::CameraInfo & info);
+reglib::RGBDFrame * getFrame(soma_llsd_msgs::Scene & scene);
 
 
 std::vector<reglib::superpoint> getSuperPoints(std::string path);

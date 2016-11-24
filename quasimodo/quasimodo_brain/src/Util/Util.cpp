@@ -2,6 +2,99 @@
 
 namespace quasimodo_brain {
 
+soma_llsd_msgs::Scene getScene(ros::NodeHandle & n, reglib::RGBDFrame * frame, std::string current_waypointid, std::string roomRunNumber){
+	soma_llsd_msgs::Scene sc;
+	if(frame->soma_id.length() > 0){//Frame already connected to scene, get from db
+		ros::ServiceClient client = n.serviceClient<soma_llsd::GetScene>("/soma_llsd/get_scene");
+		ROS_INFO("Waiting for /soma_llsd/get_scene service...");
+		if (!client.waitForExistence(ros::Duration(1.0))) {
+			ROS_INFO("Failed to get /soma_llsd/get_scene service!");
+			return sc;
+		}
+		ROS_INFO("Got /soma_llsd/get_scene service");
+
+		soma_llsd::GetScene srv;
+		srv.request.scene_id = frame->soma_id;
+		if (client.call(srv)) {
+			ROS_INFO("Got /soma_llsd/get_scene");
+			return srv.response.response;
+		}
+	}
+
+	geometry_msgs::Pose		pose;
+	tf::poseEigenToMsg (Eigen::Affine3d(frame->pose), pose);
+
+	cv_bridge::CvImage rgbBridgeImage;
+	rgbBridgeImage.image = frame->rgb;
+	rgbBridgeImage.encoding = "bgr8";
+
+	cv_bridge::CvImage depthBridgeImage;
+	depthBridgeImage.image = frame->depth;
+	depthBridgeImage.encoding = "mono16";
+
+	sensor_msgs::PointCloud2 input;
+	pcl::toROSMsg (*frame->getPCLcloud(),input);//, *transformed_cloud);
+	input.header.frame_id = "/map";
+
+	ros::ServiceClient insertclient = n.serviceClient<soma_llsd::InsertScene>("/soma_llsd/insert_scene");
+	ROS_INFO("Waiting for /soma_llsd/insert_scene service...");
+	if (!insertclient.waitForExistence(ros::Duration(1.0))) {
+		ROS_INFO("Failed to get /soma_llsd/insert_scene service!");
+		return sc;
+	}
+	ROS_INFO("Got /soma_llsd/insert_scene service");
+
+	soma_llsd::InsertScene scene;
+	scene.request.rgb_img = *(rgbBridgeImage.toImageMsg());
+	scene.request.depth_img = *(depthBridgeImage.toImageMsg());
+	scene.request.camera_info.K[0] = frame->camera->fx;
+	scene.request.camera_info.K[4] = frame->camera->fy;
+	scene.request.camera_info.K[2] = frame->camera->cx;
+	scene.request.camera_info.K[5] = frame->camera->cy;
+	scene.request.robot_pose = pose;
+	scene.request.cloud = input;
+	scene.request.waypoint = current_waypointid;
+	scene.request.episode_id = roomRunNumber;
+
+	if (!insertclient.call(scene)) {
+		ROS_ERROR("Failed to call service /soma_llsd/insert_scene");
+		return sc;
+	}
+	return scene.response.response;
+}
+
+reglib::Camera * getCam(sensor_msgs::CameraInfo & info){
+	reglib::Camera * cam		= new reglib::Camera();
+	if(info.K[0] > 0){
+		cam->fx = info.K[0];
+		cam->fy = info.K[4];
+		cam->cx = info.K[2];
+		cam->cy = info.K[5];
+	}
+	return cam;
+}
+
+reglib::RGBDFrame * getFrame(soma_llsd_msgs::Scene & scene){
+
+	reglib::Camera * cam = getCam(scene.camera_info);
+
+	cv_bridge::CvImagePtr			rgb_ptr;
+	try{							rgb_ptr = cv_bridge::toCvCopy(scene.rgb_img, sensor_msgs::image_encodings::BGR8);}
+	catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
+	cv::Mat rgb = rgb_ptr->image;
+
+	cv_bridge::CvImagePtr			depth_ptr;
+	try{							depth_ptr = cv_bridge::toCvCopy(scene.depth_img, sensor_msgs::image_encodings::MONO16);}
+	catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
+	cv::Mat depth = depth_ptr->image;
+
+	Eigen::Affine3d epose;
+	tf::poseMsgToEigen(scene.robot_pose, epose);
+	reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, 0, epose.matrix(),true,"",true);
+	frame->soma_id = scene.id;
+	return frame;
+}
+
 
 std::vector<reglib::superpoint> getSuperPoints(std::string path){
 	std::vector<reglib::superpoint> spvec;

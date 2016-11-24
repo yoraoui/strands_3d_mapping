@@ -2142,6 +2142,8 @@ bool testPath(std::string path){
 	return false;
 }
 
+
+
 void addSceneToLastMetaroom(std::string soma_id){
 	printf("void addSceneToLastMetaroom(%s)\n",soma_id.c_str());
 	vector<string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<PointType>(overall_folder);
@@ -2156,7 +2158,7 @@ void addSceneToLastMetaroom(std::string soma_id){
 	ROS_INFO("Waiting for /soma_llsd/get_scene service...");
 	if (!client.waitForExistence(ros::Duration(1.0))) {
 		ROS_INFO("Failed to get /soma_llsd/get_scene service!");
-//        return;
+		return;
 	}
 	ROS_INFO("Got /soma_llsd/get_scene service");
 
@@ -2164,33 +2166,14 @@ void addSceneToLastMetaroom(std::string soma_id){
 	srv.request.scene_id = soma_id;
 	if (!client.call(srv)) {
 		ROS_ERROR("Failed to call service /soma_llsd/get_scene");
+		return;
 	}
 	ROS_INFO("Got /soma_llsd/get_scene");
 
-	cv_bridge::CvImagePtr			rgb_ptr;
-	try{							rgb_ptr = cv_bridge::toCvCopy(srv.response.response.rgb_img, sensor_msgs::image_encodings::BGR8);}
-	catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
-	cv::Mat rgb = rgb_ptr->image;
-
-	cv_bridge::CvImagePtr			depth_ptr;
-	try{							depth_ptr = cv_bridge::toCvCopy(srv.response.response.depth_img, sensor_msgs::image_encodings::MONO16);}
-	catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
-	cv::Mat depth = depth_ptr->image;
-
-
-	//tf::poseEigenToMsg(Eigen::Affine3d(pose), scene_srv.request.robot_pose);
-	sensor_msgs::CameraInfo info = srv.response.response.camera_info;
-
-	Eigen::Affine3d epose;
-	tf::poseMsgToEigen(srv.response.response.robot_pose, epose);
-
-	reglib::Camera * cam		= new reglib::Camera();
-	if(info.K[0] > 0){
-		cam->fx = info.K[0];
-		cam->fy = info.K[4];
-		cam->cx = info.K[2];
-		cam->cy = info.K[5];
-	}
+	reglib::RGBDFrame * frame = quasimodo_brain::getFrame(srv.response.response);
+	printf("frame->soma_id: %s\n",frame->soma_id.c_str());
+	soma_llsd_msgs::Scene sc = quasimodo_brain::getScene(*np,frame,"","");
+	printf("sc.id: %s\n",sc.id.c_str());
 
 	char buf [1024];
 	int counter = 0;
@@ -2201,58 +2184,18 @@ void addSceneToLastMetaroom(std::string soma_id){
 		if (!file.exists()){break;}
 		counter++;
 	}
-
-	reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, 0, epose.matrix(),true,"",true);
-	frame->soma_id = soma_id;
+	printf("save to %s\n",buf);
 	frame->save(std::string(buf));
-	cam->save(std::string(buf)+"_camera");
+	frame->camera->save(std::string(buf)+"_camera");
+	delete frame->camera;
 	delete frame;
-	delete cam;
+}
 
-//	reglib::Camera * cam2 = reglib::Camera::load(std::string(buf)+"_camera");
-//	cam2->print();
-
-//	reglib::RGBDFrame * frame2 = reglib::RGBDFrame::load(cam2,std::string(buf));
-//	frame2->show(true);
-
-//	delete cam2;
-//	delete frame2;
-
-
-	//reglib::RGBDFrame * loadedframe = reglib::RGBDFrame::load();
-
-	//frame->show(true);
-	//model->frames.push_back(frame);
-
-//    info.K.at(0) = K(0, 0);
-//    info.K.at(1) = K(0, 1);
-//    info.K.at(2) = K(0, 2);
-//    info.K.at(3) = K(1, 0);
-//    info.K.at(4) = K(1, 1);
-//    info.K.at(5) = K(1, 2);
-//    info.K.at(8) = K(2, 2);
-
-//    info.P.at(0) = K(0, 0);
-//    info.P.at(1) = K(0, 1);
-//    info.P.at(2) = K(0, 2);
-//    info.P.at(4) = K(1, 0);
-//    info.P.at(5) = K(1, 1);
-//    info.P.at(6) = K(1, 2);
-//    info.P.at(10) = K(2, 2);
-//    info.height = rgb.rows;
-//    info.width = rgb.cols;
-//    scene_srv.request.camera_info = info;
-//    scene_srv.request.waypoint = waypoint;
-//    scene_srv.request.episode_id = episode_id;
-
-//	cv::namedWindow( "rgb", cv::WINDOW_AUTOSIZE );			cv::imshow( "rgb", rgb );
-//	//cv::namedWindow( "normals", cv::WINDOW_AUTOSIZE );		cv::imshow( "normals", normals );
-//	cv::namedWindow( "depth", cv::WINDOW_AUTOSIZE );		cv::imshow( "depth", depth );
-//	//cv::namedWindow( "depthedges", cv::WINDOW_AUTOSIZE );	cv::imshow( "depthedges", depthedges );
-//	cv::waitKey(0);
-//	//if(stop){	cv::waitKey(0);}else{					cv::waitKey(30);}
-
-//	exit(0);
+void add_soma_id_callback(const std_msgs::String::ConstPtr& msg){
+	printf("================================================================================\n");
+	printf("=============================add_soma_id_callback===============================\n");
+	printf("================================================================================\n");
+	addSceneToLastMetaroom(msg->data);
 }
 
 
@@ -2272,6 +2215,7 @@ void setLargeStack(){
 }
 
 int main(int argc, char** argv){
+
 	bool baseSetting = true;
 	bool once = false;
 
@@ -2288,6 +2232,7 @@ int main(int argc, char** argv){
 	std::vector<ros::Subscriber> sendsubs;
 	std::vector<ros::Subscriber> roomObservationSubs;
 	std::vector<ros::Subscriber> processAndSendsubs;
+	std::vector<ros::Subscriber> soma_id_subs;
 
 
 	std::vector<std::string> trainMetarooms;
@@ -2415,6 +2360,10 @@ int main(int argc, char** argv){
 		if(soma_segment_id_pubs.size() == 0){
 			soma_segment_id_pubs.push_back(n.advertise<std_msgs::String>("/quasimodo/segmentation/out/soma_segment_id", 1000));
 		}
+
+		if(soma_id_subs.size() == 0){
+			soma_id_subs.push_back(n.subscribe("/quasimodo/segmentation/in/soma_segment_id", 1000,add_soma_id_callback));
+		}
 	}
 
 
@@ -2422,10 +2371,8 @@ int main(int argc, char** argv){
 
 	printf("overall_folder: %s\n",overall_folder.c_str());
 
-
-	//addSceneToLastMetaroom("ed5f22eb-e6c0-426c-b905-4800780ca596");
-
-
+//	addSceneToLastMetaroom("ed5f22eb-e6c0-426c-b905-4800780ca596");
+//exit(0);
 	printf("testpaths: %i\n",testpaths.size());
 	for(unsigned int i = 0; i < testpaths.size(); i++){
 		testPath(testpaths[i]);

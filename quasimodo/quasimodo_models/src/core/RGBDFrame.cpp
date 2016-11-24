@@ -921,24 +921,25 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr RGBDFrame::getSmallPCLcloud(){
 pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr RGBDFrame::getPCLcloud(){
 	unsigned char * rgbdata = (unsigned char *)rgb.data;
 	unsigned short * depthdata = (unsigned short *)depth.data;
+	float * normalsdata = (float *)normals.data;
 
 	const unsigned int width	= camera->width; const unsigned int height	= camera->height;
 	const double idepth			= camera->idepth_scale;
 	const double cx				= camera->cx;		const double cy				= camera->cy;
 	const double ifx			= 1.0/camera->fx;	const double ify			= 1.0/camera->fy;
 
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr	cloud	(new pcl::PointCloud<pcl::PointXYZRGB>);
-	pcl::PointCloud<pcl::Normal>::Ptr		normals (new pcl::PointCloud<pcl::Normal>);
+
+	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr	cloud	(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 	cloud->width	= width;
 	cloud->height	= height;
 	cloud->points.resize(width*height);
 
 	for(unsigned int w = 0; w < width; w++){
 		for(unsigned int h = 0; h < height;h++){
-			int ind = h*width+w;
+			unsigned int ind = h*width+w;
 			double z = idepth*double(depthdata[ind]);
 
-			pcl::PointXYZRGB p;
+			pcl::PointXYZRGBNormal p;
 			p.b = rgbdata[3*ind+0];
 			p.g = rgbdata[3*ind+1];
 			p.r = rgbdata[3*ind+2];
@@ -951,49 +952,82 @@ pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr RGBDFrame::getPCLcloud(){
 				p.y = NAN;
 				p.z = NAN;
 			}
+			p.normal_x	= normalsdata[3*ind+0];
+			p.normal_y	= normalsdata[3*ind+1];
+			p.normal_z	= normalsdata[3*ind+2];
 			cloud->points[ind] = p;
 		}
 	}
+	return cloud;
 
-	pcl::IntegralImageNormalEstimation<pcl::PointXYZRGB, pcl::Normal> ne;
-	ne.setNormalEstimationMethod (ne.AVERAGE_3D_GRADIENT);
-	ne.setMaxDepthChangeFactor(0.02f);
-	ne.setNormalSmoothingSize(10.0f);
-	ne.setInputCloud(cloud);
-	ne.compute(*normals);
 
-	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-	cloud_ptr->width	= width;
-	cloud_ptr->height	= height;
-	cloud_ptr->points.resize(width*height);
 
-	for(unsigned int w = 0; w < width; w++){
-		for(unsigned int h = 0; h < height;h++){
-			int ind = h*width+w;
-			pcl::PointXYZRGBNormal & p0	= cloud_ptr->points[ind];
-			pcl::PointXYZRGB p1			= cloud->points[ind];
-			pcl::Normal p2				= normals->points[ind];
+//	pcl::PointCloud<pcl::PointXYZRGB>::Ptr	cloud	(new pcl::PointCloud<pcl::PointXYZRGB>);
+//	pcl::PointCloud<pcl::Normal>::Ptr		normals (new pcl::PointCloud<pcl::Normal>);
+//	cloud->width	= width;
+//	cloud->height	= height;
+//	cloud->points.resize(width*height);
 
-			p0.x		= p1.x;
-			p0.y		= p1.y;
-			p0.z		= p1.z;
+//	for(unsigned int w = 0; w < width; w++){
+//		for(unsigned int h = 0; h < height;h++){
+//			int ind = h*width+w;
+//			double z = idepth*double(depthdata[ind]);
 
-			if(depthdata[ind] == 0){
-				p0.x		= 0;
-				p0.y		= 0;
-				p0.z		= 0;
-			}
+//			pcl::PointXYZRGB p;
+//			p.b = rgbdata[3*ind+0];
+//			p.g = rgbdata[3*ind+1];
+//			p.r = rgbdata[3*ind+2];
+//			if(z > 0){
+//				p.x = (double(w) - cx) * z * ifx;
+//				p.y = (double(h) - cy) * z * ify;
+//				p.z = z;
+//			}else{
+//				p.x = NAN;
+//				p.y = NAN;
+//				p.z = NAN;
+//			}
+//			cloud->points[ind] = p;
+//		}
+//	}
 
-			p0.r		= p1.r;
-			p0.g		= p1.g;
-			p0.b		= p1.b;
-			p0.normal_x	= p2.normal_x;
-			p0.normal_y	= p2.normal_y;
-			p0.normal_z	= p2.normal_z;
-		}
-	}
+//	pcl::IntegralImageNormalEstimation<pcl::PointXYZRGB, pcl::Normal> ne;
+//	ne.setNormalEstimationMethod (ne.AVERAGE_3D_GRADIENT);
+//	ne.setMaxDepthChangeFactor(0.02f);
+//	ne.setNormalSmoothingSize(10.0f);
+//	ne.setInputCloud(cloud);
+//	ne.compute(*normals);
 
-	return cloud_ptr;
+//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+//	cloud_ptr->width	= width;
+//	cloud_ptr->height	= height;
+//	cloud_ptr->points.resize(width*height);
+
+//	for(unsigned int w = 0; w < width; w++){
+//		for(unsigned int h = 0; h < height;h++){
+//			int ind = h*width+w;
+//			pcl::PointXYZRGBNormal & p0	= cloud_ptr->points[ind];
+//			pcl::PointXYZRGB p1			= cloud->points[ind];
+//			pcl::Normal p2				= normals->points[ind];
+
+//			p0.x		= p1.x;
+//			p0.y		= p1.y;
+//			p0.z		= p1.z;
+
+//			if(depthdata[ind] == 0){
+//				p0.x		= 0;
+//				p0.y		= 0;
+//				p0.z		= 0;
+//			}
+
+//			p0.r		= p1.r;
+//			p0.g		= p1.g;
+//			p0.b		= p1.b;
+//			p0.normal_x	= p2.normal_x;
+//			p0.normal_y	= p2.normal_y;
+//			p0.normal_z	= p2.normal_z;
+//		}
+//	}
+//	return cloud_ptr;
 }
 
 void RGBDFrame::savePCD(std::string path, Eigen::Matrix4d pose){
