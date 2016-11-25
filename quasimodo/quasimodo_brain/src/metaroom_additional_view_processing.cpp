@@ -749,7 +749,7 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 	//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 */
     //initSegment(*np,fullmodel);
-exit(0);
+//exit(0);
 	return fullmodel;
 }
 
