@@ -38,13 +38,19 @@
 #include <pcl/point_types.h>
 
 #include <soma_llsd/GetScene.h>
+#include <soma_llsd/GetSegment.h>
 #include <soma_llsd/InsertScene.h>
 #include <soma_llsd_msgs/Segment.h>
 #include <quasimodo_conversions/conversions.h>
 
 namespace quasimodo_brain {
 
+std::string getPoseString(Eigen::Matrix4d pose);
+
+Eigen::Matrix4d getPoseFromString(std::string str);
+
 std::string initSegment(ros::NodeHandle& n, reglib::Model * model);
+reglib::Model * getModelFromSegment(ros::NodeHandle& n, std::string segment_id);
 
 soma_llsd_msgs::Scene getScene(ros::NodeHandle& n, reglib::RGBDFrame * frame, std::string current_waypointid = "", std::string roomRunNumber = "");
 

@@ -2,9 +2,7 @@
 
 namespace quasimodo_brain {
 
-//std::string savePath;
-//std::vector<superpoint> points;
-
+//Save?
 //std::vector<Eigen::Matrix4d>		rep_relativeposes;
 //std::vector<RGBDFrame*>			rep_frames;
 //std::vector<ModelMask*>			rep_modelmasks;
@@ -18,27 +16,51 @@ std::string getPoseString(Eigen::Matrix4d pose){
 	char buf [1024];
 	for(unsigned int i = 0; i < 4; i ++){
 		for(unsigned int j = 0; j < 4; j ++){
-			sprintf(buf,"%6.6f ",pose(i,j));
+			if(i == 0 && j == 0){
+				sprintf(buf,"%10.10f",pose(i,j));
+			}else{
+				std::string str = std::string(buf);
+				sprintf(buf,"%s %10.10f",str.c_str(),pose(i,j));
+			}
 		}
 	}
 	return std::string(buf);
 }
 
-std::string initSegment(ros::NodeHandle& n, reglib::Model * model){
-    std::vector< std::string > scid;
-    std::vector< cv::Mat > masks;
-    std::vector< Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix<double, 4, 4> > > poses;
-    for(unsigned int i = 0; i < model->frames.size(); i++){
-		printf("frame: %i\n",i);
-        soma_llsd_msgs::Scene sc = getScene(n,model->frames[i]);
-        poses.push_back(model->relativeposes[i]);
-        masks.push_back(model->modelmasks[i]->getMask());
-        scid.push_back(sc.id);
-    }
 
-    soma_llsd_msgs::Segment segment;
-    if(quasimodo_conversions::add_masks_to_soma_segment(n,scid, masks,poses,segment)){
-        std::string id = segment.id;
+Eigen::Matrix4d getPoseFromString(std::string str){
+	Eigen::Matrix4d pose;
+	for(unsigned int i = 0; i < 4; i ++){
+		for(unsigned int j = 0; j < 4; j ++){
+			std::size_t found = str.find(" ");
+			if (found!=std::string::npos){
+				pose(i,j) = atof(str.substr(0,found).c_str());
+				str = str.substr(found+1,str.length()-found);
+			}else{
+				pose(i,j) = atof(str.c_str());
+			}
+		}
+	}
+	return pose;
+}
+
+std::string initSegment(ros::NodeHandle& n, reglib::Model * model){
+	std::vector< std::string > scid;
+	std::vector< cv::Mat > masks;
+	std::vector< Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix<double, 4, 4> > > poses;
+	for(unsigned int i = 0; i < model->frames.size(); i++){
+		printf("frame: %i\n",i);
+		soma_llsd_msgs::Scene sc = getScene(n,model->frames[i]);
+		model->frames[i]->soma_id = sc.id;
+		poses.push_back(model->relativeposes[i]);
+		masks.push_back(model->modelmasks[i]->getMask());
+		scid.push_back(sc.id);
+		//		getPoseFromString(getPoseString(model->relativeposes[i]));
+	}
+
+	soma_llsd_msgs::Segment segment;
+	if(quasimodo_conversions::add_masks_to_soma_segment(n,scid, masks,poses,segment)){
+		std::string id = segment.id;
 		model->soma_id = id;
 		std::string metadata = "";
 		metadata += "<last_changed>";
@@ -61,20 +83,95 @@ std::string initSegment(ros::NodeHandle& n, reglib::Model * model){
 		metadata += model->pointspath;
 		metadata += "<\\pointspath>";
 
-        for(unsigned int i = 0; i < model->submodels.size(); i++){
-            metadata += "<submodel>";
-            std::string subid = initSegment(n, model->submodels[i]);
-            metadata += subid;
-            metadata += "<relativepose>";
+		for(unsigned int i = 0; i < model->submodels.size(); i++){
+			metadata += "<submodel>";
+			std::string subid = initSegment(n, model->submodels[i]);
+			metadata += subid;
+			metadata += "<relativepose>";
 			metadata += getPoseString(model->submodels_relativeposes[i]);
 			metadata += "<\\relativepose>";
 			metadata += "<\\submodel>";
-        }
-        printf("metadata: %s\n",metadata.c_str());
-        return id;
-    }
+		}
+		printf("metadata: %s\n",metadata.c_str());
+		return id;
+	}
 
 	return "";
+}
+
+reglib::Model * getModelFromSegment(ros::NodeHandle& n, std::string segment_id){
+	reglib::Model * model = new reglib::Model();
+
+	ros::ServiceClient client = n.serviceClient<soma_llsd::GetSegment>("/soma_llsd/get_segment");
+	ROS_INFO("Waiting for /soma_llsd/get_segment service...");
+	if (!client.waitForExistence(ros::Duration(1.0))) {
+		ROS_INFO("Failed to get /soma_llsd/get_segment service!");
+		return model;
+	}
+	ROS_INFO("Got /soma_llsd/get_segment service");
+
+	soma_llsd::GetSegment srv;
+	srv.request.segment_id = model->soma_id;
+	if (client.call(srv)) {
+		ROS_INFO("Got /soma_llsd/get_segment");
+		return model;
+	}
+
+	//Read frames etc
+	//Read parameters
+	//Read submodels
+	return model;
+	//    std::vector< std::string > scid;
+	//    std::vector< cv::Mat > masks;
+	//    std::vector< Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix<double, 4, 4> > > poses;
+	//    for(unsigned int i = 0; i < model->frames.size(); i++){
+	//		printf("frame: %i\n",i);
+	//        soma_llsd_msgs::Scene sc = getScene(n,model->frames[i]);
+	//        poses.push_back(model->relativeposes[i]);
+	//        masks.push_back(model->modelmasks[i]->getMask());
+	//        scid.push_back(sc.id);
+	////		getPoseFromString(getPoseString(model->relativeposes[i]));
+	//    }
+
+	//    soma_llsd_msgs::Segment segment;
+	//    if(quasimodo_conversions::add_masks_to_soma_segment(n,scid, masks,poses,segment)){
+	//        std::string id = segment.id;
+	//		model->soma_id = id;
+	//		std::string metadata = "";
+	//		metadata += "<last_changed>";
+	//		metadata += std::to_string(model->last_changed);
+	//		metadata += "<\\last_changed>";
+
+	//		metadata += "<id>";
+	//		metadata += std::to_string(model->id);
+	//		metadata += "<\\id>";
+
+	//		metadata += "<score>";
+	//		metadata += std::to_string(model->score);
+	//		metadata += "<\\score>";
+
+	//		metadata += "<total_scores>";
+	//		metadata += std::to_string(model->total_scores);
+	//		metadata += "<\\total_scores>";
+
+	//		metadata += "<pointspath>";
+	//		metadata += model->pointspath;
+	//		metadata += "<\\pointspath>";
+
+	//        for(unsigned int i = 0; i < model->submodels.size(); i++){
+	//            metadata += "<submodel>";
+	//            std::string subid = initSegment(n, model->submodels[i]);
+	//            metadata += subid;
+	//            metadata += "<relativepose>";
+	//			metadata += getPoseString(model->submodels_relativeposes[i]);
+	//			metadata += "<\\relativepose>";
+	//			metadata += "<\\submodel>";
+	//        }
+	//        printf("metadata: %s\n",metadata.c_str());
+	//        return id;
+	//    }
+
+	//	return "";
 }
 
 soma_llsd_msgs::Scene getScene(ros::NodeHandle & n, reglib::RGBDFrame * frame, std::string current_waypointid, std::string roomRunNumber){
@@ -846,7 +943,7 @@ Eigen::Matrix4d getMat(tf::StampedTransform tf){
 reglib::Model * load_metaroom_model(std::string sweep_xml, std::string savePath){
 	int slash_pos = sweep_xml.find_last_of("/");
 	std::string sweep_folder = sweep_xml.substr(0, slash_pos) + "/";
-//	printf("load_metaroom_model(%s)\n",sweep_folder.c_str());
+	//	printf("load_metaroom_model(%s)\n",sweep_folder.c_str());
 
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
 	std::vector<std::string> dummy;
@@ -866,9 +963,9 @@ reglib::Model * load_metaroom_model(std::string sweep_xml, std::string savePath)
 	std::vector<reglib::RGBDFrame * > current_room_frames;
 
 
-//	printf("roomData.vIntermediateRoomClouds.size() = %i\n",roomData.vIntermediateRoomClouds.size());
-//	printf("roomData.vIntermediateRoomCloudCamParamsCorrected.size() = %i\n",roomData.vIntermediateRoomCloudCamParamsCorrected.size());
-//	printf("roomData.vIntermediateRoomCloudTransformsRegistered.size() = %i\n",roomData.vIntermediateRoomCloudTransformsRegistered.size());
+	//	printf("roomData.vIntermediateRoomClouds.size() = %i\n",roomData.vIntermediateRoomClouds.size());
+	//	printf("roomData.vIntermediateRoomCloudCamParamsCorrected.size() = %i\n",roomData.vIntermediateRoomCloudCamParamsCorrected.size());
+	//	printf("roomData.vIntermediateRoomCloudTransformsRegistered.size() = %i\n",roomData.vIntermediateRoomCloudTransformsRegistered.size());
 
 	for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++){
 		//printf("loading intermedite %i\n",i);
@@ -1266,34 +1363,34 @@ std::vector<reglib::Model *> loadModelsPCDs(std::string path){
 
 			reglib::Model * model = new reglib::Model();
 
-//			for(unsigned int i = 0; i < msg.local_poses.size(); i++){
-//				sensor_msgs::CameraInfo		camera			= msg.frames[i].camera;
-//				ros::Time					capture_time	= msg.frames[i].capture_time;
-//				geometry_msgs::Pose			pose			= msg.frames[i].pose;
+			//			for(unsigned int i = 0; i < msg.local_poses.size(); i++){
+			//				sensor_msgs::CameraInfo		camera			= msg.frames[i].camera;
+			//				ros::Time					capture_time	= msg.frames[i].capture_time;
+			//				geometry_msgs::Pose			pose			= msg.frames[i].pose;
 
-//				cv_bridge::CvImagePtr			rgb_ptr;
-//				try{							rgb_ptr = cv_bridge::toCvCopy(msg.frames[i].rgb, sensor_msgs::image_encodings::BGR8);}
-//				catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
-//				cv::Mat rgb = rgb_ptr->image;
+			//				cv_bridge::CvImagePtr			rgb_ptr;
+			//				try{							rgb_ptr = cv_bridge::toCvCopy(msg.frames[i].rgb, sensor_msgs::image_encodings::BGR8);}
+			//				catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
+			//				cv::Mat rgb = rgb_ptr->image;
 
-//				cv_bridge::CvImagePtr			depth_ptr;
-//				try{							depth_ptr = cv_bridge::toCvCopy(msg.frames[i].depth, sensor_msgs::image_encodings::MONO16);}
-//				catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
-//				cv::Mat depth = depth_ptr->image;
+			//				cv_bridge::CvImagePtr			depth_ptr;
+			//				try{							depth_ptr = cv_bridge::toCvCopy(msg.frames[i].depth, sensor_msgs::image_encodings::MONO16);}
+			//				catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
+			//				cv::Mat depth = depth_ptr->image;
 
-//				Eigen::Affine3d epose;
-//				tf::poseMsgToEigen(pose, epose);
+			//				Eigen::Affine3d epose;
+			//				tf::poseMsgToEigen(pose, epose);
 
-//				reglib::Camera * cam		= new reglib::Camera();
-//				if(camera.K[0] > 0){
-//					cam->fx = camera.K[0];
-//					cam->fy = camera.K[4];
-//					cam->cx = camera.K[2];
-//					cam->cy = camera.K[5];
-//				}
+			//				reglib::Camera * cam		= new reglib::Camera();
+			//				if(camera.K[0] > 0){
+			//					cam->fx = camera.K[0];
+			//					cam->fy = camera.K[4];
+			//					cam->cx = camera.K[2];
+			//					cam->cy = camera.K[5];
+			//				}
 
-//			}
-//
+			//			}
+			//
 
 			for(unsigned int j =  0; j  < cloudspaths.size(); j++){
 				std::string cloudpath = cloudspaths[j];
@@ -1321,14 +1418,14 @@ std::vector<reglib::Model *> loadModelsPCDs(std::string path){
 					reglib::Camera * cam = new reglib::Camera();//figure out cam params
 
 					//TODO figure out optical centre and focal lengths from cloud...
-//					for(unsigned int w = 0; w < width; w++){
-//						for(unsigned int w = 0; w < width; w++){
-//						pcl::PointXYZRGB p = cloud->points[k];
-//						float x = p.x;
-//						float y = p.y;
-//						float z = p.z;
-//						}
-//					}
+					//					for(unsigned int w = 0; w < width; w++){
+					//						for(unsigned int w = 0; w < width; w++){
+					//						pcl::PointXYZRGB p = cloud->points[k];
+					//						float x = p.x;
+					//						float y = p.y;
+					//						float z = p.z;
+					//						}
+					//					}
 
 					for(unsigned int k = 0; k < width*height; k++){
 						pcl::PointXYZRGB p = cloud->points[k];
