@@ -256,9 +256,12 @@ reglib::RGBDFrame * getFrame(soma_llsd_msgs::Scene & scene){
 	cv::Mat rgb = rgb_ptr->image;
 
 	cv_bridge::CvImagePtr			depth_ptr;
-	try{							depth_ptr = cv_bridge::toCvCopy(scene.depth_img, sensor_msgs::image_encodings::MONO16);}
+	//try{							depth_ptr = cv_bridge::toCvCopy(scene.depth_img, sensor_msgs::image_encodings::MONO16);}
+	try{							depth_ptr = cv_bridge::toCvCopy(scene.depth_img, sensor_msgs::image_encodings::TYPE_32FC1);}
 	catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
-	cv::Mat depth = depth_ptr->image;
+	//cv::Mat depth = depth_ptr->image;
+    cv::Mat depth;
+    depth_ptr->image.convertTo(depth, CV_16UC1, 1000.0);
 
 	Eigen::Affine3d epose;
 	tf::poseMsgToEigen(scene.robot_pose, epose);
