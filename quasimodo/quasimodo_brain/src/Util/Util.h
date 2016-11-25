@@ -39,6 +39,8 @@
 
 #include <soma_llsd/GetScene.h>
 #include <soma_llsd/InsertScene.h>
+#include <soma_llsd_msgs/Segment.h>
+#include <quasimodo_conversions/conversions.h>
 
 namespace quasimodo_brain {
 

@@ -716,7 +716,7 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 	}
 
 	printf("fullmodel->points.size() = %i\n",fullmodel->points.size());
-
+    quasimodo_brain::writeXml(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes);
 //	delete reg;
 //	delete mu;
 //	delete sweep;
@@ -744,10 +744,12 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 		//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 		fullmodel = processAV(path,compute_edges,saveVisuals_sp);
 		//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-		quasimodo_brain::writeXml(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes);
+
 	}
 	//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 */
+    //initSegment(*np,fullmodel);
+exit(0);
 	return fullmodel;
 }
 
