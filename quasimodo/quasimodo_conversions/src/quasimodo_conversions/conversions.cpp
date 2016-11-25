@@ -200,7 +200,7 @@ bool raw_frames_to_soma_scene(ros::NodeHandle& n, const cv::Mat& rgb, const cv::
 
     convert_to_img_msg(rgb, scene_srv.request.rgb_img);
     convert_to_depth_msg(depth, scene_srv.request.depth_img);
-    pcl::toROSMsg(*cloud, scene_srv.request.cloud);
+	//pcl::toROSMsg(*cloud, scene_srv.request.cloud);
     tf::poseEigenToMsg(Eigen::Affine3d(pose), scene_srv.request.robot_pose);
     sensor_msgs::CameraInfo info;
     info.K.at(0) = K(0, 0);

@@ -748,7 +748,7 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 	}
 	//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 */
-	double startTime_store = reglib::getTime();
+//	double startTime_store = reglib::getTime();
 //	fullmodel->pointspath = sweep_folder+"/fullmodel_superpoints.bin";
 //	std::string soma_id = quasimodo_brain::initSegment(*np,fullmodel);
 //	printf("soma_id: %i\n",soma_id.c_str());
@@ -1694,12 +1694,10 @@ void sendRoomToSomaLLSD(std::string path){
 				cloud->width	= width;
 				cloud->height	= height;
 				cloud->points.resize(width*height);
-
 				for(unsigned int w = 0; w < width; w++){
 					for(unsigned int h = 0; h < height;h++){
 						int ind = h*width+w;
 						double z = idepth*double(depthdata[ind]);
-
 						pcl::PointXYZRGB p;
 						p.b = rgbdata[3*ind+0];
 						p.g = rgbdata[3*ind+1];
@@ -2209,7 +2207,17 @@ void add_soma_id_callback(const std_msgs::String::ConstPtr& msg){
 	printf("================================================================================\n");
 	printf("=============================add_soma_id_callback===============================\n");
 	printf("================================================================================\n");
-	addSceneToLastMetaroom(msg->data);
+	if(msg->data.compare("done") == 0){
+		vector<string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<PointType>(overall_folder);
+		if(sweep_xmls.size() == 0){return ;}
+		std::string lastSweep = sweep_xmls.back();
+		//if(prevind >= 0){
+			sendRoomToSomaLLSD(lastSweep);
+			sendMetaroomToServer(lastSweep);
+		//}
+	}else{
+		addSceneToLastMetaroom(msg->data);
+	}
 }
 
 
