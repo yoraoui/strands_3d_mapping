@@ -748,8 +748,9 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 	}
 	//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 */
-    //initSegment(*np,fullmodel);
-//exit(0);
+	std::string soma_id = quasimodo_brain::initSegment(*np,fullmodel);
+	printf("soma_id: %i\n",soma_id.c_str());
+exit(0);
 	return fullmodel;
 }
 

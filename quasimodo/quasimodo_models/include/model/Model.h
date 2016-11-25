@@ -33,7 +33,9 @@ using namespace Eigen;
 		int last_changed;
 
 		std::string savePath;
+		std::string soma_id;
 
+		std::string pointspath;
 		std::vector<superpoint> points;
 
 		std::vector< std::vector<cv::KeyPoint> >	all_keypoints;

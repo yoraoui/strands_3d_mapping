@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(quasimodo_brain)
 
 
-find_package(catkin REQUIRED COMPONENTS roscpp soma_msgs object_manager object_manager_msgs semantic_map_msgs soma_manager local_metric_map_people_rejection quasimodo_msgs quasimodo_conversions quasimodo_models message_runtime pcl_ros metaroom_xml_parser eigen_conversions cv_bridge)
+find_package(catkin REQUIRED COMPONENTS quasimodo_models roscpp soma_msgs object_manager object_manager_msgs semantic_map_msgs soma_manager local_metric_map_people_rejection quasimodo_msgs quasimodo_conversions quasimodo_models message_runtime pcl_ros metaroom_xml_parser eigen_conversions cv_bridge)
 
 
 set(CMAKE_CXX_FLAGS "-O4 -g -pg -Wunknown-pragmas -Wno-unknown-pragmas -Wsign-compare -fPIC -std=c++0x -o popcnt -mssse3")
@@ -126,19 +126,19 @@ target_link_libraries(	test_segment quasimodo_brain_util quasimodo_ModelDatabase
 
 add_executable(			segment_room_pairs src/segment_room_pairs.cpp)
 add_dependencies(		segment_room_pairs roscpp quasimodo_msgs_generate_messages_cpp)
-target_link_libraries(	segment_room_pairs quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(	segment_room_pairs quasimodo_ModelUpdater quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
 add_executable(			test_segment_room_pairs src/test_segment_room_pairs.cpp)
 add_dependencies(		test_segment_room_pairs roscpp quasimodo_msgs_generate_messages_cpp)
-target_link_libraries(	test_segment_room_pairs quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(	test_segment_room_pairs quasimodo_ModelUpdater quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
 add_executable(			segmentationserver src/segmentationserver.cpp)
 add_dependencies(		segmentationserver roscpp quasimodo_msgs_generate_messages_cpp)
-target_link_libraries(	segmentationserver quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(	segmentationserver quasimodo_brain_util quasimodo_ModelUpdater quasimodo_ModelDatabase quasimodo_Mesher  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
 add_executable(			metaroom_additional_view_processing src/metaroom_additional_view_processing.cpp)
 add_dependencies(		metaroom_additional_view_processing roscpp quasimodo_msgs_generate_messages_cpp object_manager_msgs_generate_messages_cpp semantic_map_msgs_generate_messages_cpp)
-target_link_libraries(	metaroom_additional_view_processing quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(	metaroom_additional_view_processing quasimodo_ModelUpdater quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
 add_executable(			AnnotationTool src/AnnotationTool.cpp)
 add_dependencies(		AnnotationTool roscpp quasimodo_msgs_generate_messages_cpp object_manager_msgs_generate_messages_cpp semantic_map_msgs_generate_messages_cpp)

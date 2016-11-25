@@ -14,6 +14,8 @@ Model::Model(){
     id = model_id_counter++;
     last_changed = -1;
 	savePath = "";
+	soma_id = "";
+	pointspath = "";
 }
 
 Model::Model(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d pose){
@@ -32,6 +34,8 @@ Model::Model(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d pose){
 	modelmasks.push_back(new ModelMask(mask));
 
 	savePath = "";
+	soma_id = "";
+	pointspath = "";
     //recomputeModelPoints();
 }
 

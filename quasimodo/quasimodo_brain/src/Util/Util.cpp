@@ -2,21 +2,13 @@
 
 namespace quasimodo_brain {
 
-double score;
-unsigned long id;
-
-//int last_changed;
 //std::string savePath;
 //std::vector<superpoint> points;
-//std::vector< std::vector<cv::KeyPoint> >	all_keypoints;
-//std::vector< cv::Mat >						all_descriptors;
-//std::vector<Eigen::Matrix4d>				relativeposes;
-//std::vector<RGBDFrame*>						frames;
-//std::vector<ModelMask*>						modelmasks;
-//std::vector<Eigen::Matrix4d>	rep_relativeposes;
+
+//std::vector<Eigen::Matrix4d>		rep_relativeposes;
 //std::vector<RGBDFrame*>			rep_frames;
 //std::vector<ModelMask*>			rep_modelmasks;
-//double total_scores;
+
 //std::vector<std::vector < float > > scores;
 //std::vector<Model *>				submodels;
 //std::vector<Eigen::Matrix4d>		submodels_relativeposes;
@@ -37,6 +29,7 @@ std::string initSegment(ros::NodeHandle& n, reglib::Model * model){
     std::vector< cv::Mat > masks;
     std::vector< Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix<double, 4, 4> > > poses;
     for(unsigned int i = 0; i < model->frames.size(); i++){
+		printf("frame: %i\n",i);
         soma_llsd_msgs::Scene sc = getScene(n,model->frames[i]);
         poses.push_back(model->relativeposes[i]);
         masks.push_back(model->modelmasks[i]->getMask());
@@ -46,15 +39,36 @@ std::string initSegment(ros::NodeHandle& n, reglib::Model * model){
     soma_llsd_msgs::Segment segment;
     if(quasimodo_conversions::add_masks_to_soma_segment(n,scid, masks,poses,segment)){
         std::string id = segment.id;
-        std::string metadata = "";
+		model->soma_id = id;
+		std::string metadata = "";
+		metadata += "<last_changed>";
+		metadata += std::to_string(model->last_changed);
+		metadata += "<\\last_changed>";
+
+		metadata += "<id>";
+		metadata += std::to_string(model->id);
+		metadata += "<\\id>";
+
+		metadata += "<score>";
+		metadata += std::to_string(model->score);
+		metadata += "<\\score>";
+
+		metadata += "<total_scores>";
+		metadata += std::to_string(model->total_scores);
+		metadata += "<\\total_scores>";
+
+		metadata += "<pointspath>";
+		metadata += model->pointspath;
+		metadata += "<\\pointspath>";
+
         for(unsigned int i = 0; i < model->submodels.size(); i++){
             metadata += "<submodel>";
             std::string subid = initSegment(n, model->submodels[i]);
             metadata += subid;
             metadata += "<relativepose>";
 			metadata += getPoseString(model->submodels_relativeposes[i]);
-            metadata += "<\relativepose>";
-            metadata += "<\submodel>";
+			metadata += "<\\relativepose>";
+			metadata += "<\\submodel>";
         }
         printf("metadata: %s\n",metadata.c_str());
         return id;
