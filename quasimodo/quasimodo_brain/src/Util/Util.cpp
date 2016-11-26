@@ -249,6 +249,7 @@ reglib::Camera * getCam(sensor_msgs::CameraInfo & info){
 reglib::RGBDFrame * getFrame(soma_llsd_msgs::Scene & scene){
 
 	reglib::Camera * cam = getCam(scene.camera_info);
+    cam->idepth_scale = 1.0/5000.0;
 
 	cv_bridge::CvImagePtr			rgb_ptr;
 	try{							rgb_ptr = cv_bridge::toCvCopy(scene.rgb_img, sensor_msgs::image_encodings::BGR8);}
@@ -261,7 +262,7 @@ reglib::RGBDFrame * getFrame(soma_llsd_msgs::Scene & scene){
 	catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
 	//cv::Mat depth = depth_ptr->image;
     cv::Mat depth;
-    depth_ptr->image.convertTo(depth, CV_16UC1, 1000.0);
+    depth_ptr->image.convertTo(depth, CV_16UC1, 5000.0);
 
 	Eigen::Affine3d epose;
 	tf::poseMsgToEigen(scene.robot_pose, epose);
