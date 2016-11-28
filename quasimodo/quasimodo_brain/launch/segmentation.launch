@@ -1,0 +1,4 @@
+<launch>
+    <arg name="data_path" default="/home/strands/.semanticMap"/>
+    <node pkg="quasimodo_brain" type="metaroom_additional_view_processing" name="metaroom_additional_view_processing" output="screen" respawn="true" args="-folder $(arg data_path)"/>
+</launch>
