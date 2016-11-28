@@ -21,8 +21,11 @@ from quasimodo_msgs.srv import index_cloud, index_cloudRequest, index_cloudRespo
 from quasimodo_msgs.srv import mask_pointclouds, mask_pointcloudsRequest, mask_pointcloudsResponse
 from quasimodo_msgs.srv import insert_model, insert_modelRequest, insert_modelResponse
 from geometry_msgs.msg import Pose
+from std_msgs.msg import Empty
 import time
 import json
+
+pub = ()
 
 def insert_model_cb(sreq):
     msg_store = MessageStoreProxy(database='world_state', collection='quasimodo')
@@ -170,11 +173,15 @@ def service_callback(req):
         resp = False
         print "Service options are 1: INSERT and 2: REMOVE"
 
+    empty_msg = Empty()
+    pub.publish(empty_msg)
+
     return resp
 
 if __name__ == '__main__':
     rospy.init_node('insert_object_server', anonymous = False)
 
+    pub = rospy.Publisher("/model/added_to_db", data_class=Empty, queue_size=None)
     service = rospy.Service('insert_model_service', insert_model, service_callback)
 
     rospy.spin()
