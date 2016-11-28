@@ -16,6 +16,7 @@ Model::Model(){
 	savePath = "";
 	soma_id = "";
 	pointspath = "";
+	parrent = 0;
 }
 
 Model::Model(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d pose){
@@ -36,6 +37,7 @@ Model::Model(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d pose){
 	savePath = "";
 	soma_id = "";
 	pointspath = "";
+	parrent = 0;
     //recomputeModelPoints();
 }
 
@@ -151,7 +153,7 @@ void Model::recomputeModelPoints(Eigen::Matrix4d pose, boost::shared_ptr<pcl::vi
 	double startTime = getTime();
 	points.clear();
 	addAllSuperPoints(points,pose,viewer);
-	printf("recomputeModelPoints time: %5.5fs\n",getTime()-startTime);
+	printf("recomputeModelPoints time: %5.5fs total points: %i \n",getTime()-startTime,int(points.size()));
 }
 
 void Model::showHistory(boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer){
@@ -469,6 +471,7 @@ void Model::merge(Model * model, Eigen::Matrix4d p){
 	for(unsigned int i = 0; i < model->submodels.size(); i++){
 		submodels_relativeposes.push_back(p * model->submodels_relativeposes[i]);
 		submodels.push_back(model->submodels[i]);
+		model->submodels[i]->parrent = this;
 	}
 
     recomputeModelPoints();

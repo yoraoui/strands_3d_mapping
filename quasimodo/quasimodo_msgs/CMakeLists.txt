@@ -74,6 +74,7 @@ add_service_files(
   mask_pointclouds.srv
   insert_model.srv
   model_to_retrieval_query.srv
+  recognize.srv
 )
 
 ## Generate actions in the 'action' folder

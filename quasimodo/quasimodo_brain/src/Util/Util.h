@@ -44,7 +44,7 @@
 #include <quasimodo_conversions/conversions.h>
 
 namespace quasimodo_brain {
-
+int getdir (std::string dir, std::vector<std::string> & files);
 std::string getPoseString(Eigen::Matrix4d pose);
 
 Eigen::Matrix4d getPoseFromString(std::string str);

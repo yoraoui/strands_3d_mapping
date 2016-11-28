@@ -1,24 +1,19 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
-#include <sensor_msgs/PointCloud2.h>
 #include <string.h>
 
 #include <cv_bridge/cv_bridge.h>
-#include <sensor_msgs/image_encodings.h>
 
 #include "eigen_conversions/eigen_msg.h"
 #include "tf_conversions/tf_eigen.h"
 
 #include "metaroom_xml_parser/simple_xml_parser.h"
 #include "metaroom_xml_parser/simple_summary_parser.h"
-
 #include <metaroom_xml_parser/load_utilities.h>
-#include <pcl_ros/point_cloud.h>
 
-#include "metaroom_xml_parser/load_utilities.h"
+#include <pcl_ros/point_cloud.h>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl_ros/transforms.h>
-
 
 #include "quasimodo_msgs/model.h"
 #include "quasimodo_msgs/rgbd_frame.h"
@@ -28,41 +23,34 @@
 #include "quasimodo_msgs/get_model.h"
 #include "quasimodo_msgs/segment_model.h"
 #include "quasimodo_msgs/metaroom_pair.h"
-
 #include <quasimodo_msgs/query_cloud.h>
 #include <quasimodo_msgs/visualize_query.h>
 
 #include <image_geometry/pinhole_camera_model.h>
+
+#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/CameraInfo.h>
 
 #include "modelupdater/ModelUpdater.h"
 #include "core/RGBDFrame.h"
 #include "Util/Util.h"
 
-// Services
-#include <object_manager_msgs/DynamicObjectsService.h>
-#include <object_manager_msgs/GetDynamicObjectService.h>
-#include <object_manager_msgs/ProcessDynamicObjectService.h>
-
-// Registration service
 #include <observation_registration_services/ObjectAdditionalViewRegistrationService.h>
-
-// Additional view mask service
-#include <object_manager_msgs/DynamicObjectComputeMaskService.h>
-
 
 #include <sys/time.h>
 #include <sys/resource.h>
 
-// Custom messages
 #include "object_manager/dynamic_object.h"
 #include "object_manager/dynamic_object_xml_parser.h"
 #include "object_manager/dynamic_object_utilities.h"
 #include "object_manager/dynamic_object_mongodb_interface.h"
-
 #include <object_manager_msgs/DynamicObjectTracks.h>
 #include <object_manager_msgs/DynamicObjectTrackingData.h>
-
+#include <object_manager_msgs/DynamicObjectComputeMaskService.h>
+#include <object_manager_msgs/DynamicObjectsService.h>
+#include <object_manager_msgs/GetDynamicObjectService.h>
+#include <object_manager_msgs/ProcessDynamicObjectService.h>
 
 #include <semantic_map_msgs/RoomObservation.h>
 
@@ -748,20 +736,21 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 	}
 	//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 */
-//	double startTime_store = reglib::getTime();
-//	fullmodel->pointspath = sweep_folder+"/fullmodel_superpoints.bin";
-//	std::string soma_id = quasimodo_brain::initSegment(*np,fullmodel);
-//	printf("soma_id: %i\n",soma_id.c_str());
-//	printf("add time: %6.6f\n",reglib::getTime()-startTime_store);
+    double startTime_store = reglib::getTime();
+    fullmodel->pointspath = sweep_folder+"/fullmodel_superpoints.bin";
+    std::string soma_id = quasimodo_brain::initSegment(*np,fullmodel);
+    printf("soma_id: %i\n",soma_id.c_str());
+    printf("add time: %6.6f\n",reglib::getTime()-startTime_store);
 
-//	startTime_store = reglib::getTime();
+//
 //	std::string soma_id2 = quasimodo_brain::initSegment(*np,fullmodel);
 //	printf("soma_id2: %i\n",soma_id2.c_str());
 //	printf("add2 time: %6.6f\n",reglib::getTime()-startTime_store);
 
-//	reglib::Model * test = quasimodo_brain::getModelFromSegment(*np,soma_id);
-//	printf("load time: %6.6f\n",reglib::getTime()-startTime_store);
-//exit(0);
+    startTime_store = reglib::getTime();
+    reglib::Model * test = quasimodo_brain::getModelFromSegment(*np,soma_id);
+    printf("load time: %6.6f\n",reglib::getTime()-startTime_store);
+exit(0);
 	return fullmodel;
 }
 

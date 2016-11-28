@@ -2,15 +2,20 @@
 
 namespace quasimodo_brain {
 
-//Save?
-//std::vector<Eigen::Matrix4d>		rep_relativeposes;
-//std::vector<RGBDFrame*>			rep_frames;
-//std::vector<ModelMask*>			rep_modelmasks;
+int getdir (std::string dir, std::vector<std::string> & files){
+	DIR *dp;
+	struct dirent *dirp;
+	if((dp  = opendir(dir.c_str())) == NULL) {
+		cout << "Error(" << errno << ") opening " << dir << endl;
+		return errno;
+	}
 
-//std::vector<std::vector < float > > scores;
-//std::vector<Model *>				submodels;
-//std::vector<Eigen::Matrix4d>		submodels_relativeposes;
-//std::vector<std::vector < float > > submodels_scores;
+	while ((dirp = readdir(dp)) != NULL) {
+		files.push_back(std::string(dirp->d_name));
+	}
+	closedir(dp);
+	return 0;
+}
 
 std::string getPoseString(Eigen::Matrix4d pose){
 	char buf [1024];
@@ -102,20 +107,58 @@ std::string initSegment(ros::NodeHandle& n, reglib::Model * model){
 reglib::Model * getModelFromSegment(ros::NodeHandle& n, std::string segment_id){
 	reglib::Model * model = new reglib::Model();
 
-	ros::ServiceClient client = n.serviceClient<soma_llsd::GetSegment>("/soma_llsd/get_segment");
+    ros::ServiceClient segclient = n.serviceClient<soma_llsd::GetSegment>("/soma_llsd/get_segment");
 	ROS_INFO("Waiting for /soma_llsd/get_segment service...");
-	if (!client.waitForExistence(ros::Duration(1.0))) {
+    if (!segclient.waitForExistence(ros::Duration(1.0))) {
 		ROS_INFO("Failed to get /soma_llsd/get_segment service!");
 		return model;
 	}
 	ROS_INFO("Got /soma_llsd/get_segment service");
 
-	soma_llsd::GetSegment srv;
-	srv.request.segment_id = model->soma_id;
-	if (client.call(srv)) {
+    soma_llsd::GetSegment segsrv;
+    segsrv.request.segment_id = model->soma_id;
+    if (segclient.call(segsrv)) {
 		ROS_INFO("Got /soma_llsd/get_segment");
 		return model;
 	}
+
+    ros::ServiceClient client = n.serviceClient<soma_llsd::GetScene>("/soma_llsd/get_scene");
+    ROS_INFO("Waiting for /soma_llsd/get_scene service...");
+    if (!client.waitForExistence(ros::Duration(1.0))) {
+        ROS_INFO("Failed to get /soma_llsd/get_scene service!");
+        return model;
+    }
+    ROS_INFO("Got /soma_llsd/get_scene service");
+
+    soma_llsd_msgs::Segment segment = segsrv.response.response;
+    for (const soma_llsd_msgs::Observation& obs : segment.observations) {
+        soma_llsd::GetScene srv;
+        srv.request.scene_id = obs.scene_id;
+        if (!client.call(srv)) {
+            ROS_ERROR("Failed to call service /soma_llsd/get_scene");
+            return model;
+        }
+
+        cv::Mat mask;
+
+        sensor_msgs::Image image_mask = obs.image_mask;
+        reglib::RGBDFrame * frame = getFrame(srv.response.response);
+
+        model->frames.push_back(frame);
+
+        geometry_msgs::Pose	pose1 = obs.pose;
+        Eigen::Affine3d epose1;
+        tf::poseMsgToEigen(pose1, epose1);
+        model->relativeposes.push_back(epose1.matrix());
+
+//		cv_bridge::CvImagePtr			mask_ptr;
+//		try{							mask_ptr = cv_bridge::toCvCopy(msg.masks[i], sensor_msgs::image_encodings::MONO8);}
+//		catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
+//		cv::Mat mask = mask_ptr->image;
+        quasimodo_conversions::convert_to_mask_msg(mask,image_mask);
+        model->modelmasks.push_back(new reglib::ModelMask(mask));
+    }
+    model->recomputeModelPoints();
 
 	//Read frames etc
 	//Read parameters
@@ -256,9 +299,12 @@ reglib::RGBDFrame * getFrame(soma_llsd_msgs::Scene & scene){
 	cv::Mat rgb = rgb_ptr->image;
 
 	cv_bridge::CvImagePtr			depth_ptr;
-	try{							depth_ptr = cv_bridge::toCvCopy(scene.depth_img, sensor_msgs::image_encodings::MONO16);}
+	//try{							depth_ptr = cv_bridge::toCvCopy(scene.depth_img, sensor_msgs::image_encodings::MONO16);}
+	try{							depth_ptr = cv_bridge::toCvCopy(scene.depth_img, sensor_msgs::image_encodings::TYPE_32FC1);}
 	catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
-	cv::Mat depth = depth_ptr->image;
+	//cv::Mat depth = depth_ptr->image;
+    cv::Mat depth;
+    depth_ptr->image.convertTo(depth, CV_16UC1, 1000.0);
 
 	Eigen::Affine3d epose;
 	tf::poseMsgToEigen(scene.robot_pose, epose);
@@ -1295,8 +1341,7 @@ Eigen::Matrix4f getRegisteredViewPoses(const std::string& poses_file){
 		cout<<"ERROR: cannot find poses file "<<poses_file<<endl;
 		return transform;
 	}
-	cout<<"Loading view pose from "<<poses_file<<endl;
-
+	//cout<<"Loading view pose from "<<poses_file<<endl;
 
 	float temp;
 	for (size_t j=0; j<4; j++){
@@ -1316,14 +1361,11 @@ std::vector<int> getIndsFromFile(const std::string& poses_file){
 		cout<<"ERROR: cannot find idnex file "<<poses_file<<endl;
 		return indexes;
 	}
-	cout<<"Loading indexes from "<<poses_file<<endl;
-
+	//cout<<"Loading indexes from "<<poses_file<<endl;
 
 	std::string line;
-	while ( getline (in,line) )
-	{
+	while ( getline (in,line) ){
 		indexes.push_back(std::stoi(line));
-
 	}
 	in.close();
 
@@ -1334,6 +1376,12 @@ std::vector<int> getIndsFromFile(const std::string& poses_file){
 
 
 std::vector<reglib::Model *> loadModelsPCDs(std::string path){
+
+//	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("Modelserver Viewer"));
+//	viewer->addCoordinateSystem(0.1);
+//	viewer->setBackgroundColor(1.0,0.0,1.0);
+
+
 	std::vector<reglib::Model *> models;
 
 	std::vector<std::string> folders = getFolderList(path);//recursiveGetFolderList(path);//getFolderList(path);//
@@ -1354,7 +1402,6 @@ std::vector<reglib::Model *> loadModelsPCDs(std::string path){
 			if (files[j].find("pose") != std::string::npos){posepaths.push_back(file);}
 		}
 
-		printf("%i %i %i\n",cloudspaths.size(),indexpaths.size(),posepaths.size());
 		if((cloudspaths.size() == indexpaths.size()) && (cloudspaths.size() == posepaths.size())){
 			std::sort (cloudspaths.begin(), cloudspaths.end());
 			std::sort (indexpaths.begin(), indexpaths.end());
@@ -1362,48 +1409,23 @@ std::vector<reglib::Model *> loadModelsPCDs(std::string path){
 
 
 			reglib::Model * model = new reglib::Model();
-
-			//			for(unsigned int i = 0; i < msg.local_poses.size(); i++){
-			//				sensor_msgs::CameraInfo		camera			= msg.frames[i].camera;
-			//				ros::Time					capture_time	= msg.frames[i].capture_time;
-			//				geometry_msgs::Pose			pose			= msg.frames[i].pose;
-
-			//				cv_bridge::CvImagePtr			rgb_ptr;
-			//				try{							rgb_ptr = cv_bridge::toCvCopy(msg.frames[i].rgb, sensor_msgs::image_encodings::BGR8);}
-			//				catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
-			//				cv::Mat rgb = rgb_ptr->image;
-
-			//				cv_bridge::CvImagePtr			depth_ptr;
-			//				try{							depth_ptr = cv_bridge::toCvCopy(msg.frames[i].depth, sensor_msgs::image_encodings::MONO16);}
-			//				catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
-			//				cv::Mat depth = depth_ptr->image;
-
-			//				Eigen::Affine3d epose;
-			//				tf::poseMsgToEigen(pose, epose);
-
-			//				reglib::Camera * cam		= new reglib::Camera();
-			//				if(camera.K[0] > 0){
-			//					cam->fx = camera.K[0];
-			//					cam->fy = camera.K[4];
-			//					cam->cx = camera.K[2];
-			//					cam->cy = camera.K[5];
-			//				}
-
-			//			}
-			//
-
 			for(unsigned int j =  0; j  < cloudspaths.size(); j++){
 				std::string cloudpath = cloudspaths[j];
 				std::string indexpath = indexpaths[j];
 				std::string posepath = posepaths[j];
-				printf("loading: %s %s %s\n", cloudpath.c_str(),indexpath.c_str(),posepath.c_str());
+				//printf("loading: %s %s %s\n", cloudpath.c_str(),indexpath.c_str(),posepath.c_str());
 
 				pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
 				if (pcl::io::loadPCDFile<pcl::PointXYZRGB> (cloudpath, *cloud) != -1){
+
+//					viewer->removeAllPointClouds();
+//					viewer->addPointCloud<pcl::PointXYZRGB> (cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cloud), "cloud");
+//					viewer->spin();
+
 					Eigen::Matrix4f pose = getRegisteredViewPoses(posepath);
 					std::vector<int> indexes = getIndsFromFile(indexpath);
-					std::cout << pose << std::endl << std::endl;
-					std::cout << indexes.size() << std::endl;
+//					std::cout << pose << std::endl << std::endl;
+//					std::cout << indexes.size() << std::endl;
 
 					unsigned int width = cloud->width;
 					unsigned int height = cloud->height;
@@ -1416,16 +1438,8 @@ std::vector<reglib::Model *> loadModelsPCDs(std::string path){
 					unsigned short  * depthdata = (unsigned short *)(depth.data);
 
 					reglib::Camera * cam = new reglib::Camera();//figure out cam params
-
-					//TODO figure out optical centre and focal lengths from cloud...
-					//					for(unsigned int w = 0; w < width; w++){
-					//						for(unsigned int w = 0; w < width; w++){
-					//						pcl::PointXYZRGB p = cloud->points[k];
-					//						float x = p.x;
-					//						float y = p.y;
-					//						float z = p.z;
-					//						}
-					//					}
+					cam->fx = 525;
+					cam->fy = 525;
 
 					for(unsigned int k = 0; k < width*height; k++){
 						pcl::PointXYZRGB p = cloud->points[k];
@@ -1439,22 +1453,28 @@ std::vector<reglib::Model *> loadModelsPCDs(std::string path){
 						}
 					}
 
-
 					cv::Mat mask;
 					mask.create(height,width,CV_8UC1);
 					unsigned char   * maskdata   = mask.data;
+
+					for(unsigned int k = 0; k < height*width; k++){maskdata[k] = 0;}
 					for(unsigned int k = 0; k < indexes.size(); k++){maskdata[indexes[k]] = 255;}
 
+
+//					cv::imshow( "mask", mask );
+//					cv::waitKey(0);
+
 					reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, 0 , pose.cast<double>() , true,"",false);
+					frame->show(false);
 					model->frames.push_back(frame);
 					model->relativeposes.push_back(model->frames.front()->pose.inverse() * pose.cast<double>());
 					model->modelmasks.push_back(new reglib::ModelMask(mask));
+					model->modelmasks.back()->label = folders[i];
 				}else{
 					printf ("Couldn't read pcd file\n");
 				}
 			}
-
-			model->recomputeModelPoints();
+			model->recomputeModelPoints();//model->recomputeModelPoints(Eigen::Matrix4d::Identity(),viewer);
 			models.push_back(model);
 		}else{
 			printf("number of clouds, indices and poses dont match... ignoring\n");

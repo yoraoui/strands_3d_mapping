@@ -54,6 +54,7 @@ using namespace Eigen;
 		std::vector<Model *>				submodels;
 		std::vector<Eigen::Matrix4d>		submodels_relativeposes;
 		std::vector<std::vector < float > > submodels_scores;
+		Model * parrent;
 
 		Model();
 		Model(RGBDFrame * frame_, cv::Mat mask, Eigen::Matrix4d pose = Eigen::Matrix4d::Identity());

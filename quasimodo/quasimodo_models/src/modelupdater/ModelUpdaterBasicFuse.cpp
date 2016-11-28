@@ -226,13 +226,7 @@ UpdatedModels ModelUpdaterBasicFuse::fuseData(FusionResults * f, Model * model1,
 	for(unsigned int i = 1; i < count.size(); i++){minpart = std::min(minpart,count[i]);}
 
 	if(count.size() == 1){
-       printf("points before: %i\n",model1->points.size());
 		model1->merge(model2,pose);
-
-		model1->recomputeModelPoints();
-        printf("points after: %i\n",model1->points.size());
-		//model1->scores = scores;
-		//model1->total_scores = sumscore;
 		retval.updated_models.push_back(model1);
 		retval.deleted_models.push_back(model2);
 	}else if(improvement > 1){//Cannot fully fuse... separating...
