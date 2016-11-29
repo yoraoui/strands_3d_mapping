@@ -55,7 +55,7 @@ RGBDFrame::RGBDFrame(){
 	pose = Eigen::Matrix4d::Identity();
 	keyval = "";
 	soma_id = "";
-    labels = 0;
+	labels = 0;
 }
 
 bool updated = true;
@@ -332,7 +332,7 @@ RGBDFrame * RGBDFrame::clone(){
 
 RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capturetime_, Eigen::Matrix4d pose_, bool compute_normals, std::string savePath, bool compute_imgedges){
 	soma_id = "";
-    labels = 0;
+	labels = 0;
 
 	//printf("savepath: %s\n",savePath.c_str());
 	bool verbose = false;
@@ -962,72 +962,72 @@ pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr RGBDFrame::getPCLcloud(){
 
 
 
-//	pcl::PointCloud<pcl::PointXYZRGB>::Ptr	cloud	(new pcl::PointCloud<pcl::PointXYZRGB>);
-//	pcl::PointCloud<pcl::Normal>::Ptr		normals (new pcl::PointCloud<pcl::Normal>);
-//	cloud->width	= width;
-//	cloud->height	= height;
-//	cloud->points.resize(width*height);
+	//	pcl::PointCloud<pcl::PointXYZRGB>::Ptr	cloud	(new pcl::PointCloud<pcl::PointXYZRGB>);
+	//	pcl::PointCloud<pcl::Normal>::Ptr		normals (new pcl::PointCloud<pcl::Normal>);
+	//	cloud->width	= width;
+	//	cloud->height	= height;
+	//	cloud->points.resize(width*height);
 
-//	for(unsigned int w = 0; w < width; w++){
-//		for(unsigned int h = 0; h < height;h++){
-//			int ind = h*width+w;
-//			double z = idepth*double(depthdata[ind]);
+	//	for(unsigned int w = 0; w < width; w++){
+	//		for(unsigned int h = 0; h < height;h++){
+	//			int ind = h*width+w;
+	//			double z = idepth*double(depthdata[ind]);
 
-//			pcl::PointXYZRGB p;
-//			p.b = rgbdata[3*ind+0];
-//			p.g = rgbdata[3*ind+1];
-//			p.r = rgbdata[3*ind+2];
-//			if(z > 0){
-//				p.x = (double(w) - cx) * z * ifx;
-//				p.y = (double(h) - cy) * z * ify;
-//				p.z = z;
-//			}else{
-//				p.x = NAN;
-//				p.y = NAN;
-//				p.z = NAN;
-//			}
-//			cloud->points[ind] = p;
-//		}
-//	}
+	//			pcl::PointXYZRGB p;
+	//			p.b = rgbdata[3*ind+0];
+	//			p.g = rgbdata[3*ind+1];
+	//			p.r = rgbdata[3*ind+2];
+	//			if(z > 0){
+	//				p.x = (double(w) - cx) * z * ifx;
+	//				p.y = (double(h) - cy) * z * ify;
+	//				p.z = z;
+	//			}else{
+	//				p.x = NAN;
+	//				p.y = NAN;
+	//				p.z = NAN;
+	//			}
+	//			cloud->points[ind] = p;
+	//		}
+	//	}
 
-//	pcl::IntegralImageNormalEstimation<pcl::PointXYZRGB, pcl::Normal> ne;
-//	ne.setNormalEstimationMethod (ne.AVERAGE_3D_GRADIENT);
-//	ne.setMaxDepthChangeFactor(0.02f);
-//	ne.setNormalSmoothingSize(10.0f);
-//	ne.setInputCloud(cloud);
-//	ne.compute(*normals);
+	//	pcl::IntegralImageNormalEstimation<pcl::PointXYZRGB, pcl::Normal> ne;
+	//	ne.setNormalEstimationMethod (ne.AVERAGE_3D_GRADIENT);
+	//	ne.setMaxDepthChangeFactor(0.02f);
+	//	ne.setNormalSmoothingSize(10.0f);
+	//	ne.setInputCloud(cloud);
+	//	ne.compute(*normals);
 
-//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-//	cloud_ptr->width	= width;
-//	cloud_ptr->height	= height;
-//	cloud_ptr->points.resize(width*height);
+	//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+	//	cloud_ptr->width	= width;
+	//	cloud_ptr->height	= height;
+	//	cloud_ptr->points.resize(width*height);
 
-//	for(unsigned int w = 0; w < width; w++){
-//		for(unsigned int h = 0; h < height;h++){
-//			int ind = h*width+w;
-//			pcl::PointXYZRGBNormal & p0	= cloud_ptr->points[ind];
-//			pcl::PointXYZRGB p1			= cloud->points[ind];
-//			pcl::Normal p2				= normals->points[ind];
+	//	for(unsigned int w = 0; w < width; w++){
+	//		for(unsigned int h = 0; h < height;h++){
+	//			int ind = h*width+w;
+	//			pcl::PointXYZRGBNormal & p0	= cloud_ptr->points[ind];
+	//			pcl::PointXYZRGB p1			= cloud->points[ind];
+	//			pcl::Normal p2				= normals->points[ind];
 
-//			p0.x		= p1.x;
-//			p0.y		= p1.y;
-//			p0.z		= p1.z;
+	//			p0.x		= p1.x;
+	//			p0.y		= p1.y;
+	//			p0.z		= p1.z;
 
-//			if(depthdata[ind] == 0){
-//				p0.x		= 0;
-//				p0.y		= 0;
-//				p0.z		= 0;
-//			}
+	//			if(depthdata[ind] == 0){
+	//				p0.x		= 0;
+	//				p0.y		= 0;
+	//				p0.z		= 0;
+	//			}
 
-//			p0.r		= p1.r;
-//			p0.g		= p1.g;
-//			p0.b		= p1.b;
-//			p0.normal_x	= p2.normal_x;
-//			p0.normal_y	= p2.normal_y;
-//			p0.normal_z	= p2.normal_z;
-//		}
-//	}
-//	return cloud_ptr;
+	//			p0.r		= p1.r;
+	//			p0.g		= p1.g;
+	//			p0.b		= p1.b;
+	//			p0.normal_x	= p2.normal_x;
+	//			p0.normal_y	= p2.normal_y;
+	//			p0.normal_z	= p2.normal_z;
+	//		}
+	//	}
+	//	return cloud_ptr;
 }
 
 void RGBDFrame::savePCD(std::string path, Eigen::Matrix4d pose){
@@ -1074,14 +1074,14 @@ std::string type2str(int type) {
 	uchar chans = 1 + (type >> CV_CN_SHIFT);
 
 	switch ( depth ) {
-		case CV_8U:  r = "8U"; break;
-		case CV_8S:  r = "8S"; break;
-		case CV_16U: r = "16U"; break;
-		case CV_16S: r = "16S"; break;
-		case CV_32S: r = "32S"; break;
-		case CV_32F: r = "32F"; break;
-		case CV_64F: r = "64F"; break;
-		default:     r = "User"; break;
+	case CV_8U:  r = "8U"; break;
+	case CV_8S:  r = "8S"; break;
+	case CV_16U: r = "16U"; break;
+	case CV_16S: r = "16S"; break;
+	case CV_32S: r = "32S"; break;
+	case CV_32F: r = "32F"; break;
+	case CV_64F: r = "64F"; break;
+	default:     r = "User"; break;
 	}
 
 	r += "C";
@@ -1150,8 +1150,163 @@ void RGBDFrame::save(std::string path){
 	delete[] buffer;
 }
 
-RGBDFrame * RGBDFrame::load(Camera * cam, std::string path){
+void RGBDFrame::saveFast(std::string path){
 	double startTime = getTime();
+
+	const unsigned int width	= camera->width;
+	const unsigned int height	= camera->height;
+
+	std::ofstream rgboutfile	(path+"_rgbdata.txt",std::ofstream::binary);
+	rgboutfile.write ((char*)(rgb.data),width*height*3*sizeof(char));
+	rgboutfile.close();
+
+	std::ofstream depthoutfile	(path+"_depthdata.txt",std::ofstream::binary);
+	depthoutfile.write ((char*)(depth.data),width*height*sizeof(unsigned short));
+	depthoutfile.close();
+
+	std::ofstream normalsoutfile	(path+"_normalsdata.txt",std::ofstream::binary);
+	normalsoutfile.write ((char*)(normals.data),width*height*3*sizeof(float));
+	normalsoutfile.close();
+
+	unsigned long buffersize = 22*sizeof(double)+keyval.length()+soma_id.length();
+	char* buffer = new char[buffersize];
+	double * buffer_double = (double *)buffer;
+	unsigned long * buffer_long = (unsigned long *)buffer;
+
+	int counter = 0;
+	buffer_double[counter++] = capturetime; // CaptureTime
+	for(int i = 0; i < 4; i++){
+		for(int j = 0; j < 4; j++){
+			buffer_double[counter++] = pose(i,j);
+		}
+	}											// Pose
+	buffer_long[counter++] = sweepid;			// Sweepid
+	buffer_long[counter++] = camera->id;		// Cameraid
+	buffer_long[counter++] = id;				// id
+	buffer_long[counter++] = keyval.length();	// keyval.length()
+	buffer_long[counter++] = soma_id.length();	// soma_id.length()
+
+	unsigned int count4 = sizeof(double)*counter;
+	for(unsigned int i = 0; i < keyval.length();i++){
+		buffer[count4++] = keyval[i];
+	}
+	for(unsigned int i = 0; i < soma_id.length();i++){
+		buffer[count4++] = soma_id[i];
+	}
+
+	std::ofstream outfile (path+"_data.txt",std::ofstream::binary);
+	outfile.write (buffer,buffersize);
+	outfile.close();
+	delete[] buffer;
+
+//	printf("saveFast(%s): %5.5fs\n",path.c_str(),getTime()-startTime);
+	camera->save(path+"_camera");
+}
+
+RGBDFrame * RGBDFrame::loadFast(std::string path){
+	Camera * cam = Camera::load(path+"_camera");
+	double startTime = getTime();
+
+	const unsigned int width	= cam->width;
+	const unsigned int height	= cam->height;
+
+	std::streampos size;
+	char * buffer;
+	char buf [1024];
+	std::string datapath = path+"_data.txt";
+	std::ifstream file (datapath, std::ios::in | std::ios::binary | std::ios::ate);
+	if (file.is_open()){
+		size = file.tellg();
+		buffer = new char [size];
+		file.seekg (0, std::ios::beg);
+		file.read (buffer, size);
+		file.close();
+
+		double * buffer_double = (double *)buffer;
+		unsigned long * buffer_long = (unsigned long *)buffer;
+
+		int counter = 0;
+		double capturetime = buffer_double[counter++];
+		Eigen::Matrix4d pose;
+		for(int i = 0; i < 4; i++){
+			for(int j = 0; j < 4; j++){
+				pose(i,j) = buffer_double[counter++];
+			}
+		}
+		int sweepid = buffer_long[counter++];
+		int camera_id = buffer_long[counter++];
+		int id = buffer_long[counter++];
+		int keyvallength = buffer_long[counter++];
+		int soma_idlength = buffer_long[counter++];
+
+
+		std::string keyval;
+		keyval.resize(keyvallength);
+		std::string soma_id;
+		soma_id.resize(soma_idlength);
+
+		unsigned int count4 = sizeof(double)*counter;
+		for(unsigned int i = 0; i < keyvallength;i++){
+			keyval[i] = buffer[count4++];
+		}
+
+		for(unsigned int i = 0; i < soma_idlength;i++){
+			soma_id[i] = buffer[count4++];
+		}
+
+		delete[] buffer;
+
+		RGBDFrame * frame = new RGBDFrame();
+		frame->camera = cam;
+		frame->capturetime = capturetime;
+		frame->sweepid = sweepid;
+		frame->pose = pose;
+
+		frame->rgb.create(height,width,CV_8UC3);
+		frame->depth.create(height,width,CV_16UC1);
+		frame->normals.create(height,width,CV_32FC3);
+//		frame->ce.create(height,width,CV_32FC3);
+//		frame->de.create(height,width,CV_32FC3);
+//		frame->det_dilate = det_dilate;
+//		frame->depthedges = depthedges;
+//printf("%s::%i time: %5.5fs\n",__PRETTY_FUNCTION__,__LINE__,getTime()-startTime);
+
+		std::ifstream normalsfile (path+"_normalsdata.txt", std::ios::in | std::ios::binary | std::ios::ate);
+		if (normalsfile.is_open()){
+			size = normalsfile.tellg();
+			normalsfile.seekg (0, std::ios::beg);
+			normalsfile.read ((char*)(frame->normals.data), size);
+			normalsfile.close();
+		}
+
+		std::ifstream rgbfile (path+"_rgbdata.txt", std::ios::in | std::ios::binary | std::ios::ate);
+		if (rgbfile.is_open()){
+			size = rgbfile.tellg();
+			rgbfile.seekg (0, std::ios::beg);
+			rgbfile.read ((char*)(frame->rgb.data), size);
+			rgbfile.close();
+		}
+
+		std::ifstream depthfile (path+"_depthdata.txt", std::ios::in | std::ios::binary | std::ios::ate);
+		if (depthfile.is_open()){
+			size = normalsfile.tellg();
+			depthfile.seekg (0, std::ios::beg);
+			depthfile.read ((char*)(frame->depth.data), size);
+			depthfile.close();
+		}
+
+//printf("loadFast(%s): %5.5fs\n",path.c_str(),getTime()-startTime);
+		return frame;
+	}else{printf("cant open %s\n",(path+"/data.txt").c_str());}
+}
+
+RGBDFrame * RGBDFrame::load(Camera * cam, std::string path){
+
+
+
+	double startTime = getTime();
+//	cv::Mat rgbtest = cv::imread(path+"_rgb.bmp", -1);
+//printf("%s::%i time: %5.5fs\n",__PRETTY_FUNCTION__,__LINE__,getTime()-startTime); startTime = getTime();
 
 	const unsigned int width	= cam->width;
 	const unsigned int height	= cam->height;
@@ -1243,7 +1398,7 @@ RGBDFrame * RGBDFrame::load(Camera * cam, std::string path){
 			defile.close();
 		}
 
-//printf("%s::%i time: %5.5fs\n",__PRETTY_FUNCTION__,__LINE__,getTime()-startTime); startTime = getTime();
+		//printf("%s::%i time: %5.5fs\n",__PRETTY_FUNCTION__,__LINE__,getTime()-startTime); startTime = getTime();
 		return frame;
 	}else{printf("cant open %s\n",(path+"/data.txt").c_str());}
 }

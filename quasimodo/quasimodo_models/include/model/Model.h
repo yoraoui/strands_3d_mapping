@@ -32,6 +32,7 @@ using namespace Eigen;
 
 		int last_changed;
 
+		std::string keyval;
 		std::string savePath;
 		std::string soma_id;
 
@@ -80,6 +81,8 @@ using namespace Eigen;
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr getPCLnormalcloud(int step = 5, bool color = true);
 		void print();
 		void save(std::string path = "");
+		void saveFast(std::string path = "");
+
 		static Model * load(Camera * cam, std::string path);
 		bool testFrame(int ind = 0);
 

@@ -764,6 +764,106 @@ printf("%i\n",__LINE__);
     */
 }
 
+
+
+
+void Model::saveFast(std::string path){
+//    char buf [1024];
+//    struct stat sb;
+
+//    if (stat(path.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode)){
+//        sprintf(buf,"rm -r %s",path.c_str());
+//        system(buf);
+//    }
+
+//    sprintf(buf,"mkdir %s",path.c_str());
+//    system(buf);
+
+//    ofstream posesfile;
+//    posesfile.open (path+"/relativeposes.txt");
+//    for(unsigned int f = 0; f < frames.size(); f++){
+//        posesfile << relativeposes[f] << endl <<endl;
+
+//        sprintf(buf,"%s/frame_%08i",path.c_str(),f);
+//        frames[f]->save(std::string(buf));
+
+//        sprintf(buf,"%s/frame_%08i.pcd",path.c_str(),f);
+//        frames[f]->savePCD(std::string(buf),relativeposes[f]);
+//        sprintf(buf,"%s/modelmask_%08i.png",path.c_str(),f);
+//        cv::imwrite( buf, modelmasks[f]->getMask() );
+//    }
+//    posesfile.close();
+
+//    ofstream submodels_posesfile;
+//    submodels_posesfile.open (path+"/submodels_relativeposes.txt");
+//    for(unsigned int i = 0; i < submodels.size(); i++){
+//        submodels_posesfile << submodels_relativeposes[i] << endl <<endl;
+//        sprintf(buf,"%s/submodel%08i",path.c_str(),i);
+//        submodels[i]->save(std::string(buf));
+//    }
+//    submodels_posesfile.close();
+
+
+	double startTime = getTime();
+
+
+	//unsigned long id;
+	//int last_changed;
+	//std::string keyval;
+	//std::string savePath;
+	//std::string soma_id;
+	//std::string pointspath;
+	//std::vector<superpoint> points;
+	//std::vector< std::vector<cv::KeyPoint> >	all_keypoints;
+	//std::vector< cv::Mat >					all_descriptors;
+	//std::vector<Eigen::Matrix4d>			relativeposes;
+	//std::vector<RGBDFrame*>				frames;
+	//std::vector<ModelMask*>				modelmasks;
+	//std::vector<Eigen::Matrix4d>			rep_relativeposes;
+	//std::vector<RGBDFrame*>				rep_frames;
+	//std::vector<ModelMask*>				rep_modelmasks;
+	//double								total_scores;
+	//std::vector<std::vector < float > >	scores;
+	//std::vector<Model *>					submodels;
+	//std::vector<Eigen::Matrix4d>			submodels_relativeposes;
+	//std::vector<std::vector < float > >	submodels_scores;
+	//Model *								parrent;
+
+//	unsigned long buffersize = (1)*sizeof(double)+(1+1)*sizeof(unsigned long)//+keyval.length()+soma_id.length();
+//	char* buffer = new char[buffersize];
+//	double * buffer_double = (double *)buffer;
+//	unsigned long * buffer_long = (unsigned long *)buffer;
+
+//	int counter = 0;
+//	buffer_double[counter++] = capturetime; // CaptureTime
+//	for(int i = 0; i < 4; i++){
+//		for(int j = 0; j < 4; j++){
+//			buffer_double[counter++] = pose(i,j);
+//		}
+//	}											// Pose
+//	buffer_long[counter++] = sweepid;			// Sweepid
+//	buffer_long[counter++] = camera->id;		// Cameraid
+//	buffer_long[counter++] = id;				// id
+//	buffer_long[counter++] = keyval.length();	// keyval.length()
+//	buffer_long[counter++] = soma_id.length();	// soma_id.length()
+
+//	unsigned int count4 = sizeof(double)*counter;
+//	for(unsigned int i = 0; i < keyval.length();i++){
+//		buffer[count4++] = keyval[i];
+//	}
+//	for(unsigned int i = 0; i < soma_id.length();i++){
+//		buffer[count4++] = soma_id[i];
+//	}
+
+//	std::ofstream outfile (path+"_data.txt",std::ofstream::binary);
+//	outfile.write (buffer,buffersize);
+//	outfile.close();
+//	delete[] buffer;
+
+////	printf("saveFast(%s): %5.5fs\n",path.c_str(),getTime()-startTime);
+//	camera->save(path+"_camera");
+}
+
 Model * Model::load(Camera * cam, std::string path){
     printf("Model * Model::load(Camera * cam, std::string path)\n");
     std::streampos size;

@@ -44,6 +44,9 @@
 #include <quasimodo_conversions/conversions.h>
 
 namespace quasimodo_brain {
+void guaranteeFolder(std::string filepath);
+
+bool isNumber(std::string str);
 
 bool fileExists(std::string path);
 int getdir (std::string dir, std::vector<std::string> & files);

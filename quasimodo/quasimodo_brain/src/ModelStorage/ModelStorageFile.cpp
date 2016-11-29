@@ -1,37 +1,72 @@
 #include "ModelStorageFile.h"
 
 ModelStorageFile::ModelStorageFile(std::string filepath_){
-	filepath = filepath_;
-	if(!quasimodo_brain::fileExists(filepath+"/database_tmp")){
-		char command [1024];
-		sprintf(command,"mkdir %s",(filepath+"/database_tmp").c_str());
-		int r = system(command);
-		if(!quasimodo_brain::fileExists(filepath+"/database_tmp/frames")){
-			sprintf(command,"mkdir %s",(filepath+"/database_tmp/frames").c_str());
-			r = system(command);
-		}
-	}
+	filepath = filepath_+"/database_tmp";
+	framepath = filepath+"/frames";
+	quasimodo_brain::guaranteeFolder(filepath);
+	quasimodo_brain::guaranteeFolder(framepath);
+
+//	if(!quasimodo_brain::fileExists(filepath)){
+//		char command [1024];
+//		sprintf(command,"mkdir %s",filepath.c_str());
+//		int r = system(command);
+//	}
+
+//	if(!quasimodo_brain::fileExists(filepath+"/frames")){
+//		char command [1024];
+//		sprintf(command,"mkdir %s",(filepath+"/frames").c_str());
+//		int	r = system(command);
+//	}
 }
 ModelStorageFile::~ModelStorageFile(){}
 
+std::string ModelStorageFile::getNextID(){
+	std::string strTemplate = "Model_";
+	std::vector<std::string> files;
+	int maxind = -1;
+	quasimodo_brain::getdir (filepath,files);
+	for(unsigned int i = 0; i < files.size(); i++){
+		std::string currentStr = files[i];
+		if(currentStr.length() >= strTemplate.length()){
+			std::string frontpart = currentStr.substr(0,strTemplate.length());
+			std::string backpart = currentStr.substr(strTemplate.length(),currentStr.length());
+			if(frontpart.compare(strTemplate) == 0 && quasimodo_brain::isNumber(backpart)){
+				maxind = std::max(atoi(backpart.c_str()),maxind);
+			}
+		}
+	}
 
-bool ModelStorageFile::add(reglib::Model * model, std::string parrentpath){
-//	printf("%s\n",__PRETTY_FUNCTION__);
+	char buf [1024];
+	sprintf(buf,"%s%i",strTemplate.c_str(),maxind+1);
+	return std::string(buf);
+}
 
 
-//	for(unsigned int i = 0; i < model->frames.size(); i++){//Add all frames to the frame database
-//		std::string keyval = model->frames[i]->keyval;
-//		printf("keyval: %s\n",keyval.c_str());
-//	}
+bool ModelStorageFile::add(reglib::Model * model){
 
+	if(model->keyval.length() == 0){model->keyval = getNextID();}
 
-//	for(unsigned int i = 0; i < model->submodels.size(); i++){//Add all frames to the frame database
-//		add(model->submodels[i],parrentpath+"/sub");
-//	}
+	printf("model keyval: %s\n",model->keyval.c_str());
+
+	std::string modelpath = filepath+"/"+model->keyval;
+	quasimodo_brain::guaranteeFolder(modelpath);
+
+	for(unsigned int i = 0; i < model->frames.size(); i++){//Add all frames to the frame database
+		std::string path = framepath+"/"+model->frames[i]->keyval;
+		if(!quasimodo_brain::fileExists(path+"_data.txt")){
+			model->frames[i]->saveFast(path);
+		}
+	}
+
+	for(unsigned int i = 0; i < model->submodels.size(); i++){//Add all frames to the frame database
+		add(model->submodels[i]);
+	}
+
+	model->saveFast(modelpath);
 	//	models.push_back(model);
 	//	return true;
 	//	//printf("number of models: %i\n",models.size());
-	//exit(0);
+	exit(0);
 }
 
 bool ModelStorageFile::remove(reglib::Model * model){

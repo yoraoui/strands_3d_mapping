@@ -127,7 +127,7 @@ bool testDynamicObjectServiceCallback(std::string path);
 bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res);
 void processSweepForDatabase(std::string path, std::string savePath);
 
-void readViewXML(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames, std::vector<Eigen::Matrix4d> & poses, bool compute_edges = true, std::string savePath = ""){
+void readViewXML(std::string roomLogName, std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames, std::vector<Eigen::Matrix4d> & poses, bool compute_edges = true, std::string savePath = ""){
 	QFile file(xmlFile.c_str());
 	if (!file.exists()){
 		ROS_ERROR("Could not open file %s to load room.",xmlFile.c_str());
@@ -224,6 +224,7 @@ void readViewXML(std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames,
 				elementName = xmlReader->name().toString();
 
 				reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb,depth, time, regpose,true,savePath,compute_edges);
+				frame->keyval = roomLogName+"_frame_"+std::to_string(frames.size());
 				frames.push_back(frame);
 				poses.push_back(pose);
 			}
@@ -1288,30 +1289,38 @@ void trainMetaroom(std::string path){
 }
 
 std::vector<reglib::Model *> loadModels(std::string path){
+	printf("loadModels(%s)\n",path.c_str());
+
+	SimpleXMLParser<pcl::PointXYZRGB> parser;
+	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(path,std::vector<std::string>(),false,false);
+	std::string roomLogName = roomData.roomLogName;
+	printf("roomLogName: %s\n",roomLogName.c_str());
+
+
+
+
 	std::vector<reglib::Model *> models;
 	int slash_pos = path.find_last_of("/");
 	std::string sweep_folder = path.substr(0, slash_pos) + "/";
 
 	std::vector<reglib::RGBDFrame *> frames;
 	std::vector<Eigen::Matrix4d> poses;
-	readViewXML(sweep_folder+"ViewGroup.xml",frames,poses,false);
+	readViewXML(roomLogName, sweep_folder+"ViewGroup.xml",frames,poses,false);
 
+	int objcounter = -1;
 	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("dynamic_obj*.xml"));
 	for (auto objectFile : objectFiles){
+		objcounter++;
 		std::string object = sweep_folder+objectFile.toStdString();
-		printf("object: %s\n",object.c_str());
-
 		QFile file(object.c_str());
-
-		if (!file.exists()){
-			ROS_ERROR("Could not open file %s to masks.",object.c_str());
-			continue;
-		}
-
+		if (!file.exists()){ROS_ERROR("Could not open file %s to masks.",object.c_str());continue;}
 		file.open(QIODevice::ReadOnly);
-		//ROS_INFO_STREAM("Parsing xml file: "<<object.c_str());
 
 		reglib::Model * mod = new reglib::Model();
+		mod->keyval = roomLogName+"_object_"+std::to_string(objcounter);
+		printf("object label: %s\n",mod->keyval.c_str());
+
+
 		QXmlStreamReader* xmlReader = new QXmlStreamReader(&file);
 
 		while (!xmlReader->atEnd() && !xmlReader->hasError()){
@@ -1325,7 +1334,6 @@ std::vector<reglib::Model *> loadModels(std::string path){
 			}
 
 			QString elementName = xmlReader->name().toString();
-
 			if (token == QXmlStreamReader::StartElement){
 				if (xmlReader->name() == "Mask"){
 					int number = 0;
@@ -1333,16 +1341,12 @@ std::vector<reglib::Model *> loadModels(std::string path){
 					QXmlStreamAttributes attributes = xmlReader->attributes();
 					if (attributes.hasAttribute("filename")){
 						QString maskpath = attributes.value("filename").toString();
-						//printf("mask filename: %s\n",(sweep_folder+maskpath.toStdString()).c_str());
 						mask = cv::imread(sweep_folder+"/"+(maskpath.toStdString().c_str()), CV_LOAD_IMAGE_UNCHANGED);
-						//mask = cv::imread((maskpath.toStdString()).c_str(), CV_LOAD_IMAGE_UNCHANGED);
 					}else{break;}
-
 
 					if (attributes.hasAttribute("image_number")){
 						QString depthpath = attributes.value("image_number").toString();
 						number = atoi(depthpath.toStdString().c_str());
-						//printf("number: %i\n",number);
 					}else{break;}
 
 					mod->frames.push_back(frames[number]->clone());
@@ -1351,8 +1355,8 @@ std::vector<reglib::Model *> loadModels(std::string path){
 				}
 			}
 		}
-
 		delete xmlReader;
+
 		models.push_back(mod);
 	}
 

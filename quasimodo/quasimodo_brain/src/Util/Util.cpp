@@ -2,6 +2,23 @@
 
 namespace quasimodo_brain {
 
+bool isNumber(std::string str){
+	for(unsigned int i = 0; i < str.size(); i++){
+		if(str[i] < '0' || str[i] > '9' ){
+			return false;
+		}
+	}
+	return true;
+}
+
+void guaranteeFolder(std::string filepath){
+	if(!quasimodo_brain::fileExists(filepath)){
+		char command [1024];
+		sprintf(command,"mkdir %s",filepath.c_str());
+		int r = system(command);
+	}
+}
+
 bool fileExists(std::string path){
 	QFile file(path.c_str());
 	if (file.exists()){
@@ -861,6 +878,7 @@ double getTime(){
 
 reglib::Model * getModelFromMSG(quasimodo_msgs::model & msg, bool compute_edges){
 	reglib::Model * model = new reglib::Model();
+	model->keyval = msg.keyval;
 
 	for(unsigned int i = 0; i < msg.local_poses.size(); i++){
 		sensor_msgs::CameraInfo		camera			= msg.frames[i].camera;
@@ -889,6 +907,7 @@ reglib::Model * getModelFromMSG(quasimodo_msgs::model & msg, bool compute_edges)
 		}
 
 		reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, double(capture_time.sec)+double(capture_time.nsec)/1000000000.0, epose.matrix(),true,"",compute_edges);
+		frame->keyval = msg.frames[i].keyval;
 		model->frames.push_back(frame);
 
 		geometry_msgs::Pose	pose1 = msg.local_poses[i];
@@ -928,6 +947,7 @@ void addToModelMSG(quasimodo_msgs::model & msg, reglib::Model * model, Eigen::Af
 		maskBridgeImage.encoding		= "mono8";
 		msg.local_poses[startsize+i]			= pose1;
 		msg.frames[startsize+i].capture_time	= ros::Time();
+		msg.frames[startsize+i].keyval			= model->frames[i]->keyval;
 		msg.frames[startsize+i].pose			= pose2;
 		msg.frames[startsize+i].frame_id		= model->frames[i]->id;
 		msg.frames[startsize+i].rgb				= *(rgbBridgeImage.toImageMsg());
@@ -951,6 +971,7 @@ void addToModelMSG(quasimodo_msgs::model & msg, reglib::Model * model, Eigen::Af
 quasimodo_msgs::model getModelMSG(reglib::Model * model, bool addClouds){
 	quasimodo_msgs::model msg;
 	msg.model_id = model->id;
+	msg.keyval = model->keyval;
 	addToModelMSG(msg,model,Eigen::Affine3d::Identity(),addClouds);
 	return msg;
 }

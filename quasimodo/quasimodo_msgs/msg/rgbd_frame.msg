@@ -1,3 +1,4 @@
+string keyval
 sensor_msgs/CameraInfo camera
 time capture_time
 geometry_msgs/Pose pose
