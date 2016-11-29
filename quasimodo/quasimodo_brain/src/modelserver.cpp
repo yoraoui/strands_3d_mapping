@@ -157,20 +157,28 @@ void publish_history(std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> history
 }
 
 void dumpDatabase(std::string path = "."){
+	printf("%i\n",__LINE__);
 	char command [1024];
 	sprintf(command,"rm -r -f %s/database_tmp",path.c_str());
 	int r = system(command);
+	printf("%i\n",__LINE__);
 
 	sprintf(command,"mkdir %s/database_tmp",path.c_str());
 	r = system(command);
+	printf("%i\n",__LINE__);
 
 	for(unsigned int m = 0; m < modeldatabase->models.size(); m++){
+		printf("%i\n",__LINE__);
 		char buf [1024];
 		sprintf(buf,"%s/database_tmp/model_%08i",path.c_str(),m);
 		sprintf(command,"mkdir -p %s",buf);
+		printf("%i\n",__LINE__);
 		r = system(command);
+		printf("%i\n",__LINE__);
 		modeldatabase->models[m]->save(std::string(buf));
+		printf("%i\n",__LINE__);
 	}
+	//exit(0);
 }
 
 void retrievalCallback(const quasimodo_msgs::retrieval_query_result & qr){
@@ -325,6 +333,7 @@ bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Mode
 }
 
 bool addToDB(ModelDatabase * database, reglib::Model * model, bool add){// = true){, bool deleteIfFail = false){
+printf("start: %s\n",__PRETTY_FUNCTION__);
 	if(add){
 		if(model->submodels.size() > 2){
 			reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
@@ -348,8 +357,12 @@ bool addToDB(ModelDatabase * database, reglib::Model * model, bool add){// = tru
 	if(show_search){showModels(res);}
 
 	for(unsigned int i = 0; i < res.size(); i++){
-		if(addIfPossible(database,model,res[i])){return true;}
+		if(addIfPossible(database,model,res[i])){
+			printf("stop: %s\n",__PRETTY_FUNCTION__);
+			return true;
+		}
 	}
+printf("stop: %s\n",__PRETTY_FUNCTION__);
 	return false;
 }
 
@@ -401,6 +414,7 @@ bool runSearch(ModelDatabase * database, reglib::Model * model, int number_of_se
 std::set<int> searchset;
 
 void addNewModel(reglib::Model * model){
+printf("start: %s\n",__PRETTY_FUNCTION__);
 	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 	reg->visualizationLvl				= show_reg_lvl;
 	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model, reg);
@@ -428,8 +442,10 @@ void addNewModel(reglib::Model * model){
 
 	modeldatabase->add(newmodelHolder);
 	addToDB(modeldatabase, newmodelHolder,false);
+	printf("%i\n",__LINE__);
 	show_sorted();
 
+	printf("%i\n",__LINE__);
 	bool do_next = true;
 	while(do_next && run_search){
 		printf("running search loop\n");
@@ -450,9 +466,13 @@ void addNewModel(reglib::Model * model){
 		}
 	}
 
+	printf("%i\n",__LINE__);
 	for(unsigned int i = 0; i < modeldatabase->models.size(); i++){publish_history(modeldatabase->models[i]->getHistory());}
+	printf("%i\n",__LINE__);
 	publishDatabasePCD();
+	printf("%i\n",__LINE__);
 	dumpDatabase(savepath);
+	printf("stop: %s\n",__PRETTY_FUNCTION__);
 }
 
 void somaCallback(const std_msgs::String & m){printf("somaCallback(%s)\n",m.data.c_str());}
@@ -514,6 +534,8 @@ int main(int argc, char **argv){
 	std::vector<ros::Subscriber> soma_input_model_subs;
 	std::vector<std::string> modelpcds;
 
+	bool clearQDB = false;
+
 	int inputstate = -1;
 	for(int i = 1; i < argc;i++){
 		printf("input: %s\n",argv[i]);
@@ -542,6 +564,7 @@ int main(int argc, char **argv){
 		else if(std::string(argv[i]).compare("-show_search") == 0){	printf("show_search\n");		show_search = true;}
 		else if(std::string(argv[i]).compare("-show_modelbuild") == 0){	printf("show_modelbuild\n");	visualization = true; show_modelbuild = true;}
 		else if(std::string(argv[i]).compare("-loadModelsPCDs") == 0){								inputstate = 13;}
+		else if(std::string(argv[i]).compare("-clearQDB") == 0){									clearQDB = true;}
 		else if(inputstate == 1){
 			reglib::Camera * cam = reglib::Camera::load(std::string(argv[i]));
 			delete cameras[0];
@@ -589,6 +612,25 @@ int main(int argc, char **argv){
 			modelpcds.push_back( std::string(argv[i]) );
 		}
 	}
+
+//	if(clearQDB){
+//		printf("rm -r -f %s\n",(savepath+"/database_tmp").c_str());
+//		char command [1024];
+//		printf(command,"rm -r -f %s",(savepath+"/database_tmp").c_str());
+//		int r = system(command);
+//	}
+
+
+//	if(fileExists(savepath+"/database_tmp")){
+//		printf("file exists\n");
+
+//	}else{
+//		printf("making savedi: %s\n",(savepath+"/database_tmp").c_str());
+//		char command [1024];
+//		sprintf(command,"mkdir %s",(savepath+"/database_tmp").c_str());
+//		int r = system(command);
+//	}
+//	//exit(0);
 
 	if(visualization){
 		viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("Modelserver Viewer"));

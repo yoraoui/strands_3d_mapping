@@ -1,16 +1,18 @@
 #include "ModelDatabase.h"
 
-ModelDatabase::ModelDatabase(){}
+ModelDatabase::ModelDatabase(){storage = new ModelStorageFile();}
 ModelDatabase::~ModelDatabase(){}
 
 //Add pointcloud to database, return index number in database, weight is the bias of the system to perfer this object when searching
 bool ModelDatabase::add(reglib::Model * model){
+	storage->add(model);
 	return true;
 }
 		
 // return true if successfull
 // return false if fail
 bool ModelDatabase::remove(reglib::Model * model){
+	storage->remove(model);
 	return false;
 }
 		

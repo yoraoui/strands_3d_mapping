@@ -9,7 +9,7 @@ ModelDatabaseRetrieval::ModelDatabaseRetrieval(ros::NodeHandle & n, std::string 
 	retrieval_client	= n.serviceClient<quasimodo_msgs::query_cloud>				(retrieval_name);
 	conversion_client	= n.serviceClient<quasimodo_msgs::model_to_retrieval_query>	(conversion_name);
 	insert_client		= n.serviceClient<quasimodo_msgs::insert_model>				(insert_name);
-
+	storage = new ModelStorageFile();
 	//mongo::DBClientConnection c;
 	//c.connect("localhost");
 	//c.dropCollection("databaseName.collectionName");
@@ -18,6 +18,7 @@ ModelDatabaseRetrieval::ModelDatabaseRetrieval(ros::NodeHandle & n, std::string 
 ModelDatabaseRetrieval::~ModelDatabaseRetrieval(){}
 
 bool ModelDatabaseRetrieval::add(reglib::Model * model){
+	storage->add(model);
 	quasimodo_msgs::insert_model im;
 	im.request.model = quasimodo_brain::getModelMSG(model,true);
 	im.request.action = im.request.INSERT;
@@ -35,6 +36,7 @@ bool ModelDatabaseRetrieval::add(reglib::Model * model){
 }
 
 bool ModelDatabaseRetrieval::remove(reglib::Model * model){
+	storage->remove(model);
 	for(unsigned int i = 0; i < models.size(); i++){
 		if(models[i] == model){
 			//Remove stuff
@@ -63,15 +65,13 @@ bool ModelDatabaseRetrieval::remove(reglib::Model * model){
 }
 
 std::vector<reglib::Model *> ModelDatabaseRetrieval::search(reglib::Model * model, int number_of_matches){
-
+printf("start: %s\n",__PRETTY_FUNCTION__);
 	printf("---------------ids in database: %i----------------\n",v_ids.size());
 	for(unsigned int i = 0; i < v_ids.size(); i++){
 		printf("v_ids[%i] = %i\n",i,v_ids[i]);
 	}
-	printf("----------------------------------------------\n");
 
 	std::vector<reglib::Model *> ret;
-
 	quasimodo_msgs::model_to_retrieval_query m2r;
 	m2r.request.model = quasimodo_brain::getModelMSG(model,true);
 	if (conversion_client.call(m2r)){
@@ -79,17 +79,14 @@ std::vector<reglib::Model *> ModelDatabaseRetrieval::search(reglib::Model * mode
 		qc.request.query = m2r.response.query;
 		qc.request.query.query_kind = qc.request.query.MONGODB_QUERY;
 		qc.request.query.number_query = number_of_matches+10;
-
 		if (retrieval_client.call(qc)){
 			quasimodo_msgs::retrieval_result result = qc.response.result;
-
 			printf("---------------ids in searchresult: %i----------------\n",result.vocabulary_ids.size());
 			for(unsigned int i = 0; i < result.vocabulary_ids.size(); i++){
 				int ind = std::stoi(result.vocabulary_ids[i]);
 				printf("found object with ind: %i\n",ind);
 			}
 			printf("----------------------------------------------\n");
-
 			for(unsigned int i = 0; i < result.vocabulary_ids.size(); i++){
 				int ind = std::stoi(result.vocabulary_ids[i]);
 				printf("found object with ind: %i\n",ind);
@@ -104,5 +101,6 @@ std::vector<reglib::Model *> ModelDatabaseRetrieval::search(reglib::Model * mode
 	}else{
 		ROS_ERROR("model_to_retrieval_query service FAIL!");
 	}
+printf("stop: %s\n",__PRETTY_FUNCTION__);
 	return ret;
 }

@@ -2,6 +2,15 @@
 
 namespace quasimodo_brain {
 
+bool fileExists(std::string path){
+	QFile file(path.c_str());
+	if (file.exists()){
+		return true;
+	}else{
+		return false;
+	}
+}
+
 int getdir (std::string dir, std::vector<std::string> & files){
 	DIR *dp;
 	struct dirent *dirp;

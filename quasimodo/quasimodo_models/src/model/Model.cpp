@@ -641,6 +641,7 @@ void Model::save(std::string path){
     outfile.close();
     delete[] buffer;
 */
+printf("%i\n",__LINE__);
     char buf [1024];
     struct stat sb;
 
@@ -657,25 +658,27 @@ void Model::save(std::string path){
     for(unsigned int f = 0; f < frames.size(); f++){
         posesfile << relativeposes[f] << endl <<endl;
 
-
+printf("%i\n",__LINE__);
         sprintf(buf,"%s/frame_%08i",path.c_str(),f);
         frames[f]->save(std::string(buf));
 
         sprintf(buf,"%s/frame_%08i.pcd",path.c_str(),f);
         frames[f]->savePCD(std::string(buf),relativeposes[f]);
-
+printf("%i\n",__LINE__);
         sprintf(buf,"%s/modelmask_%08i.png",path.c_str(),f);
         cv::imwrite( buf, modelmasks[f]->getMask() );
     }
     posesfile.close();
-
+printf("%i\n",__LINE__);
 
     ofstream submodels_posesfile;
     submodels_posesfile.open (path+"/submodels_relativeposes.txt");
     for(unsigned int i = 0; i < submodels.size(); i++){
         submodels_posesfile << submodels_relativeposes[i] << endl <<endl;
         sprintf(buf,"%s/submodel%08i",path.c_str(),i);
+		printf("%i\n",__LINE__);
         submodels[i]->save(std::string(buf));
+		printf("%i\n",__LINE__);
     }
     submodels_posesfile.close();
     /*

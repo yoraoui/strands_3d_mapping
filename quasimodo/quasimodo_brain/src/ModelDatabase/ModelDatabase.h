@@ -10,9 +10,12 @@
 #include "model/Model.h"
 #include "../Util/Util.h"
 
+#include "../ModelStorage/ModelStorage.h"
+
 class ModelDatabase{
 	public:
 	std::vector<reglib::Model * > models;
+	ModelStorage * storage;
 
 	//Add pointcloud to database, return index number in database, weight is the bias of the system to perfer this object when searching
 	virtual bool add(reglib::Model * model);

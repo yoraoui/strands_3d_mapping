@@ -1,16 +1,18 @@
 #include "ModelDatabaseBasic.h"
 
-ModelDatabaseBasic::ModelDatabaseBasic(){}
+ModelDatabaseBasic::ModelDatabaseBasic(){storage = new ModelStorageFile();}
 ModelDatabaseBasic::~ModelDatabaseBasic(){}
 
 
 bool ModelDatabaseBasic::add(reglib::Model * model){
+	storage->add(model);
 	models.push_back(model);
 	return true;
 	//printf("number of models: %i\n",models.size());
 }
 
 bool ModelDatabaseBasic::remove(reglib::Model * model){
+	storage->remove(model);
 	for(unsigned int i = 0; i < models.size(); i++){
 		if(models[i] == model){
 			models[i] = models.back();

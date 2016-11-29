@@ -93,6 +93,7 @@ typedef semantic_map_load_utilties::DynamicObjectData<PointType> ObjectData;
 using namespace std;
 using namespace semantic_map_load_utilties;
 
+int	minClusterSize = 2000;
 std::string overall_folder = "";
 boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 int visualization_lvl			= 0;
@@ -993,7 +994,7 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 				printf("peopleoverlaps: %i\n",peopleoverlaps);
 
 				if(masks.size() > 0){
-					if(peopleoverlaps == 0){
+					if(peopleoverlaps == 0 && cloud_cluster->points.size() >= minClusterSize){
 
 						if(store_old_xml){
 							std::stringstream ss;
@@ -2255,7 +2256,6 @@ int main(int argc, char** argv){
 	std::vector<std::string> raresfiles;
 
 	bool resegment					= false;
-
 	int inputstate = 0;
 	for(int i = 1; i < argc;i++){
 		printf("input: %s\n",argv[i]);
@@ -2284,6 +2284,7 @@ int main(int argc, char** argv){
 		else if(std::string(argv[i]).compare("-v_reg") == 0){	visualization_lvl_regref = 1;inputstate = 18;}
 		else if(std::string(argv[i]).compare("-saveVisuals") == 0){					inputstate = 19;}
 		else if(std::string(argv[i]).compare("-testpaths") == 0 || std::string(argv[i]).compare("-testpath") == 0 || std::string(argv[i]).compare("-testPaths") == 0 || std::string(argv[i]).compare("-testPath") == 0){					inputstate = 20;}
+		else if(std::string(argv[i]).compare("-minClusterSize") == 0){					inputstate = 21;}
 		else if(inputstate == 0){
 			segsubs.push_back(n.subscribe(std::string(argv[i]), 1000, chatterCallback));
 		}else if(inputstate == 1){
@@ -2327,6 +2328,8 @@ int main(int argc, char** argv){
 			saveVisuals = std::string(argv[i]);
 		}else if(inputstate == 20){
 			testpaths.push_back(std::string(argv[i]));
+		}else if(inputstate == 21){
+			minClusterSize  = atoi(argv[i]);
 		}
 	}
 

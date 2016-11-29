@@ -75,8 +75,19 @@ target_link_libraries(quasimodo_brain_util
 					  ${PCL_LIBRARIES}
 					  ${catkin_LIBRARIES})
 
+add_library(quasimodo_ModelStorage src/ModelStorage/ModelStorage.cpp src/ModelStorage/ModelStorageFile.cpp)
+target_link_libraries(quasimodo_ModelStorage
+						quasimodo_brain_util
+					  #${retrieval_libraries}
+					  #${benchmark_libraries}
+					  ${OpenCV_LIBS}
+					  ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES}
+					  ${PCL_LIBRARIES}
+					  ${catkin_LIBRARIES})
+
 add_library(quasimodo_ModelDatabase src/ModelDatabase/ModelDatabase.cpp src/ModelDatabase/ModelDatabaseBasic.cpp  src/ModelDatabase/ModelDatabaseRGBHistogram.cpp src/ModelDatabase/ModelDatabaseRetrieval.cpp )
 target_link_libraries(quasimodo_ModelDatabase
+						quasimodo_ModelStorage quasimodo_brain_util
 					  #${retrieval_libraries}
 					  #${benchmark_libraries}
                       ${OpenCV_LIBS}
