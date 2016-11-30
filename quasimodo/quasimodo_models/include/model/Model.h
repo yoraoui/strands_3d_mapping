@@ -83,10 +83,15 @@ using namespace Eigen;
 		void save(std::string path = "");
 		void saveFast(std::string path = "");
 
+		static Model * loadFast(std::string path);
+
 		static Model * load(Camera * cam, std::string path);
 		bool testFrame(int ind = 0);
 
 		void getData(std::vector<Eigen::Matrix4d> & po, std::vector<RGBDFrame*> & fr, std::vector<ModelMask*> & mm, Eigen::Matrix4d p = Eigen::Matrix4d::Identity());
+
+		RGBDFrame * getFrame(std::string keyval);
+		ModelMask * getModelMask(std::string keyval);
 
 		//void getData(std::vector<Eigen::Matrix4d> & po, std::vector<RGBDFrame*> & fr, std::vector<ModelMask*> & mm, Eigen::Matrix4d p = Eigen::Matrix4d::Identity());
 	};

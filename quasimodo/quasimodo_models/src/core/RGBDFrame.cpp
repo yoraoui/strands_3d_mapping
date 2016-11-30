@@ -1212,7 +1212,6 @@ RGBDFrame * RGBDFrame::loadFast(std::string path){
 
 	std::streampos size;
 	char * buffer;
-	char buf [1024];
 	std::string datapath = path+"_data.txt";
 	std::ifstream file (datapath, std::ios::in | std::ios::binary | std::ios::ate);
 	if (file.is_open()){
@@ -1295,7 +1294,7 @@ RGBDFrame * RGBDFrame::loadFast(std::string path){
 			depthfile.close();
 		}
 
-//printf("loadFast(%s): %5.5fs\n",path.c_str(),getTime()-startTime);
+//printf("RGBDFrame::loadFast(%s): %5.5fs\n",path.c_str(),getTime()-startTime);
 		return frame;
 	}else{printf("cant open %s\n",(path+"/data.txt").c_str());}
 }

@@ -50,6 +50,7 @@ bool ModelStorageFile::add(reglib::Model * model){
 
 	std::string modelpath = filepath+"/"+model->keyval;
 	quasimodo_brain::guaranteeFolder(modelpath);
+	modelpath += "/";
 
 	for(unsigned int i = 0; i < model->frames.size(); i++){//Add all frames to the frame database
 		std::string path = framepath+"/"+model->frames[i]->keyval;
@@ -63,10 +64,18 @@ bool ModelStorageFile::add(reglib::Model * model){
 	}
 
 	model->saveFast(modelpath);
-	//	models.push_back(model);
-	//	return true;
-	//	//printf("number of models: %i\n",models.size());
-	exit(0);
+	if(model->submodels.size() > 0){
+		printf("================================================================\n");
+		printf("================================================================\n");
+		printf("================================================================\n");
+		printf("================================================================\n");
+		reglib::Model::loadFast(modelpath);
+		printf("================================================================\n");
+		printf("================================================================\n");
+		printf("================================================================\n");
+		printf("================================================================\n");
+		exit(0);
+	}
 }
 
 bool ModelStorageFile::remove(reglib::Model * model){

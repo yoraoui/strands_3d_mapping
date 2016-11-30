@@ -18,6 +18,7 @@ namespace reglib
 {
 	class ModelMask{
 		public:
+		std::string savepath;
 		int id;
 		std::string label;
 		cv::Mat mask;
@@ -28,9 +29,13 @@ namespace reglib
 		std::vector<int> testh;
 		int sweepid;
 
+
+		ModelMask();
 		ModelMask(cv::Mat mask_, std::string label_ = "");
 		~ModelMask();
 		cv::Mat getMask();
+		void saveFast(std::string path);
+		static ModelMask * loadFast(std::string path);
 	};
 
 }

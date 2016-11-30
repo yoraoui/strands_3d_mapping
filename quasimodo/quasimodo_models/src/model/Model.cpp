@@ -9,10 +9,10 @@ using namespace Eigen;
 unsigned int model_id_counter = 0;
 
 Model::Model(){
-    total_scores = 0;
-    score = 0;
-    id = model_id_counter++;
-    last_changed = -1;
+	total_scores = 0;
+	score = 0;
+	id = model_id_counter++;
+	last_changed = -1;
 	savePath = "";
 	soma_id = "";
 	pointspath = "";
@@ -20,25 +20,25 @@ Model::Model(){
 }
 
 Model::Model(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d pose){
-    total_scores = 0;
-    scores.resize(1);
-    scores.back().resize(1);
-    scores[0][0] = 0;
+	total_scores = 0;
+	scores.resize(1);
+	scores.back().resize(1);
+	scores[0][0] = 0;
 
-    score = 0;
-    id = model_id_counter++;
+	score = 0;
+	id = model_id_counter++;
 
-    last_changed = -1;
+	last_changed = -1;
 
-    relativeposes.push_back(pose);
-    frames.push_back(frame);
+	relativeposes.push_back(pose);
+	frames.push_back(frame);
 	modelmasks.push_back(new ModelMask(mask));
 
 	savePath = "";
 	soma_id = "";
 	pointspath = "";
 	parrent = 0;
-    //recomputeModelPoints();
+	//recomputeModelPoints();
 }
 
 void Model::getData(std::vector<Eigen::Matrix4d> & po, std::vector<RGBDFrame*> & fr, std::vector<ModelMask*> & mm, Eigen::Matrix4d p){
@@ -200,9 +200,9 @@ void Model::showHistory(boost::shared_ptr<pcl::visualization::PCLVisualizer> vie
 							po.x	= m00*x + m01*y + m02*z + m03;
 							po.y	= m10*x + m11*y + m12*z + m13;
 							po.z	= m20*x + m21*y + m22*z + m23;
-//							float pnx	= m00*nx + m01*ny + m02*nz;
-//							float pny	= m10*nx + m11*ny + m12*nz;
-//							float pnz	= m20*nx + m21*ny + m22*nz;
+							//							float pnx	= m00*nx + m01*ny + m02*nz;
+							//							float pny	= m10*nx + m11*ny + m12*nz;
+							//							float pnz	= m20*nx + m21*ny + m22*nz;
 
 							po.b = rgbdata[3*ind+0];
 							po.g = rgbdata[3*ind+1];
@@ -237,7 +237,7 @@ void Model::showHistory(boost::shared_ptr<pcl::visualization::PCLVisualizer> vie
 }
 
 std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> Model::getHistory(){
-std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> ret;
+	std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> ret;
 	for(unsigned int i = 0; i < submodels.size(); i++){
 		pcl::PointCloud<pcl::PointXYZRGB>::Ptr room_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
 		for(unsigned int j = 0; j < submodels[i]->frames.size(); j++){
@@ -279,9 +279,9 @@ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> ret;
 							po.x	= m00*x + m01*y + m02*z + m03;
 							po.y	= m10*x + m11*y + m12*z + m13;
 							po.z	= m20*x + m21*y + m22*z + m23;
-//							float pnx	= m00*nx + m01*ny + m02*nz;
-//							float pny	= m10*nx + m11*ny + m12*nz;
-//							float pnz	= m20*nx + m21*ny + m22*nz;
+							//							float pnx	= m00*nx + m01*ny + m02*nz;
+							//							float pny	= m10*nx + m11*ny + m12*nz;
+							//							float pnz	= m20*nx + m21*ny + m22*nz;
 
 							po.b = rgbdata[3*ind+0];
 							po.g = rgbdata[3*ind+1];
@@ -317,60 +317,60 @@ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> ret;
 }
 
 void Model::addPointsToModel(RGBDFrame * frame, ModelMask * modelmask, Eigen::Matrix4d p){
-    bool * maskvec = modelmask->maskvec;
-    unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
-    unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
-    float		   * normalsdata	= (float			*)(frame->normals.data);
+	bool * maskvec = modelmask->maskvec;
+	unsigned char  * rgbdata		= (unsigned char	*)(frame->rgb.data);
+	unsigned short * depthdata		= (unsigned short	*)(frame->depth.data);
+	float		   * normalsdata	= (float			*)(frame->normals.data);
 
-    unsigned int frameid = frame->id;
+	unsigned int frameid = frame->id;
 
-    float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
-    float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
-    float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
+	float m00 = p(0,0); float m01 = p(0,1); float m02 = p(0,2); float m03 = p(0,3);
+	float m10 = p(1,0); float m11 = p(1,1); float m12 = p(1,2); float m13 = p(1,3);
+	float m20 = p(2,0); float m21 = p(2,1); float m22 = p(2,2); float m23 = p(2,3);
 
-    Camera * camera				= frame->camera;
-    const unsigned int width	= camera->width;
-    const unsigned int height	= camera->height;
-    const float idepth			= camera->idepth_scale;
-    const float cx				= camera->cx;
-    const float cy				= camera->cy;
-    const float ifx				= 1.0/camera->fx;
-    const float ify				= 1.0/camera->fy;
+	Camera * camera				= frame->camera;
+	const unsigned int width	= camera->width;
+	const unsigned int height	= camera->height;
+	const float idepth			= camera->idepth_scale;
+	const float cx				= camera->cx;
+	const float cy				= camera->cy;
+	const float ifx				= 1.0/camera->fx;
+	const float ify				= 1.0/camera->fy;
 
-    for(unsigned int w = 0; w < width; w++){
-        for(unsigned int h = 0; h < height;h++){
-            int ind = h*width+w;
-            if(maskvec[ind]){
-                float z = idepth*float(depthdata[ind]);
-                float nx = normalsdata[3*ind+0];
+	for(unsigned int w = 0; w < width; w++){
+		for(unsigned int h = 0; h < height;h++){
+			int ind = h*width+w;
+			if(maskvec[ind]){
+				float z = idepth*float(depthdata[ind]);
+				float nx = normalsdata[3*ind+0];
 
-                if(z > 0 && nx != 2){
-                    float ny = normalsdata[3*ind+1];
-                    float nz = normalsdata[3*ind+2];
+				if(z > 0 && nx != 2){
+					float ny = normalsdata[3*ind+1];
+					float nz = normalsdata[3*ind+2];
 
-                    float x = (w - cx) * z * ifx;
-                    float y = (h - cy) * z * ify;
+					float x = (w - cx) * z * ifx;
+					float y = (h - cy) * z * ify;
 
-                    float px	= m00*x + m01*y + m02*z + m03;
-                    float py	= m10*x + m11*y + m12*z + m13;
-                    float pz	= m20*x + m21*y + m22*z + m23;
-                    float pnx	= m00*nx + m01*ny + m02*nz;
-                    float pny	= m10*nx + m11*ny + m12*nz;
-                    float pnz	= m20*nx + m21*ny + m22*nz;
+					float px	= m00*x + m01*y + m02*z + m03;
+					float py	= m10*x + m11*y + m12*z + m13;
+					float pz	= m20*x + m21*y + m22*z + m23;
+					float pnx	= m00*nx + m01*ny + m02*nz;
+					float pny	= m10*nx + m11*ny + m12*nz;
+					float pnz	= m20*nx + m21*ny + m22*nz;
 
-                    float pb = rgbdata[3*ind+0];
-                    float pg = rgbdata[3*ind+1];
-                    float pr = rgbdata[3*ind+2];
+					float pb = rgbdata[3*ind+0];
+					float pg = rgbdata[3*ind+1];
+					float pr = rgbdata[3*ind+2];
 
-                    Vector3f	pxyz	(px	,py	,pz );
-                    Vector3f	pnxyz	(pnx,pny,pnz);
-                    Vector3f	prgb	(pr	,pg	,pb );
-                    float		weight	= 1.0/(z*z);
-                    points.push_back(superpoint(pxyz,pnxyz,prgb, weight, weight, frameid));
-                }
-            }
-        }
-    }
+					Vector3f	pxyz	(px	,py	,pz );
+					Vector3f	pnxyz	(pnx,pny,pnz);
+					Vector3f	prgb	(pr	,pg	,pb );
+					float		weight	= 1.0/(z*z);
+					points.push_back(superpoint(pxyz,pnxyz,prgb, weight, weight, frameid));
+				}
+			}
+		}
+	}
 }
 
 bool Model::testFrame(int ind){
@@ -424,11 +424,11 @@ bool Model::testFrame(int ind){
 	double threshold = 500;
 	if(tot_w < threshold){return false;}
 
-//	for(int i = 0; i < 3; i++){
-//		for(int j = 0; j < 3; j++){
-//			covMat(i,j) /= tot_w;
-//		}
-//	}
+	//	for(int i = 0; i < 3; i++){
+	//		for(int j = 0; j < 3; j++){
+	//			covMat(i,j) /= tot_w;
+	//		}
+	//	}
 
 	Eigen::EigenSolver<Eigen::Matrix3f> es(covMat, false);
 	auto e = es.eigenvalues();
@@ -444,29 +444,29 @@ bool Model::testFrame(int ind){
 }
 
 void Model::print(){
-    printf("id: %i ",int(id));
-    printf("last_changed: %i ",int(last_changed));
-    printf("score: %f ",score);
-    printf("total_scores: %f ",total_scores);
-    printf("frames: %i ",int(frames.size()));
-    printf("modelmasks: %i ",int(modelmasks.size()));
-    printf("relativeposes: %i\n",int(relativeposes.size()));
+	printf("id: %i ",int(id));
+	printf("last_changed: %i ",int(last_changed));
+	printf("score: %f ",score);
+	printf("total_scores: %f ",total_scores);
+	printf("frames: %i ",int(frames.size()));
+	printf("modelmasks: %i ",int(modelmasks.size()));
+	printf("relativeposes: %i\n",int(relativeposes.size()));
 }
 
 void Model::addFrameToModel(RGBDFrame * frame,  ModelMask * modelmask, Eigen::Matrix4d p){
-    addPointsToModel(frame, modelmask, p);
+	addPointsToModel(frame, modelmask, p);
 
-    relativeposes.push_back(p);
-    frames.push_back(frame);
-    modelmasks.push_back(modelmask);
+	relativeposes.push_back(p);
+	frames.push_back(frame);
+	modelmasks.push_back(modelmask);
 }
 
 void Model::merge(Model * model, Eigen::Matrix4d p){
-    for(unsigned int i = 0; i < model->frames.size(); i++){
-        relativeposes.push_back(p * model->relativeposes[i]);
-        frames.push_back(model->frames[i]);
-        modelmasks.push_back(model->modelmasks[i]);
-    }
+	for(unsigned int i = 0; i < model->frames.size(); i++){
+		relativeposes.push_back(p * model->relativeposes[i]);
+		frames.push_back(model->frames[i]);
+		modelmasks.push_back(model->modelmasks[i]);
+	}
 
 	for(unsigned int i = 0; i < model->submodels.size(); i++){
 		submodels_relativeposes.push_back(p * model->submodels_relativeposes[i]);
@@ -474,115 +474,115 @@ void Model::merge(Model * model, Eigen::Matrix4d p){
 		model->submodels[i]->parrent = this;
 	}
 
-    recomputeModelPoints();
+	recomputeModelPoints();
 }
 
 CloudData * Model::getCD(unsigned int target_points){
-    std::vector<unsigned int> ro;
-    unsigned int nc = points.size();
-    ro.resize(nc);
-    for(unsigned int i = 0; i < nc; i++){ro[i] = i;}
-    for(unsigned int i = 0; i < nc; i++){
-        unsigned int randval = rand();
-        unsigned int rind = randval%nc;
-        int tmp = ro[i];
-        ro[i] = ro[rind];
-        ro[rind] = tmp;
-    }
-    //Build registration input
-    unsigned int nr_points = std::min(unsigned(points.size()),target_points);
-    MatrixXd data			(6,nr_points);
-    MatrixXd data_normals	(3,nr_points);
-    MatrixXd information	(6,nr_points);
+	std::vector<unsigned int> ro;
+	unsigned int nc = points.size();
+	ro.resize(nc);
+	for(unsigned int i = 0; i < nc; i++){ro[i] = i;}
+	for(unsigned int i = 0; i < nc; i++){
+		unsigned int randval = rand();
+		unsigned int rind = randval%nc;
+		int tmp = ro[i];
+		ro[i] = ro[rind];
+		ro[rind] = tmp;
+	}
+	//Build registration input
+	unsigned int nr_points = std::min(unsigned(points.size()),target_points);
+	MatrixXd data			(6,nr_points);
+	MatrixXd data_normals	(3,nr_points);
+	MatrixXd information	(6,nr_points);
 
-    for(unsigned int k = 0; k < nr_points; k++){
-        superpoint & p		= points[ro[k]];
-        data(0,k)			= p.point(0);
-        data(1,k)			= p.point(1);
-        data(2,k)			= p.point(2);
-        data(3,k)			= p.feature(0);
-        data(4,k)			= p.feature(1);
-        data(5,k)			= p.feature(2);
-        data_normals(0,k)	= p.normal(0);
-        data_normals(1,k)	= p.normal(1);
-        data_normals(2,k)	= p.normal(2);
-        information(0,k)	= p.point_information;
-        information(1,k)	= p.point_information;
-        information(2,k)	= p.point_information;
-        information(3,k)	= p.feature_information;
-        information(4,k)	= p.feature_information;
-        information(5,k)	= p.feature_information;
-    }
+	for(unsigned int k = 0; k < nr_points; k++){
+		superpoint & p		= points[ro[k]];
+		data(0,k)			= p.point(0);
+		data(1,k)			= p.point(1);
+		data(2,k)			= p.point(2);
+		data(3,k)			= p.feature(0);
+		data(4,k)			= p.feature(1);
+		data(5,k)			= p.feature(2);
+		data_normals(0,k)	= p.normal(0);
+		data_normals(1,k)	= p.normal(1);
+		data_normals(2,k)	= p.normal(2);
+		information(0,k)	= p.point_information;
+		information(1,k)	= p.point_information;
+		information(2,k)	= p.point_information;
+		information(3,k)	= p.feature_information;
+		information(4,k)	= p.feature_information;
+		information(5,k)	= p.feature_information;
+	}
 
-    CloudData * cd			= new CloudData();
-    cd->data				= data;
-    cd->information			= information;
-    cd->normals				= data_normals;
-    return cd;
+	CloudData * cd			= new CloudData();
+	cd->data				= data;
+	cd->information			= information;
+	cd->normals				= data_normals;
+	return cd;
 }
 
 Model::~Model(){}
 
 void Model::fullDelete(){
-    points.clear();
-    all_keypoints.clear();
-    all_descriptors.clear();
-    relativeposes.clear();
+	points.clear();
+	all_keypoints.clear();
+	all_descriptors.clear();
+	relativeposes.clear();
 	for(size_t i = 0; i < frames.size(); i++){
-        delete frames[i]->camera;
-        delete frames[i];
-    }
-    frames.clear();
+		delete frames[i]->camera;
+		delete frames[i];
+	}
+	frames.clear();
 
-    for(size_t i = 0; i < modelmasks.size(); i++){delete modelmasks[i];}
-    modelmasks.clear();
+	for(size_t i = 0; i < modelmasks.size(); i++){delete modelmasks[i];}
+	modelmasks.clear();
 
-    rep_relativeposes.clear();
-    rep_frames.clear();
-    rep_modelmasks.clear();
+	rep_relativeposes.clear();
+	rep_frames.clear();
+	rep_modelmasks.clear();
 
-    total_scores = 0;
-    scores.clear();
+	total_scores = 0;
+	scores.clear();
 
-    for(size_t i = 0; i < submodels.size(); i++){
-        submodels[i]->fullDelete();
-        delete submodels[i];
-    }
-    submodels.clear();
+	for(size_t i = 0; i < submodels.size(); i++){
+		submodels[i]->fullDelete();
+		delete submodels[i];
+	}
+	submodels.clear();
 
-    submodels_relativeposes.clear();
-    submodels_scores.clear();
-//	delete this;
+	submodels_relativeposes.clear();
+	submodels_scores.clear();
+	//	delete this;
 }
 
 pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr Model::getPCLnormalcloud(int step, bool color){
-    pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-    for(unsigned int i = 0; i < points.size(); i+=step){
-        superpoint & sp = points[i];
-        pcl::PointXYZRGBNormal p;
-        p.x = sp.point(0);
-        p.y = sp.point(1);
-        p.z = sp.point(2);
+	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+	for(unsigned int i = 0; i < points.size(); i+=step){
+		superpoint & sp = points[i];
+		pcl::PointXYZRGBNormal p;
+		p.x = sp.point(0);
+		p.y = sp.point(1);
+		p.z = sp.point(2);
 
-        p.normal_x = sp.normal(0);
-        p.normal_y = sp.normal(1);
-        p.normal_z = sp.normal(2);
-        if(color){
-            p.b =   0;
-            p.g = 255;
-            p.r =   0;
-        }else{
+		p.normal_x = sp.normal(0);
+		p.normal_y = sp.normal(1);
+		p.normal_z = sp.normal(2);
+		if(color){
+			p.b =   0;
+			p.g = 255;
+			p.r =   0;
+		}else{
 			p.b = sp.feature(0);
-            p.g = sp.feature(1);
+			p.g = sp.feature(1);
 			p.r = sp.feature(2);
-        }
-        cloud_ptr->points.push_back(p);
-    }
-    return cloud_ptr;
+		}
+		cloud_ptr->points.push_back(p);
+	}
+	return cloud_ptr;
 }
 
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr Model::getPCLcloud(int step, bool color){
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
 	for(unsigned int i = 0; i < points.size(); i+=step){
 		superpoint & sp = points[i];
 		pcl::PointXYZRGB p;
@@ -605,325 +605,660 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Model::getPCLcloud(int step, bool color){
 }
 
 void Model::save(std::string path){
-    /*
-    unsigned long buffersize = (1+1+16*frames.size());//+1+frames.size()*frames.size()+1*frames.size())*sizeof(double);
-    char* buffer = new char[buffersize];
-    double * buffer_double = (double *)buffer;
-    unsigned long * buffer_long = (unsigned long *)buffer;
+	/*
+	unsigned long buffersize = (1+1+16*frames.size());//+1+frames.size()*frames.size()+1*frames.size())*sizeof(double);
+	char* buffer = new char[buffersize];
+	double * buffer_double = (double *)buffer;
+	unsigned long * buffer_long = (unsigned long *)buffer;
 
-    int counter = 0;
-    buffer_long[counter++] = frames.size();
-    //buffer_double[counter++] = score;
-    for(unsigned int f = 0; f < frames.size(); f++){
-        Eigen::Matrix4d pose = relativeposes[f];
-        for(int i = 0; i < 4; i++){
-            for(int j = 0; j < 4; j++){
-                buffer_double[counter++] = pose(i,j);
-            }
-        }
-    }
+	int counter = 0;
+	buffer_long[counter++] = frames.size();
+	//buffer_double[counter++] = score;
+	for(unsigned int f = 0; f < frames.size(); f++){
+		Eigen::Matrix4d pose = relativeposes[f];
+		for(int i = 0; i < 4; i++){
+			for(int j = 0; j < 4; j++){
+				buffer_double[counter++] = pose(i,j);
+			}
+		}
+	}
 
-    buffer_double[counter++] = total_scores;
+	buffer_double[counter++] = total_scores;
 
-    for(unsigned int f1 = 0; f1 < frames.size(); f1++){
-        for(unsigned int f2 = 0; f2 < frames.size(); f2++){
-            buffer_double[counter++] = scores[f1][f2];
-        }
-    }
+	for(unsigned int f1 = 0; f1 < frames.size(); f1++){
+		for(unsigned int f2 = 0; f2 < frames.size(); f2++){
+			buffer_double[counter++] = scores[f1][f2];
+		}
+	}
 
 
-    for(unsigned int f1 = 0; f1 < frames.size(); f1++){
-        buffer_long[counter++] = modelmasks[f1]->sweepid;
-    }
+	for(unsigned int f1 = 0; f1 < frames.size(); f1++){
+		buffer_long[counter++] = modelmasks[f1]->sweepid;
+	}
 
-    std::ofstream outfile (path+"/data.txt",std::ofstream::binary);
-    outfile.write (buffer,buffersize);
-    outfile.close();
-    delete[] buffer;
+	std::ofstream outfile (path+"/data.txt",std::ofstream::binary);
+	outfile.write (buffer,buffersize);
+	outfile.close();
+	delete[] buffer;
 */
-printf("%i\n",__LINE__);
-    char buf [1024];
-    struct stat sb;
+	printf("%i\n",__LINE__);
+	char buf [1024];
+	struct stat sb;
 
-    if (stat(path.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode)){
-        sprintf(buf,"rm -r %s",path.c_str());
-        system(buf);
-    }
+	if (stat(path.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode)){
+		sprintf(buf,"rm -r %s",path.c_str());
+		system(buf);
+	}
 
-    sprintf(buf,"mkdir %s",path.c_str());
-    system(buf);
+	sprintf(buf,"mkdir %s",path.c_str());
+	system(buf);
 
-    ofstream posesfile;
-    posesfile.open (path+"/relativeposes.txt");
-    for(unsigned int f = 0; f < frames.size(); f++){
-        posesfile << relativeposes[f] << endl <<endl;
+	ofstream posesfile;
+	posesfile.open (path+"/relativeposes.txt");
+	for(unsigned int f = 0; f < frames.size(); f++){
+		posesfile << relativeposes[f] << endl <<endl;
 
-printf("%i\n",__LINE__);
-        sprintf(buf,"%s/frame_%08i",path.c_str(),f);
-        frames[f]->save(std::string(buf));
-
-        sprintf(buf,"%s/frame_%08i.pcd",path.c_str(),f);
-        frames[f]->savePCD(std::string(buf),relativeposes[f]);
-printf("%i\n",__LINE__);
-        sprintf(buf,"%s/modelmask_%08i.png",path.c_str(),f);
-        cv::imwrite( buf, modelmasks[f]->getMask() );
-    }
-    posesfile.close();
-printf("%i\n",__LINE__);
-
-    ofstream submodels_posesfile;
-    submodels_posesfile.open (path+"/submodels_relativeposes.txt");
-    for(unsigned int i = 0; i < submodels.size(); i++){
-        submodels_posesfile << submodels_relativeposes[i] << endl <<endl;
-        sprintf(buf,"%s/submodel%08i",path.c_str(),i);
 		printf("%i\n",__LINE__);
-        submodels[i]->save(std::string(buf));
+		sprintf(buf,"%s/frame_%08i",path.c_str(),f);
+		frames[f]->save(std::string(buf));
+
+		sprintf(buf,"%s/frame_%08i.pcd",path.c_str(),f);
+		frames[f]->savePCD(std::string(buf),relativeposes[f]);
 		printf("%i\n",__LINE__);
-    }
-    submodels_posesfile.close();
-    /*
-    for(unsigned int f = 0; f < frames.size(); f++){
-        char buf [1024];
+		sprintf(buf,"%s/modelmask_%08i.png",path.c_str(),f);
+		cv::imwrite( buf, modelmasks[f]->getMask() );
+	}
+	posesfile.close();
+	printf("%i\n",__LINE__);
 
-        sprintf(buf,"%s/views/cloud_%08i.pcd",path.c_str(),f);
-        frames[f]->savePCD(std::string(buf));
+	ofstream submodels_posesfile;
+	submodels_posesfile.open (path+"/submodels_relativeposes.txt");
+	for(unsigned int i = 0; i < submodels.size(); i++){
+		submodels_posesfile << submodels_relativeposes[i] << endl <<endl;
+		sprintf(buf,"%s/submodel%08i",path.c_str(),i);
+		printf("%i\n",__LINE__);
+		submodels[i]->save(std::string(buf));
+		printf("%i\n",__LINE__);
+	}
+	submodels_posesfile.close();
+	/*
+	for(unsigned int f = 0; f < frames.size(); f++){
+		char buf [1024];
 
-        sprintf(buf,"%s/views/pose_%08i.txt",path.c_str(),f);
-        ofstream posefile;
-        posefile.open (buf);
+		sprintf(buf,"%s/views/cloud_%08i.pcd",path.c_str(),f);
+		frames[f]->savePCD(std::string(buf));
 
-        Eigen::Matrix4f eigen_tr(relativeposes[f].cast<float>());
-        Eigen::IOFormat CommaInitFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, " ", " ", "", "", "", "");
-        posefile << eigen_tr.format(CommaInitFmt)<<endl;
-        posefile.close();
+		sprintf(buf,"%s/views/pose_%08i.txt",path.c_str(),f);
+		ofstream posefile;
+		posefile.open (buf);
 
-        bool * maskvec = modelmasks[f]->maskvec;
-        sprintf(buf,"%s/views/object_indices_%08i.txt",path.c_str(),f);
-        ofstream indfile;
-        indfile.open (buf);
-        for(int i = 0; i < 640*480; i++){
-            if(maskvec[i]){indfile << i << std::endl;}
-        }
-        indfile.close();
-        //object_indices_00000030.txt
+		Eigen::Matrix4f eigen_tr(relativeposes[f].cast<float>());
+		Eigen::IOFormat CommaInitFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, " ", " ", "", "", "", "");
+		posefile << eigen_tr.format(CommaInitFmt)<<endl;
+		posefile.close();
 
-    }
-    */
-/*
-    ofstream raresfile;
-    raresfile.open (path+"/raresposes.txt");
-    Eigen::Matrix4f eigen_tr(Eigen::Matrix4f::Identity() );
-    Eigen::IOFormat CommaInitFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, " ", " ", "", "", "", "");
-    raresfile << eigen_tr.format(CommaInitFmt)<<endl;
+		bool * maskvec = modelmasks[f]->maskvec;
+		sprintf(buf,"%s/views/object_indices_%08i.txt",path.c_str(),f);
+		ofstream indfile;
+		indfile.open (buf);
+		for(int i = 0; i < 640*480; i++){
+			if(maskvec[i]){indfile << i << std::endl;}
+		}
+		indfile.close();
+		//object_indices_00000030.txt
 
-
-    //printf("saving model %i to %s\n",id,path.c_str());
-    for(unsigned int f = 0; f < frames.size(); f++){
-        char buf [1024];
-
-        sprintf(buf,"%s/frame_%i",path.c_str(),f);
-        frames[f]->save(std::string(buf));
-
-        sprintf(buf,"%s/modelmask_%i.png",path.c_str(),f);
-        cv::imwrite( buf, modelmasks[f]->getMask() );
-
-        Eigen::Matrix4f eigen_tr(relativeposes[f].cast<float>());
-        Eigen::IOFormat CommaInitFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, " ", " ", "", "", "", "");
-        raresfile << eigen_tr.format(CommaInitFmt)<<endl;
-    }
-
-    raresfile.close();
+	}
+	*/
+	/*
+	ofstream raresfile;
+	raresfile.open (path+"/raresposes.txt");
+	Eigen::Matrix4f eigen_tr(Eigen::Matrix4f::Identity() );
+	Eigen::IOFormat CommaInitFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, " ", " ", "", "", "", "");
+	raresfile << eigen_tr.format(CommaInitFmt)<<endl;
 
 
-    for(unsigned int f = 0; f < frames.size(); f++){
-        char buf [1024];
+	//printf("saving model %i to %s\n",id,path.c_str());
+	for(unsigned int f = 0; f < frames.size(); f++){
+		char buf [1024];
 
-        sprintf(buf,"%s/views/cloud_%08i.pcd",path.c_str(),f);
-        frames[f]->savePCD(std::string(buf));
+		sprintf(buf,"%s/frame_%i",path.c_str(),f);
+		frames[f]->save(std::string(buf));
 
-        sprintf(buf,"%s/views/pose_%08i.txt",path.c_str(),f);
-        ofstream posefile;
-        posefile.open (buf);
+		sprintf(buf,"%s/modelmask_%i.png",path.c_str(),f);
+		cv::imwrite( buf, modelmasks[f]->getMask() );
 
-        Eigen::Matrix4f eigen_tr(relativeposes[f].cast<float>());
-        Eigen::IOFormat CommaInitFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, " ", " ", "", "", "", "");
-        posefile << eigen_tr.format(CommaInitFmt)<<endl;
-        posefile.close();
+		Eigen::Matrix4f eigen_tr(relativeposes[f].cast<float>());
+		Eigen::IOFormat CommaInitFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, " ", " ", "", "", "", "");
+		raresfile << eigen_tr.format(CommaInitFmt)<<endl;
+	}
 
-        bool * maskvec = modelmasks[f]->maskvec;
-        sprintf(buf,"%s/views/object_indices_%08i.txt",path.c_str(),f);
-        ofstream indfile;
-        indfile.open (buf);
-        for(int i = 0; i < 640*480; i++){
-            if(maskvec[i]){indfile << i << std::endl;}
-        }
-        indfile.close();
-        //object_indices_00000030.txt
+	raresfile.close();
 
-    }
-    */
+
+	for(unsigned int f = 0; f < frames.size(); f++){
+		char buf [1024];
+
+		sprintf(buf,"%s/views/cloud_%08i.pcd",path.c_str(),f);
+		frames[f]->savePCD(std::string(buf));
+
+		sprintf(buf,"%s/views/pose_%08i.txt",path.c_str(),f);
+		ofstream posefile;
+		posefile.open (buf);
+
+		Eigen::Matrix4f eigen_tr(relativeposes[f].cast<float>());
+		Eigen::IOFormat CommaInitFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, " ", " ", "", "", "", "");
+		posefile << eigen_tr.format(CommaInitFmt)<<endl;
+		posefile.close();
+
+		bool * maskvec = modelmasks[f]->maskvec;
+		sprintf(buf,"%s/views/object_indices_%08i.txt",path.c_str(),f);
+		ofstream indfile;
+		indfile.open (buf);
+		for(int i = 0; i < 640*480; i++){
+			if(maskvec[i]){indfile << i << std::endl;}
+		}
+		indfile.close();
+		//object_indices_00000030.txt
+
+	}
+	*/
 }
 
 
 
 
 void Model::saveFast(std::string path){
-//    char buf [1024];
-//    struct stat sb;
-
-//    if (stat(path.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode)){
-//        sprintf(buf,"rm -r %s",path.c_str());
-//        system(buf);
-//    }
-
-//    sprintf(buf,"mkdir %s",path.c_str());
-//    system(buf);
-
-//    ofstream posesfile;
-//    posesfile.open (path+"/relativeposes.txt");
-//    for(unsigned int f = 0; f < frames.size(); f++){
-//        posesfile << relativeposes[f] << endl <<endl;
-
-//        sprintf(buf,"%s/frame_%08i",path.c_str(),f);
-//        frames[f]->save(std::string(buf));
-
-//        sprintf(buf,"%s/frame_%08i.pcd",path.c_str(),f);
-//        frames[f]->savePCD(std::string(buf),relativeposes[f]);
-//        sprintf(buf,"%s/modelmask_%08i.png",path.c_str(),f);
-//        cv::imwrite( buf, modelmasks[f]->getMask() );
-//    }
-//    posesfile.close();
-
-//    ofstream submodels_posesfile;
-//    submodels_posesfile.open (path+"/submodels_relativeposes.txt");
-//    for(unsigned int i = 0; i < submodels.size(); i++){
-//        submodels_posesfile << submodels_relativeposes[i] << endl <<endl;
-//        sprintf(buf,"%s/submodel%08i",path.c_str(),i);
-//        submodels[i]->save(std::string(buf));
-//    }
-//    submodels_posesfile.close();
-
+	printf("Model::saveFast(%s)\n",path.c_str());
 
 	double startTime = getTime();
+	pointspath = path+"points.bin";
+
+	printf("pointspath = %s\n",pointspath.c_str());
+
+	long sizeofSuperPoint = 3*(3+1);
+	unsigned int nr_points = points.size();
+	float * data = new float[nr_points * sizeofSuperPoint];
+	long count = 0;
+
+	for(unsigned long i = 0; i < nr_points; i++){
+		reglib::superpoint & p = points[i];
+		data[count++] = p.point(0);
+		data[count++] = p.point(1);
+		data[count++] = p.point(2);
+		data[count++] = p.normal(0);
+		data[count++] = p.normal(1);
+		data[count++] = p.normal(2);
+		data[count++] = p.feature(0);
+		data[count++] = p.feature(1);
+		data[count++] = p.feature(2);
+		data[count++] = p.point_information;
+		data[count++] = p.normal_information;
+		data[count++] = p.feature_information;
+	}
+
+	std::ofstream pointfile;
+	pointfile.open(pointspath, ios::out | ios::binary);
+	if(nr_points > 0){
+		printf("saving %i points\n",nr_points);
+		pointfile.write( (char*)data, nr_points*sizeofSuperPoint*sizeof(float));
+	}
+	pointfile.close();
+
+	delete[] data;
 
 
-	//unsigned long id;
-	//int last_changed;
-	//std::string keyval;
-	//std::string savePath;
-	//std::string soma_id;
-	//std::string pointspath;
-	//std::vector<superpoint> points;
-	//std::vector< std::vector<cv::KeyPoint> >	all_keypoints;
-	//std::vector< cv::Mat >					all_descriptors;
-	//std::vector<Eigen::Matrix4d>			relativeposes;
-	//std::vector<RGBDFrame*>				frames;
-	//std::vector<ModelMask*>				modelmasks;
-	//std::vector<Eigen::Matrix4d>			rep_relativeposes;
-	//std::vector<RGBDFrame*>				rep_frames;
-	//std::vector<ModelMask*>				rep_modelmasks;
-	//double								total_scores;
-	//std::vector<std::vector < float > >	scores;
-	//std::vector<Model *>					submodels;
-	//std::vector<Eigen::Matrix4d>			submodels_relativeposes;
-	//std::vector<std::vector < float > >	submodels_scores;
-	//Model *								parrent;
+	for(unsigned int i = 0; i < modelmasks.size();i++){
+		char buf [1024];
+		sprintf(buf,"%smodelmask_%10.10i_",path.c_str(),i);
+		modelmasks[i]->saveFast(std::string(buf));
+	}
 
-//	unsigned long buffersize = (1)*sizeof(double)+(1+1)*sizeof(unsigned long)//+keyval.length()+soma_id.length();
-//	char* buffer = new char[buffersize];
-//	double * buffer_double = (double *)buffer;
-//	unsigned long * buffer_long = (unsigned long *)buffer;
+	std::vector<std::string> spms;
+	for(unsigned int k = 0; k < frames.size();k++){
+		std::string spm = modelmasks[k]->savepath;
+		spm = spm.substr(path.length(),spm.length());
+		spms.push_back(spm);
+	}
 
-//	int counter = 0;
-//	buffer_double[counter++] = capturetime; // CaptureTime
-//	for(int i = 0; i < 4; i++){
-//		for(int j = 0; j < 4; j++){
-//			buffer_double[counter++] = pose(i,j);
-//		}
-//	}											// Pose
-//	buffer_long[counter++] = sweepid;			// Sweepid
-//	buffer_long[counter++] = camera->id;		// Cameraid
-//	buffer_long[counter++] = id;				// id
-//	buffer_long[counter++] = keyval.length();	// keyval.length()
-//	buffer_long[counter++] = soma_id.length();	// soma_id.length()
+	std::vector<std::string> rep_spms;
+	for(unsigned int k = 0; k < rep_frames.size();k++){
+		std::string spm = rep_modelmasks[k]->savepath;
+		spm = spm.substr(path.length(),spm.length());
+		rep_spms.push_back(spm);
+	}
 
-//	unsigned int count4 = sizeof(double)*counter;
-//	for(unsigned int i = 0; i < keyval.length();i++){
-//		buffer[count4++] = keyval[i];
-//	}
-//	for(unsigned int i = 0; i < soma_id.length();i++){
-//		buffer[count4++] = soma_id[i];
-//	}
+	unsigned long buffersize = 2*sizeof(double)+8*sizeof(unsigned long)+keyval.length()+soma_id.length();
 
-//	std::ofstream outfile (path+"_data.txt",std::ofstream::binary);
-//	outfile.write (buffer,buffersize);
-//	outfile.close();
-//	delete[] buffer;
+	buffersize += sizeof(unsigned long);
+	buffersize += scores.size()*sizeof(unsigned long);
+	for(unsigned int k = 0; k < scores.size();k++){
+		buffersize += scores[k].size()*sizeof(double);
+	}
 
-////	printf("saveFast(%s): %5.5fs\n",path.c_str(),getTime()-startTime);
-//	camera->save(path+"_camera");
+	buffersize += sizeof(unsigned long);
+	buffersize += submodels_scores.size()*sizeof(unsigned long);
+	for(unsigned int k = 0; k < submodels_scores.size();k++){
+		buffersize += submodels_scores[k].size()*sizeof(double);
+	}
+
+	if(parrent != 0){buffersize += parrent->keyval.length();}
+
+	for(unsigned int k = 0; k < frames.size();k++){
+		buffersize += 2*sizeof(unsigned long)+frames[k]->keyval.length()+spms[k].length();
+		buffersize += 16*sizeof(double);
+	}
+
+	for(unsigned int k = 0; k < rep_frames.size();k++){
+		buffersize += 2*sizeof(unsigned long)+rep_frames[k]->keyval.length()+rep_spms[k].length();
+		buffersize += 16*sizeof(double);
+	}
+
+	buffersize += sizeof(unsigned long);
+	for(unsigned int k = 0; k < submodels.size();k++){
+		buffersize += sizeof(unsigned long)+submodels[k]->keyval.length();
+		buffersize += 16*sizeof(double);
+	}
+
+	char* buffer = new char[buffersize];
+	double * buffer_double = (double *)buffer;
+	unsigned long * buffer_long = (unsigned long *)buffer;
+
+	int counter = 0;
+	buffer_double[counter++] = score;
+	buffer_double[counter++] = total_scores;
+	buffer_long[counter++] = id;
+	buffer_long[counter++] = last_changed;
+	buffer_long[counter++] = keyval.length();
+	buffer_long[counter++] = soma_id.length();
+	buffer_long[counter++] = pointspath.length();
+	buffer_long[counter++] = frames.size();
+	buffer_long[counter++] = rep_frames.size();
+	if(parrent != 0){	buffer_long[counter++] = parrent->keyval.length();}
+	else{				buffer_long[counter++] = 0;}
+
+	buffer_long[counter++] = scores.size();
+	for(unsigned int i = 0; i < scores.size();i++){
+		buffer_long[counter++] = scores[i].size();
+		for(unsigned int j = 0; j < scores[i].size();j++){
+			buffer_double[counter++] = scores[i][j];
+		}
+	}
+
+	buffer_long[counter++] = submodels_scores.size();
+	for(unsigned int i = 0; i < submodels_scores.size();i++){
+		buffer_long[counter++] = submodels_scores[i].size();
+		for(unsigned int j = 0; j < submodels_scores[i].size();j++){
+			buffer_double[counter++] = submodels_scores[i][j];
+		}
+	}
+
+	buffer_long[counter++] = submodels.size();
+	for(unsigned int k = 0; k < submodels.size();k++){
+		Eigen::Matrix4d pose = submodels_relativeposes[k];
+		buffer_long[counter++] = submodels[k]->keyval.length();
+		for(int i = 0; i < 4; i++){
+			for(int j = 0; j < 4; j++){
+				buffer_double[counter++] = pose(i,j);
+			}
+		}
+	}
+
+	for(unsigned int k = 0; k < frames.size();k++){
+		Eigen::Matrix4d pose = relativeposes[k];
+		buffer_long[counter++] = frames[k]->keyval.length();
+		buffer_long[counter++] = spms[k].length();
+		for(int i = 0; i < 4; i++){
+			for(int j = 0; j < 4; j++){
+				buffer_double[counter++] = pose(i,j);
+			}
+		}
+	}
+
+	for(unsigned int k = 0; k < rep_frames.size();k++){
+		Eigen::Matrix4d pose = rep_relativeposes[k];
+		buffer_long[counter++] = rep_frames[k]->keyval.length();
+		buffer_long[counter++] = rep_spms[k].length();
+		for(int i = 0; i < 4; i++){
+			for(int j = 0; j < 4; j++){
+				buffer_double[counter++] = pose(i,j);
+			}
+		}
+	}
+
+	unsigned int count4 = sizeof(double)*counter;
+
+	for(unsigned int i = 0; i < keyval.length();i++){
+		buffer[count4++] = keyval[i];
+	}
+
+	for(unsigned int i = 0; i < soma_id.length();i++){
+		buffer[count4++] = soma_id[i];
+	}
+
+	if(parrent != 0){
+		for(unsigned int i = 0; i < parrent->keyval.length();i++){
+			buffer[count4++] = parrent->keyval[i];
+		}
+	}
+
+	for(unsigned int k = 0; k < submodels.size();k++){
+		for(unsigned int i = 0; i < submodels[k]->keyval.length(); i++){
+			buffer[count4++] = submodels[k]->keyval[i];
+		}
+	}
+
+	for(unsigned int k = 0; k < frames.size();k++){
+		for(unsigned int i = 0; i < frames[k]->keyval.length();i++){
+			buffer[count4++] = frames[k]->keyval[i];
+		}
+		for(unsigned int i = 0; i < spms[k].length();i++){
+			buffer[count4++] = spms[k][i];
+		}
+	}
+
+	for(unsigned int k = 0; k < rep_frames.size();k++){
+		for(unsigned int i = 0; i < rep_frames[k]->keyval.length();i++){
+			buffer[count4++] = rep_frames[k]->keyval[i];
+		}
+		for(unsigned int i = 0; i < rep_spms[k].length();i++){
+			buffer[count4++] = rep_spms[k][i];
+		}
+	}
+
+	printf("count: %i buffersize: %i\n",count4,buffersize);
+
+	std::ofstream outfile (path+"data.bin",std::ofstream::binary);
+	outfile.write (buffer,buffersize);
+	outfile.close();
+	delete[] buffer;
+
+	printf("saveFast(%s): %5.5fs\n",path.c_str(),getTime()-startTime);
+}
+
+Model * Model::loadFast(std::string path){
+	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	//printf("Model::loadFast(%s)\n",path.c_str());
+	double startTime = getTime();
+	Model * mod = new Model();
+	mod->pointspath = path+"points.bin";
+	//printf("Model::loadFast pointspath = %s\n",mod->pointspath.c_str());
+
+	std::ifstream pointfile (mod->pointspath, std::ios::in | std::ios::binary | std::ios::ate);
+	if (pointfile.is_open()){
+		unsigned long size = pointfile.tellg();
+		char * buffer = new char [size];
+		pointfile.seekg (0, std::ios::beg);
+		pointfile.read (buffer, size);
+		pointfile.close();
+		float *		data	= (float *)buffer;
+		long sizeofSuperPoint = 3*(3+1);
+
+		unsigned int nr_points = size/(sizeofSuperPoint*sizeof(float));
+		std::vector<superpoint> points;
+		points.resize(nr_points);
+
+		long count = 0;
+
+		for(unsigned long i = 0; i < nr_points; i++){
+			reglib::superpoint & p = points[i];
+			p.point(0) = data[count++];
+			p.point(1) = data[count++];
+			p.point(2) = data[count++];
+			p.normal(0) = data[count++];
+			p.normal(1) = data[count++];
+			p.normal(2) = data[count++];
+			p.feature(0) = data[count++];
+			p.feature(1) = data[count++];
+			p.feature(2) = data[count++];
+			p.point_information = data[count++];
+			p.normal_information = data[count++];
+			p.feature_information = data[count++];
+		}
+
+		delete[] buffer;
+		mod->points = points;
+	}
+
+	//printf("Model::loadFast points.size  = %i\n",mod->points.size());
+
+	std::ifstream file (path+"data.bin", std::ios::in | std::ios::binary | std::ios::ate);
+	if (file.is_open()){
+		unsigned long size = file.tellg();
+		char * buffer = new char [size];
+		file.seekg (0, std::ios::beg);
+		file.read (buffer, size);
+		file.close();
+		double * buffer_double = (double *)buffer;
+		unsigned long * buffer_long = (unsigned long *)buffer;
+		//printf("Model::loadFast size  = %i\n",size);
+
+
+		int counter = 0;
+		mod->score = buffer_double[counter++];
+		mod->total_scores = buffer_double[counter++];
+		mod->id = buffer_long[counter++];
+		mod->last_changed = buffer_long[counter++];
+		unsigned long keyvallength = buffer_long[counter++];
+		unsigned long soma_idlength = buffer_long[counter++];
+		unsigned long pointspathlength = buffer_long[counter++];
+		unsigned long framessize = buffer_long[counter++];
+		unsigned long rep_framessize = buffer_long[counter++];
+		//printf("nr frames: %i\n",framessize);
+		//printf("nr rep_frames: %i\n",framessize);
+		unsigned long parrent_keyvallength = buffer_long[counter++];
+		mod->scores.resize(buffer_long[counter++]);
+		for(unsigned int i = 0; i < mod->scores.size();i++){
+			mod->scores[i].resize(buffer_long[counter++]);
+			for(unsigned int j = 0; j < mod->scores[i].size();j++){
+				mod->scores[i][j] = buffer_double[counter++];
+			}
+		}
+
+		mod->submodels_scores.resize(buffer_long[counter++]);
+		for(unsigned int i = 0; i < mod->submodels_scores.size();i++){
+			mod->submodels_scores[i].resize(buffer_long[counter++]);
+			for(unsigned int j = 0; j < mod->submodels_scores[i].size();j++){
+				mod->submodels_scores[i][j] = buffer_double[counter++];
+			}
+		}
+
+		unsigned int submodelssize = buffer_long[counter++];
+		mod->submodels_relativeposes.resize(submodelssize);
+		std::vector<unsigned int> submodels_keyvallength;
+		for(unsigned int k = 0; k < submodelssize;k++){
+			Eigen::Matrix4d & pose = mod->submodels_relativeposes[k];
+			submodels_keyvallength.push_back(buffer_long[counter++]);
+			for(int i = 0; i < 4; i++){
+				for(int j = 0; j < 4; j++){
+					pose(i,j) = buffer_double[counter++];
+				}
+			}
+		}
+
+
+		std::vector<unsigned int> frames_keyvallength;
+		std::vector<unsigned int> spms_length;
+		mod->relativeposes.resize(framessize);
+		for(unsigned int k = 0; k < framessize;k++){
+			Eigen::Matrix4d & pose = mod->relativeposes[k];
+			frames_keyvallength.push_back(buffer_long[counter++]);
+			spms_length.push_back(buffer_long[counter++]);
+			for(int i = 0; i < 4; i++){
+				for(int j = 0; j < 4; j++){
+					pose(i,j) = buffer_double[counter++];
+				}
+			}
+		}
+
+		std::vector<unsigned int> rep_frames_keyvallength;
+		std::vector<unsigned int> rep_spms_length;
+		mod->rep_relativeposes.resize(rep_framessize);
+		for(unsigned int k = 0; k < rep_framessize;k++){
+			Eigen::Matrix4d & pose = mod->rep_relativeposes[k];
+			rep_frames_keyvallength.push_back(buffer_long[counter++]);
+			rep_spms_length.push_back(buffer_long[counter++]);
+			for(int i = 0; i < 4; i++){
+				for(int j = 0; j < 4; j++){
+					pose(i,j) = buffer_double[counter++];
+				}
+			}
+		}
+
+		unsigned int count4 = sizeof(double)*counter;
+		mod->keyval.resize(keyvallength);
+		for(unsigned int i = 0; i < keyvallength;i++){
+			mod->keyval[i] = buffer[count4++];
+		}
+
+		mod->soma_id.resize(soma_idlength);
+		for(unsigned int i = 0; i < soma_idlength;i++){
+			mod->soma_id[i] = buffer[count4++];
+		}
+
+		std::string parrent_keyval = "";
+		parrent_keyval.resize(parrent_keyvallength);
+		for(unsigned int i = 0; i < parrent_keyvallength;i++){
+			parrent_keyval[i] = buffer[count4++];
+		}
+		//printf("parrent_keyval: %s\n",parrent_keyval.c_str());
+
+		mod->submodels.resize(submodelssize);
+		for(unsigned int k = 0; k < submodelssize;k++){
+			std::string submodels_keyval = "";
+			submodels_keyval.resize(submodels_keyvallength[k]);
+			for(unsigned int i = 0; i < submodels_keyvallength[k]; i++){
+				submodels_keyval[i] = buffer[count4++];
+			}
+			//printf("submodels_keyval[%i] = %s\n",k,submodels_keyval.c_str());
+			mod->submodels[k] = Model::loadFast(path+"/../"+submodels_keyval+"/");
+
+		}
+
+		mod->frames.resize(framessize);
+		mod->modelmasks.resize(framessize);
+		for(unsigned int k = 0; k < framessize;k++){
+			//printf("---------------------------\n");
+			std::string frames_keyval;
+			frames_keyval.resize(frames_keyvallength[k]);
+			for(unsigned int i = 0; i < frames_keyvallength[k];i++){
+				frames_keyval[i] = buffer[count4++];
+			}
+			mod->frames[k] = RGBDFrame::loadFast(path+"/../frames/"+frames_keyval);
+			std::string spms;
+			spms.resize(spms_length[k]);
+			for(unsigned int i = 0; i < spms_length[k];i++){
+				spms[i] = buffer[count4++];
+			}
+			mod->modelmasks[k] = ModelMask::loadFast(path+spms);
+		}
+		//printf("---------------------------\n");
+
+		//Set up to use already loaded frames
+		for(unsigned int k = 0; k < rep_framessize;k++){
+			std::string rep_frames_keyval;
+			rep_frames_keyval.resize(rep_frames_keyvallength[k]);
+			for(unsigned int i = 0; i < rep_frames_keyvallength[k];i++){
+				rep_frames_keyval[i] = buffer[count4++];
+			}
+			std::string rep_spm;
+			rep_spm.resize(rep_spms_length[k]);
+			for(unsigned int i = 0; i < rep_spms_length[k];i++){
+				rep_spm[i] = buffer[count4++];
+			}
+		}
+	}
+
+	printf("Model::loadFast(%s): %7.7fs\n",path.c_str(),getTime()-startTime);
+	printf("//////////////////////////////////////////////\n");
+	return mod;
 }
 
 Model * Model::load(Camera * cam, std::string path){
-    printf("Model * Model::load(Camera * cam, std::string path)\n");
-    std::streampos size;
-    char * buffer;
-    char buf [1024];
-    std::string datapath = path+"/data.txt";
-    std::ifstream file (datapath, std::ios::in | std::ios::binary | std::ios::ate);
-    if (file.is_open()){
-        size = file.tellg();
-        buffer = new char [size];
-        file.seekg (0, std::ios::beg);
-        file.read (buffer, size);
-        file.close();
+	printf("Model * Model::load(Camera * cam, std::string path)\n");
+	std::streampos size;
+	char * buffer;
+	char buf [1024];
+	std::string datapath = path+"/data.txt";
+	std::ifstream file (datapath, std::ios::in | std::ios::binary | std::ios::ate);
+	if (file.is_open()){
+		size = file.tellg();
+		buffer = new char [size];
+		file.seekg (0, std::ios::beg);
+		file.read (buffer, size);
+		file.close();
 
-        Model * mod = new Model();
-        double *		buffer_double	= (double *)buffer;
-        unsigned long * buffer_long		= (unsigned long *)buffer;
-        //		std::vector<ModelMask*> modelmasks;
+		Model * mod = new Model();
+		double *		buffer_double	= (double *)buffer;
+		unsigned long * buffer_long		= (unsigned long *)buffer;
+		//		std::vector<ModelMask*> modelmasks;
 
-        int counter = 0;
-        unsigned int nr_frames = buffer_long[counter++];
-        mod->score = buffer_double[counter++];
-        for(unsigned int f = 0; f < nr_frames; f++){
-            Eigen::Matrix4d pose;
-            for(int i = 0; i < 4; i++){
-                for(int j = 0; j < 4; j++){
-                    pose(i,j) = buffer_double[counter++];
-                }
-            }
+		int counter = 0;
+		unsigned int nr_frames = buffer_long[counter++];
+		mod->score = buffer_double[counter++];
+		for(unsigned int f = 0; f < nr_frames; f++){
+			Eigen::Matrix4d pose;
+			for(int i = 0; i < 4; i++){
+				for(int j = 0; j < 4; j++){
+					pose(i,j) = buffer_double[counter++];
+				}
+			}
 
-            sprintf(buf,"%s/frame_%i",path.c_str(),int(f));
-            RGBDFrame * frame = RGBDFrame::load(cam, std::string(buf));
+			sprintf(buf,"%s/frame_%i",path.c_str(),int(f));
+			RGBDFrame * frame = RGBDFrame::load(cam, std::string(buf));
 
-            sprintf(buf,"%s/modelmask_%i.png",path.c_str(),int(f));
-            cv::Mat mask = cv::imread(buf, -1);   // Read the file
+			sprintf(buf,"%s/modelmask_%i.png",path.c_str(),int(f));
+			cv::Mat mask = cv::imread(buf, -1);   // Read the file
 
-            mod->relativeposes.push_back(pose);
-            mod->frames.push_back(frame);
-            mod->modelmasks.push_back(new ModelMask(mask));
-        }
+			mod->relativeposes.push_back(pose);
+			mod->frames.push_back(frame);
+			mod->modelmasks.push_back(new ModelMask(mask));
+		}
 
-        mod->total_scores = buffer_double[counter++];
-        mod->scores.resize(nr_frames);
-        for(unsigned int f1 = 0; f1 < nr_frames; f1++){
-            mod->scores[f1].resize(nr_frames);
-            for(unsigned int f2 = 0; f2 < nr_frames; f2++){
-                mod->scores[f1][f2] = buffer_double[counter++];
-            }
-        }
+		mod->total_scores = buffer_double[counter++];
+		mod->scores.resize(nr_frames);
+		for(unsigned int f1 = 0; f1 < nr_frames; f1++){
+			mod->scores[f1].resize(nr_frames);
+			for(unsigned int f2 = 0; f2 < nr_frames; f2++){
+				mod->scores[f1][f2] = buffer_double[counter++];
+			}
+		}
 
-        for(unsigned int f = 0; f < nr_frames; f++){
-            mod->modelmasks[f]->sweepid = buffer_long[counter++];
-            printf("modelmask sweepid: %i\n",int(mod->modelmasks[f]->sweepid));
-        }
+		for(unsigned int f = 0; f < nr_frames; f++){
+			mod->modelmasks[f]->sweepid = buffer_long[counter++];
+			printf("modelmask sweepid: %i\n",int(mod->modelmasks[f]->sweepid));
+		}
 
-        mod->recomputeModelPoints();
-        delete[] buffer;
-        return mod;
-    }else{std::cout << "Unable to open model file " << datapath << std::endl; exit(0);}
-    return 0;
+		mod->recomputeModelPoints();
+		delete[] buffer;
+		return mod;
+	}else{std::cout << "Unable to open model file " << datapath << std::endl; exit(0);}
+	return 0;
+}
+
+
+RGBDFrame * Model::getFrame(std::string keyval){
+	if(keyval.length() == 0){return 0;}
+	for(unsigned int i = 0; i < frames.size(); i++){
+		if(frames[i]->keyval.compare(keyval) == 0){return frames[i];}
+	}
+
+	for(unsigned int i = 0; i < submodels.size(); i++){
+		RGBDFrame * retval = submodels[i]->getFrame(keyval);
+		if(retval != 0){return retval;}
+	}
+	return 0;
+}
+ModelMask * Model::getModelMask(std::string keyval){
+//	if(keyval.length() == 0){return 0;}
+//	for(unsigned int i = 0; i < modelmasks.size(); i++){
+//		if(modelmasks[i]->keyval.compare(keyval) == 0){return modelmasks[i];}
+//	}
+
+//	for(unsigned int i = 0; i < submodels.size(); i++){
+//		ModelMask * retval = submodels[i]->getModelMask(keyval);
+//		if(retval != 0){return retval;}
+//	}
+	return 0;
 }
 
 }
