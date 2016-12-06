@@ -40,9 +40,6 @@
 #include <pcl/visualization/cloud_viewer.h>
 #include <pcl/PCLPointCloud2.h>
 
-
-
-
 namespace reglib
 {
 
@@ -294,13 +291,7 @@ std::vector< std::vector<double> > getImageProbs(reglib::RGBDFrame * frame, int 
 	return probs;
 }
 
-//RGBDFrame * RGBDFrame::clone(){
-//    return new RGBDFrame(camera->clone(), rgb.clone(),depth.clone(),capturetime, pose, true);
-//}
-
 RGBDFrame * RGBDFrame::clone(){
-	//    printf("clone()\n");
-	//    exit(0);
 	RGBDFrame * frame = new RGBDFrame();
 	frame->camera = camera->clone();
 	frame->rgb = rgb.clone();
@@ -881,7 +872,7 @@ void RGBDFrame::show(bool stop){
 	cv::namedWindow( "rgb", cv::WINDOW_AUTOSIZE );			cv::imshow( "rgb", rgb );
 	cv::namedWindow( "normals", cv::WINDOW_AUTOSIZE );		cv::imshow( "normals", normals );
 	cv::namedWindow( "depth", cv::WINDOW_AUTOSIZE );		cv::imshow( "depth", depth );
-	cv::namedWindow( "depthedges", cv::WINDOW_AUTOSIZE );	cv::imshow( "depthedges", depthedges );
+    //cv::namedWindow( "depthedges", cv::WINDOW_AUTOSIZE );	cv::imshow( "depthedges", depthedges );
 	if(stop){	cv::waitKey(0);}else{					cv::waitKey(30);}
 }
 
@@ -1156,17 +1147,25 @@ void RGBDFrame::saveFast(std::string path){
 	const unsigned int width	= camera->width;
 	const unsigned int height	= camera->height;
 
-	std::ofstream rgboutfile	(path+"_rgbdata.txt",std::ofstream::binary);
+	std::ofstream rgboutfile			(path+"_rgbdata.txt",std::ofstream::binary);
 	rgboutfile.write ((char*)(rgb.data),width*height*3*sizeof(char));
 	rgboutfile.close();
 
-	std::ofstream depthoutfile	(path+"_depthdata.txt",std::ofstream::binary);
+	std::ofstream depthoutfile			(path+"_depthdata.txt",std::ofstream::binary);
 	depthoutfile.write ((char*)(depth.data),width*height*sizeof(unsigned short));
 	depthoutfile.close();
 
-	std::ofstream normalsoutfile	(path+"_normalsdata.txt",std::ofstream::binary);
+	std::ofstream normalsoutfile		(path+"_normalsdata.txt",std::ofstream::binary);
 	normalsoutfile.write ((char*)(normals.data),width*height*3*sizeof(float));
 	normalsoutfile.close();
+
+	std::ofstream det_dilate_outfile	(path+"_det_dilate.txt",std::ofstream::binary);
+	det_dilate_outfile.write ((char*)(det_dilate.data),width*height*sizeof(char));
+	det_dilate_outfile.close();
+
+//	cv::Mat depthedges;
+//	cv::Mat de;
+//	cv::Mat ce;
 
 	unsigned long buffersize = 22*sizeof(double)+keyval.length()+soma_id.length();
 	char* buffer = new char[buffersize];
@@ -1179,7 +1178,8 @@ void RGBDFrame::saveFast(std::string path){
 		for(int j = 0; j < 4; j++){
 			buffer_double[counter++] = pose(i,j);
 		}
-	}											// Pose
+    }
+    // Pose
 	buffer_long[counter++] = sweepid;			// Sweepid
 	buffer_long[counter++] = camera->id;		// Cameraid
 	buffer_long[counter++] = id;				// id
@@ -1190,6 +1190,7 @@ void RGBDFrame::saveFast(std::string path){
 	for(unsigned int i = 0; i < keyval.length();i++){
 		buffer[count4++] = keyval[i];
 	}
+
 	for(unsigned int i = 0; i < soma_id.length();i++){
 		buffer[count4++] = soma_id[i];
 	}
@@ -1232,11 +1233,13 @@ RGBDFrame * RGBDFrame::loadFast(std::string path){
 				pose(i,j) = buffer_double[counter++];
 			}
 		}
+
 		int sweepid = buffer_long[counter++];
 		int camera_id = buffer_long[counter++];
 		int id = buffer_long[counter++];
 		int keyvallength = buffer_long[counter++];
 		int soma_idlength = buffer_long[counter++];
+
 
 
 		std::string keyval;
@@ -1253,6 +1256,9 @@ RGBDFrame * RGBDFrame::loadFast(std::string path){
 			soma_id[i] = buffer[count4++];
 		}
 
+
+//        printf("read: %i %i %i %i %i\n",buffer_long[17],buffer_long[18],buffer_long[19],buffer_long[20],buffer_long[21]);
+//        printf("keyval %s soma_id %s\n",keyval.c_str(),soma_id.c_str());
 		delete[] buffer;
 
 		RGBDFrame * frame = new RGBDFrame();
@@ -1260,17 +1266,20 @@ RGBDFrame * RGBDFrame::loadFast(std::string path){
 		frame->capturetime = capturetime;
 		frame->sweepid = sweepid;
 		frame->pose = pose;
+        frame->keyval = keyval;
+        frame->soma_id = soma_id;
 
 		frame->rgb.create(height,width,CV_8UC3);
 		frame->depth.create(height,width,CV_16UC1);
 		frame->normals.create(height,width,CV_32FC3);
 //		frame->ce.create(height,width,CV_32FC3);
 //		frame->de.create(height,width,CV_32FC3);
-//		frame->det_dilate = det_dilate;
+		frame->det_dilate.create(height,width,CV_8UC1);
 //		frame->depthedges = depthedges;
 //printf("%s::%i time: %5.5fs\n",__PRETTY_FUNCTION__,__LINE__,getTime()-startTime);
 
-		std::ifstream normalsfile (path+"_normalsdata.txt", std::ios::in | std::ios::binary | std::ios::ate);
+        std::string normalspath = path+"_normalsdata.txt";
+        std::ifstream normalsfile (normalspath, std::ios::in | std::ios::binary | std::ios::ate);
 		if (normalsfile.is_open()){
 			size = normalsfile.tellg();
 			normalsfile.seekg (0, std::ios::beg);
@@ -1278,7 +1287,8 @@ RGBDFrame * RGBDFrame::loadFast(std::string path){
 			normalsfile.close();
 		}
 
-		std::ifstream rgbfile (path+"_rgbdata.txt", std::ios::in | std::ios::binary | std::ios::ate);
+        std::string rgbspath = path+"_rgbdata.txt";
+        std::ifstream rgbfile (rgbspath, std::ios::in | std::ios::binary | std::ios::ate);
 		if (rgbfile.is_open()){
 			size = rgbfile.tellg();
 			rgbfile.seekg (0, std::ios::beg);
@@ -1286,13 +1296,25 @@ RGBDFrame * RGBDFrame::loadFast(std::string path){
 			rgbfile.close();
 		}
 
-		std::ifstream depthfile (path+"_depthdata.txt", std::ios::in | std::ios::binary | std::ios::ate);
+		std::string depthspath = path+"_depthdata.txt";
+		std::ifstream depthfile (depthspath, std::ios::in | std::ios::binary | std::ios::ate);
 		if (depthfile.is_open()){
-			size = normalsfile.tellg();
+			size = depthfile.tellg();
 			depthfile.seekg (0, std::ios::beg);
 			depthfile.read ((char*)(frame->depth.data), size);
 			depthfile.close();
 		}
+
+		std::string det_dilatepath = path+"_det_dilate.txt";
+		std::ifstream det_dilatefile (det_dilatepath, std::ios::in | std::ios::binary | std::ios::ate);
+		if (det_dilatefile.is_open()){
+			size = det_dilatefile.tellg();
+			det_dilatefile.seekg (0, std::ios::beg);
+			det_dilatefile.read ((char*)(frame->det_dilate.data), size);
+			det_dilatefile.close();
+		}
+
+        //printf("%s %s %s\n",normalspath.c_str(),rgbspath.c_str(),depthspath.c_str());
 
 //printf("RGBDFrame::loadFast(%s): %5.5fs\n",path.c_str(),getTime()-startTime);
 		return frame;
@@ -1300,12 +1322,7 @@ RGBDFrame * RGBDFrame::loadFast(std::string path){
 }
 
 RGBDFrame * RGBDFrame::load(Camera * cam, std::string path){
-
-
-
 	double startTime = getTime();
-//	cv::Mat rgbtest = cv::imread(path+"_rgb.bmp", -1);
-//printf("%s::%i time: %5.5fs\n",__PRETTY_FUNCTION__,__LINE__,getTime()-startTime); startTime = getTime();
 
 	const unsigned int width	= cam->width;
 	const unsigned int height	= cam->height;
@@ -1339,6 +1356,7 @@ RGBDFrame * RGBDFrame::load(Camera * cam, std::string path){
 		int keyvallength = buffer_long[counter++];
 		int soma_idlength = buffer_long[counter++];
 
+//		printf("%i %i %i %i %i\n",buffer_long[17],buffer_long[18],buffer_long[19],buffer_long[20],buffer_long[21]);
 
 		std::string keyval;
 		keyval.resize(keyvallength);

@@ -9,6 +9,7 @@ using namespace Eigen;
 unsigned int model_id_counter = 0;
 
 Model::Model(){
+    updated = false;
 	total_scores = 0;
 	score = 0;
 	id = model_id_counter++;
@@ -20,6 +21,7 @@ Model::Model(){
 }
 
 Model::Model(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d pose){
+    updated = false;
 	total_scores = 0;
 	scores.resize(1);
 	scores.back().resize(1);
@@ -37,8 +39,7 @@ Model::Model(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d pose){
 	savePath = "";
 	soma_id = "";
 	pointspath = "";
-	parrent = 0;
-	//recomputeModelPoints();
+    parrent = 0;
 }
 
 void Model::getData(std::vector<Eigen::Matrix4d> & po, std::vector<RGBDFrame*> & fr, std::vector<ModelMask*> & mm, Eigen::Matrix4d p){
@@ -139,8 +140,8 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 }
 
 void Model::addAllSuperPoints(std::vector<superpoint> & spvec, Eigen::Matrix4d pose, boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer){
+    updated = true;
 	for(unsigned int i = 0; i < frames.size(); i++){
-		//printf("addAllSuperPoints: %i\n",i);
 		addSuperPoints(spvec, pose*relativeposes[i], frames[i], modelmasks[i], viewer);
 	}
 
@@ -153,11 +154,10 @@ void Model::recomputeModelPoints(Eigen::Matrix4d pose, boost::shared_ptr<pcl::vi
 	double startTime = getTime();
 	points.clear();
 	addAllSuperPoints(points,pose,viewer);
-	printf("recomputeModelPoints time: %5.5fs total points: %i \n",getTime()-startTime,int(points.size()));
+	//printf("recomputeModelPoints time: %5.5fs total points: %i \n",getTime()-startTime,int(points.size()));
 }
 
 void Model::showHistory(boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer){
-	//viewer->setBackgroundColor(0.01*(rand()%100),0.01*(rand()%100),0.01*(rand()%100));
 	for(unsigned int i = 0; i < submodels.size(); i++){
 		pcl::PointCloud<pcl::PointXYZRGB>::Ptr room_cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
 
@@ -524,6 +524,7 @@ CloudData * Model::getCD(unsigned int target_points){
 Model::~Model(){}
 
 void Model::fullDelete(){
+	//printf("fullDelete() start\n");
 	points.clear();
 	all_keypoints.clear();
 	all_descriptors.clear();
@@ -534,8 +535,13 @@ void Model::fullDelete(){
 	}
 	frames.clear();
 
+	//printf("fullDelete() frames cleared\n");
+
 	for(size_t i = 0; i < modelmasks.size(); i++){delete modelmasks[i];}
 	modelmasks.clear();
+
+
+	//printf("fullDelete() modelmasks cleared\n");
 
 	rep_relativeposes.clear();
 	rep_frames.clear();
@@ -550,8 +556,14 @@ void Model::fullDelete(){
 	}
 	submodels.clear();
 
+
+	//printf("fullDelete() submodels cleared\n");
+
 	submodels_relativeposes.clear();
 	submodels_scores.clear();
+
+
+	//printf("fullDelete() stop cleared\n");
 	//	delete this;
 }
 
@@ -768,12 +780,10 @@ void Model::save(std::string path){
 
 
 void Model::saveFast(std::string path){
-	printf("Model::saveFast(%s)\n",path.c_str());
+    //printf("Model::saveFast(%s)\n",path.c_str());
 
 	double startTime = getTime();
 	pointspath = path+"points.bin";
-
-	printf("pointspath = %s\n",pointspath.c_str());
 
 	long sizeofSuperPoint = 3*(3+1);
 	unsigned int nr_points = points.size();
@@ -799,7 +809,7 @@ void Model::saveFast(std::string path){
 	std::ofstream pointfile;
 	pointfile.open(pointspath, ios::out | ios::binary);
 	if(nr_points > 0){
-		printf("saving %i points\n",nr_points);
+        //printf("saving %i points\n",nr_points);
 		pointfile.write( (char*)data, nr_points*sizeofSuperPoint*sizeof(float));
 	}
 	pointfile.close();
@@ -864,6 +874,9 @@ void Model::saveFast(std::string path){
 	unsigned long * buffer_long = (unsigned long *)buffer;
 
 	int counter = 0;
+    if(parrent != 0){	buffer_long[counter++] = parrent->keyval.length();}
+    else{				buffer_long[counter++] = 0;}
+
 	buffer_double[counter++] = score;
 	buffer_double[counter++] = total_scores;
 	buffer_long[counter++] = id;
@@ -872,9 +885,10 @@ void Model::saveFast(std::string path){
 	buffer_long[counter++] = soma_id.length();
 	buffer_long[counter++] = pointspath.length();
 	buffer_long[counter++] = frames.size();
-	buffer_long[counter++] = rep_frames.size();
-	if(parrent != 0){	buffer_long[counter++] = parrent->keyval.length();}
-	else{				buffer_long[counter++] = 0;}
+
+    //printf("frames: %i\n",frames.size());
+    buffer_long[counter++] = rep_frames.size();
+    //printf("rep_frames: %i\n",rep_frames.size());
 
 	buffer_long[counter++] = scores.size();
 	for(unsigned int i = 0; i < scores.size();i++){
@@ -965,18 +979,16 @@ void Model::saveFast(std::string path){
 		}
 	}
 
-	printf("count: %i buffersize: %i\n",count4,buffersize);
-
 	std::ofstream outfile (path+"data.bin",std::ofstream::binary);
 	outfile.write (buffer,buffersize);
 	outfile.close();
 	delete[] buffer;
 
-	printf("saveFast(%s): %5.5fs\n",path.c_str(),getTime()-startTime);
+	//printf("saveFast(%s): %5.5fs\n",path.c_str(),getTime()-startTime);
 }
 
 Model * Model::loadFast(std::string path){
-	printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
+    //printf("++++++++++++++++++++++++++++++++++++++++++++++++\n");
 	//printf("Model::loadFast(%s)\n",path.c_str());
 	double startTime = getTime();
 	Model * mod = new Model();
@@ -1000,7 +1012,7 @@ Model * Model::loadFast(std::string path){
 		long count = 0;
 
 		for(unsigned long i = 0; i < nr_points; i++){
-			reglib::superpoint & p = points[i];
+            reglib::superpoint & p = points[i];
 			p.point(0) = data[count++];
 			p.point(1) = data[count++];
 			p.point(2) = data[count++];
@@ -1018,6 +1030,7 @@ Model * Model::loadFast(std::string path){
 		delete[] buffer;
 		mod->points = points;
 	}
+    //printf("time to load points: %5.5fs\n",getTime()-startTime);
 
 	//printf("Model::loadFast points.size  = %i\n",mod->points.size());
 
@@ -1034,6 +1047,7 @@ Model * Model::loadFast(std::string path){
 
 
 		int counter = 0;
+        unsigned long parrent_keyvallength = buffer_long[counter++];
 		mod->score = buffer_double[counter++];
 		mod->total_scores = buffer_double[counter++];
 		mod->id = buffer_long[counter++];
@@ -1044,8 +1058,7 @@ Model * Model::loadFast(std::string path){
 		unsigned long framessize = buffer_long[counter++];
 		unsigned long rep_framessize = buffer_long[counter++];
 		//printf("nr frames: %i\n",framessize);
-		//printf("nr rep_frames: %i\n",framessize);
-		unsigned long parrent_keyvallength = buffer_long[counter++];
+        //printf("nr rep_frames: %i\n",framessize);
 		mod->scores.resize(buffer_long[counter++]);
 		for(unsigned int i = 0; i < mod->scores.size();i++){
 			mod->scores[i].resize(buffer_long[counter++]);
@@ -1073,8 +1086,7 @@ Model * Model::loadFast(std::string path){
 					pose(i,j) = buffer_double[counter++];
 				}
 			}
-		}
-
+        }
 
 		std::vector<unsigned int> frames_keyvallength;
 		std::vector<unsigned int> spms_length;
@@ -1136,8 +1148,9 @@ Model * Model::loadFast(std::string path){
 
 		mod->frames.resize(framessize);
 		mod->modelmasks.resize(framessize);
+        //printf("framessize: %i\n",framessize);
 		for(unsigned int k = 0; k < framessize;k++){
-			//printf("---------------------------\n");
+            ////printf("---------------------------\n");
 			std::string frames_keyval;
 			frames_keyval.resize(frames_keyvallength[k]);
 			for(unsigned int i = 0; i < frames_keyvallength[k];i++){
@@ -1150,10 +1163,13 @@ Model * Model::loadFast(std::string path){
 				spms[i] = buffer[count4++];
 			}
 			mod->modelmasks[k] = ModelMask::loadFast(path+spms);
+
+            //mod->frames[k]->show(true);
 		}
 		//printf("---------------------------\n");
 
 		//Set up to use already loaded frames
+        //printf("rep_framessize: %i\n",rep_framessize);
 		for(unsigned int k = 0; k < rep_framessize;k++){
 			std::string rep_frames_keyval;
 			rep_frames_keyval.resize(rep_frames_keyvallength[k]);
@@ -1165,11 +1181,17 @@ Model * Model::loadFast(std::string path){
 			for(unsigned int i = 0; i < rep_spms_length[k];i++){
 				rep_spm[i] = buffer[count4++];
 			}
+            RGBDFrame * frame = 0;
+            ModelMask * modelmask = 0;
+            mod->getRepFrame(frame,modelmask,rep_frames_keyval);
+            mod->rep_frames.push_back(frame);
+            mod->rep_modelmasks.push_back(modelmask);
+            //frame->show(true);
 		}
 	}
 
-	printf("Model::loadFast(%s): %7.7fs\n",path.c_str(),getTime()-startTime);
-	printf("//////////////////////////////////////////////\n");
+	//if(mod->parrent == 0){printf("Model::loadFast(%s): %7.7fs\n",path.c_str(),getTime()-startTime);}
+    //printf("//////////////////////////////////////////////\n");
 	return mod;
 }
 
@@ -1235,31 +1257,43 @@ Model * Model::load(Camera * cam, std::string path){
 	return 0;
 }
 
+void Model::getRepFrame(RGBDFrame * & frame, ModelMask * & modelmask, std::string keyval){
+    if(keyval.length() == 0){return;}
+    for(unsigned int i = 0; i < frames.size(); i++){
+        if(frames[i]->keyval.compare(keyval) == 0){
+            frame = frames[i];
+            modelmask = modelmasks[i];
+            return;
+        }
+    }
 
-RGBDFrame * Model::getFrame(std::string keyval){
-	if(keyval.length() == 0){return 0;}
-	for(unsigned int i = 0; i < frames.size(); i++){
-		if(frames[i]->keyval.compare(keyval) == 0){return frames[i];}
-	}
-
-	for(unsigned int i = 0; i < submodels.size(); i++){
-		RGBDFrame * retval = submodels[i]->getFrame(keyval);
-		if(retval != 0){return retval;}
-	}
-	return 0;
+    for(unsigned int i = 0; i < submodels.size(); i++){
+        RGBDFrame * fr = 0;
+        ModelMask * mm = 0;
+        submodels[i]->getRepFrame(fr,mm,keyval);
+        if(fr != 0){
+            frame = fr;
+            modelmask = mm;
+            return;
+        }
+    }
+    return;
 }
-ModelMask * Model::getModelMask(std::string keyval){
+
+
+//RGBDFrame * Model::getFrame(std::string keyval){
 //	if(keyval.length() == 0){return 0;}
-//	for(unsigned int i = 0; i < modelmasks.size(); i++){
-//		if(modelmasks[i]->keyval.compare(keyval) == 0){return modelmasks[i];}
+//	for(unsigned int i = 0; i < frames.size(); i++){
+//		if(frames[i]->keyval.compare(keyval) == 0){return frames[i];}
 //	}
 
 //	for(unsigned int i = 0; i < submodels.size(); i++){
-//		ModelMask * retval = submodels[i]->getModelMask(keyval);
+//		RGBDFrame * retval = submodels[i]->getFrame(keyval);
 //		if(retval != 0){return retval;}
 //	}
-	return 0;
-}
+//	return 0;
+//}
+
 
 }
 

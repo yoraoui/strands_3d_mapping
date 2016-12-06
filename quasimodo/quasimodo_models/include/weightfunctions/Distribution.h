@@ -31,7 +31,7 @@ public:
     virtual double getcdf(double x);
     virtual void setRegularization(double x);
     virtual void print();
-    virtual void getMaxdMind(double & maxd, double & mind, double prob = 0.0001);
+	virtual void getMaxdMind(double & maxd, double & mind, double prob = 0.00001);
 };
 
 }

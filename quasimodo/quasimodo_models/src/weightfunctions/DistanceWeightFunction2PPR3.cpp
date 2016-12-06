@@ -232,6 +232,7 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
 			double next_mind;
 			start_time = getTime();
             dist->getMaxdMind(next_maxd,next_mind,0.0000001);
+			if(dist->debugg_print && iter == 1){exit(0);}
 //			next_maxd *= (maxd-mind)/double(histogram_size);
 //			next_mind *= (maxd-mind)/double(histogram_size);
             if(first){

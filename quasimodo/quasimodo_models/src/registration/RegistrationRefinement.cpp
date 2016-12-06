@@ -83,7 +83,9 @@ void RegistrationRefinement::setDst(CloudData * dst_){
 }
 
 FusionResults RegistrationRefinement::getTransform(Eigen::MatrixXd guess){
-
+if(visualizationLvl > 1){
+	std::cout << guess << std::endl << std::endl;
+}
 	std::vector<double> total_dweight;
 	total_dweight.resize(ycols);
 
@@ -337,7 +339,8 @@ FusionResults RegistrationRefinement::getTransform(Eigen::MatrixXd guess){
 							viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "scloud");
 							viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "dcloud");
 							//printf("pre\n");
-							viewer->spinOnce();
+							if(visualizationLvl == 4){	viewer->spinOnce();}
+							else{						viewer->spin();}
 							//printf("post\n");
 							viewer->removeAllPointClouds();
 						}

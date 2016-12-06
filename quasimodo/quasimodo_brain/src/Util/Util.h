@@ -43,12 +43,56 @@
 #include <soma_llsd_msgs/Segment.h>
 #include <quasimodo_conversions/conversions.h>
 
+#include "ros/ros.h"
+#include "std_msgs/String.h"
+#include "std_msgs/String.h"
+
+#include "eigen_conversions/eigen_msg.h"
+#include <tf_conversions/tf_eigen.h>
+
+#include "quasimodo_msgs/model.h"
+#include "quasimodo_msgs/rgbd_frame.h"
+#include "quasimodo_msgs/model_from_frame.h"
+#include "quasimodo_msgs/index_frame.h"
+#include "quasimodo_msgs/fuse_models.h"
+#include "quasimodo_msgs/get_model.h"
+#include "quasimodo_msgs/retrieval_query_result.h"
+#include "quasimodo_msgs/retrieval_query.h"
+#include "quasimodo_msgs/retrieval_result.h"
+#include "quasimodo_msgs/recognize.h"
+#include "soma_msgs/SOMAObject.h"
+#include "soma_manager/SOMAInsertObjs.h"
+
+#include "modelupdater/ModelUpdater.h"
+#include "core/RGBDFrame.h"
+#include <sensor_msgs/PointCloud2.h>
+#include <string.h>
+
+#include "metaroom_xml_parser/simple_xml_parser.h"
+#include "metaroom_xml_parser/simple_summary_parser.h"
+
+#include <image_transport/image_transport.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <map>
+#include <thread>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <dirent.h>
+#include <errno.h>
+#include <vector>
+#include <string>
+#include <iostream>
+
 namespace quasimodo_brain {
 void guaranteeFolder(std::string filepath);
 
 bool isNumber(std::string str);
 
 bool fileExists(std::string path);
+int getdirs (std::string dir, std::vector<std::string> & files);
 int getdir (std::string dir, std::vector<std::string> & files);
 std::string getPoseString(Eigen::Matrix4d pose);
 

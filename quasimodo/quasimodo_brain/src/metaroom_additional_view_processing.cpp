@@ -93,7 +93,7 @@ typedef semantic_map_load_utilties::DynamicObjectData<PointType> ObjectData;
 using namespace std;
 using namespace semantic_map_load_utilties;
 
-int	minClusterSize = 2000;
+int	minClusterSize = 1000;
 std::string overall_folder = "";
 boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 int visualization_lvl			= 0;
@@ -752,7 +752,6 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
     startTime_store = reglib::getTime();
     reglib::Model * test = quasimodo_brain::getModelFromSegment(*np,soma_id);
     printf("load time: %6.6f\n",reglib::getTime()-startTime_store);
-exit(0);
 	return fullmodel;
 }
 
@@ -761,27 +760,21 @@ int totalcounter = 0;
 
 int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = true){
 	path = quasimodo_brain::replaceAll(path, "//", "/");
-
 	quasimodo_brain::cleanPath(path);
 	int returnval = 0;
 	printf("processMetaroom: %s\n",path.c_str());
 
 	int slash_pos = path.find_last_of("/");
 	std::string sweep_folder = path.substr(0, slash_pos) + "/";
-
 	if ( ! boost::filesystem::exists( path ) ){return 0;}
 
 	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("*object*.xml"));
 	store_old_xml = objectFiles.size() == 0;
 
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
-	//SimpleXMLParser<pcl::PointXYZRGB>::RoomData current_roomData  = parser.loadRoomFromXML(path,std::vector<std::string>());
-	//	if(current_roomData.roomWaypointId.compare("ReceptionDesk") != 0){return 0;}
 
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData current_roomData  = parser.loadRoomFromXML(path,std::vector<std::string>{"RoomIntermediateCloud","IntermediatePosition"});
-	if(current_roomData.vIntermediateRoomClouds.size() != 17){return 0;}
-
-
+	//if(current_roomData.vIntermediateRoomClouds.size() != 17){return 0;}
 
 	reglib::Model * fullmodel = getAVMetaroom(path,true,saveVisuals);
 
@@ -802,6 +795,7 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 		delete fullmodel;
 		return 0;
 	}
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 
 	DynamicObjectXMLParser objectparser(sweep_folder, true);
 
@@ -869,6 +863,7 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 			for(unsigned int j = 0; j < nr_pixels; j++){peoplemask.data[j] = 0;}
 			peopleMasks.push_back(peoplemask);
 		}
+		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 
 		std::vector<std::vector<std::tuple<float, float, float, float> > > detections;
 		detections = metaroom_detections::detections_for_xml(path, "intermediate_deep_detection");
@@ -992,7 +987,7 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 				cloud_cluster->height = 1;
 				cloud_cluster->is_dense = true;
 
-				printf("peopleoverlaps: %i\n",peopleoverlaps);
+				printf("peopleoverlaps: %i cloud_cluster->points.size(): %i\n",peopleoverlaps,cloud_cluster->points.size());
 
 				if(masks.size() > 0){
 					if(peopleoverlaps == 0 && cloud_cluster->points.size() >= minClusterSize){
@@ -1245,7 +1240,6 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 	msg.data = path;
 	for(unsigned int i = 0; i < out_pubs.size(); i++){out_pubs[i].publish(msg);}
 	ros::spinOnce();
-
 	//sendMetaroomToServer(path);
 	return returnval;
 }
@@ -1365,7 +1359,7 @@ std::vector<reglib::Model *> loadModels(std::string path){
 }
 
 void addModelToModelServer(reglib::Model * model){
-	printf("addModelToModelServer\n");
+    printf("addModelToModelServer\n");
 	for(unsigned int i = 0; i < model_pubs.size(); i++){model_pubs[i].publish(quasimodo_brain::getModelMSG(model));}
 	ros::spinOnce();
 }
@@ -1373,7 +1367,6 @@ void addModelToModelServer(reglib::Model * model){
 void sendMetaroomToServer(std::string path){
 	std::vector<reglib::Model *> models = loadModels(path);
 	for(unsigned int i = 0; i < models.size(); i++){
-		printf("%i\n",i);
 		addModelToModelServer(models[i]);
 		models[i]->fullDelete();
 		delete models[i];
@@ -1512,8 +1505,6 @@ bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDyn
 }
 
 bool segmentRaresFiles(std::string path, bool resegment){
-	printf("bool segmentRaresFiles(%s)\n",path.c_str());
-
 	vector<string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<PointType>(path);
 	for (auto sweep_xml : sweep_xmls) {
 		printf("sweep_xml: %s\n",sweep_xml.c_str());
@@ -1525,7 +1516,6 @@ bool segmentRaresFiles(std::string path, bool resegment){
 
 		printf("segoutput %i\n",segoutput.size());
 		if(resegment || segoutput.size() == 0){
-
 			std::ofstream myfile;
 			myfile.open (sweep_folder+"segoutput.txt");
 			myfile << "dummy";
@@ -1534,7 +1524,6 @@ bool segmentRaresFiles(std::string path, bool resegment){
 			CloudPtr dyncloud (new Cloud());
 			processMetaroom(dyncloud,sweep_xml);
 		}
-
 	}
 	return false;
 }
@@ -1549,22 +1538,13 @@ bool testDynamicObjectServiceCallback(std::string path){
 
 void sendRoomToSomaLLSD(std::string path){
 	printf("sendRoomToSomaLLSD(%s)\n",path.c_str());
-
-
 	if ( ! boost::filesystem::exists( path ) ){return;}
-
-
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(path,std::vector<std::string>(),false,false);
 	std::string waypoint = roomData.roomWaypointId;
 	std::string episode_id = roomData.roomLogName;
-
-
-
 	int slash_pos = path.find_last_of("/");
 	std::string sweep_folder = path.substr(0, slash_pos) + "/";
-
-
 	QFile file((sweep_folder+"ViewGroup.xml").c_str());
 	if (!file.exists()){
 		ROS_ERROR("Could not open file %s to load room.",(sweep_folder+"ViewGroup.xml").c_str());
@@ -1811,6 +1791,9 @@ void sendRoomToSomaLLSD(std::string path){
 
 void processSweep(std::string path, std::string savePath){
 
+
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+	exit(0);
 
 	CloudPtr dyncloud (new Cloud());
 	int ret = processMetaroom(dyncloud,path);
@@ -2271,7 +2254,7 @@ int main(int argc, char** argv){
 		else if(std::string(argv[i]).compare("-train") == 0){						inputstate	= 5;}
 		else if(std::string(argv[i]).compare("-posepath") == 0){					inputstate	= 6;}
 		else if(std::string(argv[i]).compare("-loadposes") == 0){					inputstate	= 7;}
-		else if(std::string(argv[i]).compare("-sendModel") == 0){					inputstate	= 8;}
+		else if(std::string(argv[i]).compare("-sendModel") == 0 || std::string(argv[i]).compare("-sendModels") == 0){					inputstate	= 8;}
 		else if(std::string(argv[i]).compare("-sendSub") == 0)	{					inputstate	= 9;}
 		else if(std::string(argv[i]).compare("-sendTopic") == 0){					inputstate	= 10;}
 		else if(std::string(argv[i]).compare("-roomObservationTopic") == 0){		inputstate	= 11;}
@@ -2385,18 +2368,13 @@ int main(int argc, char** argv){
 		}
 	}
 
-
 	roomObservationCallback_pubs = n.advertise<sensor_msgs::PointCloud2>("/quasimodo/segmentation/roomObservation/dynamic_clusters", 1000);
 
 	printf("overall_folder: %s\n",overall_folder.c_str());
-
-//	addSceneToLastMetaroom("ed5f22eb-e6c0-426c-b905-4800780ca596");
-//exit(0);
 	printf("testpaths: %i\n",testpaths.size());
 	for(unsigned int i = 0; i < testpaths.size(); i++){
 		testPath(testpaths[i]);
 	}
-
 
 	for(unsigned int i = 0; i < raresfiles.size(); i++){segmentRaresFiles(		raresfiles[i], raresfiles_resegment[i]);}
 	for(unsigned int i = 0; i < trainMetarooms.size(); i++){		trainMetaroom(			trainMetarooms[i]);}

@@ -17,9 +17,50 @@ double  Distribution::getNoise(){return 1;}
 void    Distribution::setNoise(double x){                                       printf("%s in %s not implemented, stopping\n",__PRETTY_FUNCTION__,__FILE__);exit(0);}
 void    Distribution::getMaxdMind(double & maxd, double & mind, double prob){
     if(debugg_print){printf("%s in %s\n",__PRETTY_FUNCTION__,__FILE__);}
-    double half = prob*0.5;
+	double midval = getval(mean);
+	double half = prob*0.5;
+	double minDist = 0;
+	double minDistScore = getval(mean+minDist)/midval;
+	double maxDist = 1;
+	double maxDistScore = getval(mean+maxDist)/midval;
+
+	double target = 0.0001;//1-prob;
+	//Grow to find interval
+	while(maxDistScore > target){
+		minDist = maxDist;
+		minDistScore = maxDistScore;
+		maxDist *= 2;
+		maxDistScore = getval(mean+maxDist)/midval;
+		if(debugg_print){printf("%f %f %f\n",minDist,maxDist,maxDistScore);}
+	}
+	if(debugg_print){printf("======\n");}
+	//bisect to opt
+	for(unsigned int it = 0; it < 40; it++){
+		double midDist = (minDist+maxDist)*0.5;
+		double midDistScore = getval(mean+midDist)/midval;//getcdf(mean+midDist);
+
+		if(debugg_print){printf("[%7.7f %7.7f] -> %7.7f\n",minDist,maxDist,midDistScore);}
+
+		if(midDistScore < target){
+			if(debugg_print){printf("too big, maxdist = mid\n");}
+			maxDist = midDist;
+			maxDistScore = midDistScore;
+		}else{
+			if(debugg_print){printf("too small, mindist = mid\n");}
+			minDist = midDist;
+			minDistScore = midDistScore;
+		}
+
+		if(fabs(maxDistScore-minDistScore) < 1e-15){break;}
+	}
+	if(debugg_print){printf("======\n");}
+	if(debugg_print){printf("======\n");}
+	if(debugg_print){printf("======\n");}
+
+/*
+	double half = prob*0.5;
     double minDist = 0;
-    double minDistScore = getcdf(mean+minDist);
+	double minDistScore = getcdf(mean+minDist);
     double maxDist = 1;
     double maxDistScore = getcdf(mean+maxDist);
 
@@ -29,13 +70,13 @@ void    Distribution::getMaxdMind(double & maxd, double & mind, double prob){
         minDist = maxDist;
         minDistScore = maxDistScore;
         maxDist *= 2;
-        maxDistScore = getcdf(mean+maxDist);
-    }
+		maxDistScore = getcdf(mean+maxDist);
+	}
 
     //bisect to opt
-    for(unsigned int it = 0; it < 40; it++){
+	for(unsigned int it = 0; it < 40; it++){
         double midDist = (minDist+maxDist)*0.5;
-        double midDistScore = getcdf(mean+midDist);
+		double midDistScore = getcdf(mean+midDist);
         if(midDistScore > target){
             maxDist = midDist;
             maxDistScore = midDistScore;
@@ -45,10 +86,10 @@ void    Distribution::getMaxdMind(double & maxd, double & mind, double prob){
         }
         if((maxDistScore-minDistScore) < 1e-15){break;}
     }
-
+*/
     double midDist = (minDist+maxDist)*0.5;
     mind = mean-midDist;
-    maxd = mean+midDist;
+	maxd = mean+midDist;
 }
 
 }

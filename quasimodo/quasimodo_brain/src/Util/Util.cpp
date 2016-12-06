@@ -28,6 +28,24 @@ bool fileExists(std::string path){
 	}
 }
 
+
+int getdirs (std::string dir, std::vector<std::string> & files){
+    DIR *dp;
+    struct dirent *dirp;
+    if((dp  = opendir(dir.c_str())) == NULL) {
+        cout << "Error(" << errno << ") opening " << dir << endl;
+        return errno;
+    }
+
+    while ((dirp = readdir(dp)) != NULL) {
+        if(dirp->d_type == DT_DIR){
+            files.push_back(std::string(dirp->d_name));
+        }
+    }
+    closedir(dp);
+    return 0;
+}
+
 int getdir (std::string dir, std::vector<std::string> & files){
 	DIR *dp;
 	struct dirent *dirp;

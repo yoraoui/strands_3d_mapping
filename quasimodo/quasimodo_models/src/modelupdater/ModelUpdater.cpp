@@ -19,6 +19,180 @@ using namespace std;
 namespace reglib
 {
 
+int setupPriors(int method,float current_occlusions, float current_overlaps, float bg_occlusions, float bg_overlaps, bool valid,
+				float & prior_moving, float & prior_dynamic, float & prior_static, float & foreground_weight, float & background_weight){
+	float bias = 0.1;
+	float maxdiff = 0.001;
+
+	foreground_weight = 0;
+	background_weight = 0;
+	prior_moving    = 0.0;
+	prior_dynamic   = 0.0;
+	prior_static    = 0.0;
+
+	if(method == 0){
+		if(valid){
+			float p_moving_or_dynamic = std::max((bg_occlusions-current_occlusions)*(1.0f-current_overlaps),0.0f);
+			float p_moving  = 0.5f*p_moving_or_dynamic + current_occlusions;
+			float p_dynamic = 0.5f*p_moving_or_dynamic + std::max((bg_occlusions-current_occlusions)		*   current_overlaps,0.0f);
+			float p_static  = std::max(bg_overlaps-p_moving-p_dynamic,0.0f);
+
+			float leftover = 1.0f-p_moving-p_dynamic-p_static;
+			float notMoving = current_overlaps;
+
+			float p_moving_leftover   =							 0.5*leftover*(1-notMoving); //(1-notMoving)*leftover/4.0;
+			float p_dynamic_leftover  = 0.5*leftover*notMoving + 0.5*leftover*(1-notMoving); //(1-notMoving)*leftover/4.0;
+			float p_static_leftover   = 0.5*leftover*notMoving;
+
+			prior_moving    = p_moving+p_moving_leftover;
+			prior_dynamic   = p_dynamic+p_dynamic_leftover;
+			prior_static    = p_static+p_static_leftover;
+
+			double p_fg = std::min( 1.0f-maxdiff ,std::max( maxdiff , prior_moving+prior_dynamic))-bias;
+			double p_bg = std::min( 1.0f-maxdiff ,std::max( maxdiff , prior_static))+bias;
+			double norm = p_fg + p_bg;
+			p_fg /= norm;
+			p_bg /= norm;
+
+
+			if(norm > 0){
+				foreground_weight = -log(p_fg);
+				background_weight = -log(p_bg);
+			}
+		}
+	}
+
+	if(method == 1){
+		if(valid){
+
+			float minprob = 0.01;
+			float bias = 0.001;
+			float overlap_same_prob = 0.95;
+
+			//Prob behind all bg
+			float prob_behind = 1-(bg_overlaps+bg_occlusions);
+			float leftover = 1-prob_behind;
+
+			float p_moving_or_dynamic = std::max((bg_occlusions-current_occlusions)*(1.0f-current_overlaps),0.0f);
+			float p_moving  = 0.5f*p_moving_or_dynamic + current_occlusions;
+			float p_dynamic = 0.5f*p_moving_or_dynamic + std::max((bg_occlusions-current_occlusions)		*   current_overlaps,0.0f);
+
+			float p_static  = std::max(overlap_same_prob*bg_overlaps-p_moving-p_dynamic,0.0f);
+
+			leftover = 1.0f-p_moving-p_dynamic-p_static;
+			float notMoving = current_overlaps;
+
+			float p_moving_leftover   =	0.5*leftover*(1-notMoving);
+			float p_dynamic_leftover  = 0.5*leftover;
+			float p_static_leftover   = 0.5*leftover*notMoving;
+
+			prior_moving    = (1.0-4.0*minprob-bias)*((1.0-prob_behind)*(p_moving+p_moving_leftover)	+0.25*prob_behind)+		minprob;
+			prior_dynamic   = (1.0-4.0*minprob-bias)*((1.0-prob_behind)*(p_dynamic+p_dynamic_leftover)	+0.25*prob_behind)+		minprob;
+			prior_static    = (1.0-4.0*minprob-bias)*((1.0-prob_behind)*(p_static+p_static_leftover)	+0.50*prob_behind)+ 2.0*minprob + bias;
+
+			foreground_weight = -log(prior_moving+prior_dynamic);
+			background_weight = -log(prior_static);
+		}
+	}
+
+	if(method == 2){
+		if(valid){
+
+			float minprob = 0.1;
+			float bias = 0.00;
+			float overlap_same_prob = 0.7;
+
+			//Prob behind all bg
+			float prob_behind = 1-(bg_overlaps+bg_occlusions);
+			float leftover = 1-prob_behind;
+
+			float p_moving_or_dynamic = std::max((bg_occlusions-current_occlusions)*(1.0f-current_overlaps),0.0f);
+			float p_moving  = 0.5f*p_moving_or_dynamic + current_occlusions;
+			float p_dynamic = 0.5f*p_moving_or_dynamic + std::max((bg_occlusions-current_occlusions)		*   current_overlaps,0.0f);
+
+			float p_static  = std::max(overlap_same_prob*bg_overlaps-p_moving-p_dynamic,0.0f);
+
+			leftover = 1.0f-p_moving-p_dynamic-p_static;
+			float notMoving = current_overlaps;
+
+			float p_moving_leftover   =	0.5*leftover*(1-notMoving);
+			float p_dynamic_leftover  = 0.5*leftover;
+			float p_static_leftover   = 0.5*leftover*notMoving;
+
+			prior_moving    = p_moving+p_moving_leftover;
+			prior_dynamic   = (1.0-prob_behind)*(p_dynamic+p_dynamic_leftover);
+			prior_static    = (1.0-prob_behind)*(p_static+p_static_leftover);
+
+			double norm = prior_moving+prior_dynamic+prior_static;
+			prior_dynamic   += (1.0-norm)*0.5;
+			prior_static    += (1.0-norm)*0.5;
+
+			//			prior_moving    = (1.0-3.0*minprob-bias)*prior_moving  + minprob;
+			//			prior_dynamic   = (1.0-3.0*minprob-bias)*prior_dynamic + minprob;
+			//			prior_static    = (1.0-3.0*minprob-bias)*prior_static  + minprob + bias;
+
+			//			prior_moving    = (1.0-3.0*minprob-bias)*prior_moving  + minprob;
+			//			prior_dynamic   = (1.0-3.0*minprob-bias)*prior_dynamic + minprob;
+			//			prior_static    = (1.0-3.0*minprob-bias)*prior_static  + minprob + bias;
+
+			double prob_fg = prior_dynamic;
+			double prob_bg = prior_moving+prior_static;
+			//double norm = prob_fg+prob_bg;
+
+			foreground_weight = -log((1.0-2.0*minprob)*prob_fg+minprob);//+norm*0.5);
+			background_weight = -log((1.0-2.0*minprob)*prob_bg+minprob);//+norm*0.5);
+
+			//			prior_moving    += norm/3.0;
+			//			prior_dynamic   += norm/3.0;
+			//			prior_static    += norm/3.0;
+		}
+	}
+
+	if(method == 3){
+		if(valid){
+			float minprob = 0.01;
+			float bias = 0.01;
+			float overlap_same_prob = 0.75;
+
+			//Prob behind all bg
+			float prob_behind = 1-(bg_overlaps+bg_occlusions);
+
+			float p_moving_or_dynamic = std::max((bg_occlusions-current_occlusions)*(1.0f-current_overlaps),0.0f);
+			float p_moving  = 0.5f*p_moving_or_dynamic + current_occlusions;
+			float p_dynamic = 0.5f*p_moving_or_dynamic + std::max((bg_occlusions-current_occlusions)		*   current_overlaps,0.0f);
+
+			float p_static  = std::max(overlap_same_prob*bg_overlaps-p_moving-p_dynamic,0.0f);
+
+			float leftover				= 1.0f-p_moving-p_dynamic-p_static;
+			float notMoving				= 1.0f-current_occlusions;//current_overlaps;
+
+			float p_moving_leftover   =	0.5*leftover*(1-notMoving);
+			float p_dynamic_leftover  = 0.5*leftover;
+			float p_static_leftover   = 0.5*leftover*notMoving;
+
+			prior_moving  = p_moving+p_moving_leftover;
+			prior_dynamic = (1.0-prob_behind)*(p_dynamic+p_dynamic_leftover);
+			prior_static  = (1.0-prob_behind)*(p_static+p_static_leftover);
+
+			float p_dynamic_or_static = 1.0f-p_moving-p_dynamic-p_static;
+			prior_dynamic += 0.5*p_dynamic_or_static;
+			prior_static  += 0.5*p_dynamic_or_static;
+
+			foreground_weight = -log((1.0-2.0*minprob-bias)*(prior_moving+prior_dynamic) + minprob		 );
+			background_weight = -log((1.0-2.0*minprob-bias)* prior_static				 + minprob + bias);
+
+			prior_moving  = (1.0-3.0*minprob-bias)* prior_moving	+ minprob;
+			prior_dynamic = (1.0-3.0*minprob-bias)* prior_dynamic	+ minprob;
+			prior_static  = (1.0-3.0*minprob-bias)* prior_static	+ minprob + bias;
+		}else{
+			prior_static = prior_dynamic = prior_moving = 1.0/3.0;
+			foreground_weight = -log(0.5);
+			background_weight = -log(0.5);
+		}
+	}
+	return 0;
+}
+
 std::vector<int> ModelUpdater::getPartition(std::vector< std::vector< float > > & scores, int dims, int nr_todo, double timelimit){return partition_graph(scores);}
 
 ModelUpdater::ModelUpdater(){
@@ -216,9 +390,9 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 					dcloud->points[dst_ind].g = dst_rgbdata[3*dst_ind+1];
 					dcloud->points[dst_ind].b = dst_rgbdata[3*dst_ind+0];
 					if(dst_maskdata[dst_ind] == 255){
-						dcloud->points[dst_ind].r = 255;
-						dcloud->points[dst_ind].g = 000;
-						dcloud->points[dst_ind].b = 255;
+						dcloud->points[dst_ind].r = 0;
+						dcloud->points[dst_ind].g = 255;
+						dcloud->points[dst_ind].b = 0;
 					}
 				}
 			}
@@ -244,17 +418,17 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 			p.normal_x = sp.normal(0);
 			p.normal_y = sp.normal(1);
 			p.normal_z = sp.normal(2);
-			p.r = sp.feature(0);
-			p.g = sp.feature(1);
-			p.b = sp.feature(2);
+			p.r = 0;//sp.feature(0);
+			p.g = 0;//sp.feature(1);
+			p.b = 255;//sp.feature(2);
 
 			scloud->points.push_back(p);
 		}
 
-		//		viewer->removeAllPointClouds();
-		//		viewer->addPointCloud<pcl::PointXYZRGBNormal> (scloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(scloud), "scloud");
-		//		viewer->addPointCloud<pcl::PointXYZRGBNormal> (dcloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dcloud), "dcloud");
-		//		viewer->spin();
+				viewer->removeAllPointClouds();
+				viewer->addPointCloud<pcl::PointXYZRGBNormal> (scloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(scloud), "scloud");
+				viewer->addPointCloud<pcl::PointXYZRGBNormal> (dcloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dcloud), "dcloud");
+				viewer->spin();
 
 		viewer->removeAllPointClouds();
 		viewer->removeAllShapes();
@@ -317,7 +491,295 @@ OcclusionScore ModelUpdater::computeOcclusionScore(Model * model1, Model * model
 	return ocs;
 }
 
+void testgetDynamicWeights(bool store_distance, std::vector<double> & dvec, std::vector<double> & nvec, DistanceWeightFunction2 * dfunc, DistanceWeightFunction2 * nfunc, Matrix4d p, std::vector<superpoint> & sp, double * overlaps, double * occlusions, double * notocclusions, RGBDFrame * frame, bool debugg = true){
+
+	double startTime = getTime();
+	unsigned char * detdata = (unsigned char*)(frame->det_dilate.data);
+//	unsigned char * dst_detdata = (unsigned char*)(frame2->det_dilate.data);
+
+	std::vector<superpoint> framesp = frame->getSuperPoints();
+	std::vector<ReprojectionResult> rr_vec	= frame->getReprojections(sp,p,0,false);
+	unsigned long nr_rr = rr_vec.size();
+
+//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr src_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dst_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+//	if(debugg){
+//		src_cloud = getPointCloudFromVector(sp,3,255,0,255);
+//		dst_cloud = getPointCloudFromVector(framesp,3,0,0,255);
+
+//		boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("Modelserver Viewer"));
+//		viewer->addCoordinateSystem(0.1);
+//		viewer->setBackgroundColor(0.0,0.0,0.0);
+//		viewer->removeAllPointClouds();
+//		viewer->addPointCloud<pcl::PointXYZRGBNormal> (src_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(src_cloud), "scloud");
+//		viewer->addPointCloud<pcl::PointXYZRGBNormal> (dst_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dst_cloud), "dcloud");
+//		viewer->spin();
+//	}
+
+	double threshold = 0;
+	if(!store_distance){
+		threshold = pow(20.0*dfunc->getNoise(),2);
+	}
+
+	int totsum = 0;
+	for(unsigned long ind = 0; ind < nr_rr;ind++){
+		ReprojectionResult & rr = rr_vec[ind];
+		unsigned int src_ind = rr.src_ind;
+		superpoint & src_p = sp[src_ind];
+		if(src_p.point(2) < 0.0){continue;}
+
+		totsum++;
+		unsigned int dst_ind = rr.dst_ind;
+		superpoint & dst_p = framesp[dst_ind];
+		double src_variance = 1.0/src_p.point_information;
+		double dst_variance = 1.0/dst_p.point_information;
+		double total_variance = src_variance+dst_variance;
+		double total_stdiv = sqrt(total_variance);
+		double d = rr.residualZ/total_stdiv;
+		double surface_angle = rr.angle;
+		if(fabs(d) < 0.000001){continue;}
+		if(store_distance){
+			dvec.push_back(d);
+			nvec.push_back(1-surface_angle);
+		}else{
+			double dE2 = rr.residualE2/total_stdiv;
+			double p_overlap_angle = nfunc->getProb(1-surface_angle);
+			double p_overlap = dfunc->getProb(d);
+			double p_occlusion = dfunc->getProbInfront(d);//std::max(1 - 1e-6,std::max(1e-6,dfunc->getProbInfront(d)));
+			double p_behind = 1-p_overlap-p_occlusion;
+
+			p_overlap *= p_overlap_angle;
+
+			if(detdata[dst_ind] != 0){continue;}
+
+			double olp = overlaps[src_ind];
+			double nolp = 1-olp;
+			nolp *= (1-p_overlap);
+			overlaps[src_ind] = std::min(0.999999999,1-nolp);
+			occlusions[src_ind] += p_occlusion;//std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
+			notocclusions[src_ind]++;
+		}
+	}
+
+}
+
+
 vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Model *> models, vector<Matrix4d> rps, int step, bool debugg){
+	printf("computeOcclusionScore\n");
+	std::vector<double> dvec;
+	std::vector<double> nvec;
+	DistanceWeightFunction2 * dfunc;
+	DistanceWeightFunction2 * nfunc;
+
+	double startTime = getTime();
+
+	int tot_nr_pixels = 0;
+	std::vector<int> offsets;
+
+	for(unsigned int i = 0; i < models.size(); i++){
+		offsets.push_back(tot_nr_pixels);
+		unsigned int nr_pixels = models[i]->points.size();
+		tot_nr_pixels += nr_pixels;
+	}
+
+
+	for(unsigned int i = 0; i < models.size(); i++){
+		Model * model1 = models[i];
+		for(unsigned int j = 0; j < models.size(); j++){
+			if(i == j){continue;}
+			Model * model2 = models[j];
+			for(unsigned int k = 0; k < model2->relativeposes.size(); k++){
+				Eigen::Matrix4d p = model2->relativeposes[k].inverse()*(rps[i].inverse() * rps[j]);
+				testgetDynamicWeights(true,dvec,nvec,dfunc,nfunc,p, model1->points,0,0,0,model2->frames[k]);
+			}
+		}
+	}
+
+	double dstdval = 0;
+	for(unsigned int i = 0; i < dvec.size(); i++){dstdval += dvec[i]*dvec[i];}
+	dstdval = sqrt(dstdval/double(dvec.size()-1));
+
+	GeneralizedGaussianDistribution * dggdnfunc	= new GeneralizedGaussianDistribution(true,true,false,true,true);
+	dggdnfunc->nr_refineiters					= 4;
+	dggdnfunc->debugg_print						= true;
+	DistanceWeightFunction2PPR3 * dfuncTMP		= new DistanceWeightFunction2PPR3(dggdnfunc);
+	dfunc = dfuncTMP;
+	dfuncTMP->startreg				= 0.001;
+	dfuncTMP->max_under_mean		= false;
+	dfuncTMP->debugg_print			= true;
+	dfuncTMP->bidir					= true;
+	dfuncTMP->zeromean				= false;
+	dfuncTMP->maxp					= 0.9999;
+	dfuncTMP->maxd					= dstdval*10;
+	dfuncTMP->histogram_size		= 1000;
+	dfuncTMP->fixed_histogram_size	= false;
+	dfuncTMP->startmaxd				= dfuncTMP->maxd;
+	dfuncTMP->starthistogram_size	= dfuncTMP->histogram_size;
+	dfuncTMP->blurval				= 1.0;
+	dfuncTMP->maxnoise				= dstdval;
+	dfuncTMP->compute_infront		= true;
+	dfuncTMP->ggd					= true;
+	dfuncTMP->reset();
+
+	dfunc->computeModel(dvec);
+
+	GeneralizedGaussianDistribution * ggdnfunc	= new GeneralizedGaussianDistribution(true,true);
+	ggdnfunc->nr_refineiters					= 4;
+	DistanceWeightFunction2PPR3 * nfuncTMP		= new DistanceWeightFunction2PPR3(ggdnfunc);
+	nfunc = nfuncTMP;
+	nfuncTMP->startreg				= 0.001;
+	nfuncTMP->debugg_print			= true;
+	nfuncTMP->bidir					= false;
+	nfuncTMP->zeromean				= true;
+	nfuncTMP->maxp					= 0.9999;
+	nfuncTMP->maxd					= 1.0;
+	nfuncTMP->histogram_size		= 1000;
+	nfuncTMP->fixed_histogram_size	= true;
+	nfuncTMP->startmaxd				= nfuncTMP->maxd;
+	nfuncTMP->starthistogram_size	= nfuncTMP->histogram_size;
+	nfuncTMP->blurval				= 2.0;
+	nfuncTMP->stdval2				= 1;
+	nfuncTMP->maxnoise				= 1;
+	nfuncTMP->ggd					= true;
+	nfuncTMP->reset();
+	nfunc->computeModel(nvec);
+
+	for(unsigned int i = 0; i < models.size(); i++){
+		Model * model1 = models[i];
+		float * priors            = new float[3*model1->points.size()];
+		float * prior_weights     = new float[2*model1->points.size()];
+		bool * valids             = new bool[model1->points.size()];
+
+		unsigned int nr_pixels = model1->points.size();
+		double * current_overlaps		= new double[nr_pixels];
+		double * current_occlusions		= new double[nr_pixels];
+		double * current_notocclusions	= new double[nr_pixels];
+
+		double * bg_overlaps			= new double[nr_pixels];
+		double * bg_occlusions			= new double[nr_pixels];
+		double * bg_notocclusions		= new double[nr_pixels];
+
+		for(unsigned int m = 0; m < nr_pixels; m++){
+			bg_overlaps[m] = 0;
+			bg_occlusions[m] = 0.0;
+			bg_notocclusions[m] = 0.0;
+		}
+
+		for(unsigned int k = 0; k < model1->relativeposes.size(); k++){
+			Eigen::Matrix4d p = model1->relativeposes[k].inverse();
+			testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,bg_overlaps, bg_occlusions, bg_notocclusions,model1->frames[k]);
+		}
+
+		for(unsigned int m = 0; m < nr_pixels; m++){
+			bg_occlusions[m]		= std::min(0.99999,bg_occlusions[m]/std::max(1.0,bg_notocclusions[m]));
+		}
+
+
+		for(unsigned int j = 0; j < models.size(); j++){
+			if(i == j){continue;}
+
+			for(unsigned int m = 0; m < nr_pixels; m++){
+				current_overlaps[m] = 0;
+				current_occlusions[m] = 0.0;
+				current_notocclusions[m] = 0.0;
+			}
+
+			Model * model2 = models[j];
+			//For all frames
+			for(unsigned int k = 0; k < model2->relativeposes.size(); k++){
+				printf("%i %i %i of %i %i %i\n",i,j,k,models.size(),models.size(),model2->relativeposes.size());
+				Eigen::Matrix4d p = model2->relativeposes[k].inverse()*(rps[i].inverse() * rps[j]);
+				testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,current_overlaps, current_occlusions, current_notocclusions,model2->frames[k]);
+			}
+
+			for(unsigned int m = 0; m < nr_pixels; m++){
+				current_occlusions[m]	= std::min(0.99999,current_occlusions[m]/std::max(1.0,current_notocclusions[m]));
+			}
+		}
+
+		for(unsigned int m = 0; m < nr_pixels; m++){
+			current_occlusions[m]	= std::min(0.99999,current_occlusions[m]/std::max(1.0,current_notocclusions[m]));
+		}
+
+		int offset = 0;
+		double sum_moving = 0;
+		double sum_dynamic = 0;
+		double sum_static = 0;
+		for(unsigned int ind = 0; ind < nr_pixels; ind++){
+		setupPriors(3,
+					current_occlusions[ind],current_overlaps[ind],bg_occlusions[ind],bg_overlaps[ind],true,
+					priors[3*(offset+ind)+0], priors[3*(offset+ind)+1],priors[3*(offset+ind)+2],
+					prior_weights[2*(offset+ind)+0], prior_weights[2*(offset+ind)+1]);
+
+			sum_moving += priors[3*(offset+ind)+0];
+			sum_dynamic += priors[3*(offset+ind)+1];
+			sum_static += priors[3*(offset+ind)+2];
+		}
+
+		printf("moving: %f dynamic: %f static: %f\n",sum_moving,sum_dynamic,sum_static);
+
+
+		//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr src_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+		//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dst_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = getPointCloudFromVector(model1->points);
+		printf("cld: %i\n",cld->points.size());
+		printf("nr_pixels: %i\n",nr_pixels);
+		for(unsigned int ind = 0; ind < nr_pixels; ind++){
+			cld->points[ind].r = 255*priors[3*(offset+ind)+0];
+			cld->points[ind].g = 255*priors[3*(offset+ind)+1];
+			cld->points[ind].b = 255*priors[3*(offset+ind)+2];
+		}
+//		boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("Modelserver Viewer"));
+//		viewer->addCoordinateSystem(0.1);
+		viewer->setBackgroundColor(1.0,1.0,1.0);
+		viewer->removeAllPointClouds();
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cld), "cld");
+		viewer->spin();
+
+		printf("current || overlaps: green  occlusions: red\n");
+		for(unsigned int ind = 0; ind < nr_pixels; ind++){
+			cld->points[ind].r = 255*current_occlusions[ind];
+			cld->points[ind].g = 255*current_overlaps[ind];
+			cld->points[ind].b = 0;
+		}
+//		boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("Modelserver Viewer"));
+//		viewer->addCoordinateSystem(0.1);
+
+		viewer->removeAllPointClouds();
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cld), "cld");
+		viewer->spin();
+
+		printf("background || overlaps: green  occlusions: red\n");
+		for(unsigned int ind = 0; ind < nr_pixels; ind++){
+			cld->points[ind].r = 255*bg_occlusions[ind];
+			cld->points[ind].g = 255*bg_overlaps[ind];
+			cld->points[ind].b = 0;
+		}
+//		boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("Modelserver Viewer"));
+//		viewer->addCoordinateSystem(0.1);
+
+		viewer->removeAllPointClouds();
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cld), "cld");
+		viewer->spin();
+
+		delete[] current_overlaps;
+		delete[] current_occlusions;
+		delete[] current_notocclusions;
+
+		delete[] bg_overlaps;
+		delete[] bg_occlusions;
+		delete[] bg_notocclusions;
+
+		delete[] priors;
+		delete[] prior_weights;
+		delete[] valids;
+	}
+
+exit(0);
+
+
+
 	unsigned int nr_models = models.size();
 	vector<vector < OcclusionScore > > occlusionScores;
 	occlusionScores.resize(nr_models);
@@ -325,7 +787,6 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 
 	for(unsigned int i = 0; i < nr_models; i++){
 		for(unsigned int j = i+1; j < nr_models; j++){
-			//printf("%5.5f %5.5f\n",double(i+1)/double(nr_models),double(j+1)/double(nr_models));
 			Eigen::Matrix4d relative_pose = rps[i].inverse() * rps[j];
 			occlusionScores[i][j] = computeOcclusionScore(models[i],models[j], relative_pose, step, debugg);
 			occlusionScores[j][i] = occlusionScores[i][j];
@@ -458,7 +919,7 @@ void ModelUpdater::makeInitialSetup(){
 	massreg->visualizationLvl = show_init_lvl;
 
 	massreg->maskstep = 1;//std::max(1,int(0.25*double(model->frames.size())));
-	massreg->nomaskstep = std::max(5,int(0.5+0.3*double(model->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
+	massreg->nomaskstep = std::max(15,int(0.5+0.3*double(model->frames.size())));//std::max(1,int(0.5+1.0*double(model->frames.size())));
 	massreg->nomask = true;
 	massreg->stopval = 0.0005;
 
@@ -2198,179 +2659,7 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 	}
 }
 
-int setupPriors(int method,float current_occlusions, float current_overlaps, float bg_occlusions, float bg_overlaps, bool valid,
-				float & prior_moving, float & prior_dynamic, float & prior_static, float & foreground_weight, float & background_weight){
-	float bias = 0.1;
-	float maxdiff = 0.001;
 
-	foreground_weight = 0;
-	background_weight = 0;
-	prior_moving    = 0.0;
-	prior_dynamic   = 0.0;
-	prior_static    = 0.0;
-
-	if(method == 0){
-		if(valid){
-			float p_moving_or_dynamic = std::max((bg_occlusions-current_occlusions)*(1.0f-current_overlaps),0.0f);
-			float p_moving  = 0.5f*p_moving_or_dynamic + current_occlusions;
-			float p_dynamic = 0.5f*p_moving_or_dynamic + std::max((bg_occlusions-current_occlusions)		*   current_overlaps,0.0f);
-			float p_static  = std::max(bg_overlaps-p_moving-p_dynamic,0.0f);
-
-			float leftover = 1.0f-p_moving-p_dynamic-p_static;
-			float notMoving = current_overlaps;
-
-			float p_moving_leftover   =							 0.5*leftover*(1-notMoving); //(1-notMoving)*leftover/4.0;
-			float p_dynamic_leftover  = 0.5*leftover*notMoving + 0.5*leftover*(1-notMoving); //(1-notMoving)*leftover/4.0;
-			float p_static_leftover   = 0.5*leftover*notMoving;
-
-			prior_moving    = p_moving+p_moving_leftover;
-			prior_dynamic   = p_dynamic+p_dynamic_leftover;
-			prior_static    = p_static+p_static_leftover;
-
-			double p_fg = std::min( 1.0f-maxdiff ,std::max( maxdiff , prior_moving+prior_dynamic))-bias;
-			double p_bg = std::min( 1.0f-maxdiff ,std::max( maxdiff , prior_static))+bias;
-			double norm = p_fg + p_bg;
-			p_fg /= norm;
-			p_bg /= norm;
-
-
-			if(norm > 0){
-				foreground_weight = -log(p_fg);
-				background_weight = -log(p_bg);
-			}
-		}
-	}
-
-	if(method == 1){
-		if(valid){
-
-			float minprob = 0.01;
-			float bias = 0.001;
-			float overlap_same_prob = 0.95;
-
-			//Prob behind all bg
-			float prob_behind = 1-(bg_overlaps+bg_occlusions);
-			float leftover = 1-prob_behind;
-
-			float p_moving_or_dynamic = std::max((bg_occlusions-current_occlusions)*(1.0f-current_overlaps),0.0f);
-			float p_moving  = 0.5f*p_moving_or_dynamic + current_occlusions;
-			float p_dynamic = 0.5f*p_moving_or_dynamic + std::max((bg_occlusions-current_occlusions)		*   current_overlaps,0.0f);
-
-			float p_static  = std::max(overlap_same_prob*bg_overlaps-p_moving-p_dynamic,0.0f);
-
-			leftover = 1.0f-p_moving-p_dynamic-p_static;
-			float notMoving = current_overlaps;
-
-			float p_moving_leftover   =	0.5*leftover*(1-notMoving);
-			float p_dynamic_leftover  = 0.5*leftover;
-			float p_static_leftover   = 0.5*leftover*notMoving;
-
-			prior_moving    = (1.0-4.0*minprob-bias)*((1.0-prob_behind)*(p_moving+p_moving_leftover)	+0.25*prob_behind)+		minprob;
-			prior_dynamic   = (1.0-4.0*minprob-bias)*((1.0-prob_behind)*(p_dynamic+p_dynamic_leftover)	+0.25*prob_behind)+		minprob;
-			prior_static    = (1.0-4.0*minprob-bias)*((1.0-prob_behind)*(p_static+p_static_leftover)	+0.50*prob_behind)+ 2.0*minprob + bias;
-
-			foreground_weight = -log(prior_moving+prior_dynamic);
-			background_weight = -log(prior_static);
-		}
-	}
-
-	if(method == 2){
-		if(valid){
-
-			float minprob = 0.1;
-			float bias = 0.00;
-			float overlap_same_prob = 0.7;
-
-			//Prob behind all bg
-			float prob_behind = 1-(bg_overlaps+bg_occlusions);
-			float leftover = 1-prob_behind;
-
-			float p_moving_or_dynamic = std::max((bg_occlusions-current_occlusions)*(1.0f-current_overlaps),0.0f);
-			float p_moving  = 0.5f*p_moving_or_dynamic + current_occlusions;
-			float p_dynamic = 0.5f*p_moving_or_dynamic + std::max((bg_occlusions-current_occlusions)		*   current_overlaps,0.0f);
-
-			float p_static  = std::max(overlap_same_prob*bg_overlaps-p_moving-p_dynamic,0.0f);
-
-			leftover = 1.0f-p_moving-p_dynamic-p_static;
-			float notMoving = current_overlaps;
-
-			float p_moving_leftover   =	0.5*leftover*(1-notMoving);
-			float p_dynamic_leftover  = 0.5*leftover;
-			float p_static_leftover   = 0.5*leftover*notMoving;
-
-			prior_moving    = p_moving+p_moving_leftover;
-			prior_dynamic   = (1.0-prob_behind)*(p_dynamic+p_dynamic_leftover);
-			prior_static    = (1.0-prob_behind)*(p_static+p_static_leftover);
-
-			double norm = prior_moving+prior_dynamic+prior_static;
-			prior_dynamic   += (1.0-norm)*0.5;
-			prior_static    += (1.0-norm)*0.5;
-
-			//			prior_moving    = (1.0-3.0*minprob-bias)*prior_moving  + minprob;
-			//			prior_dynamic   = (1.0-3.0*minprob-bias)*prior_dynamic + minprob;
-			//			prior_static    = (1.0-3.0*minprob-bias)*prior_static  + minprob + bias;
-
-			//			prior_moving    = (1.0-3.0*minprob-bias)*prior_moving  + minprob;
-			//			prior_dynamic   = (1.0-3.0*minprob-bias)*prior_dynamic + minprob;
-			//			prior_static    = (1.0-3.0*minprob-bias)*prior_static  + minprob + bias;
-
-			double prob_fg = prior_dynamic;
-			double prob_bg = prior_moving+prior_static;
-			//double norm = prob_fg+prob_bg;
-
-			foreground_weight = -log((1.0-2.0*minprob)*prob_fg+minprob);//+norm*0.5);
-			background_weight = -log((1.0-2.0*minprob)*prob_bg+minprob);//+norm*0.5);
-
-			//			prior_moving    += norm/3.0;
-			//			prior_dynamic   += norm/3.0;
-			//			prior_static    += norm/3.0;
-		}
-	}
-
-	if(method == 3){
-		if(valid){
-			float minprob = 0.01;
-			float bias = 0.01;
-			float overlap_same_prob = 0.75;
-
-			//Prob behind all bg
-			float prob_behind = 1-(bg_overlaps+bg_occlusions);
-
-			float p_moving_or_dynamic = std::max((bg_occlusions-current_occlusions)*(1.0f-current_overlaps),0.0f);
-			float p_moving  = 0.5f*p_moving_or_dynamic + current_occlusions;
-			float p_dynamic = 0.5f*p_moving_or_dynamic + std::max((bg_occlusions-current_occlusions)		*   current_overlaps,0.0f);
-
-			float p_static  = std::max(overlap_same_prob*bg_overlaps-p_moving-p_dynamic,0.0f);
-
-			float leftover				= 1.0f-p_moving-p_dynamic-p_static;
-			float notMoving				= 1.0f-current_occlusions;//current_overlaps;
-
-			float p_moving_leftover   =	0.5*leftover*(1-notMoving);
-			float p_dynamic_leftover  = 0.5*leftover;
-			float p_static_leftover   = 0.5*leftover*notMoving;
-
-			prior_moving  = p_moving+p_moving_leftover;
-			prior_dynamic = (1.0-prob_behind)*(p_dynamic+p_dynamic_leftover);
-			prior_static  = (1.0-prob_behind)*(p_static+p_static_leftover);
-
-			float p_dynamic_or_static = 1.0f-p_moving-p_dynamic-p_static;
-			prior_dynamic += 0.5*p_dynamic_or_static;
-			prior_static  += 0.5*p_dynamic_or_static;
-
-			foreground_weight = -log((1.0-2.0*minprob-bias)*(prior_moving+prior_dynamic) + minprob		 );
-			background_weight = -log((1.0-2.0*minprob-bias)* prior_static				 + minprob + bias);
-
-			prior_moving  = (1.0-3.0*minprob-bias)* prior_moving	+ minprob;
-			prior_dynamic = (1.0-3.0*minprob-bias)* prior_dynamic	+ minprob;
-			prior_static  = (1.0-3.0*minprob-bias)* prior_static	+ minprob + bias;
-		}else{
-			prior_static = prior_dynamic = prior_moving = 1.0/3.0;
-			foreground_weight = -log(0.5);
-			background_weight = -log(0.5);
-		}
-	}
-	return 0;
-}
 
 void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, std::vector<cv::Mat> & dynmask, vector<Matrix4d> bgcp, vector<RGBDFrame*> bgcf, vector<Matrix4d> poses, vector<RGBDFrame*> frames, bool debugg, std::string savePath){
 	static int segment_run_counter = -1;
@@ -2405,8 +2694,8 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 	std::vector<double> dvec;
 	std::vector<double> nvec;
-	DistanceWeightFunction2 * dfunc;
-	DistanceWeightFunction2 * nfunc;
+	DistanceWeightFunction2 * dfunc = 0;
+	DistanceWeightFunction2 * nfunc = 0;
 
 	double startTime = getTime();
 
@@ -2581,7 +2870,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 				valids[offset+ind] = detdata[ind] == 0 && normalsdata[3*ind] != 2;
 				setupPriors(3,
-						current_occlusions[ind],current_overlaps[ind],bg_occlusions[ind],bg_overlaps[ind],valids[offset+ind],
+							current_occlusions[ind],current_overlaps[ind],bg_occlusions[ind],bg_overlaps[ind],valids[offset+ind],
 						priors[3*(offset+ind)+0], priors[3*(offset+ind)+1],priors[3*(offset+ind)+2],
 						prior_weights[2*(offset+ind)+0], prior_weights[2*(offset+ind)+1]);
 
@@ -2591,7 +2880,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				current_point++;
 			}
 		}
-
+		printf("seg:%i\n",__LINE__);
 		double start_inf = getTime();
 		gc::Graph<double,double,double> * g = new gc::Graph<double,double,double>(nr_pixels,2*nr_pixels);
 		for(unsigned long ind = 0; ind < nr_pixels;ind++){
@@ -2600,6 +2889,8 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			double weightBG = prior_weights[2*(offset+ind)+1];
 			g -> add_tweights( ind, weightFG, weightBG );
 		}
+
+		printf("seg:%i\n",__LINE__);
 
 		for(unsigned int w = 0; w < width;w++){
 			for(unsigned int h = 0; h < height;h++){
@@ -2622,6 +2913,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			}
 		}
 
+		printf("seg:%i\n",__LINE__);
 		g -> maxflow();
 		for(unsigned long ind = 0; ind < nr_pixels;ind++){labels[offset+ind] = g->what_segment(ind);}
 
@@ -3040,13 +3332,13 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				sr.scores_dynamic.push_back(score1);
 				sr.total_dynamic.push_back(totsum);
 			}else{
-				if(score0 > 10000){
+				if(score0/100.0 >= 100){
 					labelID.back() = --nr_obj_mov;
 					if(debugg != 0){printf("Moving: %f -> %f\n",score0,totsum);}
 					sr.component_moving.push_back(todo);
 					sr.scores_moving.push_back(score0);
 					sr.total_moving.push_back(totsum);
-				}
+				}\
 			}
 		}
 	}

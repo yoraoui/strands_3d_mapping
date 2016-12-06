@@ -1,49 +1,5 @@
-#include "ros/ros.h"
-#include "std_msgs/String.h"
-#include "std_msgs/String.h"
-
-#include "eigen_conversions/eigen_msg.h"
-#include "tf_conversions/tf_eigen.h"
-#include <tf_conversions/tf_eigen.h>
-
-#include "quasimodo_msgs/model.h"
-#include "quasimodo_msgs/rgbd_frame.h"
-#include "quasimodo_msgs/model_from_frame.h"
-#include "quasimodo_msgs/index_frame.h"
-#include "quasimodo_msgs/fuse_models.h"
-#include "quasimodo_msgs/get_model.h"
-#include "quasimodo_msgs/retrieval_query_result.h"
-#include "quasimodo_msgs/retrieval_query.h"
-#include "quasimodo_msgs/retrieval_result.h"
-#include "quasimodo_msgs/recognize.h"
-#include "soma_msgs/SOMAObject.h"
-
-#include "soma_manager/SOMAInsertObjs.h"
-
-#include "modelupdater/ModelUpdater.h"
-#include "core/RGBDFrame.h"
-#include <sensor_msgs/PointCloud2.h>
-#include <string.h>
-
-#include "metaroom_xml_parser/simple_xml_parser.h"
-#include "metaroom_xml_parser/simple_summary_parser.h"
-
-#include <image_transport/image_transport.h>
-#include <cv_bridge/cv_bridge.h>
-#include <sensor_msgs/image_encodings.h>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <map>
 #include "ModelDatabase/ModelDatabase.h"
-#include <thread>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <dirent.h>
-#include <errno.h>
-#include <vector>
-#include <string>
-#include <iostream>
-
+#include "ModelStorage/ModelStorage.h"
 #include "Util/Util.h"
 
 bool addToDB(ModelDatabase * database, reglib::Model * model, bool add);
@@ -64,7 +20,6 @@ bool show_scoring = false;//fuse scoring show
 bool show_search = false;
 bool show_modelbuild = false;
 
-
 std::map<int , reglib::Camera *>		cameras;
 std::map<int , reglib::RGBDFrame *>		frames;
 
@@ -74,6 +29,7 @@ std::map<int , reglib::ModelUpdater *>	updaters;
 std::set<std::string>					framekeys;
 reglib::RegistrationRandom *			registration;
 ModelDatabase * 						modeldatabase;
+ModelStorageFile *                      storage ;
 ros::NodeHandle *						nh;
 std::string								savepath = ".";
 
@@ -96,15 +52,10 @@ ros::ServiceClient insert_client;
 double occlusion_penalty	= 10;
 double massreg_timeout		= 120;
 bool run_search				= false;
-double search_timeout		= 30;
 int sweepid_counter			= 0;
 int current_model_update	= 0;
 
 bool myfunction (reglib::Model * i,reglib::Model * j) { return (i->frames.size() + i->submodels.size())  > (j->frames.size() + j->submodels.size()); }
-
-quasimodo_msgs::retrieval_result sresult;
-bool new_search_result = false;
-double last_search_result_time = 0;
 
 void publishDatabasePCD(bool original_colors = false){
 	std::vector<reglib::Model *> results;
@@ -156,38 +107,6 @@ void publish_history(std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> history
 	}
 }
 
-void dumpDatabase(std::string path = "."){
-	printf("%i\n",__LINE__);
-	char command [1024];
-	sprintf(command,"rm -r -f %s/database_tmp",path.c_str());
-	int r = system(command);
-	printf("%i\n",__LINE__);
-
-	sprintf(command,"mkdir %s/database_tmp",path.c_str());
-	r = system(command);
-	printf("%i\n",__LINE__);
-
-	for(unsigned int m = 0; m < modeldatabase->models.size(); m++){
-		printf("%i\n",__LINE__);
-		char buf [1024];
-		sprintf(buf,"%s/database_tmp/model_%08i",path.c_str(),m);
-		sprintf(command,"mkdir -p %s",buf);
-		printf("%i\n",__LINE__);
-		r = system(command);
-		printf("%i\n",__LINE__);
-		modeldatabase->models[m]->save(std::string(buf));
-		printf("%i\n",__LINE__);
-	}
-	//exit(0);
-}
-
-void retrievalCallback(const quasimodo_msgs::retrieval_query_result & qr){
-    printf("retrievalCallback\n");
-    sresult = qr.result;
-    new_search_result = true;
-    last_search_result_time = getTime();
-}
-
 void showModels(std::vector<reglib::Model *> mods){
 	float maxx = 0;
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr	conccloud	(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -236,14 +155,12 @@ void showModels(std::vector<reglib::Model *> mods){
 
 int savecounter = 0;
 void show_sorted(){
-	if(!show_db && !save_db ){return;}
-	//if(!visualization){return;}
+    if(!show_db && !save_db ){return;}
 	std::vector<reglib::Model *> results;
 	for(unsigned int i = 0; i < modeldatabase->models.size(); i++){results.push_back(modeldatabase->models[i]);}
 	std::sort (results.begin(), results.end(), myfunction);
 	showModels(results);
 }
-
 
 bool getModel(quasimodo_msgs::get_model::Request  & req, quasimodo_msgs::get_model::Response & res){
     int model_id			= req.model_id;
@@ -265,37 +182,8 @@ bool recognizeService(quasimodo_msgs::recognize::Request  & req, quasimodo_msgs:
 	}
 }
 
-bool indexFrame(quasimodo_msgs::index_frame::Request  & req, quasimodo_msgs::index_frame::Response & res){
-	sensor_msgs::CameraInfo		camera			= req.frame.camera;
-	ros::Time					capture_time	= req.frame.capture_time;
-	geometry_msgs::Pose			pose			= req.frame.pose;
-
-	cv_bridge::CvImagePtr			rgb_ptr;
-	try{							rgb_ptr = cv_bridge::toCvCopy(req.frame.rgb, sensor_msgs::image_encodings::BGR8);}
-	catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());return false;}
-	cv::Mat rgb = rgb_ptr->image;
-
-	cv_bridge::CvImagePtr			depth_ptr;
-	try{							depth_ptr = cv_bridge::toCvCopy(req.frame.depth, sensor_msgs::image_encodings::MONO16);}
-	catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());return false;}
-	cv::Mat depth = depth_ptr->image;
-
-	Eigen::Affine3d epose;
-	tf::poseMsgToEigen(pose, epose);
-
-	reglib::Camera * cam		= new reglib::Camera();//TODO:: ADD TO CAMERAS
-	cam->fx = camera.K[0];
-	cam->fy = camera.K[4];
-	cam->cx = camera.K[2];
-	cam->cy = camera.K[5];
-
-	reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, double(capture_time.sec)+double(capture_time.nsec)/1000000000.0, epose.matrix());
-	frames[frame->id] = frame;
-	res.frame_id = frame->id;
-	return true;
-}
-
 bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Model * model2){
+	printf("%s\n",__PRETTY_FUNCTION__);
 	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model2, reg);
 	mu->occlusion_penalty               = occlusion_penalty;
@@ -306,23 +194,27 @@ bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Mode
 	mu->show_scoring					= show_scoring;//fuse scoring show
 	reg->visualizationLvl				= show_reg_lvl;
 
+
 	reglib::FusionResults fr = mu->registerModel(model);
 	if(fr.score > 100){
 		reglib::UpdatedModels ud = mu->fuseData(&fr, model2, model);
 		delete mu;
 		delete reg;
-
 		if(ud.deleted_models.size() > 0 || ud.updated_models.size() > 0 || ud.new_models.size() > 0){
+            printf("%i %i %i\n",ud.deleted_models.size(),ud.updated_models.size(),ud.new_models.size());
 			for(unsigned int j = 0; j < ud.deleted_models.size();	j++){
 				database->remove(ud.deleted_models[j]);
 				delete ud.deleted_models[j];
 			}
+
 			for(unsigned int j = 0; j < ud.updated_models.size();	j++){
 				database->remove(ud.updated_models[j]);
 				models_deleted_pub.publish(getModelMSG(ud.updated_models[j]));
 			}
+
 			for(unsigned int j = 0; j < ud.updated_models.size();	j++){	addToDB(database, ud.updated_models[j], true);}
 			for(unsigned int j = 0; j < ud.new_models.size();	j++){		addToDB(database, ud.new_models[j],		true);}
+
 			return true;
 		}
 	}else{
@@ -333,7 +225,7 @@ bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Mode
 }
 
 bool addToDB(ModelDatabase * database, reglib::Model * model, bool add){// = true){, bool deleteIfFail = false){
-printf("start: %s\n",__PRETTY_FUNCTION__);
+    printf("start: %s\n",__PRETTY_FUNCTION__);
 	if(add){
 		if(model->submodels.size() > 2){
 			reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
@@ -353,16 +245,20 @@ printf("start: %s\n",__PRETTY_FUNCTION__);
 		model->last_changed = ++current_model_update;
 	}
 
-	std::vector<reglib::Model * > res = modeldatabase->search(model,1);
+	//printf("%i       ",__LINE__);storage->print();
+    std::vector<reglib::Model * > res = modeldatabase->search(model,1);
+	//printf("%i       ",__LINE__);storage->print();
 	if(show_search){showModels(res);}
 
+
 	for(unsigned int i = 0; i < res.size(); i++){
+		//printf("%i       ",__LINE__);storage->print();
 		if(addIfPossible(database,model,res[i])){
 			printf("stop: %s\n",__PRETTY_FUNCTION__);
 			return true;
 		}
 	}
-printf("stop: %s\n",__PRETTY_FUNCTION__);
+    printf("stop: %s\n",__PRETTY_FUNCTION__);
 	return false;
 }
 
@@ -438,14 +334,15 @@ printf("start: %s\n",__PRETTY_FUNCTION__);
 		newmodelHolder->recomputeModelPoints(Eigen::Matrix4d::Identity(),viewer);
 	}else{
 		newmodelHolder->recomputeModelPoints();
-	}
+    }
+    model->updated = true;
+    newmodelHolder->updated = true;
 
 	modeldatabase->add(newmodelHolder);
 	addToDB(modeldatabase, newmodelHolder,false);
-	printf("%i\n",__LINE__);
+
 	show_sorted();
 
-	printf("%i\n",__LINE__);
 	bool do_next = true;
 	while(do_next && run_search){
 		printf("running search loop\n");
@@ -466,20 +363,21 @@ printf("start: %s\n",__PRETTY_FUNCTION__);
 		}
 	}
 
-	printf("%i\n",__LINE__);
 	for(unsigned int i = 0; i < modeldatabase->models.size(); i++){publish_history(modeldatabase->models[i]->getHistory());}
-	printf("%i\n",__LINE__);
 	publishDatabasePCD();
-	printf("%i\n",__LINE__);
-	dumpDatabase(savepath);
 	printf("stop: %s\n",__PRETTY_FUNCTION__);
 }
 
 void somaCallback(const std_msgs::String & m){printf("somaCallback(%s)\n",m.data.c_str());}
 
 void modelCallback(const quasimodo_msgs::model & m){
-	quasimodo_msgs::model mod = m;
-	addNewModel(quasimodo_brain::getModelFromMSG(mod,false));
+	printf("----------%s----------\n",__PRETTY_FUNCTION__);
+    quasimodo_msgs::model mod = m;
+	reglib::Model * model = quasimodo_brain::getModelFromMSG(mod,true);
+
+	addNewModel(model);
+	storage->fullHandback();
+
 }
 
 void clearMem(){
@@ -497,6 +395,9 @@ void clearMem(){
 }
 
 int main(int argc, char **argv){
+
+    storage = new ModelStorageFile();
+
 	cameras[0]		= new reglib::Camera();
 	registration	= new reglib::RegistrationRandom();
 	modeldatabase	= 0;
@@ -508,14 +409,9 @@ int main(int argc, char **argv){
 	models_updated_pub	= n.advertise<quasimodo_msgs::model>("/models/updated", 1000);
 	models_deleted_pub	= n.advertise<quasimodo_msgs::model>("/models/deleted", 1000);
 
-	//ros::ServiceServer service1 = n.advertiseService("model_from_frame",	modelFromFrame);
-	ros::ServiceServer service2 = n.advertiseService("index_frame",			indexFrame);
 	ros::ServiceServer service4 = n.advertiseService("get_model",			getModel);
     ros::ServiceServer service5 = n.advertiseService("quasimodo/recognize", recognizeService);
 	ROS_INFO("Ready to add use services.");
-
-	ros::Subscriber sub = n.subscribe("/retrieval_result", 1, retrievalCallback);
-	ROS_INFO("Ready to add recieve search results.");
 
 	database_pcd_pub    = n.advertise<sensor_msgs::PointCloud2>("modelserver/databasepcd", 1000);
 	model_history_pub   = n.advertise<sensor_msgs::PointCloud2>("modelserver/model_history", 1000);
@@ -538,7 +434,7 @@ int main(int argc, char **argv){
 
 	int inputstate = -1;
 	for(int i = 1; i < argc;i++){
-		printf("input: %s\n",argv[i]);
+		//printf("input: %s\n",argv[i]);
 		if(		std::string(argv[i]).compare("-c") == 0){	printf("camera input state\n"); inputstate = 1;}
 		else if(std::string(argv[i]).compare("-l") == 0){	printf("reading all models at %s (the path defined from -p)\n",savepath.c_str());
 			std::vector<std::string> folderdata;
@@ -550,8 +446,7 @@ int main(int argc, char **argv){
 		else if(std::string(argv[i]).compare("-m") == 0){	printf("model input state\n");	inputstate = 2;}
 		else if(std::string(argv[i]).compare("-p") == 0){	printf("path input state\n");	inputstate = 3;}
 		else if(std::string(argv[i]).compare("-occlusion_penalty") == 0){printf("occlusion_penalty input state\n");inputstate = 4;}
-		else if(std::string(argv[i]).compare("-massreg_timeout") == 0){printf("massreg_timeout input state\n");inputstate = 5;}
-		else if(std::string(argv[i]).compare("-search") == 0){printf("pointcloud search input state\n");run_search = true; inputstate = 6;}
+        else if(std::string(argv[i]).compare("-massreg_timeout") == 0){printf("massreg_timeout input state\n");inputstate = 5;}
 		else if(std::string(argv[i]).compare("-v") == 0){           printf("visualization turned on\n");                visualization = true;}
 		else if(std::string(argv[i]).compare("-v_init") == 0){      printf("visualization of init turned on\n");        visualization = true; inputstate = 8;}
 		else if(std::string(argv[i]).compare("-v_refine") == 0 || std::string(argv[i]).compare("-v_ref") == 0){	printf("visualization refinement turned on\n");     visualization = true; inputstate = 9;}
@@ -566,7 +461,7 @@ int main(int argc, char **argv){
 		else if(std::string(argv[i]).compare("-loadModelsPCDs") == 0){								inputstate = 13;}
 		else if(std::string(argv[i]).compare("-clearQDB") == 0){									clearQDB = true;}
 		else if(inputstate == 1){
-			reglib::Camera * cam = reglib::Camera::load(std::string(argv[i]));
+            reglib::Camera * cam = reglib::Camera::load(std::string(argv[i]));
 			delete cameras[0];
             cameras[0] = cam;
 		}else if(inputstate == 2){
@@ -581,9 +476,6 @@ int main(int argc, char **argv){
 			occlusion_penalty = atof(argv[i]); printf("occlusion_penalty set to %f\n",occlusion_penalty);
 		}else if(inputstate == 5){
 			massreg_timeout = atof(argv[i]); printf("massreg_timeout set to %f\n",massreg_timeout);
-		}else if(inputstate == 6){
-			search_timeout = atof(argv[i]); printf("search_timeout set to %f\n",search_timeout);
-			if(search_timeout == 0){run_search = false;}
 		}else if(inputstate == 8){
 			show_init_lvl = atoi(argv[i]);
 		}else if(inputstate == 9){
@@ -606,31 +498,13 @@ int main(int argc, char **argv){
 
 			if(atoi(argv[i]) == 2){
 				if(modeldatabase != 0){delete modeldatabase;}
-				modeldatabase	= new ModelDatabaseRetrieval(n);
+                modeldatabase	= new ModelDatabaseRetrieval(n);
 			}
 		}else if(inputstate == 13){
 			modelpcds.push_back( std::string(argv[i]) );
 		}
 	}
 
-//	if(clearQDB){
-//		printf("rm -r -f %s\n",(savepath+"/database_tmp").c_str());
-//		char command [1024];
-//		printf(command,"rm -r -f %s",(savepath+"/database_tmp").c_str());
-//		int r = system(command);
-//	}
-
-
-//	if(fileExists(savepath+"/database_tmp")){
-//		printf("file exists\n");
-
-//	}else{
-//		printf("making savedi: %s\n",(savepath+"/database_tmp").c_str());
-//		char command [1024];
-//		sprintf(command,"mkdir %s",(savepath+"/database_tmp").c_str());
-//		int r = system(command);
-//	}
-//	//exit(0);
 
 	if(visualization){
 		viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("Modelserver Viewer"));
@@ -639,6 +513,7 @@ int main(int argc, char **argv){
 	}
 
 	if(modeldatabase == 0){modeldatabase	= new ModelDatabaseRetrieval(n);}
+	modeldatabase->setStorage(storage);
 
 	for(unsigned int i = 0; i < modelpcds.size(); i++){
 		std::vector<reglib::Model *> mods = quasimodo_brain::loadModelsPCDs(modelpcds[i]);
@@ -674,14 +549,10 @@ int main(int argc, char **argv){
 			}
 			modeldatabase->add(newmodelHolder);
 		}
-
-		//show_sorted();
 	}
 
 	if(input_model_subs.size()		== 0){input_model_subs.push_back(		n.subscribe("/quasimodo/segmentation/out/model", 100, modelCallback));}
 	if(soma_input_model_subs.size() == 0){soma_input_model_subs.push_back(	n.subscribe("/quasimodo/segmentation/out/soma_segment_id", 10000, somaCallback));}
-
-
 
 	ros::spin();
 	return 0;

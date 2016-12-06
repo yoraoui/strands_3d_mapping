@@ -100,13 +100,13 @@ double getPsphere(double p, double & x, double & y,double & z, double & r, pcl::
 
 	for(unsigned int it = 0; it < 1000; it++){
 		double score_start = score;
-		printf("it: %10.10i -> %10.10f pos: %5.5f %5.5f %5.5f %5.5f d: ",it,score,x,y,z,r);
+        //printf("it: %10.10i -> %10.10f pos: %5.5f %5.5f %5.5f %5.5f d: ",it,score,x,y,z,r);
 		double dx = -(getPscore(p,x+h,y,z,r,cloud) - getPscore(p,x-h,y,z,r,cloud))/(2*h);
 		double dy = -(getPscore(p,x,y+h,z,r,cloud) - getPscore(p,x,y-h,z,r,cloud))/(2*h);
 		double dz = -(getPscore(p,x,y,z+h,r,cloud) - getPscore(p,x,y,z-h,r,cloud))/(2*h);
 		double dr = -(getPscore(p,x,y,z,r+h,cloud) - getPscore(p,x,y,z,r-h,cloud))/(2*h);
 
-		printf("%5.5f %5.5f %5.5f %5.5f\n",dx,dy,dz,dr);
+        //printf("%5.5f %5.5f %5.5f %5.5f\n",dx,dy,dz,dr);
 
 		double step = 0.001;
 		while(step > 0.00000001){
@@ -125,7 +125,7 @@ double getPsphere(double p, double & x, double & y,double & z, double & r, pcl::
 		if(ratio > 0.999){break;}
 	}
 
-	printf("final -> %10.10f pos: %5.5f %5.5f %5.5f %5.5f d: ",score,x,y,z,r);
+    //printf("final -> %10.10f pos: %5.5f %5.5f %5.5f %5.5f d: ",score,x,y,z,r);
 	return score;
 }
 
@@ -170,7 +170,7 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 	double d_mean_x = 0;
 	double d_mean_y = 0;
 	double d_mean_z = 0;
-	int meantype = 2;
+    int meantype = 0;
 	if(meantype == 0 || meantype == 2){
 		for(unsigned int i = 0; i < s_nr_data; i++){
 			s_mean_x += src->data(0,i);
@@ -393,7 +393,7 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 	fr_X.resize(nr_r);
 
 	//refinement->visualizationLvl = visualizationLvl;
-	#pragma omp parallel for num_threads(8)
+	//#pragma omp parallel for num_threads(8)
 	for(unsigned int r = 0; r < nr_r; r++){
 		//printf("registering: %i / %i\n",r+1,nr_r);
 		double start = getTime();
@@ -401,6 +401,9 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 		double meantime = 999999999999;
 		if(sumtimeOK != 0){meantime = sumtimeSum/double(sumtimeOK+1.0);}
 		refinement->maxtime = std::min(0.5,3*meantime);
+		if(refinement->visualizationLvl > 0){
+			refinement->maxtime = 99999;
+		}
 
 		Eigen::Affine3d randomrot = Eigen::Affine3d::Identity();
 		randomrot =	Eigen::AngleAxisd(rxs[r], Eigen::Vector3d::UnitX()) *
@@ -416,6 +419,7 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 		{
 			fr_X[r] = fr;
 
+			//printf("%5.5i score: %10.10f\n",r,fr.score);
 			double stoptime = getTime();
 			sumtime += stoptime-start;
 			if(!fr_X[r].timeout){
@@ -439,13 +443,16 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 
 	int mul = 2;
 	for(int tp = 500; tp <= 16000; tp *= 2){
+		printf("------------------------");
 		std::sort (fr_X.begin(), fr_X.end(), compareFusionResults);
 		refinement->target_points = tp;
 
 		unsigned int nr_X = fr_X.size()/mul;
-#pragma omp parallel for num_threads(8)
+		//#pragma omp parallel for num_threads(8)
 		for(unsigned int ax = 0; ax < nr_X; ax++){
+			//printf("%5.5i score: %10.10f ",ax,fr_X[ax].score);
 			fr_X[ax] = refinement->getTransform(fr_X[ax].guess);
+			//printf("-> score: %10.10f\n",fr_X[ax].score);
 		}
 
 		for(unsigned int ax = 0; ax < fr_X.size(); ax++){
@@ -494,8 +501,9 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 		refinement->visualizationLvl = visualizationLvl;
 		refinement->target_points = 1000000;
 		refinement->maxtime = 10000;
-		for(unsigned int ax = 0; ax < fr_X.size() && ax < 20; ax++){
+		for(unsigned int ax = 0; ax < fr_X.size() && ax < 5; ax++){
 			printf("%i -> %f\n",ax,fr_X[ax].score);
+			std::cout << fr_X[ax].guess << std::endl << std::endl;
 			refinement->getTransform(fr_X[ax].guess);
 		}
 		refinement->visualizationLvl = 0;

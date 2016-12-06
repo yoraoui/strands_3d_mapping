@@ -31,6 +31,7 @@ using namespace Eigen;
 		unsigned long id;
 
 		int last_changed;
+        bool updated;
 
 		std::string keyval;
 		std::string savePath;
@@ -90,8 +91,7 @@ using namespace Eigen;
 
 		void getData(std::vector<Eigen::Matrix4d> & po, std::vector<RGBDFrame*> & fr, std::vector<ModelMask*> & mm, Eigen::Matrix4d p = Eigen::Matrix4d::Identity());
 
-		RGBDFrame * getFrame(std::string keyval);
-		ModelMask * getModelMask(std::string keyval);
+        void getRepFrame(RGBDFrame * & frame, ModelMask * & modelmask, std::string keyval);
 
 		//void getData(std::vector<Eigen::Matrix4d> & po, std::vector<RGBDFrame*> & fr, std::vector<ModelMask*> & mm, Eigen::Matrix4d p = Eigen::Matrix4d::Identity());
 	};
