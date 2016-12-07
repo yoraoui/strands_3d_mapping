@@ -37,6 +37,9 @@ using namespace Eigen;
 		std::string savePath;
 		std::string soma_id;
 
+		std::string retrieval_object_id;
+		std::string retrieval_vocabulary_id;
+
 		std::string pointspath;
 		std::vector<superpoint> points;
 

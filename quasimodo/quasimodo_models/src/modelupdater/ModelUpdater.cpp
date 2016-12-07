@@ -601,10 +601,10 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 
 	GeneralizedGaussianDistribution * dggdnfunc	= new GeneralizedGaussianDistribution(true,true,false,true,true);
 	dggdnfunc->nr_refineiters					= 4;
-	dggdnfunc->debugg_print						= true;
+    dggdnfunc->debugg_print						= false;
 	DistanceWeightFunction2PPR3 * dfuncTMP		= new DistanceWeightFunction2PPR3(dggdnfunc);
 	dfunc = dfuncTMP;
-	dfuncTMP->startreg				= 0.001;
+    dfuncTMP->startreg				= 0.01;
 	dfuncTMP->max_under_mean		= false;
 	dfuncTMP->debugg_print			= true;
 	dfuncTMP->bidir					= true;
@@ -627,7 +627,7 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 	ggdnfunc->nr_refineiters					= 4;
 	DistanceWeightFunction2PPR3 * nfuncTMP		= new DistanceWeightFunction2PPR3(ggdnfunc);
 	nfunc = nfuncTMP;
-	nfuncTMP->startreg				= 0.001;
+    nfuncTMP->startreg				= 0.1;
 	nfuncTMP->debugg_print			= true;
 	nfuncTMP->bidir					= false;
 	nfuncTMP->zeromean				= true;

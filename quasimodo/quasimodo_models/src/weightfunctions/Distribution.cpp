@@ -24,38 +24,34 @@ void    Distribution::getMaxdMind(double & maxd, double & mind, double prob){
 	double maxDist = 1;
 	double maxDistScore = getval(mean+maxDist)/midval;
 
-	double target = 0.0001;//1-prob;
+//    double target = 0.000001;//1-prob;
 	//Grow to find interval
-	while(maxDistScore > target){
+    while(maxDistScore > prob){
 		minDist = maxDist;
 		minDistScore = maxDistScore;
 		maxDist *= 2;
 		maxDistScore = getval(mean+maxDist)/midval;
-		if(debugg_print){printf("%f %f %f\n",minDist,maxDist,maxDistScore);}
+//		if(debugg_print){printf("%f %f %f\n",minDist,maxDist,maxDistScore);}
 	}
-	if(debugg_print){printf("======\n");}
+
 	//bisect to opt
 	for(unsigned int it = 0; it < 40; it++){
 		double midDist = (minDist+maxDist)*0.5;
 		double midDistScore = getval(mean+midDist)/midval;//getcdf(mean+midDist);
 
-		if(debugg_print){printf("[%7.7f %7.7f] -> %7.7f\n",minDist,maxDist,midDistScore);}
+//		if(debugg_print){printf("[%7.7f %7.7f] -> %7.7f\n",minDist,maxDist,midDistScore);}
 
-		if(midDistScore < target){
-			if(debugg_print){printf("too big, maxdist = mid\n");}
+        if(midDistScore < prob){
 			maxDist = midDist;
 			maxDistScore = midDistScore;
 		}else{
-			if(debugg_print){printf("too small, mindist = mid\n");}
 			minDist = midDist;
 			minDistScore = midDistScore;
 		}
 
-		if(fabs(maxDistScore-minDistScore) < 1e-15){break;}
+        if(fabs(maxDistScore-minDistScore) < prob*0.01){break;}
 	}
-	if(debugg_print){printf("======\n");}
-	if(debugg_print){printf("======\n");}
-	if(debugg_print){printf("======\n");}
+
 
 /*
 	double half = prob*0.5;

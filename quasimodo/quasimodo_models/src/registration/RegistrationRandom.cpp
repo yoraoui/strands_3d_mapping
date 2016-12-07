@@ -392,10 +392,10 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 	std::vector<FusionResults> fr_X;
 	fr_X.resize(nr_r);
 
-	//refinement->visualizationLvl = visualizationLvl;
+    //refinement->visualizationLvl = visualizationLvl;
 	//#pragma omp parallel for num_threads(8)
 	for(unsigned int r = 0; r < nr_r; r++){
-		//printf("registering: %i / %i\n",r+1,nr_r);
+        printf("registering: %i / %i\n",r+1,nr_r);
 		double start = getTime();
 
 		double meantime = 999999999999;
@@ -411,7 +411,7 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 				Eigen::AngleAxisd(rzs[r], Eigen::Vector3d::UnitZ());
 
 		Eigen::Affine3d current_guess = Ymean*randomrot*Xmean.inverse();//*Ymean;
-
+        //std::cout << current_guess.matrix() << std::endl << std::endl;
 		FusionResults fr = refinement->getTransform(current_guess.matrix());
 		//fr_X[r] = refinement->getTransform(current_guess.matrix());
 
@@ -419,7 +419,7 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 		{
 			fr_X[r] = fr;
 
-			//printf("%5.5i score: %10.10f\n",r,fr.score);
+            printf("%5.5i score: %10.10f\n",r,fr.score);
 			double stoptime = getTime();
 			sumtime += stoptime-start;
 			if(!fr_X[r].timeout){
@@ -450,9 +450,16 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 		unsigned int nr_X = fr_X.size()/mul;
 		//#pragma omp parallel for num_threads(8)
 		for(unsigned int ax = 0; ax < nr_X; ax++){
-			//printf("%5.5i score: %10.10f ",ax,fr_X[ax].score);
+            if(ax == 0){
+                refinement->visualizationLvl = visualizationLvl;
+            }
+            printf("%5.5i score: %10.10f ",ax,fr_X[ax].score);
 			fr_X[ax] = refinement->getTransform(fr_X[ax].guess);
-			//printf("-> score: %10.10f\n",fr_X[ax].score);
+
+            printf("-> score: %10.10f\n",fr_X[ax].score);
+            if(ax == 0){
+                refinement->visualizationLvl = 0;
+            }
 		}
 
 		for(unsigned int ax = 0; ax < fr_X.size(); ax++){

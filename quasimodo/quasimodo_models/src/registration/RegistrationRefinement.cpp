@@ -83,9 +83,9 @@ void RegistrationRefinement::setDst(CloudData * dst_){
 }
 
 FusionResults RegistrationRefinement::getTransform(Eigen::MatrixXd guess){
-if(visualizationLvl > 1){
-	std::cout << guess << std::endl << std::endl;
-}
+//if(visualizationLvl > 1){
+//	std::cout << guess << std::endl << std::endl;
+//}
 	std::vector<double> total_dweight;
 	total_dweight.resize(ycols);
 
@@ -313,11 +313,15 @@ if(visualizationLvl > 1){
 						}
 
 						W = W.array()*rangeW.array()*rangeW.array();
+                        double wsum = W.sum();
 
 						if(visualizationLvl == 3){
 							show(X,Y,false);
 
 						}else if(visualizationLvl >= 4){
+                            printf("\n&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&\n");
+                            printf("wsum : %f\n",wsum);
+                            printf("noise: %f\n",func->getNoise());
 							//printf("start show\n");
 							unsigned int s_nr_data = X.cols();
 							unsigned int d_nr_data = Y.cols();

@@ -17,6 +17,8 @@ Model::Model(){
 	savePath = "";
 	soma_id = "";
 	pointspath = "";
+	retrieval_object_id = "";
+	retrieval_vocabulary_id = "";
 	parrent = 0;
 }
 
@@ -39,6 +41,8 @@ Model::Model(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d pose){
 	savePath = "";
 	soma_id = "";
 	pointspath = "";
+	retrieval_object_id = "";
+	retrieval_vocabulary_id = "";
     parrent = 0;
 }
 
@@ -837,7 +841,7 @@ void Model::saveFast(std::string path){
 		rep_spms.push_back(spm);
 	}
 
-	unsigned long buffersize = 2*sizeof(double)+8*sizeof(unsigned long)+keyval.length()+soma_id.length();
+	unsigned long buffersize = 2*sizeof(double)+10*sizeof(unsigned long)+keyval.length()+soma_id.length()+retrieval_object_id.length()+retrieval_vocabulary_id.length();
 
 	buffersize += sizeof(unsigned long);
 	buffersize += scores.size()*sizeof(unsigned long);
@@ -884,6 +888,8 @@ void Model::saveFast(std::string path){
 	buffer_long[counter++] = keyval.length();
 	buffer_long[counter++] = soma_id.length();
 	buffer_long[counter++] = pointspath.length();
+	buffer_long[counter++] = retrieval_object_id.length();
+	buffer_long[counter++] = retrieval_vocabulary_id.length();
 	buffer_long[counter++] = frames.size();
 
     //printf("frames: %i\n",frames.size());
@@ -947,6 +953,16 @@ void Model::saveFast(std::string path){
 
 	for(unsigned int i = 0; i < soma_id.length();i++){
 		buffer[count4++] = soma_id[i];
+	}
+
+
+	for(unsigned int i = 0; i < retrieval_object_id.length();i++){
+		buffer[count4++] = retrieval_object_id[i];
+	}
+
+
+	for(unsigned int i = 0; i < retrieval_vocabulary_id.length();i++){
+		buffer[count4++] = retrieval_vocabulary_id[i];
 	}
 
 	if(parrent != 0){
@@ -1055,6 +1071,9 @@ Model * Model::loadFast(std::string path){
 		unsigned long keyvallength = buffer_long[counter++];
 		unsigned long soma_idlength = buffer_long[counter++];
 		unsigned long pointspathlength = buffer_long[counter++];
+		unsigned long retrieval_object_idlength = buffer_long[counter++];
+		unsigned long retrieval_vocabulary_idlength = buffer_long[counter++];
+
 		unsigned long framessize = buffer_long[counter++];
 		unsigned long rep_framessize = buffer_long[counter++];
 		//printf("nr frames: %i\n",framessize);
@@ -1125,6 +1144,16 @@ Model * Model::loadFast(std::string path){
 		mod->soma_id.resize(soma_idlength);
 		for(unsigned int i = 0; i < soma_idlength;i++){
 			mod->soma_id[i] = buffer[count4++];
+		}
+
+		mod->retrieval_object_id.resize(retrieval_object_idlength);
+		for(unsigned int i = 0; i < retrieval_object_idlength;i++){
+			mod->retrieval_object_id[i] = buffer[count4++];
+		}
+
+		mod->retrieval_vocabulary_id.resize(retrieval_vocabulary_idlength);
+		for(unsigned int i = 0; i < retrieval_vocabulary_idlength;i++){
+			mod->retrieval_vocabulary_id[i] = buffer[count4++];
 		}
 
 		std::string parrent_keyval = "";
