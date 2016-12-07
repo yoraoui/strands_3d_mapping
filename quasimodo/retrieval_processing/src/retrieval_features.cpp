@@ -141,7 +141,7 @@ void test_compute_features(HistCloudT::Ptr& features, CloudT::Ptr& keypoints, Cl
 */
 
 bool features_service(quasimodo_msgs::transform_cloud::Request& req, quasimodo_msgs::transform_cloud::Response& resp)
-{   
+{
     double threshold = 0.4;
 
     SurfelCloudT::Ptr surfel_cloud(new SurfelCloudT);
@@ -194,6 +194,11 @@ void features_callback(const std_msgs::String::ConstPtr& msg)
         boost::filesystem::path keypoint_path;
         tie(segment, feature_path, keypoint_path) = tup;
 
+        if (boost::filesystem::exists(feature_path) && boost::filesystem::exists(keypoint_path)) {
+            cout << "Features " << feature_path.string() << " already exist, finishing sweep " << msg->data << "..." << endl;
+            break;
+        }
+
         HistCloudT::Ptr desc_cloud(new HistCloudT);
         CloudT::Ptr kp_cloud(new CloudT);
         dynamic_object_retrieval::compute_features(desc_cloud, kp_cloud, segment, surfel_map);
@@ -238,16 +243,20 @@ int main(int argc, char** argv)
     //pn.param<double>("threshold", threshold, 0.4);
     bool bypass;
     pn.param<bool>("bypass", bypass, 0);
+    string input;
+    pn.param<string>("input", input, "/segmentation_done");
+    string service_name;
+    pn.param<string>("service", service_name, "/retrieval_features_service");
 
     pub = n.advertise<std_msgs::String>("/features_done", 1);
-    service = n.advertiseService("/retrieval_features_service", features_service);
+    service = n.advertiseService(service_name, features_service);
 
     ros::Subscriber sub;
     if (bypass) {
-        sub = n.subscribe("/segmentation_done", 1, bypass_callback);
+        sub = n.subscribe(input, 1, bypass_callback);
     }
     else {
-        sub = n.subscribe("/segmentation_done", 1, features_callback);
+        sub = n.subscribe(input, 1, features_callback);
     }
 
     ros::spin();
