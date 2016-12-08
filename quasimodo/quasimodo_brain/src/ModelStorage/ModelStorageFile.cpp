@@ -61,26 +61,29 @@ std::string ModelStorageFile::getNextID(){
 }
 
 bool ModelStorageFile::add(reglib::Model * model, std::string key){
-    if(model->keyval.length() == 0){model->keyval = getNextID();}
+	double startTime =quasimodo_brain::getTime();
+	if(model->keyval.length() == 0){model->keyval = getNextID();}
 
     std::string modelpath = filepath+"/"+model->keyval;
     quasimodo_brain::guaranteeFolder(modelpath);
-    modelpath += "/";
+	modelpath += "/";
 
     for(unsigned int i = 0; i < model->frames.size(); i++){//Add all frames to the frame database
         std::string path = framepath+"/"+model->frames[i]->keyval;
         if(!quasimodo_brain::fileExists(path+"_data.txt")){model->frames[i]->saveFast(path);}
-    }
+	}
 
     for(unsigned int i = 0; i < model->submodels.size(); i++){//Add all frames to the frame database
         add(model->submodels[i]);
-    }
+	}
 
-    model->saveFast(modelpath);
+	model->saveFast(modelpath);
+
     keyPathMap[model->keyval] = modelpath;
     if(model->parrent == 0){
         activeModels[model->keyval] = model;
     }
+printf("ModelStorageFile::add :: %5.5fs :: %i\n",quasimodo_brain::getTime()-startTime,__LINE__); startTime =quasimodo_brain::getTime();
 //print();
 }
 
@@ -98,13 +101,7 @@ bool ModelStorageFile::remove(reglib::Model * model){
 }
 
 reglib::Model * ModelStorageFile::fetch(std::string key){
-//	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-//	print();
-//	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-//	printf("ModelStorageFile::fetch(%s)\n",key.c_str());
-//	printf("keyPathMap.count(%s) = %i\n",key.c_str(),keyPathMap.count(key));
     if (keyPathMap.count(key)>0){
-		//printf("activeModels.count(%s) = %i\n",key.c_str(),activeModels.count(key));
 		reglib::Model * model = 0;
 		if(activeModels.count(key)!=0){
 			model = activeModels.find(key)->second;
@@ -112,9 +109,6 @@ reglib::Model * ModelStorageFile::fetch(std::string key){
 			model = reglib::Model::loadFast(keyPathMap[key]);
 			activeModels[key] = model;
         }
-//		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-//		print();
-//		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 		return model;
     }else{
         return 0;

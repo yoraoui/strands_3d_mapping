@@ -12,6 +12,9 @@ GeneralizedGaussianDistribution::GeneralizedGaussianDistribution(bool refine_std
     refine_power = refine_power_;
     costpen     = costpen_;
     nr_refineiters = nr_refineiters_;
+	traincounter = 0;
+
+	precision = 0.0001;
 
     mul         = mul_;
     mean        = mean_;
@@ -46,16 +49,32 @@ double GeneralizedGaussianDistribution::fitMul3(double mul, double mean, double 
 double GeneralizedGaussianDistribution::scoreCurrent3(double mul, double mean, double stddiv, double power, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen){
     double sum = 0;
     double invstd = 1.0/stddiv;
-    for(unsigned int i = 0; i < nr_data; i++){
-        double dx = fabs(X[i] - mean)*invstd;
-        double inp = -0.5*pow(dx,power);
-        if(inp < cutoff_exp){sum += Y[i];}
-        else{
-            double diff = Y[i]*Y[i]*(mul*exp(inp) - Y[i]);
-            if(diff > 0){	sum += costpen*diff;}
-            else{			sum -= diff;}
-        }
-    }
+	if(costpen > 0){
+		for(unsigned int i = 0; i < nr_data; i++){
+			double dx = fabs(X[i] - mean)*invstd;
+			double inp = -0.5*pow(dx,power);
+			if(inp < cutoff_exp){sum += Y[i];}
+			else{
+				double diff = Y[i]*Y[i]*(mul*exp(inp) - Y[i]);
+				if(diff > 0){	sum += costpen*diff;}
+				else{			sum -= diff;}
+
+			}
+		}
+	}else{
+		for(unsigned int i = 0; i < nr_data; i++){
+			double dx = fabs(X[i] - mean)*invstd;
+			double inp = -0.5*pow(dx,power);
+			if(inp < cutoff_exp){sum += Y[i];}
+			else{
+				double diff = Y[i]*Y[i]*(mul*exp(inp) - Y[i]);
+	//            if(diff > 0){	sum += costpen*diff;}
+	//            else{			sum -= diff;}
+				if(diff > 0){	sum += 1.0*pow(diff,1.25);}
+				else{			sum -= diff;}
+			}
+		}
+	}
     return sum;
 }
 
@@ -140,13 +159,108 @@ void GeneralizedGaussianDistribution::train(std::vector<float> & hist, unsigned 
     for(unsigned int i = 0; i < nr_data_opt; i++){std_mid += (X[i]-mean)*(X[i]-mean)*fabs(Y[i])/ysum;}
     stdval = sqrt(std_mid);
 
+//	double start_stdval = stdval;
+//	double start_mean = mean;
+//	double start_mul = stdval;
+//	double start_power = power;
+	double prev = scoreCurrent3(mul,mean,stdval,power,X,Y,nr_data_opt,costpen);
+	//
+
+	if(debugg_print){
+		printf("%%opt: %i %i %i %i\n",refine_std,refine_mean,refine_mul,refine_power);
+	}
     for(int i = 0; i < nr_refineiters; i++){
         if(refine_std){		stdval	= fitStdval3(	mul,mean,stdval,power,X,Y,nr_data_opt,costpen);}
         if(refine_mean){	mean	= fitMean3(		mul,mean,stdval,power,X,Y,nr_data_opt,costpen);}
         if(refine_mul){		mul		= fitMul3(		mul,mean,stdval,power,X,Y,nr_data_opt,costpen);}
         if(refine_power){	power	= fitPower3(	mul,mean,stdval,power,X,Y,nr_data_opt,costpen);}
+		double current = scoreCurrent3(mul,mean,stdval,power,X,Y,nr_data_opt,costpen);
+		double improvement = (prev-current)/prev;
+		if(debugg_print){
+			print();
+			printf("%%iteration: %i prev: %10.10f current: %10.10f improvement: %10.10f\n",i,prev,current,improvement);
+		}
+		if(improvement < precision){break;}
+		prev = current;
     }
+	if(debugg_print){print();}
+	traincounter++;
 
+//	start_stdval = stdval+2;
+//	start_mean = mean;
+//	start_mul = stdval;
+//	start_power = power;
+
+//	if(debugg_print){
+//		//Fit stdval first
+//		double h = 0.000001;
+//		double current = scoreCurrent3(start_mul,start_mean,start_stdval,start_power,X,Y,nr_data_opt,costpen);
+
+//		double step = 0.001;
+//		for(int it = 0; it < 10; it++){
+
+//			double dmul = 0;
+//			double dmean = 0;
+//			double dstdval = 0;
+//			double dpower = 0;
+//			if(refine_mul){
+//			dmul = ( scoreCurrent3(start_mul+h,start_mean,start_stdval,start_power,X,Y,nr_data_opt,costpen)
+//				  -scoreCurrent3(start_mul-h,start_mean,start_stdval,start_power,X,Y,nr_data_opt,costpen))/(2.0*h);
+//			}
+//			if(refine_mean){
+//			dmean = ( scoreCurrent3(start_mul,start_mean+h,start_stdval,start_power,X,Y,nr_data_opt,costpen)
+//				  -scoreCurrent3(start_mul,start_mean-h,start_stdval,start_power,X,Y,nr_data_opt,costpen))/(2.0*h);
+//			}
+//			if(refine_std){
+//			dstdval = ( scoreCurrent3(start_mul,start_mean,start_stdval+h,start_power,X,Y,nr_data_opt,costpen)
+//				  -scoreCurrent3(start_mul,start_mean,start_stdval-h,start_power,X,Y,nr_data_opt,costpen))/(2.0*h);
+//			}
+//			if(refine_power){
+//			dpower = ( scoreCurrent3(start_mul,start_mean,start_stdval,start_power+h,X,Y,nr_data_opt,costpen)
+//				  -scoreCurrent3(start_mul,start_mean,start_stdval,start_power-h,X,Y,nr_data_opt,costpen))/(2.0*h);
+//			}
+//			dmul /= current;
+//			dmean /= current;
+//			dstdval /= current;
+//			dpower /= current;
+//			printf("deriv: mul %8.8f mean %8.8f std %8.8f pow %8.8f \n",dmul,dmean,dstdval,dpower);
+
+//			for(int j = 0; j < 100; j++){
+//				start_stdval -= step*dstdval;
+//				start_mean	 -= step*dmean;
+//				start_mul	 -= step*dstdval;
+//				start_power	 -= step*dpower;
+//				double next = scoreCurrent3(start_mul,start_mean,start_stdval,start_power,X,Y,nr_data_opt,costpen);
+//				printf("%5.5f -> %10.10f -> %10.10f\n",step,next,current-next);
+//				if(next < current){
+//					current = next;
+//					step *= 1.5;
+//				}else{
+//					start_stdval += step*dstdval;
+//					start_mean	 += step*dmean;
+//					start_mul	 += step*dstdval;
+//					start_power	 += step*dpower;
+//					step /= 2.0;
+//				}
+//				if(step < 0.0001){break;}
+//			}
+
+
+////			printf("%i current: %8.8f est: %8.8f goal: %8.8f diff: %8.8f\n",it,current,start_stdval,stdval,fabs(start_stdval-stdval));
+////			double steph = scoreCurrent3(start_mul,start_mean,start_stdval+h,start_power,X,Y,nr_data_opt,costpen);
+////			printf("steph: %f\n",steph);
+////			double diff = steph-current;
+////			printf("diff: %f\n",diff);
+////			double deriv = diff/h;
+////			printf("deriv: %f\n",deriv);
+////			printf("update: %f\n",-current/deriv);
+
+////			start_stdval -=  current/deriv;
+////			current = scoreCurrent3(start_mul,start_mean,start_stdval,start_power,X,Y,nr_data_opt,costpen);
+
+//		}
+//		//Fit rest
+//	}
 	//print();
 }
 
@@ -183,7 +297,7 @@ void GeneralizedGaussianDistribution::setNoise(double x){
 }
 
 void GeneralizedGaussianDistribution::print(){
-    printf("%%GeneralizedGaussianDistribution:: mul = %5.5f mean = %5.5f stdval = %5.5f reg = %5.5f power = %5.5f\n",mul,mean,stdval,regularization,power);
+	printf("%%GeneralizedGaussianDistribution:: mul = %5.5f mean = %5.5f stdval = %5.5f reg = %5.5f power = %15.15f\n",mul,mean,stdval,regularization,power);
 }
 
 double GeneralizedGaussianDistribution::getNoise(){return stdval+regularization;}
@@ -201,6 +315,11 @@ void GeneralizedGaussianDistribution::update_numcdf_vec(unsigned int bins, doubl
 		if(i < bins-1){sum += getval(x);}
     }
     for(unsigned int i = 0; i < bins; i++){numcdf_vec[i] /= sum;}
+}
+
+void GeneralizedGaussianDistribution::rescale(double mul){
+	//if(debugg_print){printf("%%GeneralizedGaussianDistribution::rescale(%f)\n",mul);}
+	stdval *= mul;
 }
 
 

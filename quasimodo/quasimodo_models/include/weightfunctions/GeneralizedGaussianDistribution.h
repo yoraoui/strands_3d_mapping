@@ -23,6 +23,7 @@ public:
     double stdval;
     double scaledinformation;
     double power;
+	double precision;
 
     bool refine_mean;
     bool refine_mul;
@@ -48,6 +49,7 @@ public:
 	virtual double getval(double x = 0);
 	virtual double getcdf(double x = 0);
     virtual void print();
+	virtual void rescale(double mul);
 
     //virtual void getMaxdMind(double & maxd, double & mind, double prob = 0.1);
 

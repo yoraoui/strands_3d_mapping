@@ -11,6 +11,7 @@ GaussianDistribution::GaussianDistribution(bool refine_std_, bool zeromean_, boo
     refine_mul  = refine_mul_;
     costpen     = costpen_;
     nr_refineiters = nr_refineiters_;
+	traincounter = 0;
 
     mul         = mul_;
     mean        = mean_;
@@ -154,6 +155,8 @@ void GaussianDistribution::print(){
 }
 
 double GaussianDistribution::getNoise(){return stdval+regularization;}
+
+void GaussianDistribution::rescale(double mul){stdval *= mul;}
 
 //void GaussianDistribution::getMaxdMind(double & maxd, double & mind, double prob){
 

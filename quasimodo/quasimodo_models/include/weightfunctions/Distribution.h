@@ -16,6 +16,7 @@ public:
     double regularization;
     double mean;
     bool debugg_print;
+	int traincounter;
 
 
     Distribution();
@@ -30,6 +31,7 @@ public:
     virtual double getval(double x);
     virtual double getcdf(double x);
     virtual void setRegularization(double x);
+	virtual void rescale(double mul);
     virtual void print();
 	virtual void getMaxdMind(double & maxd, double & mind, double prob = 0.00001);
 };

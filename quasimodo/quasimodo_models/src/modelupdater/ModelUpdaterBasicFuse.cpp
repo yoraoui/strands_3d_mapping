@@ -55,11 +55,9 @@ FusionResults ModelUpdaterBasicFuse::registerModel(Model * model2, Eigen::Matrix
 
 		int todo = fr.candidates.size();
 		double expectedCost = double(todo)*computeOcclusionScoreCosts(testmodels);
-		printf("expectedCost: %f\n",expectedCost);
 
 		int step = 0.5 + expectedCost/11509168.5;// ~1 sec predicted
 		step = std::max(1,step);
-		printf("step: %i\n",step);
 
 		for(unsigned int ca = 0; ca < todo; ca++){
 			Eigen::Matrix4d pose = fr.candidates[ca];
@@ -71,23 +69,11 @@ FusionResults ModelUpdaterBasicFuse::registerModel(Model * model2, Eigen::Matrix
 			unsigned int nr_models = models.size();
 			addModelsToVector(models,rps,model2,pose);
 
-			std::cout << pose << std::endl << std::endl;
-
-			//vector<vector < OcclusionScore > > ocs = computeOcclusionScore(models,rps,step,false);
 			//Show alignment
-			vector<vector < OcclusionScore > > ocs = computeOcclusionScore(models,rps,step,true);
+			vector<vector < OcclusionScore > > ocs = computeOcclusionScore(models,rps,step,false);
 			std::vector<std::vector < float > > scores = getScores(ocs);
 			std::vector<int> partition = getPartition(scores,2,5,2);
-if(ca < 10){
-			for(unsigned int i = 0; i < scores.size(); i++){
-				for(unsigned int j = 0; j < scores.size(); j++){
-					if(scores[i][j] >= 0){printf(" ");}
-					printf("%5.5f ",0.00001*scores[i][j]);
-				}
-				printf("\n");
-			}
-			printf("partition "); for(unsigned int i = 0; i < partition.size(); i++){printf("%i ", partition[i]);} printf("\n");
-}
+
 			double sumscore1 = 0;
 			for(unsigned int i = 0; i < models.size(); i++){
 				for(unsigned int j = 0; j < models.size(); j++){
@@ -104,10 +90,28 @@ if(ca < 10){
 			}
 
 			double improvement = sumscore2-sumscore1;
-			printf("improvement: %f\n",improvement);
+
+
+//			printf("improvement: %10.10f ratio: %10.10f ",improvement*0.001,ocs[1][0].score/ocs[1][0].occlusions);
+//			ocs[1][0].print();
+////			computeOcclusionScore(models,rps,step,true);
+
+//			if(improvement > 0){
+//				//printf("improvement: %10.10f ",improvement*0.001);
+//				//ocs[1][0].print();
+//				//computeOcclusionScore(models,rps,step,true);
+//			}
+
 
 			if(improvement > best){
-				computeOcclusionScore(models,rps,step,false);
+//				for(unsigned int i = 0; i < scores.size(); i++){
+//					for(unsigned int j = 0; j < scores.size(); j++){
+//						if(scores[i][j] >= 0){printf(" ");}
+//						printf("%5.5f ",0.00001*scores[i][j]);
+//					}
+//					printf("\n");
+//				}
+//				printf("partition "); for(unsigned int i = 0; i < partition.size(); i++){printf("%i ", partition[i]);} printf("\n");
 				best = improvement;
 				best_id = ca;
 			}
@@ -117,7 +121,7 @@ if(ca < 10){
             fr.score = 9999999;
             fr.guess = fr.candidates[best_id];
         }
-
+exit(0);
 		return fr;
 	}
 	return FusionResults();

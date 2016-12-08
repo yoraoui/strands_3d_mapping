@@ -153,7 +153,13 @@ DistanceWeightFunction2PPR3::~DistanceWeightFunction2PPR3(){
 	if(dist != 0){delete dist;}
 }
 
-double DistanceWeightFunction2PPR3::getNoise(){return regularization+noiseval;}
+double DistanceWeightFunction2PPR3::getNoise(){
+	if(bidir){
+		return 0.5*fabs(maxd-mind);
+	}else{
+		return fabs(maxd-mind);
+	}
+}//regularization+noiseval;}
 
 void DistanceWeightFunction2PPR3::recomputeHistogram(std::vector<float> & hist, MatrixXd & mat){
 	const unsigned int nr_data = mat.cols();
@@ -210,6 +216,7 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
 		saveData << "\n%################################################### ITER:" << iter << " ############################################################\n";
 	}
 
+	if(iter == 0){dist->reset();}
 
 
 	if(!fixed_histogram_size){
@@ -244,6 +251,9 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
             }
 			if(debugg_print){printf("%%getMaxdMind time: %5.5fs\n",getTime()-start_time);}
 			if(!bidir){next_mind = 0;}
+			double ratioChange = fabs(maxd-mind)/fabs(next_maxd-next_mind);
+
+			dist->rescale(1.0/ratioChange);
 			mind = next_mind;
 			maxd = next_maxd;
 
@@ -377,7 +387,8 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
 		double newlogdiff = log(ratio);
 		if(debugg_print){printf("%%overlap: %5.5f ratio: %5.5f newlogdiff: %5.5f\n",overlap,ratio,newlogdiff);}
 
-        if(fabs(newlogdiff) > 0.05 && iter < 5){
+		if(fabs(newlogdiff) > 0.05 && iter < 10){
+
 			iter++;
 			computeModel(mat);
 			return;

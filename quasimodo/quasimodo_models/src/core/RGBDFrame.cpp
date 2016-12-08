@@ -1200,7 +1200,7 @@ void RGBDFrame::saveFast(std::string path){
 	outfile.close();
 	delete[] buffer;
 
-//	printf("saveFast(%s): %5.5fs\n",path.c_str(),getTime()-startTime);
+	printf("saveFast(%s): %5.5fs\n",path.c_str(),getTime()-startTime);
 	camera->save(path+"_camera");
 }
 

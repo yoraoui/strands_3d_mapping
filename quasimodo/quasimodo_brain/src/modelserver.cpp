@@ -49,7 +49,7 @@ ros::ServiceClient retrieval_client;
 ros::ServiceClient conversion_client;
 ros::ServiceClient insert_client;
 
-double occlusion_penalty	= 10;
+double occlusion_penalty	= 5;
 double massreg_timeout		= 120;
 bool run_search				= false;
 int sweepid_counter			= 0;
@@ -310,6 +310,13 @@ bool runSearch(ModelDatabase * database, reglib::Model * model, int number_of_se
 std::set<int> searchset;
 
 void addNewModel(reglib::Model * model){
+
+//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = reglib::getPointCloudFromVector(model->points);
+//	viewer->setBackgroundColor(1.0,0.0,1.0);
+//	viewer->removeAllPointClouds();
+//	viewer->addPointCloud<pcl::PointXYZRGBNormal> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cld), "cld");
+//	viewer->spin();
+
 printf("start: %s\n",__PRETTY_FUNCTION__);
 	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
 	reg->visualizationLvl				= show_reg_lvl;
@@ -377,6 +384,12 @@ void modelCallback(const quasimodo_msgs::model & m){
 
 	addNewModel(model);
 	storage->fullHandback();
+
+//			pcl::PointCloud<pcl::PointXYZRGB>::Ptr cld = storage->getSnapshot();//reglib::getPointCloudFromVector(model->points);
+//			viewer->setBackgroundColor(1.0,0.0,1.0);
+//			viewer->removeAllPointClouds();
+//			viewer->addPointCloud<pcl::PointXYZRGB> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cld), "cld");
+//			viewer->spin();
 
 }
 
@@ -518,8 +531,17 @@ int main(int argc, char **argv){
 	for(unsigned int i = 0; i < modelpcds.size(); i++){
 		std::vector<reglib::Model *> mods = quasimodo_brain::loadModelsPCDs(modelpcds[i]);
 		for(unsigned int j = 0; j < mods.size(); j++){
-			//modeldatabase->add(mods[j]);
-			//addNewModel(mods[j]);
+			printf("%i / %i\n",j,mods.size());
+//			modeldatabase->add(mods[j]);
+
+//			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = reglib::getPointCloudFromVector(mods[j]->points);
+//			printf("cld->points.size() = %i\n",cld->points.size());
+//			viewer->setBackgroundColor(1.0,0.0,1.0);
+//			viewer->removeAllPointClouds();
+//			viewer->addPointCloud<pcl::PointXYZRGBNormal> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cld), "cld");
+//			viewer->spin();
+//			exit(0);
+//			addNewModel(mods[j]);
 
 			reglib::Model * model = mods[j];
 

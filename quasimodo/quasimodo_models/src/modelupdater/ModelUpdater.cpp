@@ -491,30 +491,24 @@ OcclusionScore ModelUpdater::computeOcclusionScore(Model * model1, Model * model
 	return ocs;
 }
 
-void testgetDynamicWeights(bool store_distance, std::vector<double> & dvec, std::vector<double> & nvec, DistanceWeightFunction2 * dfunc, DistanceWeightFunction2 * nfunc, Matrix4d p, std::vector<superpoint> & sp, double * overlaps, double * occlusions, double * notocclusions, RGBDFrame * frame, bool debugg = true){
+void ModelUpdater::testgetDynamicWeights(bool store_distance, std::vector<double> & dvec, std::vector<double> & nvec, DistanceWeightFunction2 * dfunc, DistanceWeightFunction2 * nfunc, Matrix4d p, std::vector<superpoint> & sp, double * overlaps, double * occlusions, double * notocclusions, RGBDFrame * frame, bool debugg){
 
 	double startTime = getTime();
-	unsigned char * detdata = (unsigned char*)(frame->det_dilate.data);
-//	unsigned char * dst_detdata = (unsigned char*)(frame2->det_dilate.data);
+	unsigned char	* detdata		= (unsigned char	*)(frame->det_dilate.data);
+	unsigned short	* depthdata		= (unsigned short	*)(frame->depth.data);
 
-	std::vector<superpoint> framesp = frame->getSuperPoints();
+	const float idepth			= frame->camera->idepth_scale;
+
+	//pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr	cld;
+	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr	cld	(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+	if(debugg){
+		//cld = getPointCloudFromVector(sp,3,127,127,127);
+	}
+//printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);
+//	std::vector<superpoint> framesp = frame->getSuperPoints();
+
 	std::vector<ReprojectionResult> rr_vec	= frame->getReprojections(sp,p,0,false);
 	unsigned long nr_rr = rr_vec.size();
-
-//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr src_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dst_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-//	if(debugg){
-//		src_cloud = getPointCloudFromVector(sp,3,255,0,255);
-//		dst_cloud = getPointCloudFromVector(framesp,3,0,0,255);
-
-//		boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("Modelserver Viewer"));
-//		viewer->addCoordinateSystem(0.1);
-//		viewer->setBackgroundColor(0.0,0.0,0.0);
-//		viewer->removeAllPointClouds();
-//		viewer->addPointCloud<pcl::PointXYZRGBNormal> (src_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(src_cloud), "scloud");
-//		viewer->addPointCloud<pcl::PointXYZRGBNormal> (dst_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dst_cloud), "dcloud");
-//		viewer->spin();
-//	}
 
 	double threshold = 0;
 	if(!store_distance){
@@ -525,19 +519,28 @@ void testgetDynamicWeights(bool store_distance, std::vector<double> & dvec, std:
 	for(unsigned long ind = 0; ind < nr_rr;ind++){
 		ReprojectionResult & rr = rr_vec[ind];
 		unsigned int src_ind = rr.src_ind;
+
 		superpoint & src_p = sp[src_ind];
-		if(src_p.point(2) < 0.0){continue;}
+		if(src_p.point(2) < 0.0){
+			continue;
+		}
 
 		totsum++;
 		unsigned int dst_ind = rr.dst_ind;
-		superpoint & dst_p = framesp[dst_ind];
+
+		//float dst_z		= idepth*float(depthdata[ind]);
+
+		//superpoint & dst_p = framesp[dst_ind];
 		double src_variance = 1.0/src_p.point_information;
-		double dst_variance = 1.0/dst_p.point_information;
+		double dst_variance = 1.0/getInformation(idepth*float(depthdata[dst_ind]));//dst_p.point_information;
 		double total_variance = src_variance+dst_variance;
 		double total_stdiv = sqrt(total_variance);
 		double d = rr.residualZ/total_stdiv;
 		double surface_angle = rr.angle;
-		if(fabs(d) < 0.000001){continue;}
+		if(fabs(d) < 0.000001){
+
+			continue;
+		}
 		if(store_distance){
 			dvec.push_back(d);
 			nvec.push_back(1-surface_angle);
@@ -552,24 +555,62 @@ void testgetDynamicWeights(bool store_distance, std::vector<double> & dvec, std:
 
 			if(detdata[dst_ind] != 0){continue;}
 
+//			double olp = overlaps[src_ind];
+//			double nolp = 1-olp;
+//			nolp *= (1-p_overlap);
+//			overlaps[src_ind] = std::min(0.999999999,1-nolp);
+//			occlusions[src_ind] = std::max(occlusions[src_ind],p_occlusion);//p_occlusion;//std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
+//			notocclusions[src_ind] = 1;//++;
+
 			double olp = overlaps[src_ind];
 			double nolp = 1-olp;
 			nolp *= (1-p_overlap);
 			overlaps[src_ind] = std::min(0.999999999,1-nolp);
 			occlusions[src_ind] += p_occlusion;//std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
 			notocclusions[src_ind]++;
+			if(debugg){
+				pcl::PointXYZRGBNormal p;
+				p.x = sp[src_ind].point(0);
+				p.y = sp[src_ind].point(1);
+				p.z = sp[src_ind].point(2);
+				p.r = 255*p_occlusion;
+				p.g = 255*p_overlap;
+				p.b = 255*p_behind;
+				cld->points.push_back(p);
+			}
 		}
 	}
 
+	if(debugg && cld->points.size() > 0){
+		viewer->setBackgroundColor(1.0,1.0,1.0);
+		viewer->removeAllPointClouds();
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cld), "cld");
+
+		std::vector<superpoint> framesp = frame->getSuperPoints(p.inverse(),5);
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr fcld = getPointCloudFromVector(framesp,3,255,0,255);
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (fcld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(fcld), "fcld");
+
+		viewer->spin();
+	}
 }
 
 
 vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Model *> models, vector<Matrix4d> rps, int step, bool debugg){
-	printf("computeOcclusionScore\n");
+	//printf("computeOcclusionScore\n");
 	std::vector<double> dvec;
 	std::vector<double> nvec;
 	DistanceWeightFunction2 * dfunc;
 	DistanceWeightFunction2 * nfunc;
+
+	unsigned int nr_models = models.size();
+	vector<vector < OcclusionScore > > occlusionScores;
+	occlusionScores.resize(nr_models);
+	for(unsigned int i = 0; i < nr_models; i++){
+		occlusionScores[i].resize(nr_models);
+		for(unsigned int j = 0; j < nr_models; j++){
+			occlusionScores[i][j] = OcclusionScore(0,0);
+		}
+	}
 
 	double startTime = getTime();
 
@@ -589,24 +630,30 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 			if(i == j){continue;}
 			Model * model2 = models[j];
 			for(unsigned int k = 0; k < model2->relativeposes.size(); k++){
-				Eigen::Matrix4d p = model2->relativeposes[k].inverse()*(rps[i].inverse() * rps[j]);
+				Eigen::Matrix4d p;
+				p = model2->relativeposes[k].inverse()*(rps[j].inverse() * rps[i]);
 				testgetDynamicWeights(true,dvec,nvec,dfunc,nfunc,p, model1->points,0,0,0,model2->frames[k]);
 			}
 		}
 	}
 
+//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
+
 	double dstdval = 0;
 	for(unsigned int i = 0; i < dvec.size(); i++){dstdval += dvec[i]*dvec[i];}
 	dstdval = sqrt(dstdval/double(dvec.size()-1));
 
-	GeneralizedGaussianDistribution * dggdnfunc	= new GeneralizedGaussianDistribution(true,true,false,true,true);
-	dggdnfunc->nr_refineiters					= 4;
-    dggdnfunc->debugg_print						= false;
+//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
+
+	GeneralizedGaussianDistribution * dggdnfunc	= new GeneralizedGaussianDistribution(true,false,false,false,false);
+	dggdnfunc->nr_refineiters					= 1;
+	dggdnfunc->costpen							= -1;
+	dggdnfunc->debugg_print						= false;
 	DistanceWeightFunction2PPR3 * dfuncTMP		= new DistanceWeightFunction2PPR3(dggdnfunc);
 	dfunc = dfuncTMP;
-    dfuncTMP->startreg				= 0.01;
+	dfuncTMP->startreg				= 0.001;
 	dfuncTMP->max_under_mean		= false;
-	dfuncTMP->debugg_print			= true;
+	dfuncTMP->debugg_print			= debugg;
 	dfuncTMP->bidir					= true;
 	dfuncTMP->zeromean				= false;
 	dfuncTMP->maxp					= 0.9999;
@@ -623,17 +670,23 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 
 	dfunc->computeModel(dvec);
 
+//	printf("dfunc->getNoise() = %f\n",dfunc->getNoise());
+//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
+
 	GeneralizedGaussianDistribution * ggdnfunc	= new GeneralizedGaussianDistribution(true,true);
-	ggdnfunc->nr_refineiters					= 4;
+	ggdnfunc->nr_refineiters		= 10;
+	ggdnfunc->power					= 1.0;
+	ggdnfunc->costpen				= -1;
+	ggdnfunc->debugg_print			= false;
 	DistanceWeightFunction2PPR3 * nfuncTMP		= new DistanceWeightFunction2PPR3(ggdnfunc);
 	nfunc = nfuncTMP;
-    nfuncTMP->startreg				= 0.1;
-	nfuncTMP->debugg_print			= true;
+	nfuncTMP->startreg				= 0.05;
+	nfuncTMP->debugg_print			= debugg;
 	nfuncTMP->bidir					= false;
 	nfuncTMP->zeromean				= true;
 	nfuncTMP->maxp					= 0.9999;
-	nfuncTMP->maxd					= 1.0;
-	nfuncTMP->histogram_size		= 1000;
+	nfuncTMP->maxd					= 2.0;
+	nfuncTMP->histogram_size		= 200;
 	nfuncTMP->fixed_histogram_size	= true;
 	nfuncTMP->startmaxd				= nfuncTMP->maxd;
 	nfuncTMP->starthistogram_size	= nfuncTMP->histogram_size;
@@ -644,11 +697,12 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 	nfuncTMP->reset();
 	nfunc->computeModel(nvec);
 
+
+	double noiseWeight = dfunc->getNoise();
+//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
+
 	for(unsigned int i = 0; i < models.size(); i++){
 		Model * model1 = models[i];
-		float * priors            = new float[3*model1->points.size()];
-		float * prior_weights     = new float[2*model1->points.size()];
-		bool * valids             = new bool[model1->points.size()];
 
 		unsigned int nr_pixels = model1->points.size();
 		double * current_overlaps		= new double[nr_pixels];
@@ -665,18 +719,26 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 			bg_notocclusions[m] = 0.0;
 		}
 
+		if(debugg){
+			printf("SELF OCCLUSION\n");
+		}
 		for(unsigned int k = 0; k < model1->relativeposes.size(); k++){
 			Eigen::Matrix4d p = model1->relativeposes[k].inverse();
-			testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,bg_overlaps, bg_occlusions, bg_notocclusions,model1->frames[k]);
+			//testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,bg_overlaps, bg_occlusions, bg_notocclusions,model1->frames[k],debugg);
+			testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,bg_overlaps, bg_occlusions, bg_notocclusions,model1->frames[k],false);
 		}
 
 		for(unsigned int m = 0; m < nr_pixels; m++){
 			bg_occlusions[m]		= std::min(0.99999,bg_occlusions[m]/std::max(1.0,bg_notocclusions[m]));
 		}
 
-
 		for(unsigned int j = 0; j < models.size(); j++){
+
 			if(i == j){continue;}
+
+			if(debugg){
+				printf("COMPARE %i to %i\n",i,j);
+			}
 
 			for(unsigned int m = 0; m < nr_pixels; m++){
 				current_overlaps[m] = 0;
@@ -687,81 +749,55 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 			Model * model2 = models[j];
 			//For all frames
 			for(unsigned int k = 0; k < model2->relativeposes.size(); k++){
-				printf("%i %i %i of %i %i %i\n",i,j,k,models.size(),models.size(),model2->relativeposes.size());
-				Eigen::Matrix4d p = model2->relativeposes[k].inverse()*(rps[i].inverse() * rps[j]);
-				testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,current_overlaps, current_occlusions, current_notocclusions,model2->frames[k]);
+				Eigen::Matrix4d p;
+				//p = model2->relativeposes[k].inverse()*(rps[i].inverse() * rps[j]);
+				//testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,current_overlaps, current_occlusions, current_notocclusions,model2->frames[k],debugg);
+
+				p = model2->relativeposes[k].inverse()*(rps[j].inverse() * rps[i]);
+				testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,current_overlaps, current_occlusions, current_notocclusions,model2->frames[k],debugg);
+
+				//p = model2->relativeposes[k].inverse()*(rps[i] * rps[j].inverse());
+				//testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,current_overlaps, current_occlusions, current_notocclusions,model2->frames[k],debugg);
+
+				//p = model2->relativeposes[k].inverse()*(rps[j].inverse() * rps[i].inverse());
+				//testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,current_overlaps, current_occlusions, current_notocclusions,model2->frames[k],debugg);
 			}
 
 			for(unsigned int m = 0; m < nr_pixels; m++){
 				current_occlusions[m]	= std::min(0.99999,current_occlusions[m]/std::max(1.0,current_notocclusions[m]));
 			}
+
+			double occlusion_count = 0;
+			double overlap_count = 0;
+
+			for(unsigned int ind = 0; ind < nr_pixels; ind++){
+				double ocl = std::max(0.0,current_occlusions[ind]-bg_occlusions[ind]);
+				double olp = std::min(1-ocl,current_overlaps[ind]);
+
+				occlusion_count += ocl;
+				overlap_count += olp;
+			}
+
+			OcclusionScore oc (overlap_count/noiseWeight,occlusion_count/noiseWeight);
+			occlusionScores[i][j].add(oc);
+			occlusionScores[j][i].add(oc);
+
+			if(debugg){
+				printf("dfunc->getNoise() = %f\n",dfunc->getNoise());
+				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = getPointCloudFromVector(model1->points);
+				for(unsigned int ind = 0; ind < nr_pixels; ind++){
+					double ocl = std::max(0.0,current_occlusions[ind]-bg_occlusions[ind]);
+					double olp = std::min(1-ocl,current_overlaps[ind]);
+					cld->points[ind].r = 255*ocl;
+					cld->points[ind].g = 255*olp;
+					cld->points[ind].b = 0;
+				}
+				viewer->setBackgroundColor(1.0,1.0,1.0);
+				viewer->removeAllPointClouds();
+				viewer->addPointCloud<pcl::PointXYZRGBNormal> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cld), "cld");
+				viewer->spin();
+			}
 		}
-
-		for(unsigned int m = 0; m < nr_pixels; m++){
-			current_occlusions[m]	= std::min(0.99999,current_occlusions[m]/std::max(1.0,current_notocclusions[m]));
-		}
-
-		int offset = 0;
-		double sum_moving = 0;
-		double sum_dynamic = 0;
-		double sum_static = 0;
-		for(unsigned int ind = 0; ind < nr_pixels; ind++){
-		setupPriors(3,
-					current_occlusions[ind],current_overlaps[ind],bg_occlusions[ind],bg_overlaps[ind],true,
-					priors[3*(offset+ind)+0], priors[3*(offset+ind)+1],priors[3*(offset+ind)+2],
-					prior_weights[2*(offset+ind)+0], prior_weights[2*(offset+ind)+1]);
-
-			sum_moving += priors[3*(offset+ind)+0];
-			sum_dynamic += priors[3*(offset+ind)+1];
-			sum_static += priors[3*(offset+ind)+2];
-		}
-
-		printf("moving: %f dynamic: %f static: %f\n",sum_moving,sum_dynamic,sum_static);
-
-
-		//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr src_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-		//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dst_cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-
-		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = getPointCloudFromVector(model1->points);
-		printf("cld: %i\n",cld->points.size());
-		printf("nr_pixels: %i\n",nr_pixels);
-		for(unsigned int ind = 0; ind < nr_pixels; ind++){
-			cld->points[ind].r = 255*priors[3*(offset+ind)+0];
-			cld->points[ind].g = 255*priors[3*(offset+ind)+1];
-			cld->points[ind].b = 255*priors[3*(offset+ind)+2];
-		}
-//		boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("Modelserver Viewer"));
-//		viewer->addCoordinateSystem(0.1);
-		viewer->setBackgroundColor(1.0,1.0,1.0);
-		viewer->removeAllPointClouds();
-		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cld), "cld");
-		viewer->spin();
-
-		printf("current || overlaps: green  occlusions: red\n");
-		for(unsigned int ind = 0; ind < nr_pixels; ind++){
-			cld->points[ind].r = 255*current_occlusions[ind];
-			cld->points[ind].g = 255*current_overlaps[ind];
-			cld->points[ind].b = 0;
-		}
-//		boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("Modelserver Viewer"));
-//		viewer->addCoordinateSystem(0.1);
-
-		viewer->removeAllPointClouds();
-		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cld), "cld");
-		viewer->spin();
-
-		printf("background || overlaps: green  occlusions: red\n");
-		for(unsigned int ind = 0; ind < nr_pixels; ind++){
-			cld->points[ind].r = 255*bg_occlusions[ind];
-			cld->points[ind].g = 255*bg_overlaps[ind];
-			cld->points[ind].b = 0;
-		}
-//		boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("Modelserver Viewer"));
-//		viewer->addCoordinateSystem(0.1);
-
-		viewer->removeAllPointClouds();
-		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cld), "cld");
-		viewer->spin();
 
 		delete[] current_overlaps;
 		delete[] current_occlusions;
@@ -770,28 +806,16 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 		delete[] bg_overlaps;
 		delete[] bg_occlusions;
 		delete[] bg_notocclusions;
-
-		delete[] priors;
-		delete[] prior_weights;
-		delete[] valids;
 	}
 
-exit(0);
-
-
-
-	unsigned int nr_models = models.size();
-	vector<vector < OcclusionScore > > occlusionScores;
-	occlusionScores.resize(nr_models);
-	for(unsigned int i = 0; i < nr_models; i++){occlusionScores[i].resize(nr_models);}
-
-	for(unsigned int i = 0; i < nr_models; i++){
-		for(unsigned int j = i+1; j < nr_models; j++){
-			Eigen::Matrix4d relative_pose = rps[i].inverse() * rps[j];
-			occlusionScores[i][j] = computeOcclusionScore(models[i],models[j], relative_pose, step, debugg);
-			occlusionScores[j][i] = occlusionScores[i][j];
-		}
-	}
+//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
+//	for(unsigned int i = 0; i < nr_models; i++){
+//		for(unsigned int j = i+1; j < nr_models; j++){
+//			Eigen::Matrix4d relative_pose = rps[i].inverse() * rps[j];
+//			occlusionScores[i][j] = computeOcclusionScore(models[i],models[j], relative_pose, step, debugg);
+//			occlusionScores[j][i] = occlusionScores[i][j];
+//		}
+//	}
 
 	return occlusionScores;
 }

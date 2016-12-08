@@ -41,6 +41,7 @@ public:
     virtual double getval(double x);
     virtual double getcdf(double x);
     virtual void print();
+	virtual void rescale(double mul);
 
     //virtual void getMaxdMind(double & maxd, double & mind, double prob = 0.1);
 

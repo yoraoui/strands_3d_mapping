@@ -784,7 +784,7 @@ void Model::save(std::string path){
 
 
 void Model::saveFast(std::string path){
-    //printf("Model::saveFast(%s)\n",path.c_str());
+	printf("Model::saveFast(%s)\n",path.c_str());
 
 	double startTime = getTime();
 	pointspath = path+"points.bin";
@@ -819,7 +819,7 @@ void Model::saveFast(std::string path){
 	pointfile.close();
 
 	delete[] data;
-
+printf("saveFast(%s): %5.5fs\n",path.c_str(),getTime()-startTime);
 
 	for(unsigned int i = 0; i < modelmasks.size();i++){
 		char buf [1024];

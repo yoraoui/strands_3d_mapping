@@ -86,6 +86,9 @@ public:
 	ModelUpdater(Model * model_);
 	~ModelUpdater();
 
+	virtual void testgetDynamicWeights(bool store_distance, std::vector<double> & dvec, std::vector<double> & nvec, DistanceWeightFunction2 * dfunc, DistanceWeightFunction2 * nfunc, Matrix4d p, std::vector<superpoint> & sp, double * overlaps, double * occlusions, double * notocclusions, RGBDFrame * frame, bool debugg = false);
+
+
 
 	virtual FusionResults registerModel(Model * model2, Eigen::Matrix4d guess = Eigen::Matrix4d::Identity(), double uncertanity = -1);
 	virtual void fuse(Model * model2, Eigen::Matrix4d guess = Eigen::Matrix4d::Identity(), double uncertanity = -1);

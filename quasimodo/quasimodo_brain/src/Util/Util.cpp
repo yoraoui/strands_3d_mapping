@@ -1426,7 +1426,7 @@ std::vector<int> getIndsFromFile(const std::string& poses_file){
 
 
 std::vector<reglib::Model *> loadModelsPCDs(std::string path){
-
+	printf("loadModelsPCDs(%s)\n",path.c_str());
 //	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("Modelserver Viewer"));
 //	viewer->addCoordinateSystem(0.1);
 //	viewer->setBackgroundColor(1.0,0.0,1.0);
@@ -1436,6 +1436,7 @@ std::vector<reglib::Model *> loadModelsPCDs(std::string path){
 
 	std::vector<std::string> folders = getFolderList(path);//recursiveGetFolderList(path);//getFolderList(path);//
 	for(unsigned int i = 0; i < folders.size(); i++){
+		if(i != 6){continue;}
 		printf("folders: %s\n",folders[i].c_str());
 		std::string views = path+folders[i]+"/views";
 		std::vector<std::string> files = getFileList(views);
@@ -1446,7 +1447,7 @@ std::vector<reglib::Model *> loadModelsPCDs(std::string path){
 
 		for(unsigned int j = 0; j < files.size(); j++){
 			std::string file = views+"/"+files[j];
-			printf("Files: %s\n",file.c_str());
+			//printf("Files: %s\n",file.c_str());
 			if ((files[j].find("cloud") != std::string::npos) && (files[j].find(".pcd") !=std::string::npos)){cloudspaths.push_back(file);}
 			if (files[j].find("indices") != std::string::npos){indexpaths.push_back(file);}
 			if (files[j].find("pose") != std::string::npos){posepaths.push_back(file);}
@@ -1514,8 +1515,9 @@ std::vector<reglib::Model *> loadModelsPCDs(std::string path){
 //					cv::imshow( "mask", mask );
 //					cv::waitKey(0);
 
-					reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, 0 , pose.cast<double>() , true,"",false);
-					frame->show(false);
+					reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, 0 , pose.cast<double>() , true,"",true);
+					frame->keyval = folders[i]+"_frame_"+std::to_string(model->frames.size());
+					//frame->show(false);
 					model->frames.push_back(frame);
 					model->relativeposes.push_back(model->frames.front()->pose.inverse() * pose.cast<double>());
 					model->modelmasks.push_back(new reglib::ModelMask(mask));
