@@ -86,6 +86,8 @@
 #include <string>
 #include <iostream>
 
+#include <boost/filesystem.hpp>
+
 namespace quasimodo_brain {
 void guaranteeFolder(std::string filepath);
 

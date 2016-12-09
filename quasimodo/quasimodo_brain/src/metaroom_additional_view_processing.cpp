@@ -407,7 +407,7 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 		bgmassreg->stopval = 0.0005;
 		bgmassreg->addModel(sweep);
 		bgmassreg->setData(frames,masks);
-		//		exit(0);
+
 		//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 
 		reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
@@ -1286,7 +1286,7 @@ void trainMetaroom(std::string path){
 	bgmassreg->stopval = 0.0005;
 	bgmassreg->setData(fullmodel->frames,fullmodel->modelmasks);
 	reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(fullmodel->relativeposes);
-	exit(0);
+
 	quasimodo_brain::savePoses(overall_folder+"/"+posepath,bgmfr.poses,17);
 	fullmodel->fullDelete();
 	delete fullmodel;
@@ -1515,29 +1515,7 @@ bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDyn
 	return true;
 }
 
-bool segmentRaresFiles(std::string path, bool resegment){
-	vector<string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<PointType>(path);
-	for (auto sweep_xml : sweep_xmls) {
-		printf("sweep_xml: %s\n",sweep_xml.c_str());
 
-		quasimodo_brain::cleanPath(sweep_xml);
-		int slash_pos = sweep_xml.find_last_of("/");
-		std::string sweep_folder = sweep_xml.substr(0, slash_pos) + "/";
-		QStringList segoutput = QDir(sweep_folder.c_str()).entryList(QStringList("segoutput.txt"));
-
-		printf("segoutput %i\n",segoutput.size());
-		if(resegment || segoutput.size() == 0){
-			std::ofstream myfile;
-			myfile.open (sweep_folder+"segoutput.txt");
-			myfile << "dummy";
-			myfile.close();
-
-			CloudPtr dyncloud (new Cloud());
-			processMetaroom(dyncloud,sweep_xml);
-		}
-	}
-	return false;
-}
 
 bool testDynamicObjectServiceCallback(std::string path){
 	printf("bool getDynamicObjectServiceCallback(GetDynamicObjectServiceRequest &req, GetDynamicObjectServiceResponse &res)\n");
@@ -1807,7 +1785,8 @@ void processSweep(std::string path, std::string savePath){
 
 	CloudPtr dyncloud (new Cloud());
 	int ret = processMetaroom(dyncloud,path);
-
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+	printf("ret: %i\n",ret);
 	std_msgs::String msg;
 	if(ret == 0){
 		ROS_ERROR_STREAM("Xml file does not exist. Aborting.");
@@ -1818,13 +1797,20 @@ void processSweep(std::string path, std::string savePath){
 	if(ret == 2){ROS_ERROR_STREAM("No moving objects found.");}
 	if(ret == 3){ROS_ERROR_STREAM("Moving objects found.");}
 
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+
 	sensor_msgs::PointCloud2 input;
 	pcl::toROSMsg (*dyncloud,input);
 	input.header.frame_id = "/map";
+
+	printf("dyncloud->points.size(): %i\n",dyncloud->points.size());
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 	roomObservationCallback_pubs.publish(input);
 
+		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+		printf("m_PublisherStatuss.size(): %i\n",m_PublisherStatuss.size());
 	for(unsigned int i = 0; i < m_PublisherStatuss.size(); i++){m_PublisherStatuss[i].publish(msg);}
-
+		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 	//Send the previous room to the modelserver...
 	path = quasimodo_brain::replaceAll(path, "//", "/");
 	int prevind = -1;
@@ -1834,7 +1820,7 @@ void processSweep(std::string path, std::string savePath){
 		if(sweep_xmls[i].compare(path) == 0){break;}
 		prevind = i;
 	}
-
+		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 	if(prevind >= 0){//Submit last metaroom results
 		//Add previous metaroom to soma llsd
 //		sendRoomToSomaLLSD(sweep_xmls[prevind]);
@@ -2077,7 +2063,7 @@ void processSweepForDatabase(std::string path, std::string savePath){
 
 	sweep->fullDelete();
 	delete sweep;
-	//	exit(0);
+
 	//		int additional_nrviews = 0;
 	//		QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("*object*.xml"));
 	//		for (auto objectFile : objectFiles){
@@ -2205,6 +2191,32 @@ void add_soma_id_callback(const std_msgs::String::ConstPtr& msg){
 	}else{
 		addSceneToLastMetaroom(msg->data);
 	}
+}
+
+bool segmentRaresFiles(std::string path, bool resegment){
+	vector<string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<PointType>(path);
+	for (auto sweep_xml : sweep_xmls) {
+		printf("sweep_xml: %s\n",sweep_xml.c_str());
+
+		quasimodo_brain::cleanPath(sweep_xml);
+		int slash_pos = sweep_xml.find_last_of("/");
+		std::string sweep_folder = sweep_xml.substr(0, slash_pos) + "/";
+		QStringList segoutput = QDir(sweep_folder.c_str()).entryList(QStringList("segoutput.txt"));
+
+		printf("segoutput %i\n",segoutput.size());
+		if(resegment || segoutput.size() == 0){
+			std::ofstream myfile;
+			myfile.open (sweep_folder+"segoutput.txt");
+			myfile << "dummy";
+			myfile.close();
+
+			processSweep(sweep_xml,"");
+
+//			CloudPtr dyncloud (new Cloud());
+//			processMetaroom(dyncloud,sweep_xml);
+		}
+	}
+	return false;
 }
 
 
@@ -2389,8 +2401,9 @@ int main(int argc, char** argv){
 	for(unsigned int i = 0; i < raresfiles.size(); i++){segmentRaresFiles(		raresfiles[i], raresfiles_resegment[i]);}
 	for(unsigned int i = 0; i < trainMetarooms.size(); i++){		trainMetaroom(			trainMetarooms[i]);}
 	for(unsigned int i = 0; i < processMetarooms.size(); i++){
-		CloudPtr dyncloud (new Cloud());
-		processMetaroom(dyncloud,processMetarooms[i]);
+		processSweep(processMetarooms[i],"");
+		//CloudPtr dyncloud (new Cloud());
+		//processMetaroom(dyncloud,processMetarooms[i]);
 	}
 	for(unsigned int i = 0; i < sendMetaroomToServers.size(); i++){
 		vector<string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<PointType>(sendMetaroomToServers[i]);
