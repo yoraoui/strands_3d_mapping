@@ -61,21 +61,27 @@ std::string ModelStorageFile::getNextID(){
 }
 
 bool ModelStorageFile::add(reglib::Model * model, std::string key){
+	printf("ModelStorageFile::add\n");
 	double startTime =quasimodo_brain::getTime();
 	if(model->keyval.length() == 0){model->keyval = getNextID();}
-
+	printf("ModelStorageFile::add :: %5.5fs :: %i\n",quasimodo_brain::getTime()-startTime,__LINE__); startTime =quasimodo_brain::getTime();
     std::string modelpath = filepath+"/"+model->keyval;
-    quasimodo_brain::guaranteeFolder(modelpath);
+	printf("ModelStorageFile::add :: %5.5fs :: %i\n",quasimodo_brain::getTime()-startTime,__LINE__); startTime =quasimodo_brain::getTime();
+	quasimodo_brain::guaranteeFolder(modelpath);
+	printf("ModelStorageFile::add :: %5.5fs :: %i\n",quasimodo_brain::getTime()-startTime,__LINE__); startTime =quasimodo_brain::getTime();
 	modelpath += "/";
+	printf("ModelStorageFile::add :: %5.5fs :: %i\n",quasimodo_brain::getTime()-startTime,__LINE__); startTime =quasimodo_brain::getTime();
 
     for(unsigned int i = 0; i < model->frames.size(); i++){//Add all frames to the frame database
         std::string path = framepath+"/"+model->frames[i]->keyval;
         if(!quasimodo_brain::fileExists(path+"_data.txt")){model->frames[i]->saveFast(path);}
 	}
+	printf("ModelStorageFile::add :: %5.5fs :: %i\n",quasimodo_brain::getTime()-startTime,__LINE__); startTime =quasimodo_brain::getTime();
 
     for(unsigned int i = 0; i < model->submodels.size(); i++){//Add all frames to the frame database
         add(model->submodels[i]);
 	}
+	printf("ModelStorageFile::add :: %5.5fs :: %i\n",quasimodo_brain::getTime()-startTime,__LINE__); startTime =quasimodo_brain::getTime();
 
 	model->saveFast(modelpath);
 

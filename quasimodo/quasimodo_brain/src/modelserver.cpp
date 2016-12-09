@@ -531,7 +531,8 @@ int main(int argc, char **argv){
 	for(unsigned int i = 0; i < modelpcds.size(); i++){
 		std::vector<reglib::Model *> mods = quasimodo_brain::loadModelsPCDs(modelpcds[i]);
 		for(unsigned int j = 0; j < mods.size(); j++){
-			printf("%i / %i\n",j,mods.size());
+			printf("start %i / %i\n",j,mods.size());
+			reglib::Model * model = mods[j];
 //			modeldatabase->add(mods[j]);
 
 //			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = reglib::getPointCloudFromVector(mods[j]->points);
@@ -543,21 +544,19 @@ int main(int argc, char **argv){
 //			exit(0);
 //			addNewModel(mods[j]);
 
-			reglib::Model * model = mods[j];
+//			reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
+//			reg->visualizationLvl				= show_reg_lvl;
+//			reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model, reg);
+//			mu->occlusion_penalty               = occlusion_penalty;
+//			mu->massreg_timeout                 = massreg_timeout;
+//			mu->viewer							= viewer;
+//			mu->show_init_lvl					= show_init_lvl;//init show
+//			mu->show_refine_lvl					= show_refine_lvl;//refine show
+//			mu->show_scoring					= show_scoring;//fuse scoring show
+//			mu->makeInitialSetup();
 
-			reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
-			reg->visualizationLvl				= show_reg_lvl;
-			reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model, reg);
-			mu->occlusion_penalty               = occlusion_penalty;
-			mu->massreg_timeout                 = massreg_timeout;
-			mu->viewer							= viewer;
-			mu->show_init_lvl					= show_init_lvl;//init show
-			mu->show_refine_lvl					= show_refine_lvl;//refine show
-			mu->show_scoring					= show_scoring;//fuse scoring show
-			mu->makeInitialSetup();
-
-			delete mu;
-			delete reg;
+//			delete mu;
+//			delete reg;
 
 			reglib::Model * newmodelHolder = new reglib::Model();
 			model->parrent = newmodelHolder;
@@ -570,12 +569,14 @@ int main(int argc, char **argv){
 				newmodelHolder->recomputeModelPoints();
 			}
 			modeldatabase->add(newmodelHolder);
+			printf("done  %i / %i\n",j,mods.size());
 		}
 	}
 
 	if(input_model_subs.size()		== 0){input_model_subs.push_back(		n.subscribe("/quasimodo/segmentation/out/model", 100, modelCallback));}
 	if(soma_input_model_subs.size() == 0){soma_input_model_subs.push_back(	n.subscribe("/quasimodo/segmentation/out/soma_segment_id", 10000, somaCallback));}
 
+	printf("done with loading and setup, starting\n");
 	ros::spin();
 	return 0;
 }

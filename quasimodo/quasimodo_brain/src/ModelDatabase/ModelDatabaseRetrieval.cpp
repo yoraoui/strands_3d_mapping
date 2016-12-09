@@ -15,6 +15,7 @@ ModelDatabaseRetrieval::ModelDatabaseRetrieval(ros::NodeHandle & n, std::string 
 ModelDatabaseRetrieval::~ModelDatabaseRetrieval(){}
 
 bool ModelDatabaseRetrieval::add(reglib::Model * model){
+	printf("ModelDatabaseRetrieval::add\n");
 	double startTime =quasimodo_brain::getTime();
 	quasimodo_msgs::insert_model im;
 	im.request.model = quasimodo_brain::getModelMSG(model,true);

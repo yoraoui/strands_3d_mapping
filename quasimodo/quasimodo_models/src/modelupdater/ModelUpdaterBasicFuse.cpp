@@ -121,7 +121,6 @@ FusionResults ModelUpdaterBasicFuse::registerModel(Model * model2, Eigen::Matrix
             fr.score = 9999999;
             fr.guess = fr.candidates[best_id];
         }
-exit(0);
 		return fr;
 	}
 	return FusionResults();
