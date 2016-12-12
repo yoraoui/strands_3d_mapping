@@ -277,7 +277,7 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 	std::vector< double > rys;
 	std::vector< double > rzs;
 
-    int steps = 1;
+	int steps = 4;
 	for(double rx = 0; rx < steps; rx ++){
 		for(double ry = 0; ry < steps; ry++){
             for(double rz = 0; rz < steps; rz++){
