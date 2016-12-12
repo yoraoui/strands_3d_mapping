@@ -38,7 +38,7 @@ FusionResults ModelUpdaterBasicFuse::registerModel(Model * model2, Eigen::Matrix
 		registration->viewer	= viewer;
 
 		CloudData * cd1 = model ->getCD(model->points.size());
-		CloudData * cd2	= model2->getCD(model2->points.size());
+        CloudData * cd2	= model2->getCD(model2->points.size());
 		registration->setDst(cd1);
 		registration->setSrc(cd2);
 		FusionResults fr = registration->getTransform(guess);
@@ -247,6 +247,7 @@ UpdatedModels ModelUpdaterBasicFuse::fuseData(FusionResults * f, Model * model1,
 			for(unsigned int i = 0; i < partition.size(); i++){
 				retval.new_models[partition[i]]->submodels.push_back(models[i]);
 				retval.new_models[partition[i]]->submodels_relativeposes.push_back(rps[i]);
+                retval.new_models[partition[i]]->submodels.back()->parrent = retval.new_models[partition[i]];
 			}
 
 			for(unsigned int part = 0; part < retval.new_models.size(); part++){

@@ -19,6 +19,7 @@ public:
 	superpoint(Eigen::Vector3f p = Eigen::Vector3f(0,0,0), Eigen::Vector3f n = Eigen::Vector3f(0,0,0), Eigen::VectorXf f = Eigen::VectorXf(3), double pi = 1, double fi = 1, int id = 0);
 	~superpoint();
 	void merge(superpoint p, double weight = 1);
+    void print();
 };
 }
 

@@ -525,49 +525,75 @@ CloudData * Model::getCD(unsigned int target_points){
 	return cd;
 }
 
-Model::~Model(){}
+Model::~Model(){
+    printf("delete(%i) -> %s\n",long(this),keyval.c_str());
+}
 
 void Model::fullDelete(){
-	//printf("fullDelete() start\n");
+    printf("fullDelete(%i) -> %s\n",long(this),keyval.c_str());
+
+    //printf("points.size() %i\n",points.size());
 	points.clear();
+
 	all_keypoints.clear();
+
 	all_descriptors.clear();
+
 	relativeposes.clear();
-	for(size_t i = 0; i < frames.size(); i++){
+
+    for(size_t i = 0; i < frames.size(); i++){
+
+        //printf("delete camera(%i) \n",long(frames[i]->camera));
 		delete frames[i]->camera;
+        //printf("delete frame(%i) \n",long(frames[i]));
 		delete frames[i];
 	}
+
 	frames.clear();
 
-	//printf("fullDelete() frames cleared\n");
+    //printf("fullDelete(%i) frames cleared\n",long(this));
 
 	for(size_t i = 0; i < modelmasks.size(); i++){delete modelmasks[i];}
+
 	modelmasks.clear();
 
 
-	//printf("fullDelete() modelmasks cleared\n");
+
+    //printf("fullDelete(%i) modelmasks cleared\n",long(this));
 
 	rep_relativeposes.clear();
+
 	rep_frames.clear();
+
 	rep_modelmasks.clear();
 
+
 	total_scores = 0;
+
 	scores.clear();
 
+
 	for(size_t i = 0; i < submodels.size(); i++){
+
 		submodels[i]->fullDelete();
+
 		delete submodels[i];
+
 	}
+
 	submodels.clear();
 
 
-	//printf("fullDelete() submodels cleared\n");
+
+    //printf("fullDelete(%i) submodels cleared\n",long(this));
 
 	submodels_relativeposes.clear();
+
 	submodels_scores.clear();
 
 
-	//printf("fullDelete() stop cleared\n");
+
+    printf("fullDelete(%i) -> %s stop cleared\n",long(this),keyval.c_str());
 	//	delete this;
 }
 
@@ -784,7 +810,7 @@ void Model::save(std::string path){
 
 
 void Model::saveFast(std::string path){
-	printf("Model::saveFast(%s)\n",path.c_str());
+    //printf("Model::saveFast(%s)\n",path.c_str());
 
 	double startTime = getTime();
 	pointspath = path+"points.bin";
@@ -819,7 +845,7 @@ void Model::saveFast(std::string path){
 	pointfile.close();
 
 	delete[] data;
-printf("saveFast(%s): %5.5fs\n",path.c_str(),getTime()-startTime);
+//printf("saveFast(%s): %5.5fs\n",path.c_str(),getTime()-startTime);
 
 	for(unsigned int i = 0; i < modelmasks.size();i++){
 		char buf [1024];
@@ -1172,7 +1198,7 @@ Model * Model::loadFast(std::string path){
 			}
 			//printf("submodels_keyval[%i] = %s\n",k,submodels_keyval.c_str());
 			mod->submodels[k] = Model::loadFast(path+"/../"+submodels_keyval+"/");
-
+            mod->submodels[k]->parrent = mod;
 		}
 
 		mod->frames.resize(framessize);

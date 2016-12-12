@@ -356,7 +356,7 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 	fullmodel->frames = sweep->frames;
 	fullmodel->relativeposes = sweep->relativeposes;
 	fullmodel->modelmasks = sweep->modelmasks;
-	//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+	//
 	if(frames.size() > 0){
 
 		reglib::RegistrationRefinement * refinement = new reglib::RegistrationRefinement();
@@ -366,14 +366,14 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 		refinement->target_points = 4000;
 		////double register_setup_start = getTime();
 
-		//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+		//
 		reglib::CloudData * cd1 = sweep->getCD(sweep->points.size());
 		refinement->setDst(cd1);
 
 		fullmodel->points = frames.front()->getSuperPoints(Eigen::Matrix4d::Identity(),1,false);
 		reglib::CloudData * cd2	= fullmodel->getCD(fullmodel->points.size());
 		refinement->setSrc(cd2);
-		//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+		//
 		//////printf("register_setup_start:          %5.5f\n",getTime()-register_setup_start);
 		////double register_compute_start = getTime();
 		Eigen::Matrix4d guess = both_unrefined[1]*both_unrefined[0].inverse();
@@ -394,7 +394,7 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 		if(savePath.size() != 0){
 			bgmassreg->savePath = savePath+"/processAV_"+std::to_string(fullmodel->id);
 		}
-		//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+		//
 
 		bgmassreg->timeout = 300;
 		bgmassreg->viewer = viewer;
@@ -408,7 +408,7 @@ reglib::Model * processAV(std::string path, bool compute_edges = true, std::stri
 		bgmassreg->addModel(sweep);
 		bgmassreg->setData(frames,masks);
 
-		//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+		//
 
 		reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
 
@@ -731,12 +731,12 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 		readViewXML(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes,compute_edges,saveVisuals_sp);
 		fullmodel->recomputeModelPoints();
 	}else{
-		//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+		//
 		fullmodel = processAV(path,compute_edges,saveVisuals_sp);
-		//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+		//
 
 	}
-	//printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+	//
 */
     double startTime_store = reglib::getTime();
     fullmodel->pointspath = sweep_folder+"/fullmodel_superpoints.bin";
@@ -795,7 +795,6 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 		delete fullmodel;
 		return 0;
 	}
-	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 
 	DynamicObjectXMLParser objectparser(sweep_folder, true);
 
@@ -863,7 +862,7 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 			for(unsigned int j = 0; j < nr_pixels; j++){peoplemask.data[j] = 0;}
 			peopleMasks.push_back(peoplemask);
 		}
-		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+
 
 		std::vector<std::vector<std::tuple<float, float, float, float> > > detections;
 		detections = metaroom_detections::detections_for_xml(path, "intermediate_deep_detection");
@@ -890,12 +889,12 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 			std::vector<cv::Mat> external_masks = external[i];
 			std::vector<cv::Mat> dynamic_masks	= dynamic[i];
 			reglib::Model * model = models[i];
-//printf("%i\n",__LINE__);
+
 			std::vector<Eigen::Matrix4d> mod_po;
 			std::vector<reglib::RGBDFrame*> mod_fr;
 			std::vector<reglib::ModelMask*> mod_mm;
 			model->getData(mod_po, mod_fr, mod_mm);
-//printf("%i\n",__LINE__);
+
 			int dynamicCounter = 1;
 			while(true){
 				double sum = 0;
@@ -988,11 +987,11 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 				cloud_cluster->is_dense = true;
 
 				printf("peopleoverlaps: %i cloud_cluster->points.size(): %i\n",peopleoverlaps,cloud_cluster->points.size());
-//printf("%i\n",__LINE__);
+
 				if(masks.size() > 0 && cloud_cluster->points.size() != 0){
 					printf("masks.size() : %i\n",masks.size());
 					if(peopleoverlaps == 0 && cloud_cluster->points.size() >= minClusterSize){
-//printf("%i\n",__LINE__);
+
 						if(store_old_xml){
 							std::stringstream ss;
 							ss << "object_";
@@ -1016,15 +1015,14 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 							std::string xml_file = objectparser.saveAsXML(roomObject);
 							printf("xml_file: %s\n",xml_file.c_str());
 						}
-//printf("%i\n",__LINE__);
+
 
 						char buf [1024];
 						sprintf(buf,"%s/dynamic_obj%10.10i.pcd",sweep_folder.c_str(),dynamicCounter-1);
 						pcl::io::savePCDFileBinaryCompressed(std::string(buf),*cloud_cluster);
 
-//printf("%i\n",__LINE__);
-						*dyncloud += *cloud_cluster;
 
+						*dyncloud += *cloud_cluster;
 
 						//					std::string objectpcd = std::string(buf);//object.substr(0,object.size()-4);
 						//					std::cout << objectpcd.substr(0,objectpcd.size()-4) << std::endl;
@@ -1036,7 +1034,7 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 						if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save dynamic object as XML"<<std::endl;}
 						QXmlStreamWriter* xmlWriter = new QXmlStreamWriter();
 						xmlWriter->setDevice(&file);
-//printf("%i\n",__LINE__);
+
 						xmlWriter->writeStartDocument();
 						xmlWriter->writeStartElement("Object");
 						xmlWriter->writeAttribute("object_number", QString::number(dynamicCounter-1));
@@ -1048,7 +1046,7 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 						xmlWriter->writeAttribute("y", QString::number(sumy/sum));
 						xmlWriter->writeAttribute("z", QString::number(sumz/sum));
 						xmlWriter->writeEndElement();
-//printf("%i\n",__LINE__);
+
 
 						for(unsigned int j = 0; j < masks.size(); j++){
 							char buf [1024];
@@ -1072,7 +1070,7 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 									}
 								}
 							}
-//printf("%i\n",__LINE__);
+
 							double ratio = 0.15;
 							int diffw = maxw-minw;
 							int diffh = maxh-minh;
@@ -1102,20 +1100,20 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 							xmlWriter->writeAttribute("image_number", QString::number(imgnr[j]));
 							xmlWriter->writeEndElement();
 						}
-//printf("%i\n",__LINE__);
+
 						xmlWriter->writeEndElement();
 						xmlWriter->writeEndDocument();
 						delete xmlWriter;
 					}
 					dynamicCounter++;
-//printf("%i\n",__LINE__);
+
 				}else{break;}
-//printf("%i\n",__LINE__);
+
 			}
-//printf("%i\n",__LINE__);
+
 			int movingCounter = 1;
 			while(true){
-				//printf("%i\n",__LINE__);
+
 				double sum = 0;
 				double sumx = 0;
 				double sumy = 0;
@@ -1217,28 +1215,24 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 					delete xmlWriter;
 					movingCounter++;
 				}else{break;}
-				//printf("%i\n",__LINE__);
 			}
-			//printf("%i\n",__LINE__);
 		}
-		//printf("%i\n",__LINE__);
 	}else{
 		returnval = 1;
 	}
-	//printf("%i\n",__LINE__);
 
 	if(dyncloud->points.size()){
 		dyncloud->width = dyncloud->points.size();
 		dyncloud->height = 1;
 		pcl::io::savePCDFileBinaryCompressed(sweep_folder+"/dynamic_clusters.pcd",*dyncloud);
 	}
-	//printf("%i\n",__LINE__);
+
 
 	for(unsigned int i = 0; i < bgs.size(); i++){
 		bgs[i]->fullDelete();
 		delete bgs[i];
 	}
-//printf("%i\n",__LINE__);
+
 
 	fullmodel->fullDelete();
 	delete fullmodel;
@@ -1246,12 +1240,11 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 	delete reg;
 	delete mu;
 	printf("publishing file %s to %s\n",path.c_str(),outtopic.c_str());
-//printf("%i\n",__LINE__);
+
 	std_msgs::String msg;
 	msg.data = path;
 	for(unsigned int i = 0; i < out_pubs.size(); i++){out_pubs[i].publish(msg);}
 	ros::spinOnce();
-	//sendMetaroomToServer(path);
 	return returnval;
 }
 
@@ -1300,9 +1293,6 @@ std::vector<reglib::Model *> loadModels(std::string path){
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(path,std::vector<std::string>(),false,false);
 	std::string roomLogName = roomData.roomLogName;
 	printf("roomLogName: %s\n",roomLogName.c_str());
-
-
-
 
 	std::vector<reglib::Model *> models;
 	int slash_pos = path.find_last_of("/");
@@ -1781,11 +1771,11 @@ void sendRoomToSomaLLSD(std::string path){
 void processSweep(std::string path, std::string savePath){
 
 
-	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+
+
 
 	CloudPtr dyncloud (new Cloud());
 	int ret = processMetaroom(dyncloud,path);
-	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 	printf("ret: %i\n",ret);
 	std_msgs::String msg;
 	if(ret == 0){
@@ -1797,20 +1787,20 @@ void processSweep(std::string path, std::string savePath){
 	if(ret == 2){ROS_ERROR_STREAM("No moving objects found.");}
 	if(ret == 3){ROS_ERROR_STREAM("Moving objects found.");}
 
-	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+
 
 	sensor_msgs::PointCloud2 input;
 	pcl::toROSMsg (*dyncloud,input);
 	input.header.frame_id = "/map";
 
 	printf("dyncloud->points.size(): %i\n",dyncloud->points.size());
-	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+
 	roomObservationCallback_pubs.publish(input);
 
-		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+
 		printf("m_PublisherStatuss.size(): %i\n",m_PublisherStatuss.size());
 	for(unsigned int i = 0; i < m_PublisherStatuss.size(); i++){m_PublisherStatuss[i].publish(msg);}
-		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+
 	//Send the previous room to the modelserver...
 	path = quasimodo_brain::replaceAll(path, "//", "/");
 	int prevind = -1;
@@ -1820,7 +1810,7 @@ void processSweep(std::string path, std::string savePath){
 		if(sweep_xmls[i].compare(path) == 0){break;}
 		prevind = i;
 	}
-		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+
 	if(prevind >= 0){//Submit last metaroom results
 		//Add previous metaroom to soma llsd
 //		sendRoomToSomaLLSD(sweep_xmls[prevind]);

@@ -12,40 +12,17 @@ bool isNumber(std::string str){
 }
 
 void guaranteeFolder(std::string filepath){
-
-	printf("guaranteeFolder(%s)\n",filepath.c_str());
-
 	if(!quasimodo_brain::fileExists(filepath)){
 		boost::filesystem::path dir(filepath);
 		boost::filesystem::create_directory(dir);
-
-//		boost::filesystem::path dir("newdir");
-//		if (boost::filesystem::create_directory(dir))
-//		    std::cout << "Success" << "\n";
-
-//		printf("guaranteeFolder(%s)::%i\n",filepath.c_str(),__LINE__);
-//		char command [1024];
-//		sprintf(command,"mkdir %s",filepath.c_str());
-
-//		printf("guaranteeFolder(%s)::%i\n",filepath.c_str(),__LINE__);
-//		printf("command: ---->%s<----\n",command);
-//		int r = system(command);
-//		printf("guaranteeFolder(%s)::%i\n",filepath.c_str(),__LINE__);
 	}
 }
 
 bool fileExists(std::string path){
-	printf("fileExists(%s)\n",path.c_str());
 	QFile file(path.c_str());
-
-	printf("fileExists(%s)::%i\n",path.c_str(),__LINE__);
 	if (file.exists()){
-
-		printf("fileExists(%s)::%i\n",path.c_str(),__LINE__);
 		return true;
 	}else{
-
-		printf("fileExists(%s)::%i\n",path.c_str(),__LINE__);
 		return false;
 	}
 }

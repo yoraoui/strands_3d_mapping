@@ -36,6 +36,8 @@ std::vector<std::string> ModelStorageFile::loadAllModels(){
             }
         }
     }
+//    print();
+//    exit(0);
     return ret;
 }
 
@@ -61,36 +63,32 @@ std::string ModelStorageFile::getNextID(){
 }
 
 bool ModelStorageFile::add(reglib::Model * model, std::string key){
-	printf("ModelStorageFile::add\n");
 	double startTime =quasimodo_brain::getTime();
-	if(model->keyval.length() == 0){model->keyval = getNextID();}
-	printf("ModelStorageFile::add :: %5.5fs :: %i\n",quasimodo_brain::getTime()-startTime,__LINE__); startTime =quasimodo_brain::getTime();
+    if(model->keyval.length() == 0){model->keyval = getNextID();}
+    printf("ModelStorageFile::add(%s)\n",model->keyval.c_str());
     std::string modelpath = filepath+"/"+model->keyval;
-	printf("ModelStorageFile::add :: %5.5fs :: %i\n",quasimodo_brain::getTime()-startTime,__LINE__); startTime =quasimodo_brain::getTime();
-	quasimodo_brain::guaranteeFolder(modelpath);
-	printf("ModelStorageFile::add :: %5.5fs :: %i\n",quasimodo_brain::getTime()-startTime,__LINE__); startTime =quasimodo_brain::getTime();
+    quasimodo_brain::guaranteeFolder(modelpath);
 	modelpath += "/";
-	printf("ModelStorageFile::add :: %5.5fs :: %i\n",quasimodo_brain::getTime()-startTime,__LINE__); startTime =quasimodo_brain::getTime();
 
     for(unsigned int i = 0; i < model->frames.size(); i++){//Add all frames to the frame database
         std::string path = framepath+"/"+model->frames[i]->keyval;
         if(!quasimodo_brain::fileExists(path+"_data.txt")){model->frames[i]->saveFast(path);}
-	}
-	printf("ModelStorageFile::add :: %5.5fs :: %i\n",quasimodo_brain::getTime()-startTime,__LINE__); startTime =quasimodo_brain::getTime();
-
+    }
     for(unsigned int i = 0; i < model->submodels.size(); i++){//Add all frames to the frame database
         add(model->submodels[i]);
 	}
-	printf("ModelStorageFile::add :: %5.5fs :: %i\n",quasimodo_brain::getTime()-startTime,__LINE__); startTime =quasimodo_brain::getTime();
-
 	model->saveFast(modelpath);
+
+
+    //printf("ModelStorageFile::add(%s) -> parrent pointer: %ld\n",model->keyval.c_str(),long(model->parrent));
 
     keyPathMap[model->keyval] = modelpath;
     if(model->parrent == 0){
         activeModels[model->keyval] = model;
+    }else{
+        //printf("ModelStorageFile::add(%s) -> parrent: %s\n",model->keyval.c_str(),model->parrent->keyval.c_str());
     }
-printf("ModelStorageFile::add :: %5.5fs :: %i\n",quasimodo_brain::getTime()-startTime,__LINE__); startTime =quasimodo_brain::getTime();
-//print();
+    print();
 }
 
 bool ModelStorageFile::update(reglib::Model * model){
@@ -99,14 +97,22 @@ bool ModelStorageFile::update(reglib::Model * model){
 }
 
 bool ModelStorageFile::remove(reglib::Model * model){
+    print();
     std::string path = keyPathMap[model->keyval];
-    char command [1024];
-    sprintf(command,"rm -r %s\n",path.c_str());
-    int r = system(command);
+    boost::filesystem::path dir(path);
+    boost::filesystem::remove_all(dir);
+    keyPathMap.erase(model->keyval);
+    activeModels.erase(model->keyval);
+    print();
+
+//    char command [1024];
+//    sprintf(command,"rm -r %s\n",path.c_str());
+//    int r = system(command);
     return true;
 }
 
 reglib::Model * ModelStorageFile::fetch(std::string key){
+    printf("ModelStorageFile::fetch(%s)\n",key.c_str());
     if (keyPathMap.count(key)>0){
 		reglib::Model * model = 0;
 		if(activeModels.count(key)!=0){
@@ -122,7 +128,9 @@ reglib::Model * ModelStorageFile::fetch(std::string key){
 }
 
 void ModelStorageFile::fullHandback(){
+    print();
 	for (auto it=activeModels.begin(); it!=activeModels.end(); ++it){
+        printf("activeModels: %i\n",long(it->second));
 		it->second->fullDelete();
 		delete it->second;
 	}
@@ -182,4 +190,18 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr ModelStorageFile::getSnapshot(){
         }
     }
     return cloud;
+}
+
+void ModelStorageFile::print(){
+    printf("///////////////////////ModelStorageFile::print()////////////////////////////\n");
+    for (auto it=activeModels.begin(); it!=activeModels.end(); ++it){
+      std::cout << "active: " << it->first;
+      printf(" -> %ld\n",long(it->second));
+    }
+
+    for (auto it=keyPathMap.begin(); it!=keyPathMap.end(); ++it){
+      std::cout << "keyPathMap: " << it->first << "--->" << it->second <<'\n';
+    }
+    printf("////////////////////////////////////////////////////////////////////////////\n");
+
 }

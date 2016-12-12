@@ -200,8 +200,7 @@ bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Mode
 		reglib::UpdatedModels ud = mu->fuseData(&fr, model2, model);
 		delete mu;
 		delete reg;
-		if(ud.deleted_models.size() > 0 || ud.updated_models.size() > 0 || ud.new_models.size() > 0){
-            printf("%i %i %i\n",ud.deleted_models.size(),ud.updated_models.size(),ud.new_models.size());
+        if(ud.deleted_models.size() > 0 || ud.updated_models.size() > 0 || ud.new_models.size() > 0){
 			for(unsigned int j = 0; j < ud.deleted_models.size();	j++){
 				database->remove(ud.deleted_models[j]);
 				delete ud.deleted_models[j];
@@ -243,16 +242,16 @@ bool addToDB(ModelDatabase * database, reglib::Model * model, bool add){// = tru
 		}
 		database->add(model);
 		model->last_changed = ++current_model_update;
+exit(0);
+
 	}
 
-	//printf("%i       ",__LINE__);storage->print();
     std::vector<reglib::Model * > res = modeldatabase->search(model,1);
-	//printf("%i       ",__LINE__);storage->print();
+
 	if(show_search){showModels(res);}
 
 
-	for(unsigned int i = 0; i < res.size(); i++){
-		//printf("%i       ",__LINE__);storage->print();
+    for(unsigned int i = 0; i < res.size(); i++){
 		if(addIfPossible(database,model,res[i])){
 			printf("stop: %s\n",__PRETTY_FUNCTION__);
 			return true;
@@ -318,19 +317,19 @@ void addNewModel(reglib::Model * model){
 //	viewer->spin();
 
 printf("start: %s\n",__PRETTY_FUNCTION__);
-	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
-	reg->visualizationLvl				= show_reg_lvl;
-	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model, reg);
-	mu->occlusion_penalty               = occlusion_penalty;
-	mu->massreg_timeout                 = massreg_timeout;
-	mu->viewer							= viewer;
-	mu->show_init_lvl					= show_init_lvl;//init show
-	mu->show_refine_lvl					= show_refine_lvl;//refine show
-	mu->show_scoring					= show_scoring;//fuse scoring show
-	mu->makeInitialSetup();
+//	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
+//	reg->visualizationLvl				= show_reg_lvl;
+//	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model, reg);
+//	mu->occlusion_penalty               = occlusion_penalty;
+//	mu->massreg_timeout                 = massreg_timeout;
+//	mu->viewer							= viewer;
+//	mu->show_init_lvl					= show_init_lvl;//init show
+//	mu->show_refine_lvl					= show_refine_lvl;//refine show
+//	mu->show_scoring					= show_scoring;//fuse scoring show
+//	mu->makeInitialSetup();
 
-	delete mu;
-	delete reg;
+//	delete mu;
+//	delete reg;
 
 	reglib::Model * newmodelHolder = new reglib::Model();
 	model->parrent = newmodelHolder;
@@ -342,10 +341,15 @@ printf("start: %s\n",__PRETTY_FUNCTION__);
 	}else{
 		newmodelHolder->recomputeModelPoints();
     }
+    printf("%ld front point: ",long(newmodelHolder));
+    newmodelHolder->points.front().print();
     model->updated = true;
     newmodelHolder->updated = true;
 
+    storage->print();
 	modeldatabase->add(newmodelHolder);
+
+
 	addToDB(modeldatabase, newmodelHolder,false);
 
 	show_sorted();
@@ -383,7 +387,9 @@ void modelCallback(const quasimodo_msgs::model & m){
 	reglib::Model * model = quasimodo_brain::getModelFromMSG(mod,true);
 
 	addNewModel(model);
+    printf("done... handback!\n");
 	storage->fullHandback();
+    exit(0);
 
 //			pcl::PointCloud<pcl::PointXYZRGB>::Ptr cld = storage->getSnapshot();//reglib::getPointCloudFromVector(model->points);
 //			viewer->setBackgroundColor(1.0,0.0,1.0);

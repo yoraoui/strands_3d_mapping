@@ -425,10 +425,10 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 			scloud->points.push_back(p);
 		}
 
-				viewer->removeAllPointClouds();
-				viewer->addPointCloud<pcl::PointXYZRGBNormal> (scloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(scloud), "scloud");
-				viewer->addPointCloud<pcl::PointXYZRGBNormal> (dcloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dcloud), "dcloud");
-				viewer->spin();
+		viewer->removeAllPointClouds();
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (scloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(scloud), "scloud");
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (dcloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dcloud), "dcloud");
+		viewer->spin();
 
 		viewer->removeAllPointClouds();
 		viewer->removeAllShapes();
@@ -504,8 +504,8 @@ void ModelUpdater::testgetDynamicWeights(bool store_distance, std::vector<double
 	if(debugg){
 		//cld = getPointCloudFromVector(sp,3,127,127,127);
 	}
-//printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);
-//	std::vector<superpoint> framesp = frame->getSuperPoints();
+	//printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);
+	//	std::vector<superpoint> framesp = frame->getSuperPoints();
 
 	std::vector<ReprojectionResult> rr_vec	= frame->getReprojections(sp,p,0,false);
 	unsigned long nr_rr = rr_vec.size();
@@ -555,12 +555,12 @@ void ModelUpdater::testgetDynamicWeights(bool store_distance, std::vector<double
 
 			if(detdata[dst_ind] != 0){continue;}
 
-//			double olp = overlaps[src_ind];
-//			double nolp = 1-olp;
-//			nolp *= (1-p_overlap);
-//			overlaps[src_ind] = std::min(0.999999999,1-nolp);
-//			occlusions[src_ind] = std::max(occlusions[src_ind],p_occlusion);//p_occlusion;//std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
-//			notocclusions[src_ind] = 1;//++;
+			//			double olp = overlaps[src_ind];
+			//			double nolp = 1-olp;
+			//			nolp *= (1-p_overlap);
+			//			overlaps[src_ind] = std::min(0.999999999,1-nolp);
+			//			occlusions[src_ind] = std::max(occlusions[src_ind],p_occlusion);//p_occlusion;//std::min(0.9,std::max(occlusions[src_ind],p_occlusion));
+			//			notocclusions[src_ind] = 1;//++;
 
 			double olp = overlaps[src_ind];
 			double nolp = 1-olp;
@@ -637,13 +637,13 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 		}
 	}
 
-//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
+	//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
 
 	double dstdval = 0;
 	for(unsigned int i = 0; i < dvec.size(); i++){dstdval += dvec[i]*dvec[i];}
 	dstdval = sqrt(dstdval/double(dvec.size()-1));
 
-//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
+	//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
 
 	GeneralizedGaussianDistribution * dggdnfunc	= new GeneralizedGaussianDistribution(true,false,false,false,false);
 	dggdnfunc->nr_refineiters					= 1;
@@ -670,8 +670,8 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 
 	dfunc->computeModel(dvec);
 
-//	printf("dfunc->getNoise() = %f\n",dfunc->getNoise());
-//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
+	//	printf("dfunc->getNoise() = %f\n",dfunc->getNoise());
+	//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
 
 	GeneralizedGaussianDistribution * ggdnfunc	= new GeneralizedGaussianDistribution(true,true);
 	ggdnfunc->nr_refineiters		= 10;
@@ -699,7 +699,7 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 
 
 	double noiseWeight = dfunc->getNoise();
-//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
+	//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
 
 	for(unsigned int i = 0; i < models.size(); i++){
 		Model * model1 = models[i];
@@ -808,14 +808,14 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 		delete[] bg_notocclusions;
 	}
 
-//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
-//	for(unsigned int i = 0; i < nr_models; i++){
-//		for(unsigned int j = i+1; j < nr_models; j++){
-//			Eigen::Matrix4d relative_pose = rps[i].inverse() * rps[j];
-//			occlusionScores[i][j] = computeOcclusionScore(models[i],models[j], relative_pose, step, debugg);
-//			occlusionScores[j][i] = occlusionScores[i][j];
-//		}
-//	}
+	//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
+	//	for(unsigned int i = 0; i < nr_models; i++){
+	//		for(unsigned int j = i+1; j < nr_models; j++){
+	//			Eigen::Matrix4d relative_pose = rps[i].inverse() * rps[j];
+	//			occlusionScores[i][j] = computeOcclusionScore(models[i],models[j], relative_pose, step, debugg);
+	//			occlusionScores[j][i] = occlusionScores[i][j];
+	//		}
+	//	}
 
 	return occlusionScores;
 }
@@ -3331,7 +3331,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				}
 			}
 
-			score0 = 100.0*pscore0+nscore0;
+			score0 = pscore0+nscore0;
 			score1 = pscore1+nscore1;
 
 
@@ -3356,13 +3356,11 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				sr.scores_dynamic.push_back(score1);
 				sr.total_dynamic.push_back(totsum);
 			}else{
-				if(score0/100.0 >= 100){
-					labelID.back() = --nr_obj_mov;
-					if(debugg != 0){printf("Moving: %f -> %f\n",score0,totsum);}
-					sr.component_moving.push_back(todo);
-					sr.scores_moving.push_back(score0);
-					sr.total_moving.push_back(totsum);
-				}\
+				labelID.back() = --nr_obj_mov;
+				if(debugg != 0){printf("Moving: %f -> %f\n",score0,totsum);}
+				sr.component_moving.push_back(todo);
+				sr.scores_moving.push_back(score0);
+				sr.total_moving.push_back(totsum);
 			}
 		}
 	}

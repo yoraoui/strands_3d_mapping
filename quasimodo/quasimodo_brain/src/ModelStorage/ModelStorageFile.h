@@ -22,6 +22,7 @@ class ModelStorageFile: public ModelStorage{
 	virtual void fullHandback();
     virtual void saveSnapshot();
     virtual pcl::PointCloud<pcl::PointXYZRGB>::Ptr getSnapshot();
+    virtual void print();
 
 	ModelStorageFile(std::string filepath_ = "./");
 	~ModelStorageFile();

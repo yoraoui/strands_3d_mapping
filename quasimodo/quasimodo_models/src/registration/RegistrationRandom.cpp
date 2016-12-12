@@ -277,13 +277,16 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 	std::vector< double > rys;
 	std::vector< double > rzs;
 
-	int steps = 6;
+    int steps = 1;
 	for(double rx = 0; rx < steps; rx ++){
 		for(double ry = 0; ry < steps; ry++){
-			for(double rz = 0; rz < steps; rz++){
-				rxs.push_back(2.0 * M_PI * (rx/double(steps+1)));
-				rys.push_back(2.0 * M_PI * (ry/double(steps+1)));
-				rzs.push_back(2.0 * M_PI * (rz/double(steps+1)));
+            for(double rz = 0; rz < steps; rz++){
+                rxs.push_back(2.0 * M_PI * (rx/double(steps+1)));
+                rys.push_back(2.0 * M_PI * (ry/double(steps+1)));
+                rzs.push_back(2.0 * M_PI * (rz/double(steps+1)));
+//                rxs.push_back(0);
+//                rys.push_back(0);
+//                rzs.push_back(0);
 			}
 		}
 	}
@@ -315,6 +318,8 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 
 		Eigen::Affine3d current_guess = Ymean*randomrot*Xmean.inverse();//*Ymean;
 
+        //std::cout << current_guess.matrix() << std::endl;
+
 		FusionResults fr = refinement->getTransform(current_guess.matrix());
 		//fr_X[r] = refinement->getTransform(current_guess.matrix());
 
@@ -322,7 +327,7 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 		{
 			fr_X[r] = fr;
 
-			printf("%5.5i score: %10.10f\n",r,fr.score);
+            printf("%5.5i -> %5.5f %5.5f %5.5f -> score: %10.10f\n",r,rxs[r],rys[r],rzs[r],fr.score);
 			double stoptime = getTime();
 			sumtime += stoptime-start;
 			if(!fr_X[r].timeout){

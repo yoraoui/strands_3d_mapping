@@ -25,5 +25,10 @@ void superpoint::merge(superpoint p, double weight){
 	feature_information = newfweight;
 	last_update_frame_id = std::max(p.last_update_frame_id,last_update_frame_id);
 }
+
+void superpoint::print(){
+    printf("point: %5.5f %5.5f %5.5f Colour: %5.5f %5.5f %5.5f\n",point(0),point(1),point(2),feature(0),feature(1),feature(2));
+}
+
 }
 
