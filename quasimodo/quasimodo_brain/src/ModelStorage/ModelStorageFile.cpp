@@ -1,7 +1,7 @@
 #include "ModelStorageFile.h"
 
 ModelStorageFile::ModelStorageFile(std::string filepath_){
-    filepath = filepath_+"/database_tmp";
+	filepath = filepath_+"/quasimodo_modeldatabase";
     framepath = filepath+"/frames";
     saveCounter = 0;
     quasimodo_brain::guaranteeFolder(filepath);
@@ -35,9 +35,7 @@ std::vector<std::string> ModelStorageFile::loadAllModels(){
                 }
             }
         }
-    }
-//    print();
-//    exit(0);
+	}
     return ret;
 }
 

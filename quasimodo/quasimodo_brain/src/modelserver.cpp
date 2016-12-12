@@ -317,19 +317,19 @@ void addNewModel(reglib::Model * model){
 //	viewer->spin();
 
 printf("start: %s\n",__PRETTY_FUNCTION__);
-//	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
-//	reg->visualizationLvl				= show_reg_lvl;
-//	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model, reg);
-//	mu->occlusion_penalty               = occlusion_penalty;
-//	mu->massreg_timeout                 = massreg_timeout;
-//	mu->viewer							= viewer;
-//	mu->show_init_lvl					= show_init_lvl;//init show
-//	mu->show_refine_lvl					= show_refine_lvl;//refine show
-//	mu->show_scoring					= show_scoring;//fuse scoring show
-//	mu->makeInitialSetup();
+	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
+	reg->visualizationLvl				= show_reg_lvl;
+	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model, reg);
+	mu->occlusion_penalty               = occlusion_penalty;
+	mu->massreg_timeout                 = massreg_timeout;
+	mu->viewer							= viewer;
+	mu->show_init_lvl					= show_init_lvl;//init show
+	mu->show_refine_lvl					= show_refine_lvl;//refine show
+	mu->show_scoring					= show_scoring;//fuse scoring show
+	mu->makeInitialSetup();
 
-//	delete mu;
-//	delete reg;
+	delete mu;
+	delete reg;
 
 	reglib::Model * newmodelHolder = new reglib::Model();
 	model->parrent = newmodelHolder;
@@ -389,7 +389,6 @@ void modelCallback(const quasimodo_msgs::model & m){
 	addNewModel(model);
     printf("done... handback!\n");
 	storage->fullHandback();
-    exit(0);
 
 //			pcl::PointCloud<pcl::PointXYZRGB>::Ptr cld = storage->getSnapshot();//reglib::getPointCloudFromVector(model->points);
 //			viewer->setBackgroundColor(1.0,0.0,1.0);
