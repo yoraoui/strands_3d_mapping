@@ -1350,13 +1350,12 @@ RGBDFrame * RGBDFrame::load(Camera * cam, std::string path){
 				pose(i,j) = buffer_double[counter++];
 			}
 		}
+
 		int sweepid = buffer_long[counter++];
 		int camera_id = buffer_long[counter++];
 		int id = buffer_long[counter++];
 		int keyvallength = buffer_long[counter++];
 		int soma_idlength = buffer_long[counter++];
-
-//		printf("%i %i %i %i %i\n",buffer_long[17],buffer_long[18],buffer_long[19],buffer_long[20],buffer_long[21]);
 
 		std::string keyval;
 		keyval.resize(keyvallength);
@@ -1371,7 +1370,10 @@ RGBDFrame * RGBDFrame::load(Camera * cam, std::string path){
 		for(unsigned int i = 0; i < soma_idlength;i++){
 			soma_id[i] = buffer[count4++];
 		}
-
+		if(soma_idlength > 0){
+			printf("%s\n",soma_id.c_str());
+		}
+//	exit(0);
 		cv::Mat rgb = cv::imread(path+"_rgb.png", -1);   // Read the file
 		cv::Mat depth = cv::imread(path+"_depth.png", -1);   // Read the file
 		cv::Mat det_dilate = cv::imread(path+"_det_dilate.png", -1);   // Read the file
@@ -1386,6 +1388,7 @@ RGBDFrame * RGBDFrame::load(Camera * cam, std::string path){
 		frame->capturetime = capturetime;
 		frame->sweepid = sweepid;
 		frame->pose = pose;
+		frame->soma_id = soma_id;
 
 		frame->normals.create(height,width,CV_32FC3);
 		frame->ce.create(height,width,CV_32FC3);

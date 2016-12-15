@@ -77,14 +77,9 @@ bool ModelStorageFile::add(reglib::Model * model, std::string key){
 	}
 	model->saveFast(modelpath);
 
-
-    //printf("ModelStorageFile::add(%s) -> parrent pointer: %ld\n",model->keyval.c_str(),long(model->parrent));
-
     keyPathMap[model->keyval] = modelpath;
     if(model->parrent == 0){
         activeModels[model->keyval] = model;
-    }else{
-        //printf("ModelStorageFile::add(%s) -> parrent: %s\n",model->keyval.c_str(),model->parrent->keyval.c_str());
     }
     print();
 }
@@ -95,22 +90,15 @@ bool ModelStorageFile::update(reglib::Model * model){
 }
 
 bool ModelStorageFile::remove(reglib::Model * model){
-    print();
     std::string path = keyPathMap[model->keyval];
     boost::filesystem::path dir(path);
     boost::filesystem::remove_all(dir);
     keyPathMap.erase(model->keyval);
     activeModels.erase(model->keyval);
-    print();
-
-//    char command [1024];
-//    sprintf(command,"rm -r %s\n",path.c_str());
-//    int r = system(command);
     return true;
 }
 
 reglib::Model * ModelStorageFile::fetch(std::string key){
-    printf("ModelStorageFile::fetch(%s)\n",key.c_str());
     if (keyPathMap.count(key)>0){
 		reglib::Model * model = 0;
 		if(activeModels.count(key)!=0){
@@ -126,7 +114,6 @@ reglib::Model * ModelStorageFile::fetch(std::string key){
 }
 
 void ModelStorageFile::fullHandback(){
-    print();
 	for (auto it=activeModels.begin(); it!=activeModels.end(); ++it){
         printf("activeModels: %i\n",long(it->second));
 		it->second->fullDelete();

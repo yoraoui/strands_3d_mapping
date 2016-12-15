@@ -526,75 +526,38 @@ CloudData * Model::getCD(unsigned int target_points){
 }
 
 Model::~Model(){
-    printf("delete(%i) -> %s\n",long(this),keyval.c_str());
+    //printf("delete(%i) -> %s\n",long(this),keyval.c_str());
 }
 
 void Model::fullDelete(){
-    printf("fullDelete(%i) -> %s\n",long(this),keyval.c_str());
-
-    //printf("points.size() %i\n",points.size());
+    //printf("fullDelete(%i) -> %s\n",long(this),keyval.c_str());
 	points.clear();
-
 	all_keypoints.clear();
-
 	all_descriptors.clear();
-
 	relativeposes.clear();
 
     for(size_t i = 0; i < frames.size(); i++){
-
-        //printf("delete camera(%i) \n",long(frames[i]->camera));
-		delete frames[i]->camera;
-        //printf("delete frame(%i) \n",long(frames[i]));
-		delete frames[i];
+        delete frames[i]->camera;
+        delete frames[i];
 	}
-
 	frames.clear();
 
-    //printf("fullDelete(%i) frames cleared\n",long(this));
-
 	for(size_t i = 0; i < modelmasks.size(); i++){delete modelmasks[i];}
-
 	modelmasks.clear();
 
-
-
-    //printf("fullDelete(%i) modelmasks cleared\n",long(this));
-
 	rep_relativeposes.clear();
-
 	rep_frames.clear();
-
 	rep_modelmasks.clear();
-
-
 	total_scores = 0;
-
 	scores.clear();
 
-
 	for(size_t i = 0; i < submodels.size(); i++){
-
 		submodels[i]->fullDelete();
-
 		delete submodels[i];
-
 	}
-
 	submodels.clear();
-
-
-
-    //printf("fullDelete(%i) submodels cleared\n",long(this));
-
 	submodels_relativeposes.clear();
-
 	submodels_scores.clear();
-
-
-
-    printf("fullDelete(%i) -> %s stop cleared\n",long(this),keyval.c_str());
-	//	delete this;
 }
 
 pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr Model::getPCLnormalcloud(int step, bool color){
@@ -1244,9 +1207,7 @@ Model * Model::loadFast(std::string path){
             //frame->show(true);
 		}
 	}
-
 	//if(mod->parrent == 0){printf("Model::loadFast(%s): %7.7fs\n",path.c_str(),getTime()-startTime);}
-    //printf("//////////////////////////////////////////////\n");
 	return mod;
 }
 

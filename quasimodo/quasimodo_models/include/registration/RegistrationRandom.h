@@ -13,12 +13,35 @@ namespace reglib
 		public:
 
 		Registration * refinement;
+		unsigned int steprx;
+		unsigned int stepry;
+		unsigned int steprz;
+		double start_rx;
+		double start_ry;
+		double start_rz;
+		double stop_rx;
+		double stop_ry;
+		double stop_rz;
 
+		unsigned int steptx;
+		unsigned int stepty;
+		unsigned int steptz;
+		double start_tx;
+		double start_ty;
+		double start_tz;
+		double stop_tx;
+		double stop_ty;
+		double stop_tz;
+
+		unsigned int src_meantype;
+		unsigned int dst_meantype;
+
+		virtual Eigen::Affine3d getMean(CloudData * data, int type);
 		virtual void setSrc(CloudData * src_);
 		virtual void setDst(CloudData * dst_);
 
 
-		RegistrationRandom();
+		RegistrationRandom(unsigned int steps = 4);
 		~RegistrationRandom();
 
 		bool issame(FusionResults fr1, FusionResults fr2, int stepxsmall);

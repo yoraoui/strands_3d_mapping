@@ -332,27 +332,106 @@ reglib::Camera * getCam(sensor_msgs::CameraInfo & info){
 	return cam;
 }
 
+std::string type2str(int type) {
+	std::string r;
+
+	uchar depth = type & CV_MAT_DEPTH_MASK;
+	uchar chans = 1 + (type >> CV_CN_SHIFT);
+
+	switch ( depth ) {
+	case CV_8U:  r = "8U"; break;
+	case CV_8S:  r = "8S"; break;
+	case CV_16U: r = "16U"; break;
+	case CV_16S: r = "16S"; break;
+	case CV_32S: r = "32S"; break;
+	case CV_32F: r = "32F"; break;
+	case CV_64F: r = "64F"; break;
+	default:     r = "User"; break;
+	}
+
+	r += "C";
+	r += (chans+'0');
+
+	return r;
+}
+
+
+
 reglib::RGBDFrame * getFrame(soma_llsd_msgs::Scene & scene){
 
 	reglib::Camera * cam = getCam(scene.camera_info);
     cam->idepth_scale = 1.0/5000.0;
 
-	cv_bridge::CvImagePtr			rgb_ptr;
-	try{							rgb_ptr = cv_bridge::toCvCopy(scene.rgb_img, sensor_msgs::image_encodings::BGR8);}
-	catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
-	cv::Mat rgb = rgb_ptr->image;
+//	cv_bridge::CvImagePtr			rgb_ptr;
+//	try{							rgb_ptr = cv_bridge::toCvCopy(scene.rgb_img, sensor_msgs::image_encodings::BGR8);}
+//	catch (cv_bridge::Exception& e){ROS_ERROR("rgb   cv_bridge exception: %s", e.what());}
+//	cv::Mat rgb = rgb_ptr->image;
 
-	cv_bridge::CvImagePtr			depth_ptr;
-	//try{							depth_ptr = cv_bridge::toCvCopy(scene.depth_img, sensor_msgs::image_encodings::MONO16);}
-	try{							depth_ptr = cv_bridge::toCvCopy(scene.depth_img, sensor_msgs::image_encodings::TYPE_32FC1);}
-	catch (cv_bridge::Exception& e){ROS_ERROR("cv_bridge exception: %s", e.what());}
-	//cv::Mat depth = depth_ptr->image;
-    cv::Mat depth;
-    depth_ptr->image.convertTo(depth, CV_16UC1, 5000.0);
+//	cv_bridge::CvImagePtr			depth_ptr;
+//	try{							depth_ptr = cv_bridge::toCvCopy(scene.depth_img, sensor_msgs::image_encodings::TYPE_32FC1);}
+//	//try{							depth_ptr = cv_bridge::toCvCopy(scene.depth_img, sensor_msgs::image_encodings::MONO16);}
+//	catch (cv_bridge::Exception& e){ROS_ERROR("depth cv_bridge exception: %s", e.what());}
+
+//    cv::Mat depth;
+//	depth = depth_ptr->image;//depth_ptr->image.convertTo(depth, CV_16UC1, 5000.0);
+//	unsigned int nr_pixels = depth.cols*depth.rows;
+//	unsigned int step = std::max(1,int(nr_pixels/100));
+//	printf("step: %i\n",step);
+
+	pcl::PCLPointCloud2 pcl_pc2;
+	pcl_conversions::toPCL(scene.cloud,pcl_pc2);
+	pcl::PointCloud<pcl::PointXYZRGB> cloud;//(new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::fromPCLPointCloud2(pcl_pc2,cloud);
+
+	cv::Mat rgb;
+	rgb.create(cloud.height,cloud.width,CV_8UC3);
+	unsigned char * rgbdata = (unsigned char *)rgb.data;
+
+	cv::Mat depth;
+	depth.create(cloud.height,cloud.width,CV_16UC1);
+	unsigned short * depthdata = (unsigned short *)depth.data;
+
+	unsigned int nr_data = cloud.height * cloud.width;
+	for(unsigned int i = 0; i < nr_data; i++){
+		pcl::PointXYZRGB p = cloud.points[i];
+		rgbdata[3*i+0]	= p.b;
+		rgbdata[3*i+1]	= p.g;
+		rgbdata[3*i+2]	= p.r;
+		depthdata[i]	= p.z/cam->idepth_scale;
+	}
+
+//	cv::namedWindow( "rgb"			, cv::WINDOW_AUTOSIZE );
+//	cv::imshow( "rgb"				, rgb );
+//	cv::namedWindow( "depth_ptr"	, cv::WINDOW_AUTOSIZE );
+//	cv::imshow( "depth_ptr"			, depth );
+//	cv::waitKey(0);
 
 
 	Eigen::Affine3d epose;
 	tf::poseMsgToEigen(scene.robot_pose, epose);
+
+	for(unsigned int i = 0; i < scene.transform.transforms.size(); i++){
+		//if(true || scene.transform.transforms[i].child_frame_id.compare("head_xtion_rgb_optical_frame") == 0){
+		if(scene.transform.transforms[i].child_frame_id.compare("/head_xtion_rgb_optical_frame") == 0){
+			geometry_msgs::Transform tra = scene.transform.transforms[i].transform;
+
+			geometry_msgs::Pose poseMsg;
+			poseMsg.position.x	= tra.translation.x;
+			poseMsg.position.y	= tra.translation.y;
+			poseMsg.position.z	= tra.translation.z;
+			poseMsg.orientation	= tra.rotation;
+
+			Eigen::Affine3d affinepose;
+			tf::poseMsgToEigen(poseMsg, affinepose);
+
+			//std::cout << affinepose.matrix() << std::endl << std::endl;
+			printf("id:%s topic:%32.32s Rot(x: %2.2f y:%2.2f z:%2.2f w:%2.2f) Trans(%2.2f %2.2f %2.2f)\n",scene.id.c_str(),scene.transform.transforms[i].child_frame_id.c_str(),tra.rotation.x,tra.rotation.y,tra.rotation.z,tra.rotation.w,tra.translation.x,tra.translation.y,tra.translation.z);
+			//break;
+		}
+	}
+//exit(0);
+	//std::cout << epose.matrix() << std::endl << std::endl;
+
 	reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, 0, epose.matrix(),true,"",true);
 	frame->soma_id = scene.id;
 	return frame;
@@ -1183,7 +1262,6 @@ void segment(std::vector< reglib::Model * > bgs, std::vector< reglib::Model * > 
 	std::vector<cv::Mat> bgmask;
 	for(unsigned int i = 0; i < bgs.size(); i++){
 		Eigen::Matrix4d cp = cpmod[i];
-		std::cout << cp << std::endl;
 		for(unsigned int k = 0; k < bgs[i]->relativeposes.size(); k++){
 			bgcp.push_back(cp * bgs[i]->relativeposes[k]);
 			bgcf.push_back(bgs[i]->frames[k]);
@@ -1207,6 +1285,8 @@ void segment(std::vector< reglib::Model * > bgs, std::vector< reglib::Model * > 
 		std::vector<cv::Mat> movemask;
 		std::vector<cv::Mat> dynmask;
 		printf("computeMovingDynamicStatic\n");
+printf("frames: %i\n",model->frames.size());
+exit(0);
 		mu->computeMovingDynamicStatic(movemask,dynmask,bgcp,bgcf,model->relativeposes,model->frames,debugg,savePath);//Determine self occlusions
 		external.push_back(movemask);
 		internal.push_back(masks);

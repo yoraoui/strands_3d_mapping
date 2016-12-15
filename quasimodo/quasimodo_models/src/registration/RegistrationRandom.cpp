@@ -7,11 +7,23 @@
 namespace reglib
 {
 
-RegistrationRandom::RegistrationRandom(){
+RegistrationRandom::RegistrationRandom(unsigned int steps){
 	only_initial_guess		= false;
-	visualizationLvl = 1;
-	refinement = new RegistrationRefinement();
+	visualizationLvl		= 0;
+	refinement				= new RegistrationRefinement();
+
+	steprx		= stepry	= steprz	= steps;
+	start_rx	= start_ry	= start_rz	= 0;
+	stop_rx		= stop_ry	= stop_rz	= 2.0 * M_PI * double(steps)/double(steps+1);
+
+	steptx		= stepty	= steptz	= 1;
+	start_tx	= start_ty	= start_tz	= 0;
+	stop_tx		= stop_ty	= stop_tz	= 0;
+
+	src_meantype	= 0;
+	dst_meantype	= 0;
 }
+
 RegistrationRandom::~RegistrationRandom(){
 	delete refinement;
 }
@@ -124,45 +136,103 @@ double getPsphere(double p, double & x, double & y,double & z, double & r, pcl::
 		double ratio = score/score_start;
 		if(ratio > 0.999){break;}
 	}
-
-    //printf("final -> %10.10f pos: %5.5f %5.5f %5.5f %5.5f d: ",score,x,y,z,r);
 	return score;
 }
 
-FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
-	//refinement->visualizationLvl = visualizationLvl;
-	//	refinement->viewer = viewer;
-	//	refinement->visualizationLvl = 2;
+Eigen::Affine3d RegistrationRandom::getMean(CloudData * data, int type){
+	unsigned int nr_data = src->data.cols();
 
+	double mean_x = 0;
+	double mean_y = 0;
+	double mean_z = 0;
 
-	unsigned int s_nr_data = src->data.cols();//std::min(int(src->data.cols()),int(500000));
-	unsigned int d_nr_data = dst->data.cols();
-	refinement->allow_regularization = true;
-	//printf("s_nr_data: %i d_nr_data: %i\n",s_nr_data,d_nr_data);
+	if(type == 0 || type == 2){
+		for(unsigned int i = 0; i < nr_data; i++){
+			mean_x += data->data(0,i);
+			mean_y += data->data(1,i);
+			mean_z += data->data(2,i);
+		}
+		mean_x /= double(nr_data);
+		mean_y /= double(nr_data);
+		mean_z /= double(nr_data);
 
-	int stepy = std::max(1,int(d_nr_data)/100000);
+		if(type == 2){
+			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+			cloud->points.clear();
+			for(unsigned int i = 0; i < nr_data; i++){pcl::PointXYZRGBNormal p;p.x = data->data(0,i)  ;p.y = data->data(1,i);p.z = data->data(2,i);p.b = 0;p.g = 255;p.r = 0;cloud->points.push_back(p);}
 
-	Eigen::Matrix<double, 3, Eigen::Dynamic> Y;
-	Eigen::Matrix<double, 3, Eigen::Dynamic> N;
-	Y.resize(Eigen::NoChange,d_nr_data/stepy);
-	N.resize(Eigen::NoChange,d_nr_data/stepy);
-	unsigned int ycols = Y.cols();
+			double sphere_r = 0;
+			double score = getPsphere(1.0, mean_x,mean_y,mean_z,sphere_r,cloud);
+		}
+	}else if(type == 1){
+		std::vector<double> xvec;
+		std::vector<double> yvec;
+		std::vector<double> zvec;
+		xvec.resize(nr_data);
+		yvec.resize(nr_data);
+		zvec.resize(nr_data);
+		for(unsigned int i = 0; i < nr_data; i++){
+			xvec[i] = data->data(0,i);
+			yvec[i] = data->data(1,i);
+			zvec[i] = data->data(2,i);
+		}
 
-	for(unsigned int i = 0; i < d_nr_data/stepy; i++){
-		Y(0,i)	= dst->data(0,i*stepy);
-		Y(1,i)	= dst->data(1,i*stepy);
-		Y(2,i)	= dst->data(2,i*stepy);
-		N(0,i)	= dst->normals(0,i*stepy);
-		N(1,i)	= dst->normals(1,i*stepy);
-		N(2,i)	= dst->normals(2,i*stepy);
+		std::sort (xvec.begin(), xvec.end());
+		std::sort (yvec.begin(), yvec.end());
+		std::sort (zvec.begin(), zvec.end());
+
+		int mid_ind = nr_data/2;
+
+		mean_x = xvec[mid_ind];
+		mean_y = xvec[mid_ind];
+		mean_z = xvec[mid_ind];
 	}
 
-	/// Build kd-tree
-	//nanoflann::KDTreeAdaptor<Eigen::Matrix3Xd, 3, nanoflann::metric_L2_Simple>                  kdtree(Y);
+	Eigen::Affine3d mean = Eigen::Affine3d::Identity();
+	mean(0,3) = mean_x;
+	mean(1,3) = mean_y;
+	mean(2,3) = mean_z;
+	return mean;
+}
 
-	Eigen::VectorXd DST_INORMATION = Eigen::VectorXd::Zero(Y.cols());
-	for(unsigned int i = 0; i < d_nr_data/stepy; i++){DST_INORMATION(i) = dst->information(0,i*stepy);}
+FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
+	std::vector< double > rxs;
+	std::vector< double > rys;
+	std::vector< double > rzs;
 
+	std::vector< double > txs;
+	std::vector< double > tys;
+	std::vector< double > tzs;
+
+	for(double rx = 0; rx < steprx; rx++){
+		for(double ry = 0; ry < stepry; ry++){
+			for(double rz = 0; rz < steprz; rz++){
+				for(double tx = 0; tx < steptx; tx++){
+					for(double ty = 0; ty < stepty; ty++){
+						for(double tz = 0; tz < steptz; tz++){
+							rxs.push_back(start_rx + rx*(stop_rx-start_rx));
+							rys.push_back(start_ry + ry*(stop_ry-start_ry));
+							rzs.push_back(start_rz + rz*(stop_rz-start_rz));
+							txs.push_back(start_tx + tx*(stop_tx-start_tx));
+							tys.push_back(start_ty + ty*(stop_ty-start_ty));
+							tzs.push_back(start_tz + tz*(stop_tz-start_tz));
+						}
+					}
+				}
+			}
+		}
+	}
+
+	unsigned int nr_r = steprx*stepry*steprz*steptx*stepty*steptz;
+	for(unsigned int r = 0; r < nr_r; r++){
+		printf("registering: %i / %i -> R(%5.5f  %5.5f  %5.5f) T(%5.5f  %5.5f  %5.5f)\n",r+1,nr_r,rxs[r],rys[r],rzs[r],txs[r],tys[r],tzs[r]);
+	}
+exit(0);
+	refinement->allow_regularization = true;
+
+	unsigned int s_nr_data = src->data.cols();
+/*
+	unsigned int d_nr_data = dst->data.cols();
 	double s_mean_x = 0;
 	double s_mean_y = 0;
 	double s_mean_z = 0;
@@ -170,7 +240,7 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 	double d_mean_x = 0;
 	double d_mean_y = 0;
 	double d_mean_z = 0;
-    int meantype = 0;
+
 	if(meantype == 0 || meantype == 2){
 		for(unsigned int i = 0; i < s_nr_data; i++){
 			s_mean_x += src->data(0,i);
@@ -259,12 +329,10 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 	Xmean(0,3) = s_mean_x;
 	Xmean(1,3) = s_mean_y;
 	Xmean(2,3) = s_mean_z;
+*/
 
-
-	int stepxsmall = std::max(1,int(s_nr_data)/250);
-	Eigen::VectorXd Wsmall (s_nr_data/stepxsmall);
-	for(unsigned int i = 0; i < s_nr_data/stepxsmall; i++){Wsmall(i) = src->information(0,i*stepxsmall);}
-
+	Eigen::Affine3d Xmean = getMean(src,src_meantype);
+	Eigen::Affine3d Ymean = getMean(dst,dst_meantype);
 
 	double sumtime = 0;
 	double sumtimeSum = 0;
@@ -272,28 +340,8 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 
 	refinement->viewer = viewer;
 	refinement->visualizationLvl = 0;
-
-	std::vector< double > rxs;
-	std::vector< double > rys;
-	std::vector< double > rzs;
-
-	int steps = 4;
-	for(double rx = 0; rx < steps; rx ++){
-		for(double ry = 0; ry < steps; ry++){
-            for(double rz = 0; rz < steps; rz++){
-                rxs.push_back(2.0 * M_PI * (rx/double(steps+1)));
-                rys.push_back(2.0 * M_PI * (ry/double(steps+1)));
-                rzs.push_back(2.0 * M_PI * (rz/double(steps+1)));
-//                rxs.push_back(0);
-//                rys.push_back(0);
-//                rzs.push_back(0);
-			}
-		}
-	}
-
-
 	refinement->target_points = 250;
-	unsigned int nr_r = rxs.size();
+	int stepxsmall = std::max(1,int(s_nr_data)/refinement->target_points);
 
 	std::vector<FusionResults> fr_X;
 	fr_X.resize(nr_r);
@@ -317,8 +365,6 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 				Eigen::AngleAxisd(rzs[r], Eigen::Vector3d::UnitZ());
 
 		Eigen::Affine3d current_guess = Ymean*randomrot*Xmean.inverse();//*Ymean;
-
-        //std::cout << current_guess.matrix() << std::endl;
 
 		FusionResults fr = refinement->getTransform(current_guess.matrix());
 		//fr_X[r] = refinement->getTransform(current_guess.matrix());
@@ -374,26 +420,6 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 		}
 		mul *= 2;
 	}
-
-	//	for(int tp = 500; tp <= 1000; tp *= 2){
-	//		refinement->target_points = tp;
-
-	//		unsigned int nr_X = fr_X.size();
-	//		//#pragma omp parallel for num_threads(8)
-	//		for(unsigned int ax = 0; ax < nr_X; ax++){
-	//			fr_X[ax] = refinement->getTransform(fr_X[ax].guess);
-	//		}
-
-	//		for(unsigned int ax = 0; ax < fr_X.size(); ax++){
-	//			for(unsigned int bx = ax+1; bx < fr_X.size(); bx++){
-	//				if(issame(fr_X[bx], fr_X[ax],stepxsmall)){
-	//					fr_X[bx] = fr_X.back();
-	//					fr_X.pop_back();
-	//					bx--;
-	//				}
-	//			}
-	//		}
-	//	}
 
 	refinement->visualizationLvl = visualizationLvl;
 	std::sort (fr_X.begin(), fr_X.end(), compareFusionResults);
