@@ -8,7 +8,7 @@
 #include <pcl/filters/approximate_voxel_grid.h>
 
 #include <metaroom_xml_parser/load_utilities.h>
-#include <semantic_map/RoomObservation.h>
+#include <semantic_map_msgs/RoomObservation.h>
 #include <dynamic_object_retrieval/definitions.h>
 
 #include <ros/ros.h>
@@ -47,7 +47,7 @@ void callback(const std_msgs::String::ConstPtr& msg)
         string_pub.publish(sweep_msg);
     }
     else {
-        semantic_map::RoomObservation sweep_msg;
+        semantic_map_msgs::RoomObservation sweep_msg;
         sweep_msg.xml_file_name = sweep_xmls[sweep_ind++];
         room_pub.publish(sweep_msg);
     }
@@ -117,7 +117,7 @@ int main(int argc, char** argv)
     }
     else {
         cout << "Advertising " << "/local_metric_map/room_observations" << endl;
-        room_pub = n.advertise<semantic_map::RoomObservation>("/local_metric_map/room_observations", 1);
+        room_pub = n.advertise<semantic_map_msgs::RoomObservation>("/local_metric_map/room_observations", 1);
     }
     ros::Subscriber sub = n.subscribe("/vocabulary_done", 1, callback);
 
@@ -131,7 +131,7 @@ int main(int argc, char** argv)
     }
     else {
         cout << "Publishing initial simulated observation: " << sweep_xmls[sweep_ind] << endl;
-        semantic_map::RoomObservation sweep_msg;
+        semantic_map_msgs::RoomObservation sweep_msg;
         sweep_msg.xml_file_name = sweep_xmls[sweep_ind++];
         room_pub.publish(sweep_msg);
     }

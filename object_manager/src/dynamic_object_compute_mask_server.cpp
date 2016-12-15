@@ -1,6 +1,6 @@
 #include <pwd.h>
 #include <ros/ros.h>
-#include <object_manager/DynamicObjectComputeMaskService.h>
+#include <object_manager_msgs/DynamicObjectComputeMaskService.h>
 #include <semantic_map/room_xml_parser.h>
 #include <semantic_map/metaroom_xml_parser.h>
 #include <metaroom_xml_parser/load_utilities.h>
@@ -42,8 +42,8 @@ CloudPtr find_object_using_metaroom(std::string sweep_xml, std::string object_xm
 CloudPtr find_object_using_conv_seg(CloudPtr reg_views_at_origin, pcl::PointCloud<pcl::Normal>::Ptr reg_views_at_origin_normals, CloudPtr object_cloud_at_origin);
 
 bool dynamic_object_compute_mask_service(
-        object_manager::DynamicObjectComputeMaskService::Request  &req,
-        object_manager::DynamicObjectComputeMaskService::Response &res)
+        object_manager_msgs::DynamicObjectComputeMaskService::Request  &req,
+        object_manager_msgs::DynamicObjectComputeMaskService::Response &res)
 {
     ROS_INFO("Received a dynamic object compute mask request");
     ROS_INFO_STREAM("Object " << req.object_xml);

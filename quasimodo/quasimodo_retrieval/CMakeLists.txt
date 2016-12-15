@@ -8,7 +8,7 @@ add_definitions(-std=c++11 -O3)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS roscpp tf sensor_msgs std_msgs image_geometry metaroom_xml_parser quasimodo_msgs message_runtime
                                         message_generation tf_conversions pcl_ros image_geometry cv_bridge tf_conversions eigen_conversions
-                                        k_means_tree dynamic_object_retrieval object_3d_benchmark dynamic_reconfigure soma_msgs)
+                                        k_means_tree dynamic_object_retrieval object_3d_benchmark dynamic_reconfigure soma_msgs mongodb_store)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)

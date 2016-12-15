@@ -41,7 +41,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 
-#include <semantic_map/RoomObservation.h>
+#include <semantic_map_msgs/RoomObservation.h>
 #include <semantic_map/room.h>
 #include <semantic_map/room_xml_parser.h>
 #include <semantic_map/semantic_map_summary_parser.h>
@@ -162,7 +162,7 @@ CloudMergeNode<PointType>::CloudMergeNode(ros::NodeHandle nh) : m_TransformListe
     m_RosPublisherIntermediateRGBCamInfo = m_NodeHandle.advertise<sensor_msgs::CameraInfo>("/local_metric_map/rgb/camera_info", 1000);
 
     // room publisher
-    m_PublisherRoomObservation = m_NodeHandle.advertise<semantic_map::RoomObservation>("/local_metric_map/room_observations", 1000);
+    m_PublisherRoomObservation = m_NodeHandle.advertise<semantic_map_msgs::RoomObservation>("/local_metric_map/room_observations", 1000);
 
     image_transport::TransportHints hints("raw", ros::TransportHints(), m_NodeHandle);
 
@@ -544,7 +544,7 @@ void CloudMergeNode<PointType>::controlCallback(const std_msgs::String& controlS
 			}
 
             // Pulbish room observation
-            semantic_map::RoomObservation obs_msg;
+            semantic_map_msgs::RoomObservation obs_msg;
             obs_msg.xml_file_name = roomXMLPath;
 
             // before publising, check whether some data needs to be removed
