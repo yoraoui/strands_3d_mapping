@@ -1370,10 +1370,7 @@ RGBDFrame * RGBDFrame::load(Camera * cam, std::string path){
 		for(unsigned int i = 0; i < soma_idlength;i++){
 			soma_id[i] = buffer[count4++];
 		}
-		if(soma_idlength > 0){
-			printf("%s\n",soma_id.c_str());
-		}
-//	exit(0);
+
 		cv::Mat rgb = cv::imread(path+"_rgb.png", -1);   // Read the file
 		cv::Mat depth = cv::imread(path+"_depth.png", -1);   // Read the file
 		cv::Mat det_dilate = cv::imread(path+"_det_dilate.png", -1);   // Read the file

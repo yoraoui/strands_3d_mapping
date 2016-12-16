@@ -227,6 +227,7 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 	for(unsigned int r = 0; r < nr_r; r++){
 		printf("registering: %i / %i -> R(%5.5f  %5.5f  %5.5f) T(%5.5f  %5.5f  %5.5f)\n",r+1,nr_r,rxs[r],rys[r],rzs[r],txs[r],tys[r],tzs[r]);
 	}
+printf("exit:%s::%i",__PRETTY_FUNCTION__,__LINE__);
 exit(0);
 	refinement->allow_regularization = true;
 
@@ -389,7 +390,6 @@ exit(0);
 	}
 
 
-
 	FusionResults fr = FusionResults();
 	refinement->allow_regularization = false;
 
@@ -429,7 +429,6 @@ exit(0);
 		fr.scores.push_back(fr_X[ax].score);
 	}
 
-
 	if(visualizationLvl > 0){
 		refinement->allow_regularization = true;
 		refinement->visualizationLvl = visualizationLvl;
@@ -442,7 +441,6 @@ exit(0);
 		}
 		refinement->visualizationLvl = 0;
 	}
-
 
 	refinement->target_points = tpbef;
 	return fr;

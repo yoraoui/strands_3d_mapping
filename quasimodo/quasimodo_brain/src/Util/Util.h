@@ -43,6 +43,9 @@
 #include <soma_llsd_msgs/Segment.h>
 #include <quasimodo_conversions/conversions.h>
 
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_listener.h>
+
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 #include "std_msgs/String.h"
@@ -89,6 +92,11 @@
 #include <boost/filesystem.hpp>
 
 namespace quasimodo_brain {
+
+reglib::RGBDFrame * getFrame(std::string soma_id, ros::NodeHandle * np);
+
+void recomputeSomaFrame(reglib::RGBDFrame * & frame, ros::NodeHandle * np, std::string savePath = "");
+
 void guaranteeFolder(std::string filepath);
 
 bool isNumber(std::string str);

@@ -2,6 +2,70 @@
 
 namespace quasimodo_brain {
 
+reglib::RGBDFrame * getFrame(std::string soma_id, ros::NodeHandle * np){
+	//printf("getFrame(%s)\n",soma_id.c_str());
+
+	ros::ServiceClient client = np->serviceClient<soma_llsd::GetScene>("/soma_llsd/get_scene");
+	//ROS_INFO("Waiting for /soma_llsd/get_scene service...");
+	if (!client.waitForExistence(ros::Duration(1.0))) {
+		ROS_INFO("Failed to get /soma_llsd/get_scene service!");
+		return 0;
+	}
+	//ROS_INFO("Got /soma_llsd/get_scene service");
+
+	soma_llsd::GetScene srv;
+	srv.request.scene_id = soma_id;
+	if (!client.call(srv)) {
+		ROS_ERROR("Failed to call service /soma_llsd/get_scene");
+		return 0;
+	}
+	//ROS_INFO("Got /soma_llsd/get_scene");
+
+	if(!srv.response.result){
+		printf("could not find soma_id = %s\n",soma_id.c_str());
+		//return 0;
+	}
+
+	reglib::RGBDFrame * frame = quasimodo_brain::getFrame(srv.response.response);
+	return frame;
+}
+
+void recomputeSomaFrame(reglib::RGBDFrame * & frame, ros::NodeHandle * np, std::string savePath){
+	if(frame->soma_id.length() == 0){ return; }
+	printf("recomputeSomaFrame(%s)\n",frame->soma_id.c_str());
+
+	ros::ServiceClient client = np->serviceClient<soma_llsd::GetScene>("/soma_llsd/get_scene");
+	if (!client.waitForExistence(ros::Duration(1.0))) {
+		ROS_INFO("Failed to get /soma_llsd/get_scene service!");
+		return ;
+	}
+
+	soma_llsd::GetScene srv;
+	srv.request.scene_id = frame->soma_id;
+	if (!client.call(srv)) {
+		ROS_ERROR("Failed to call service /soma_llsd/get_scene");
+		return ;
+	}
+
+	if(!srv.response.result){
+		printf("could not find soma_id = %s\n",frame->soma_id.c_str());
+		return ;
+	}
+
+
+	printf("savepath: %s\n",savePath.c_str());
+
+	reglib::RGBDFrame * frame2 = quasimodo_brain::getFrame(srv.response.response);
+//	if(savePath.length() > 0){
+//		frame2->save(savePath);
+//		frame2->camera->save(savePath+"_camera");
+//	}
+	delete frame->camera;
+	delete frame;
+
+	frame = frame2;
+}
+
 bool isNumber(std::string str){
 	for(unsigned int i = 0; i < str.size(); i++){
 		if(str[i] < '0' || str[i] > '9' ){
@@ -355,32 +419,123 @@ std::string type2str(int type) {
 	return r;
 }
 
+Eigen::Matrix4d getCameraMapPose(soma_llsd_msgs::Scene & scene){
 
+	//	for(unsigned int i = 0; i < scene.transform.transforms.size(); i++){
+	//		if(			(scene.transform.transforms[i].header.frame_id.compare("/map") == 0)
+	//				||	(scene.transform.transforms[i].child_frame_id.compare("/map") == 0)
+	//				||	(scene.transform.transforms[i].header.frame_id.compare("map") == 0)
+	//				||	(scene.transform.transforms[i].child_frame_id.compare("map") == 0)){
+	//			printf("parrent: %32.32s current:%32.32s\n",scene.transform.transforms[i].header.frame_id.c_str(), scene.transform.transforms[i].child_frame_id.c_str());
+	//		}
+	//	}
+
+	/*
+		std::string prev_frame = scene.cloud.header.frame_id;
+		bool stop = false;
+		for(unsigned int test = 0; test < 10 && !stop; test++){
+			printf("test: %i prev: %s stop: %i\n",test,prev_frame.c_str(),stop);
+	//		for(unsigned int i = 0; i < scene.transform.transforms.size(); i++){
+	//			if((scene.transform.transforms[i].header.frame_id.compare(prev_frame) == 0) || (scene.transform.transforms[i].child_frame_id.compare(prev_frame) == 0)){
+	//				printf("parrent: %32.32s current:%32.32s\n",scene.transform.transforms[i].header.frame_id.c_str(), scene.transform.transforms[i].child_frame_id.c_str());
+	//			}
+	//		}
+
+			stop = true;
+			for(unsigned int i = 0; i < scene.transform.transforms.size(); i++){
+				geometry_msgs::TransformStamped tsa = scene.transform.transforms[i];
+				if(tsa.child_frame_id.compare(prev_frame) == 0){
+					prev_frame = tsa.header.frame_id;
+					stop = false;
+					printf("STOP\n");
+					break;
+				}
+
+	//			if(tsa.header.frame_id.compare(prev_frame) == 0){
+	//				prev_frame = tsa.child_frame_id;
+	//				break;
+	//			}
+			}
+		}
+	*/
+		//printf("%32.32s -> Rot(x: %2.2f y:%2.2f z:%2.2f w:%2.2f) Trans(%2.2f %2.2f %2.2f)\n",tsa.header.frame_id.c_str(), tra.rotation.x,tra.rotation.y,tra.rotation.z,tra.rotation.w,tra.translation.x,tra.translation.y,tra.translation.z);
+
+
+		Eigen::Affine3d epose;
+		tf::poseMsgToEigen(scene.robot_pose, epose);
+
+		//ros::Time t2 = scene.cloud.header.stamp;
+		//ros::Time t2 = scene.header.stamp;
+		//double timestamp2 = t2.sec+1e-9*t2.nsec;
+		double timestamp2 = scene.timestamp;
+		ros::Time t3;
+		int count = 0;
+		for(unsigned int i = 0; i < scene.transform.transforms.size(); i++){
+			if(scene.transform.transforms[i].child_frame_id.compare(scene.cloud.header.frame_id) == 0){
+				t3 = scene.transform.transforms[i].header.stamp;
+				break;
+			}
+		}
+		t3.sec = t3.sec+1.0;
+
+	//	double timestamp3 = t3.sec+1e-9*t3.nsec;
+	//	for(unsigned int i = 0; i < scene.transform.transforms.size(); i++){
+	//		if(scene.transform.transforms[i].child_frame_id.compare(scene.cloud.header.frame_id) == 0){
+	//			ros::Time t = scene.transform.transforms[i].header.stamp;
+	//			double timestamp = t.sec+1e-9*t.nsec;//scene.transform.transforms[i].stamp.sec+1e-9*scene.transform.transforms[i].stamp.nsec;
+	//		//if(scene.transform.transforms[i].child_frame_id.compare("/head_xtion_rgb_optical_frame") == 0){
+	//			geometry_msgs::Transform tra = scene.transform.transforms[i].transform;
+	//			printf("timestamp: %15.15f timestamp2: %15.15f diff: %15.15f\n",timestamp,timestamp2,timestamp2-timestamp);
+	//			////			printf("timestamp diff : parrent: %32.32s current:%32.32s Rot(x: %2.2f y:%2.2f z:%2.2f w:%2.2f) Trans(%2.2f %2.2f %2.2f)\n",scene.transform.transforms[i].header.frame_id.c_str(), scene.transform.transforms[i].child_frame_id.c_str(),tra.rotation.x,tra.rotation.y,tra.rotation.z,tra.rotation.w,tra.translation.x,tra.translation.y,tra.translation.z);
+	//			//break;
+	//		}
+	//	}
+
+		tf2_ros::Buffer tfBuffer (ros::Duration(20));
+		tf2_ros::TransformListener tfListener(tfBuffer);
+
+		for(unsigned int i = 0; i < scene.transform.transforms.size(); i++){
+			static tf2_ros::TransformBroadcaster br;
+			br.sendTransform(scene.transform.transforms[i]);
+		}
+
+	//	printf("scene.cloud.header.frame_id: %s\n",scene.cloud.header.frame_id.c_str());
+
+		//printf("timestamp3: %f\n",timestamp3);
+		geometry_msgs::TransformStamped tsa;
+		try{
+			//tsa = tfBuffer.lookupTransform("head_xtion_rgb_optical_frame", "ptu_pan_motor",t3);//scene.cloud.header.stamp);
+			tsa = tfBuffer.lookupTransform(scene.cloud.header.frame_id, "/map",scene.cloud.header.stamp);
+						//tsa = tfBuffer.lookupTransform("ptu_pan_motor","head_xtion_rgb_optical_frame",t3);//scene.cloud.header.stamp);
+		}catch (tf2::TransformException &ex) {
+			ROS_WARN("%s",ex.what());
+			ros::Duration(1.0).sleep();
+		}
+
+		geometry_msgs::Transform ts = tsa.transform;
+	//	printf("ts: Rot(x: %2.2f y:%2.2f z:%2.2f w:%2.2f) Trans(%2.2f %2.2f %2.2f)\n",ts.rotation.x,ts.rotation.y,ts.rotation.z,ts.rotation.w,ts.translation.x,ts.translation.y,ts.translation.z);
+	//std::cout << epose.matrix() << std::endl << std::endl;
+
+		geometry_msgs::Pose poseMsg;
+		poseMsg.position.x	= ts.translation.x;
+		poseMsg.position.y	= ts.translation.y;
+		poseMsg.position.z	= ts.translation.z;
+		poseMsg.orientation	= ts.rotation;
+
+		Eigen::Affine3d affinepose;
+		tf::poseMsgToEigen(poseMsg, affinepose);
+		//std::cout << affinepose.matrix() << std::endl << std::endl;
+	return affinepose.matrix();
+}
 
 reglib::RGBDFrame * getFrame(soma_llsd_msgs::Scene & scene){
 
 	reglib::Camera * cam = getCam(scene.camera_info);
     cam->idepth_scale = 1.0/5000.0;
 
-//	cv_bridge::CvImagePtr			rgb_ptr;
-//	try{							rgb_ptr = cv_bridge::toCvCopy(scene.rgb_img, sensor_msgs::image_encodings::BGR8);}
-//	catch (cv_bridge::Exception& e){ROS_ERROR("rgb   cv_bridge exception: %s", e.what());}
-//	cv::Mat rgb = rgb_ptr->image;
-
-//	cv_bridge::CvImagePtr			depth_ptr;
-//	try{							depth_ptr = cv_bridge::toCvCopy(scene.depth_img, sensor_msgs::image_encodings::TYPE_32FC1);}
-//	//try{							depth_ptr = cv_bridge::toCvCopy(scene.depth_img, sensor_msgs::image_encodings::MONO16);}
-//	catch (cv_bridge::Exception& e){ROS_ERROR("depth cv_bridge exception: %s", e.what());}
-
-//    cv::Mat depth;
-//	depth = depth_ptr->image;//depth_ptr->image.convertTo(depth, CV_16UC1, 5000.0);
-//	unsigned int nr_pixels = depth.cols*depth.rows;
-//	unsigned int step = std::max(1,int(nr_pixels/100));
-//	printf("step: %i\n",step);
-
 	pcl::PCLPointCloud2 pcl_pc2;
 	pcl_conversions::toPCL(scene.cloud,pcl_pc2);
-	pcl::PointCloud<pcl::PointXYZRGB> cloud;//(new pcl::PointCloud<pcl::PointXYZRGB>);
+	pcl::PointCloud<pcl::PointXYZRGB> cloud;
 	pcl::fromPCLPointCloud2(pcl_pc2,cloud);
 
 	cv::Mat rgb;
@@ -400,39 +555,8 @@ reglib::RGBDFrame * getFrame(soma_llsd_msgs::Scene & scene){
 		depthdata[i]	= p.z/cam->idepth_scale;
 	}
 
-//	cv::namedWindow( "rgb"			, cv::WINDOW_AUTOSIZE );
-//	cv::imshow( "rgb"				, rgb );
-//	cv::namedWindow( "depth_ptr"	, cv::WINDOW_AUTOSIZE );
-//	cv::imshow( "depth_ptr"			, depth );
-//	cv::waitKey(0);
-
-
-	Eigen::Affine3d epose;
-	tf::poseMsgToEigen(scene.robot_pose, epose);
-
-	for(unsigned int i = 0; i < scene.transform.transforms.size(); i++){
-		//if(true || scene.transform.transforms[i].child_frame_id.compare("head_xtion_rgb_optical_frame") == 0){
-		if(scene.transform.transforms[i].child_frame_id.compare("/head_xtion_rgb_optical_frame") == 0){
-			geometry_msgs::Transform tra = scene.transform.transforms[i].transform;
-
-			geometry_msgs::Pose poseMsg;
-			poseMsg.position.x	= tra.translation.x;
-			poseMsg.position.y	= tra.translation.y;
-			poseMsg.position.z	= tra.translation.z;
-			poseMsg.orientation	= tra.rotation;
-
-			Eigen::Affine3d affinepose;
-			tf::poseMsgToEigen(poseMsg, affinepose);
-
-			//std::cout << affinepose.matrix() << std::endl << std::endl;
-			printf("id:%s topic:%32.32s Rot(x: %2.2f y:%2.2f z:%2.2f w:%2.2f) Trans(%2.2f %2.2f %2.2f)\n",scene.id.c_str(),scene.transform.transforms[i].child_frame_id.c_str(),tra.rotation.x,tra.rotation.y,tra.rotation.z,tra.rotation.w,tra.translation.x,tra.translation.y,tra.translation.z);
-			//break;
-		}
-	}
-//exit(0);
-	//std::cout << epose.matrix() << std::endl << std::endl;
-
-	reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, 0, epose.matrix(),true,"",true);
+	//reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, 0, epose.matrix(),true,"",true);
+	reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, 0, getCameraMapPose(scene),true,"",true);
 	frame->soma_id = scene.id;
 	return frame;
 }
@@ -1284,9 +1408,9 @@ void segment(std::vector< reglib::Model * > bgs, std::vector< reglib::Model * > 
 
 		std::vector<cv::Mat> movemask;
 		std::vector<cv::Mat> dynmask;
-		printf("computeMovingDynamicStatic\n");
-printf("frames: %i\n",model->frames.size());
-exit(0);
+//		printf("computeMovingDynamicStatic\n");
+//printf("frames: %i\n",model->frames.size());
+//exit(0);
 		mu->computeMovingDynamicStatic(movemask,dynmask,bgcp,bgcf,model->relativeposes,model->frames,debugg,savePath);//Determine self occlusions
 		external.push_back(movemask);
 		internal.push_back(masks);

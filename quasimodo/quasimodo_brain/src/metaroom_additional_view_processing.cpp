@@ -11,6 +11,9 @@
 #include "metaroom_xml_parser/simple_summary_parser.h"
 #include <metaroom_xml_parser/load_utilities.h>
 
+#include <observation_registration_services/ObjectAdditionalViewRegistrationService.h>
+#include <observation_registration_services/AdditionalViewRegistrationService.h>
+
 #include <pcl_ros/point_cloud.h>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl_ros/transforms.h>
@@ -740,19 +743,20 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
         sprintf(buf,"%s/frame_%5.5i",sweep_folder.c_str(),counter);
         string tmp = string(buf)+"_data.txt";
         QFile file(tmp.c_str());
-        if (!file.exists()){
-            break;
-        }
+        if (!file.exists()){ break; }
 
         reglib::Camera * cam = reglib::Camera::load(std::string(buf)+"_camera");
         if(cam == 0){break;}
         reglib::RGBDFrame * frame = reglib::RGBDFrame::load(cam,std::string(buf));
         if(frame == 0){delete cam; break;}
+
+		//quasimodo_brain::recomputeSomaFrame(frame,np,std::string(buf));
+
         frames.push_back(frame);
 
         counter++;
     }
-
+//exit(0);
     printf("frames: %i counter: %i\n",frames.size(),counter);
 
     Eigen::Matrix4d m2 = Eigen::Matrix4d ::Identity();
@@ -806,6 +810,8 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
         quasimodo_brain::saveSuperPoints(sweep_folder+"/sweepmodel_superpoints.bin",sweepmodel->points,Eigen::Matrix4d::Identity(),1.0);
     }
     printf("sweepmodel fully loaded!\n");
+
+	//return sweepmodel;
 
     //Load rest of model if possible
     std::vector<Eigen::Matrix4d> both_unrefined;
@@ -865,7 +871,7 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
     }
 
     printf("av_frames: %i\n",av_frames.size());
-	for (unsigned int i = sweepmodel->frames.size() + av_frames.size() + 1; i < frames.size(); i++){
+	for (unsigned int i = sweepmodel->frames.size() + av_frames.size(); i < frames.size(); i++){
         printf("counter i:%i\n",i);
         av_frames.push_back(frames[i]);
         both_unrefined.push_back(sweepmodel->frames.front()->pose.inverse()*av_frames.back()->pose);
@@ -878,9 +884,6 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 		std::cout << frames[i]->pose << std::endl << std::endl;
 	}
 	printf("----------------------------------------------------\n");
-
-
-
 
     reglib::Model * fullmodel	= new reglib::Model();
     fullmodel->savePath			= saveVisuals_sp+"/";
@@ -902,133 +905,87 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
     if(av_frames.size() > 0){
         if(loadedPoses.size() != (av_frames.size()+metaroom_frames.size())){
 
-//			printf("----------------------------------------------------\n");
 
-//			Eigen::Matrix4d prev = Eigen::Matrix4d::Identity();
-//			for(unsigned int i = 0; i < av_frames.size(); i++){
-//				Eigen::Matrix4d rp = av_frames.front()->pose.inverse() * av_frames[i]->pose;
-//				std::cout << rp << std::endl << std::endl;
-//				av_frames[i]->show(true);
+				ros::ServiceClient client2 = np->serviceClient<observation_registration_services::AdditionalViewRegistrationService>("additional_view_registration_server");
+				observation_registration_services::AdditionalViewRegistrationService srv2;
+				srv2.request.observation_xml = path;
 
-//				//std::cout << av_frames[i]->pose << std::endl << std::endl;
-//			}
-//			printf("----------------------------------------------------\n");
+				for (size_t i=0; i<av_frames.size(); i++){
+					sensor_msgs::PointCloud2 cloud_msg;
+					pcl::toROSMsg(*av_frames[i]->getPCLcloud(), cloud_msg);
+					srv2.request.additional_views.push_back(cloud_msg);
+				}
+				srv2.request.additional_views_odometry_transforms.clear();
 
-			Eigen::Matrix4d prev = Eigen::Matrix4d::Identity();
-			std::vector<Eigen::Matrix4d> testposes;
-			for(unsigned int i = 0; i < av_frames.size(); i++){
-				Eigen::Matrix4d rp = av_frames.front()->pose.inverse() * av_frames[i]->pose;
-				testposes.push_back(rp);
+				ROS_INFO_STREAM("Testing additional_view_registration_server service");
 
-				Eigen::Matrix4d diff = prev.inverse()*rp;
+				if (client2.call(srv2)){
+					int total_constraints = 0;
+					std::for_each(srv2.response.additional_view_correspondences.begin(), srv2.response.additional_view_correspondences.end(), [&] (int n) {
+						total_constraints += n;
+					});
 
-				std::cout << diff << std::endl << std::endl;
+					ROS_INFO_STREAM("Registration done. Number of additional view registration constraints "<<total_constraints<<". Number of additional view transforms "<<srv2.response.additional_view_transforms.size());
 
-				prev = rp;
-				//av_frames[i]->show(true);
-			}
+					geometry_msgs::Pose obs_poseMsg;
+					obs_poseMsg.position.x	= srv2.response.observation_transform.translation.x;
+					obs_poseMsg.position.y	= srv2.response.observation_transform.translation.y;
+					obs_poseMsg.position.z	= srv2.response.observation_transform.translation.z;
+					obs_poseMsg.orientation	= srv2.response.observation_transform.rotation;
 
-			printf("----------------------------------------------------\n");
-			for(unsigned int i = 0; i < testposes.size(); i++){
-				std::cout << testposes[i] << std::endl << std::endl;
-			}
-			printf("----------------------------------------------------\n");
-
-			reglib::RegistrationRandom * refinement = new reglib::RegistrationRandom();
-			refinement->viewer	= viewer;
-			refinement->visualizationLvl	= visualization_lvl_regini;
-
-//			reglib::CloudData * cd1 = sweepmodel->getCD(sweepmodel->points.size());
-//			reglib::CloudData * cd1 = sweepmodel->getCD(sweepmodel->points.size());
-//          refinement->setDst(cd1);
-
-//            fullmodel->points = av_frames.front()->getSuperPoints(Eigen::Matrix4d::Identity(),1,false);
-//            reglib::CloudData * cd2	= fullmodel->getCD(fullmodel->points.size());
-//            refinement->setSrc(cd2);
-
-//            //Eigen::Matrix4d guess = both_unrefined[1]*both_unrefined[0].inverse();
-//Eigen::Matrix4d guess = both_unrefined[1];
-
-//            //std::cout << guess << std::endl;
-//            std::cout << av_frames.front()->pose << std::endl;
-
-//            reglib::FusionResults fr = refinement->getTransform(guess);
-//				refinement->normalize_matchweights = false;
-//            refinement->target_points = 4000;
-//            refinement->maxtime = 300;
-exit(0);
+					Eigen::Affine3d obs_affinepose;
+					tf::poseMsgToEigen(obs_poseMsg, obs_affinepose);
 
 
-			//reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.25);
-			reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.5);
-			bgmassreg->timeout = 300;
-			bgmassreg->viewer = viewer;
-			bgmassreg->use_surface = true;
-			bgmassreg->use_depthedge = false;
-			bgmassreg->visualizationLvl = visualization_lvl_regref;
-			bgmassreg->maskstep = 5;
-			bgmassreg->nomaskstep = 5;
-			bgmassreg->nomask = true;
-			bgmassreg->stopval = 0.0005;
-			bgmassreg->setData(av_frames,av_mm);
-			reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(testposes);
-			delete bgmassreg;
-exit(0);
-/*
-			//if(visualization_lvl_regini > 0){av_frames.front()->show(true);}
+					std::cout << "observation_transform\n" << obs_affinepose.matrix() << std::endl << std::endl;
 
-			//reglib::RegistrationRefinement * refinement = new reglib::RegistrationRefinement();
+					Eigen::Matrix4d obst = (frames.front()->pose.inverse() * obs_affinepose.matrix()).inverse();
+					std::cout << obst << std::endl << std::endl;
 
-            reglib::CloudData * cd1 = sweepmodel->getCD(sweepmodel->points.size());
-            refinement->setDst(cd1);
+					std::vector<Eigen::Matrix4d> tposes;
+					tposes.push_back(obst);
+					//tposes.push_back(Eigen::Matrix4d::Identity());
+					for (auto tr : srv2.response.additional_view_transforms){
+						geometry_msgs::Pose poseMsg;
+						poseMsg.position.x	= tr.translation.x;
+						poseMsg.position.y	= tr.translation.y;
+						poseMsg.position.z	= tr.translation.z;
+						poseMsg.orientation	= tr.rotation;
 
-            fullmodel->points = av_frames.front()->getSuperPoints(Eigen::Matrix4d::Identity(),1,false);
-            reglib::CloudData * cd2	= fullmodel->getCD(fullmodel->points.size());
-            refinement->setSrc(cd2);
+						Eigen::Affine3d affinepose;
+						tf::poseMsgToEigen(poseMsg, affinepose);
 
-            //Eigen::Matrix4d guess = both_unrefined[1]*both_unrefined[0].inverse();
-Eigen::Matrix4d guess = both_unrefined[1];
+						tposes.push_back(affinepose.matrix());
 
-            //std::cout << guess << std::endl;
-            std::cout << av_frames.front()->pose << std::endl;
-
-            reglib::FusionResults fr = refinement->getTransform(guess);
-
-            Eigen::Matrix4d offset = fr.guess*guess.inverse();
-            for(unsigned int i = 1; i < both_unrefined.size(); i++){
-                both_unrefined[i] = offset*both_unrefined[i];
-            }
-
-            delete refinement;
-
-            fullmodel->points.clear();
-            delete cd1;
-            delete cd2;
-
-            reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.25);
-            if(saveVisuals_sp.size() != 0){bgmassreg->savePath = saveVisuals_sp+"/processAV_"+std::to_string(fullmodel->id);}
-            bgmassreg->timeout = 300;
-            bgmassreg->viewer = viewer;
-            bgmassreg->use_surface = true;
-            bgmassreg->use_depthedge = false;
-            bgmassreg->visualizationLvl = visualization_lvl_regref;
-            bgmassreg->maskstep = 5;
-            bgmassreg->nomaskstep = 5;
-            bgmassreg->nomask = true;
-            bgmassreg->stopval = 0.0005;
-            bgmassreg->addModel(sweepmodel);
-            bgmassreg->setData(av_frames,av_mm);
-            reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
-            delete bgmassreg;
+						std::cout << affinepose.matrix() << std::endl << std::endl;
+					}
+					reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.01);
+					bgmassreg->timeout = 300;
+					bgmassreg->viewer = viewer;
+					bgmassreg->use_surface = true;
+					bgmassreg->use_depthedge = false;
+					bgmassreg->visualizationLvl = visualization_lvl_regref;
+					bgmassreg->maskstep = 5;
+					bgmassreg->nomaskstep = 5;
+					bgmassreg->nomask = true;
+					bgmassreg->stopval = 0.0005;
+					bgmassreg->addModel(sweepmodel);
+					bgmassreg->setData(av_frames,av_mm);
+					reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(tposes);
+					delete bgmassreg;
 
 
-            for(unsigned int i = 0; i < av_frames.size(); i++){
-                av_frames[i]->pose = sweepmodel->frames.front()->pose * bgmfr.poses[i+1];
-                fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
-            }
+					for(unsigned int i = 0; i < av_frames.size(); i++){
+						av_frames[i]->pose = sweepmodel->frames.front()->pose * bgmfr.poses[i+1];
+						fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
+					}
+					quasimodo_brain::savePoses(sweep_folder+"/fullmodel_poses.xml", fullmodel->relativeposes);
 
-            quasimodo_brain::savePoses(sweep_folder+"/fullmodel_poses.xml", fullmodel->relativeposes);
-		*/
+				}else{
+					ROS_ERROR("Failed to call service object_additional_view_registration_server");
+					printf("what to do.. what to do...\n");
+					exit(0);
+				}
         }else{
             fullmodel->relativeposes = loadedPoses;
         }
@@ -1060,7 +1017,6 @@ Eigen::Matrix4d guess = both_unrefined[1];
     if(add_to_soma){
         std::string soma_id = quasimodo_brain::initSegment(*np,fullmodel);
     }
-
     return fullmodel;
 }
 
@@ -1085,7 +1041,7 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 
     reglib::Model * fullmodel = getAVMetaroom(path,true,saveVisuals);
     printf("frames: %i submodels: %i\n",fullmodel->frames.size(),fullmodel->submodels.size());
-    exit(0);
+
     reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
     reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( fullmodel, reg);
     mu->occlusion_penalty               = 15;
@@ -1145,7 +1101,7 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
     if(prevind != -1){
         std::string prev = sweep_xmls[prevind];
         printf("prev: %s\n",prev.c_str());
-        reglib::Model * bg = getAVMetaroom2(prev);
+		reglib::Model * bg = getAVMetaroom(prev);
         if(bg->frames.size() == 0){
             printf("no frames in bg\n");
             bg->fullDelete();
@@ -2403,38 +2359,10 @@ bool testPath(std::string path){
     return false;
 }
 
-reglib::RGBDFrame * getFrame(std::string soma_id){
-	//printf("getFrame(%s)\n",soma_id.c_str());
-
-	ros::ServiceClient client = np->serviceClient<soma_llsd::GetScene>("/soma_llsd/get_scene");
-	//ROS_INFO("Waiting for /soma_llsd/get_scene service...");
-	if (!client.waitForExistence(ros::Duration(1.0))) {
-		ROS_INFO("Failed to get /soma_llsd/get_scene service!");
-		return 0;
-	}
-	//ROS_INFO("Got /soma_llsd/get_scene service");
-
-	soma_llsd::GetScene srv;
-	srv.request.scene_id = soma_id;
-	if (!client.call(srv)) {
-		ROS_ERROR("Failed to call service /soma_llsd/get_scene");
-		return 0;
-	}
-	//ROS_INFO("Got /soma_llsd/get_scene");
-
-	if(!srv.response.result){
-		printf("could not find soma_id = %s\n",soma_id.c_str());
-		//return 0;
-	}
-
-	reglib::RGBDFrame * frame = quasimodo_brain::getFrame(srv.response.response);
-	return frame;
-}
-
 void addSceneToLastMetaroom(std::string soma_id){
     printf("void addSceneToLastMetaroom(%s)\n",soma_id.c_str());
 
-	reglib::RGBDFrame * frame = getFrame(soma_id);
+	reglib::RGBDFrame * frame = quasimodo_brain::getFrame(soma_id,np);
 	if(frame == 0){return;}
 
 	vector<string> sweep_xmls = semantic_map_load_utilties::getSweepXmls<PointType>(overall_folder);
