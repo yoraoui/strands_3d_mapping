@@ -285,16 +285,16 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 	for(unsigned int ind = 0; ind < spvec.size();ind+=step){
 		superpoint & sp = spvec[ind];
 
-		float src_x = sp.point(0);
-		float src_y = sp.point(1);
-		float src_z = sp.point(2);
+		float src_x = sp.x;
+		float src_y = sp.y;
+		float src_z = sp.z;
 		float tz	= m20*src_x + m21*src_y + m22*src_z + m23;
 
 		if(tz < 0){continue;}
 
-		float src_nx = sp.normal(0);
-		float src_ny = sp.normal(1);
-		float src_nz = sp.normal(2);
+		float src_nx = sp.nx;
+		float src_ny = sp.ny;
+		float src_nz = sp.nz;
 
 		float point_information = sp.point_information;
 
@@ -405,9 +405,9 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 		for(unsigned int i = 0; i < spvec.size(); i++){
 			superpoint & sp = spvec[i];
 			pcl::PointXYZRGBNormal p;
-			p.x = sp.point(0);
-			p.y = sp.point(1);
-			p.z = sp.point(2);
+			p.x = sp.x;
+			p.y = sp.y;
+			p.z = sp.z;
 
 			float tx	= m00*p.x + m01*p.y + m02*p.z + m03;
 			float ty	= m10*p.x + m11*p.y + m12*p.z + m13;
@@ -417,12 +417,12 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 			p.y = ty;
 			p.z = tz;
 
-			p.normal_x = sp.normal(0);
-			p.normal_y = sp.normal(1);
-			p.normal_z = sp.normal(2);
-			p.r = 0;//sp.feature(0);
-			p.g = 0;//sp.feature(1);
-			p.b = 255;//sp.feature(2);
+			p.normal_x = sp.nx;
+			p.normal_y = sp.ny;
+			p.normal_z = sp.nz;
+			p.r = 0;//sp.r;
+			p.g = 0;//sp.g;
+			p.b = 255;//sp.b;
 
 			scloud->points.push_back(p);
 		}
@@ -523,7 +523,7 @@ void ModelUpdater::testgetDynamicWeights(bool store_distance, std::vector<double
 		unsigned int src_ind = rr.src_ind;
 
 		superpoint & src_p = sp[src_ind];
-		if(src_p.point(2) < 0.0){
+		if(src_p.z < 0.0){
 			continue;
 		}
 
@@ -569,9 +569,9 @@ void ModelUpdater::testgetDynamicWeights(bool store_distance, std::vector<double
 			notocclusions[src_ind]++;
 			if(debugg){
 				pcl::PointXYZRGBNormal p;
-				p.x = sp[src_ind].point(0);
-				p.y = sp[src_ind].point(1);
-				p.z = sp[src_ind].point(2);
+				p.x = sp[src_ind].x;
+				p.y = sp[src_ind].y;
+				p.z = sp[src_ind].z;
 				p.r = 255*p_occlusion;
 				p.g = 255*p_overlap;
 				p.b = 255*p_behind;
@@ -849,16 +849,16 @@ pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr ModelUpdater::getPCLnormalcloud(vec
 	for(unsigned int i = 0; i < points.size(); i++){
 		superpoint & sp = points[i];
 		pcl::PointXYZRGBNormal p;
-		p.x = sp.point(0);
-		p.y = sp.point(1);
-		p.z = sp.point(2);
+		p.x = sp.x;
+		p.y = sp.y;
+		p.z = sp.z;
 
-		p.normal_x = sp.normal(0);
-		p.normal_y = sp.normal(1);
-		p.normal_z = sp.normal(2);
-		p.r = sp.feature(0);
-		p.g = sp.feature(1);
-		p.b = sp.feature(2);
+		p.normal_x = sp.nx;
+		p.normal_y = sp.ny;
+		p.normal_z = sp.nz;
+		p.r = sp.r;
+		p.g = sp.g;
+		p.b = sp.b;
 
 		cloud_ptr->points.push_back(p);
 	}
@@ -1016,20 +1016,20 @@ void ModelUpdater::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFr
 	for(unsigned int ind = 0; ind < spvec.size();ind++){
 		superpoint & sp = spvec[ind];
 
-		float src_x = sp.point(0);
-		float src_y = sp.point(1);
-		float src_z = sp.point(2);
+		float src_x = sp.x;
+		float src_y = sp.y;
+		float src_z = sp.z;
 
-		float src_nx = sp.normal(0);
-		float src_ny = sp.normal(1);
-		float src_nz = sp.normal(2);
+		float src_nx = sp.nx;
+		float src_ny = sp.ny;
+		float src_nz = sp.nz;
 
-		float src_r = sp.feature(0);
-		float src_g = sp.feature(1);
-		float src_b = sp.feature(2);
+		float src_r = sp.r;
+		float src_g = sp.g;
+		float src_b = sp.b;
 
 		double point_information = sp.point_information;
-		double feature_information = sp.feature_information;
+		double colour_information = sp.colour_information;
 
 		float tx	= im00*src_x + im01*src_y + im02*src_z + im03;
 		float ty	= im10*src_x + im11*src_y + im12*src_z + im13;
@@ -2458,7 +2458,7 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 		ReprojectionResult & rr = rr_vec[ind];
 		unsigned int src_ind = rr.src_ind;
 		superpoint & src_p = framesp1[src_ind];
-		if(src_p.point(2) < 0.0){continue;}
+		if(src_p.z < 0.0){continue;}
 
 		totsum++;
 		unsigned int dst_ind = rr.dst_ind;
@@ -2586,7 +2586,7 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 		ReprojectionResult & rr = rr_vec[ind];
 		unsigned int src_ind = rr.src_ind;
 		superpoint & src_p = framesp1[src_ind];
-		if(src_p.point(2) < 0.0){continue;}
+		if(src_p.z < 0.0){continue;}
 
 		totsum++;
 		unsigned int dst_ind = rr.dst_ind;

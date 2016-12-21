@@ -11,8 +11,8 @@ Registration::Registration(){
 }
 Registration::~Registration(){}
 
-void Registration::setSrc(CloudData * src_){src = src_;}
-void Registration::setDst(CloudData * dst_){dst = dst_;}
+void Registration::setSrc(std::vector<superpoint> & src_){src = src_;}
+void Registration::setDst(std::vector<superpoint> & dst_){dst = dst_;}
 
 FusionResults Registration::getTransform(Eigen::MatrixXd guess){
 	std::cout << guess << std::endl;
@@ -20,12 +20,8 @@ FusionResults Registration::getTransform(Eigen::MatrixXd guess){
 }
 
 void Registration::show(Eigen::MatrixXd X, Eigen::MatrixXd Y, bool stop){
-
-	//printf("start show\n");
 	unsigned int s_nr_data = X.cols();
 	unsigned int d_nr_data = Y.cols();
-	//printf("nr datas: %i %i\n",s_nr_data,d_nr_data);
-
 
 	viewer->removeAllPointClouds();
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr scloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
@@ -39,24 +35,33 @@ void Registration::show(Eigen::MatrixXd X, Eigen::MatrixXd Y, bool stop){
 	viewer->addPointCloud<pcl::PointXYZRGBNormal> (dcloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dcloud), "dcloud");
 	viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "scloud");
 	viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "dcloud");
-	//printf("pre\n");
-	if(stop){
-		viewer->spin();
-	}else{
-		viewer->spinOnce();
-	}
-	//printf("post\n");
-	viewer->removeAllPointClouds();
 
-	//printf("stop show\n");
+	if(stop){	viewer->spin();}
+	else{		viewer->spinOnce();}
+
+	viewer->removeAllPointClouds();
+}
+
+
+void Registration::addTime(std::string key, double time){
+	if (debugg_times.count(key) == 0){debugg_times[key] = 0;}
+	debugg_times[key] += time;
+}
+
+void Registration::printDebuggTimes(){
+	printf("====================printDebuggTimes====================\n");
+	double sum = 0;
+	for (auto it=debugg_times.begin(); it!=debugg_times.end(); ++it){sum += it->second;}
+	for (auto it=debugg_times.begin(); it!=debugg_times.end(); ++it){
+		printf("%25s :: %15.15f s (%5.5f %%)\n",it->first.c_str(),it->second,it->second/sum);
+	}
+	printf("========================================================\n");
 }
 
 void Registration::show(Eigen::MatrixXd X, Eigen::MatrixXd Xn, Eigen::MatrixXd Y, Eigen::MatrixXd Yn){
 
-	//printf("start show\n");
 	unsigned int s_nr_data = X.cols();
 	unsigned int d_nr_data = Y.cols();
-	//printf("nr datas: %i %i\n",s_nr_data,d_nr_data);
 
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr scloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dcloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
@@ -70,7 +75,6 @@ void Registration::show(Eigen::MatrixXd X, Eigen::MatrixXd Xn, Eigen::MatrixXd Y
 	sNcloud->points.clear();
 	dNcloud->points.clear();
 
-//	printf(")
 	for(unsigned int i = 0; i < s_nr_data; i++){
 		pcl::PointXYZRGBNormal p;
 		p.x = X(0,i);
@@ -81,21 +85,12 @@ void Registration::show(Eigen::MatrixXd X, Eigen::MatrixXd Xn, Eigen::MatrixXd Y
 	}
 	for(unsigned int i = 0; i < d_nr_data; i++){pcl::PointXYZRGBNormal p;p.x = Y(0,i);p.y = Y(1,i);p.z = Y(2,i);p.b = 0;p.g = 0;p.r = 255;dcloud->points.push_back(p);}
 
-//	for(unsigned int i = 0; i < s_nr_data; i++){pcl::Normal p;p.normal_x = Xn(0,i);p.normal_y = Xn(1,i);p.normal_z = Xn(2,i);sNcloud->points.push_back(p);}
-//	for(unsigned int i = 0; i < d_nr_data; i++){pcl::Normal p;p.normal_x = Yn(0,i);p.normal_y = Yn(1,i);p.normal_z = Yn(2,i);dNcloud->points.push_back(p);}
 	viewer->addPointCloud<pcl::PointXYZRGBNormal> (scloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(scloud), "scloud");
-	//viewer->addPointCloudNormals<pcl::PointXYZRGBNormal, pcl::Normal> (scloud, sNcloud, 100, 0.2, "sNcloud");
-
 	viewer->addPointCloud<pcl::PointXYZRGBNormal> (dcloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dcloud), "dcloud");
-	//viewer->addPointCloudNormals<pcl::PointXYZRGBNormal, pcl::Normal> (dcloud, dNcloud, 100, 0.2, "dNcloud");
 	viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "scloud");
 	viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "dcloud");
-	//printf("pre\n");
 	viewer->spin();
-	//printf("post\n");
 	viewer->removeAllPointClouds();
-
-	//printf("stop show\n");
 }
 
 void Registration::setVisualizationLvl(unsigned int lvl){visualizationLvl = lvl;}

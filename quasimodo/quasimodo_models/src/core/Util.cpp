@@ -10,18 +10,18 @@ namespace reglib{
 		for(unsigned long ind = 0; ind < nr_points; ind++){
 			superpoint & p				= spvec[ind];
 			pcl::PointXYZRGBNormal & p0	= cloud_ptr->points[ind];
-			p0.x		= p.point(0);
-			p0.y		= p.point(1);
-			p0.z		= p.point(2);
+			p0.x		= p.x;
+			p0.y		= p.y;
+			p0.z		= p.z;
 			if(colortype == 0){
-				p0.r		= p.feature(0);
-				p0.g		= p.feature(1);
-				p0.b		= p.feature(2);
+				p0.r		= p.r;
+				p0.g		= p.g;
+				p0.b		= p.b;
 			}
 			if(colortype == 1){
-				p0.r		= 255.0*fabs(p.normal(0));
-				p0.g		= 255.0*fabs(p.normal(1));
-				p0.b		= 255.0*fabs(p.normal(2));
+				p0.r		= 255.0*fabs(p.nx);
+				p0.g		= 255.0*fabs(p.ny);
+				p0.b		= 255.0*fabs(p.nz);
 			}
 			if(colortype == 2){
 				p0.r		= 255.0*std::min(1.0,1.0/sqrt(p.point_information));
@@ -35,9 +35,9 @@ namespace reglib{
 					p0.b		= b;
 				}
 			}
-			p0.normal_x	= p.normal(0);
-			p0.normal_y	= p.normal(1);
-			p0.normal_z	= p.normal(2);
+			p0.normal_x	= p.nx;
+			p0.normal_y	= p.ny;
+			p0.normal_z	= p.nz;
 		}
 		return cloud_ptr;
 	}

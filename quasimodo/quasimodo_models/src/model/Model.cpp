@@ -501,21 +501,21 @@ CloudData * Model::getCD(unsigned int target_points){
 
 	for(unsigned int k = 0; k < nr_points; k++){
 		superpoint & p		= points[ro[k]];
-		data(0,k)			= p.point(0);
-		data(1,k)			= p.point(1);
-		data(2,k)			= p.point(2);
-		data(3,k)			= p.feature(0);
-		data(4,k)			= p.feature(1);
-		data(5,k)			= p.feature(2);
-		data_normals(0,k)	= p.normal(0);
-		data_normals(1,k)	= p.normal(1);
-		data_normals(2,k)	= p.normal(2);
+		data(0,k)			= p.x;
+		data(1,k)			= p.y;
+		data(2,k)			= p.z;
+		data(3,k)			= p.r;
+		data(4,k)			= p.g;
+		data(5,k)			= p.b;
+		data_normals(0,k)	= p.nx;
+		data_normals(1,k)	= p.ny;
+		data_normals(2,k)	= p.nz;
 		information(0,k)	= p.point_information;
 		information(1,k)	= p.point_information;
 		information(2,k)	= p.point_information;
-		information(3,k)	= p.feature_information;
-		information(4,k)	= p.feature_information;
-		information(5,k)	= p.feature_information;
+		information(3,k)	= p.colour_information;
+		information(4,k)	= p.colour_information;
+		information(5,k)	= p.colour_information;
 	}
 
 	CloudData * cd			= new CloudData();
@@ -565,21 +565,21 @@ pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr Model::getPCLnormalcloud(int step, 
 	for(unsigned int i = 0; i < points.size(); i+=step){
 		superpoint & sp = points[i];
 		pcl::PointXYZRGBNormal p;
-		p.x = sp.point(0);
-		p.y = sp.point(1);
-		p.z = sp.point(2);
+		p.x = sp.x;
+		p.y = sp.y;
+		p.z = sp.z;
 
-		p.normal_x = sp.normal(0);
-		p.normal_y = sp.normal(1);
-		p.normal_z = sp.normal(2);
+		p.normal_x = sp.nx;
+		p.normal_y = sp.ny;
+		p.normal_z = sp.nz;
 		if(color){
 			p.b =   0;
 			p.g = 255;
 			p.r =   0;
 		}else{
-			p.b = sp.feature(0);
-			p.g = sp.feature(1);
-			p.r = sp.feature(2);
+			p.b = sp.r;
+			p.g = sp.g;
+			p.r = sp.b;
 		}
 		cloud_ptr->points.push_back(p);
 	}
@@ -591,18 +591,18 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr Model::getPCLcloud(int step, bool color){
 	for(unsigned int i = 0; i < points.size(); i+=step){
 		superpoint & sp = points[i];
 		pcl::PointXYZRGB p;
-		p.x = sp.point(0);
-		p.y = sp.point(1);
-		p.z = sp.point(2);
+		p.x = sp.x;
+		p.y = sp.y;
+		p.z = sp.z;
 
 		if(color){
 			p.b =   0;
 			p.g = 255;
 			p.r =   0;
 		}else{
-			p.b = sp.feature(0);
-			p.g = sp.feature(1);
-			p.r = sp.feature(2);
+			p.b = sp.r;
+			p.g = sp.g;
+			p.r = sp.b;
 		}
 		cloud_ptr->points.push_back(p);
 	}
@@ -785,18 +785,18 @@ void Model::saveFast(std::string path){
 
 	for(unsigned long i = 0; i < nr_points; i++){
 		reglib::superpoint & p = points[i];
-		data[count++] = p.point(0);
-		data[count++] = p.point(1);
-		data[count++] = p.point(2);
-		data[count++] = p.normal(0);
-		data[count++] = p.normal(1);
-		data[count++] = p.normal(2);
-		data[count++] = p.feature(0);
-		data[count++] = p.feature(1);
-		data[count++] = p.feature(2);
+		data[count++] = p.x;
+		data[count++] = p.y;
+		data[count++] = p.z;
+		data[count++] = p.nx;
+		data[count++] = p.ny;
+		data[count++] = p.nz;
+		data[count++] = p.r;
+		data[count++] = p.g;
+		data[count++] = p.b;
 		data[count++] = p.point_information;
 		data[count++] = p.normal_information;
-		data[count++] = p.feature_information;
+		data[count++] = p.colour_information;
 	}
 
 	std::ofstream pointfile;
@@ -1018,18 +1018,18 @@ Model * Model::loadFast(std::string path){
 
 		for(unsigned long i = 0; i < nr_points; i++){
             reglib::superpoint & p = points[i];
-			p.point(0) = data[count++];
-			p.point(1) = data[count++];
-			p.point(2) = data[count++];
-			p.normal(0) = data[count++];
-			p.normal(1) = data[count++];
-			p.normal(2) = data[count++];
-			p.feature(0) = data[count++];
-			p.feature(1) = data[count++];
-			p.feature(2) = data[count++];
+			p.x = data[count++];
+			p.y = data[count++];
+			p.z = data[count++];
+			p.nx = data[count++];
+			p.ny = data[count++];
+			p.nz = data[count++];
+			p.r = data[count++];
+			p.g = data[count++];
+			p.b = data[count++];
 			p.point_information = data[count++];
 			p.normal_information = data[count++];
-			p.feature_information = data[count++];
+			p.colour_information = data[count++];
 		}
 
 		delete[] buffer;

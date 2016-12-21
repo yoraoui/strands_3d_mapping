@@ -34,34 +34,21 @@ ModelUpdaterBasicFuse::~ModelUpdaterBasicFuse(){
 }
 
 FusionResults ModelUpdaterBasicFuse::registerModel(Model * model2, Eigen::Matrix4d guess, double uncertanity){
-	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 
 	if(model->points.size() > 0 && model2->points.size() > 0){
 		registration->viewer	= viewer;
 
-		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+		registration->setDst(model->points);
+		registration->setSrc(model2->points);
 
-		CloudData * cd1 = model ->getCD(model->points.size());
-        CloudData * cd2	= model2->getCD(model2->points.size());
-
-
-		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-
-
-		registration->setDst(cd1);
-		registration->setSrc(cd2);
-
-
-		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-
-		for(unsigned int i = 0; i < 20; i++){
+		for(unsigned int i = 0; i < 200; i++){
 			FusionResults fr1 = registration->getTransform(guess);
 			printf("%i :: score :: %f\n",i,fr1.scores.front());
 		}
 		exit(0);
 		FusionResults fr = registration->getTransform(guess);
-		delete cd1;
-		delete cd2;
+//		delete cd1;
+//		delete cd2;
 
         double best = -99999999999999;
         int best_id = -1;

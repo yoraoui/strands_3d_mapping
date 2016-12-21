@@ -32,7 +32,7 @@ namespace reglib
 		RegistrationRefinement();
 		~RegistrationRefinement();
 
-		void setDst(CloudData * dst_);
+		void setDst(std::vector<superpoint> & dst_);
 		
 		FusionResults getTransform(Eigen::MatrixXd guess);
 	};

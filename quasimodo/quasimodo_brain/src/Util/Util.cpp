@@ -890,18 +890,18 @@ std::vector<reglib::superpoint> getSuperPoints(std::string path){
 		long count = 0;
 		for(unsigned long i = 0; i < nr_points; i++){
 			reglib::superpoint & p = spvec[i];
-			p.point(0)			= data[count++];
-			p.point(1)			= data[count++];
-			p.point(2)			= data[count++];
-			p.normal(0)			= data[count++];
-			p.normal(1)			= data[count++];
-			p.normal(2)			= data[count++];
-			p.feature(0)		= data[count++];
-			p.feature(1)		= data[count++];
-			p.feature(2)		= data[count++];
+			p.x			= data[count++];
+			p.y			= data[count++];
+			p.z			= data[count++];
+			p.nx			= data[count++];
+			p.ny			= data[count++];
+			p.nz			= data[count++];
+			p.r		= data[count++];
+			p.g		= data[count++];
+			p.b		= data[count++];
 			p.point_information	= data[count++];
 			p.normal_information = data[count++];
-			p.feature_information = data[count++];
+			p.colour_information = data[count++];
 		}
 
 		delete[] memblock;
@@ -925,12 +925,12 @@ void transformSuperPoints(std::vector<reglib::superpoint> & spvec, Eigen::Matrix
 	for(unsigned long i = 0; i < spvec.size(); i++){
 		reglib::superpoint & p = spvec[i];
 
-		float x		= p.point(0);
-		float y		= p.point(1);
-		float z		= p.point(2);
-		float nx	= p.normal(0);
-		float ny	= p.normal(1);
-		float nz	= p.normal(2);
+		float x		= p.x;
+		float y		= p.y;
+		float z		= p.z;
+		float nx	= p.nx;
+		float ny	= p.ny;
+		float nz	= p.nz;
 
 		float tx	= m00*x + m01*y + m02*z + m03;
 		float ty	= m10*x + m11*y + m12*z + m13;
@@ -940,12 +940,12 @@ void transformSuperPoints(std::vector<reglib::superpoint> & spvec, Eigen::Matrix
 		float tny	= m10*nx + m11*ny + m12*nz;
 		float tnz	= m20*nx + m21*ny + m22*nz;
 
-		p.point(0)	= tx;
-		p.point(1)	= ty;
-		p.point(2)	= tz;
-		p.normal(0) = tnx;
-		p.normal(1) = tny;
-		p.normal(2) = tnz;
+		p.x	= tx;
+		p.y	= ty;
+		p.z	= tz;
+		p.nx = tnx;
+		p.ny = tny;
+		p.nz = tnz;
 	}
 }
 
@@ -964,18 +964,18 @@ void saveSuperPoints(std::string path, std::vector<reglib::superpoint> & spvec, 
 		for(unsigned long i = 0; i < spvec.size(); i++){
 			if(double(rand() % 1000)*0.001 > ratio_keep ){continue;}
 			reglib::superpoint & p = spvec[i];
-			data[count++] = p.point(0);
-			data[count++] = p.point(1);
-			data[count++] = p.point(2);
-			data[count++] = p.normal(0);
-			data[count++] = p.normal(1);
-			data[count++] = p.normal(2);
-			data[count++] = p.feature(0);
-			data[count++] = p.feature(1);
-			data[count++] = p.feature(2);
+			data[count++] = p.x;
+			data[count++] = p.y;
+			data[count++] = p.z;
+			data[count++] = p.nx;
+			data[count++] = p.ny;
+			data[count++] = p.nz;
+			data[count++] = p.r;
+			data[count++] = p.g;
+			data[count++] = p.b;
 			data[count++] = p.point_information;
 			data[count++] = p.normal_information;
-			data[count++] = p.feature_information;
+			data[count++] = p.colour_information;
 			added++;
 		}
 		if(added > 0){

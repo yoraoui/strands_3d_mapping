@@ -1450,16 +1450,16 @@ std::vector<ReprojectionResult> RGBDFrame::getReprojections(std::vector<superpoi
 		superpoint & sp = spvec[src_ind];
 		if(sp.point_information == 0){continue;}
 
-		float src_x = sp.point(0);
-		float src_y = sp.point(1);
-		float src_z = sp.point(2);
+		float src_x = sp.x;
+		float src_y = sp.y;
+		float src_z = sp.z;
 		float tz	= m20*src_x + m21*src_y + m22*src_z + m23;
 
 		if(prefilter && tz < 0){continue;}
 
-		float src_nx = sp.normal(0);
-		float src_ny = sp.normal(1);
-		float src_nz = sp.normal(2);
+		float src_nx = sp.nx;
+		float src_ny = sp.ny;
+		float src_nz = sp.nz;
 
 		float tx	= m00*src_x + m01*src_y + m02*src_z + m03;
 		float ty	= m10*src_x + m11*src_y + m12*src_z + m13;
@@ -1488,9 +1488,9 @@ std::vector<ReprojectionResult> RGBDFrame::getReprojections(std::vector<superpoi
 
 				double residualZ = mysign(dst_z-tz)*fabs(tnx*(dst_x-tx) + tny*(dst_y-ty) + tnz*(dst_z-tz));
 				double residualD2 = (dst_x-tx)*(dst_x-tx) + (dst_y-ty)*(dst_y-ty) + (dst_z-tz)*(dst_z-tz);
-				double residualR =  dst_rgbdata[3*dst_ind + 2] - sp.feature(0);
-				double residualG =  dst_rgbdata[3*dst_ind + 1] - sp.feature(1);
-				double residualB =  dst_rgbdata[3*dst_ind + 0] - sp.feature(2);
+				double residualR =  dst_rgbdata[3*dst_ind + 2] - sp.r;
+				double residualG =  dst_rgbdata[3*dst_ind + 1] - sp.g;
+				double residualB =  dst_rgbdata[3*dst_ind + 0] - sp.b;
 				double angle = tnx*dst_nx + tny*dst_ny + tnz*dst_nz;
 				ret.push_back(ReprojectionResult (src_ind, dst_ind, angle, residualZ,residualD2, residualR, residualG, residualB, getNoise(dst_z), 1.0));
 			}

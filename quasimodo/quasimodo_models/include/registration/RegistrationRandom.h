@@ -36,9 +36,9 @@ namespace reglib
 		unsigned int src_meantype;
 		unsigned int dst_meantype;
 
-		virtual Eigen::Affine3d getMean(CloudData * data, int type);
-		virtual void setSrc(CloudData * src_);
-		virtual void setDst(CloudData * dst_);
+		virtual Eigen::Affine3d getMean(std::vector<superpoint> & data, int type);
+		virtual void setSrc(std::vector<superpoint> & src_);
+		virtual void setDst(std::vector<superpoint> & dst_);
 
 
 		RegistrationRandom(unsigned int steps = 4);

@@ -19,9 +19,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
-//#include "ICP.h"
 #include "../core/Util.h"
-//#include "nanoflann.hpp"
 #include "../weightfunctions/DistanceWeightFunction2.h"
 
 namespace reglib
@@ -66,20 +64,26 @@ namespace reglib
 
 		bool only_initial_guess;
 
-		CloudData * src;
-		CloudData * dst;
+		std::vector<superpoint> src;
+		std::vector<superpoint> dst;
 
 		unsigned int visualizationLvl;
-        int target_points;
+		int target_points;
+		int dst_points;
         bool allow_regularization;
         double maxtime;
 
+		std::map<std::string,double> debugg_times;
+
 		Registration();
 		~Registration();
-		
-		virtual void setSrc(CloudData * src_);
-		virtual void setDst(CloudData * dst_);
+
+		virtual void setSrc(std::vector<superpoint> & src_);
+		virtual void setDst(std::vector<superpoint> & dst_);
 		void setVisualizationLvl(unsigned int lvl);
+
+		void addTime(std::string key, double time);
+		void printDebuggTimes();
 
 		virtual FusionResults getTransform(Eigen::MatrixXd guess);
 		virtual void show(Eigen::MatrixXd X, Eigen::MatrixXd Y, bool stop = true);

@@ -76,7 +76,7 @@ add_library(quasimodo_core src/core/Util.cpp src/core/Camera.cpp src/core/RGBDFr
 target_link_libraries(quasimodo_core quasimodo_OcclusionScore quasimodo_ReprojectionResult quasimodo_superpoint quasimodo_weightlib ${CERES_LIBRARIES} ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
 add_library(quasimodo_reglib src/registration/Registration.cpp src/registration/RegistrationRandom.cpp src/registration/RegistrationRefinement.cpp)
-target_link_libraries(quasimodo_reglib quasimodo_weightlib ceres glog ${catkin_LIBRARIES})
+target_link_libraries(quasimodo_reglib quasimodo_superpoint quasimodo_weightlib ceres glog ${catkin_LIBRARIES})
 
 add_library(quasimodo_modelmask src/model/ModelMask.cpp)
 target_link_libraries(quasimodo_modelmask quasimodo_core quasimodo_reglib ${catkin_LIBRARIES})

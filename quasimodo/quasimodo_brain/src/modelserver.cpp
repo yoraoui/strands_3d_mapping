@@ -183,11 +183,8 @@ bool recognizeService(quasimodo_msgs::recognize::Request  & req, quasimodo_msgs:
 }
 
 bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Model * model2){
-	printf("%s\n",__PRETTY_FUNCTION__);
-	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom(1);
-	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom(5);
 	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model2, reg);
-	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 	mu->occlusion_penalty               = occlusion_penalty;
 	mu->massreg_timeout                 = massreg_timeout;
 	mu->viewer							= viewer;
@@ -196,12 +193,9 @@ bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Mode
 	mu->show_scoring					= show_scoring;//fuse scoring show
 	reg->visualizationLvl				= show_reg_lvl;
 
-	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-
 	reglib::FusionResults fr = mu->registerModel(model);
 	if(fr.score > 100){
 		reglib::UpdatedModels ud = mu->fuseData(&fr, model2, model);
-		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 		delete mu;
 		delete reg;
         if(ud.deleted_models.size() > 0 || ud.updated_models.size() > 0 || ud.new_models.size() > 0){
@@ -246,8 +240,6 @@ bool addToDB(ModelDatabase * database, reglib::Model * model, bool add){// = tru
 		}
 		database->add(model);
 		model->last_changed = ++current_model_update;
-exit(0);
-
 	}
 
     std::vector<reglib::Model * > res = modeldatabase->search(model,1);

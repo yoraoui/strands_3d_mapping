@@ -14,9 +14,9 @@ std::vector< double > getDescriptor(int res, reglib::Model * model){
 	std::vector<reglib::superpoint> & points = model->points;
 	for(unsigned int i = 0; i < points.size(); i++){
 		reglib::superpoint & sp = points[i];
-		int r = sp.feature(0);
-		int g = sp.feature(1);
-		int b = sp.feature(2);
+		int r = sp.r;
+		int g = sp.g;
+		int b = sp.b;
 		int rind = int(double(res)*r/256.0);
 		int gind = int(double(res)*g/256.0);
 		int bind = int(double(res)*b/256.0);

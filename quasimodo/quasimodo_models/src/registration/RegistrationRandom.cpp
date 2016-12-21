@@ -28,11 +28,11 @@ RegistrationRandom::~RegistrationRandom(){
 	delete refinement;
 }
 
-void RegistrationRandom::setSrc(CloudData * src_){
+void RegistrationRandom::setSrc(std::vector<superpoint> & src_){
 	src = src_;
 	refinement->setSrc(src_);
 }
-void RegistrationRandom::setDst(CloudData * dst_){
+void RegistrationRandom::setDst(std::vector<superpoint> & dst_){
 	dst = dst_;
 	refinement->setDst(dst_);
 }
@@ -61,11 +61,11 @@ bool RegistrationRandom::issame(FusionResults fr1, FusionResults fr2, int stepxs
 
 	double sum = 0;
 	double count = 0;
-	unsigned int s_nr_data = src->data.cols();
+	unsigned int s_nr_data = src.size();
 	for(unsigned int i = 0; i < s_nr_data/stepxsmall; i++){
-		float x		= src->data(0,i*stepxsmall);
-		float y		= src->data(1,i*stepxsmall);
-		float z		= src->data(2,i*stepxsmall);
+		float x		= src[i*stepxsmall].x;//->data(0,i*stepxsmall);
+		float y		= src[i*stepxsmall].y;//src->data(1,i*stepxsmall);
+		float z		= src[i*stepxsmall].z;//src->data(2,i*stepxsmall);
 		float dx	= m00*x + m01*y + m02*z + m03 - x;
 		float dy	= m10*x + m11*y + m12*z + m13 - y;
 		float dz	= m20*x + m21*y + m22*z + m23 - z;
@@ -139,46 +139,31 @@ double getPsphere(double p, double & x, double & y,double & z, double & r, pcl::
 	return score;
 }
 
-Eigen::Affine3d RegistrationRandom::getMean(CloudData * data, int type){
-
-	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-
-	unsigned int nr_data = src->data.cols();
+Eigen::Affine3d RegistrationRandom::getMean(std::vector<superpoint> & data, int type){
+	unsigned int nr_data = data.size();
 
 	double mean_x = 0;
 	double mean_y = 0;
 	double mean_z = 0;
 
 	if(type == 0 || type == 2){
-		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-
-
-		printf("rows: %i cols: %i\n",src->data.rows(),src->data.cols());
 		for(unsigned int i = 0; i < nr_data; i++){
-
-			printf("rows: %i cols: %i <---> %i / %i <--> %f %f %f\n",src->data.rows(),src->data.cols(),i,nr_data,data->data(0,i),data->data(1,i),data->data(2,i));
-
-			mean_x += data->data(0,i);
-			mean_y += data->data(1,i);
-			mean_z += data->data(2,i);
+			mean_x += data[i].x;//data->data(0,i);
+			mean_y += data[i].y;//data->data(1,i);
+			mean_z += data[i].z;//data->data(2,i);
 		}
 		mean_x /= double(nr_data);
 		mean_y /= double(nr_data);
 		mean_z /= double(nr_data);
 
-
-		printf("%f %f %f\n",mean_x,mean_y,mean_z);
-
 		if(type == 2){
 			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 			cloud->points.clear();
-			for(unsigned int i = 0; i < nr_data; i++){pcl::PointXYZRGBNormal p;p.x = data->data(0,i)  ;p.y = data->data(1,i);p.z = data->data(2,i);p.b = 0;p.g = 255;p.r = 0;cloud->points.push_back(p);}
+			for(unsigned int i = 0; i < nr_data; i++){pcl::PointXYZRGBNormal p;p.x = data[i].x  ;p.y = data[i].y;p.z = data[i].z;p.b = 0;p.g = 255;p.r = 0;cloud->points.push_back(p);}
 
 			double sphere_r = 0;
 			double score = getPsphere(1.0, mean_x,mean_y,mean_z,sphere_r,cloud);
 		}
-
-		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 	}else if(type == 1){
 		std::vector<double> xvec;
 		std::vector<double> yvec;
@@ -187,9 +172,9 @@ Eigen::Affine3d RegistrationRandom::getMean(CloudData * data, int type){
 		yvec.resize(nr_data);
 		zvec.resize(nr_data);
 		for(unsigned int i = 0; i < nr_data; i++){
-			xvec[i] = data->data(0,i);
-			yvec[i] = data->data(1,i);
-			zvec[i] = data->data(2,i);
+			xvec[i] = data[i].x;//data->data(0,i);
+			yvec[i] = data[i].y;//data->data(1,i);
+			zvec[i] = data[i].z;//data->data(2,i);
 		}
 
 		std::sort (xvec.begin(), xvec.end());
@@ -211,10 +196,7 @@ Eigen::Affine3d RegistrationRandom::getMean(CloudData * data, int type){
 }
 
 FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
-
-
-	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-
+double startTime = getTime();
 	std::vector< double > rxs;
 	std::vector< double > rys;
 	std::vector< double > rzs;
@@ -243,120 +225,10 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 	}
 
 	unsigned int nr_r = steprx*stepry*steprz*steptx*stepty*steptz;
-//	for(unsigned int r = 0; r < nr_r; r++){
-//		printf("registering: %i / %i -> R(%5.5f  %5.5f  %5.5f) T(%5.5f  %5.5f  %5.5f)\n",r+1,nr_r,rxs[r],rys[r],rzs[r],txs[r],tys[r],tzs[r]);
-//	}
-//printf("exit:%s::%i",__PRETTY_FUNCTION__,__LINE__);
-//exit(0);
-
-
-	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 
 	refinement->allow_regularization = true;
 
-	unsigned int s_nr_data = src->data.cols();
-/*
-	unsigned int d_nr_data = dst->data.cols();
-	double s_mean_x = 0;
-	double s_mean_y = 0;
-	double s_mean_z = 0;
-
-	double d_mean_x = 0;
-	double d_mean_y = 0;
-	double d_mean_z = 0;
-
-	if(meantype == 0 || meantype == 2){
-		for(unsigned int i = 0; i < s_nr_data; i++){
-			s_mean_x += src->data(0,i);
-			s_mean_y += src->data(1,i);
-			s_mean_z += src->data(2,i);
-		}
-		s_mean_x /= double(s_nr_data);
-		s_mean_y /= double(s_nr_data);
-		s_mean_z /= double(s_nr_data);
-
-		for(unsigned int i = 0; i < d_nr_data; i++){
-			d_mean_x += dst->data(0,i);
-			d_mean_y += dst->data(1,i);
-			d_mean_z += dst->data(2,i);
-		}
-		d_mean_x /= double(d_nr_data);
-		d_mean_y /= double(d_nr_data);
-		d_mean_z /= double(d_nr_data);
-
-		if(meantype == 2){
-			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr scloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dcloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
-			scloud->points.clear();
-			dcloud->points.clear();
-			for(unsigned int i = 0; i < s_nr_data; i++){pcl::PointXYZRGBNormal p;p.x = src->data(0,i)  ;p.y = src->data(1,i);p.z = src->data(2,i);p.b = 0;p.g = 255;p.r = 0;scloud->points.push_back(p);}
-			for(unsigned int i = 0; i < d_nr_data; i++){pcl::PointXYZRGBNormal p;p.x = dst->data(0,i)  ;p.y = dst->data(1,i);p.z = dst->data(2,i);p.b = 0;p.g = 255;p.r = 0;dcloud->points.push_back(p);}
-
-			double s_sphere_r = 0;
-			double sscore = getPsphere(1.0, s_mean_x,s_mean_y,s_mean_z,s_sphere_r,scloud);
-
-			double d_sphere_r = 0;
-			double dscore = getPsphere(1.0, d_mean_x,d_mean_y,d_mean_z,d_sphere_r,dcloud);
-		}
-
-	}else if(meantype == 1){
-		std::vector<double> s_xvec;
-		std::vector<double> s_yvec;
-		std::vector<double> s_zvec;
-		s_xvec.resize(s_nr_data);
-		s_yvec.resize(s_nr_data);
-		s_zvec.resize(s_nr_data);
-		for(unsigned int i = 0; i < s_nr_data; i++){
-			s_xvec[i] = src->data(0,i);
-			s_yvec[i] = src->data(1,i);
-			s_zvec[i] = src->data(2,i);
-		}
-
-		std::sort (s_xvec.begin(), s_xvec.end());
-		std::sort (s_yvec.begin(), s_yvec.end());
-		std::sort (s_zvec.begin(), s_zvec.end());
-
-		std::vector<double> d_xvec;
-		std::vector<double> d_yvec;
-		std::vector<double> d_zvec;
-		d_xvec.resize(d_nr_data);
-		d_yvec.resize(d_nr_data);
-		d_zvec.resize(d_nr_data);
-		for(unsigned int i = 0; i < d_nr_data; i++){
-			d_xvec[i] = dst->data(0,i);
-			d_yvec[i] = dst->data(1,i);
-			d_zvec[i] = dst->data(2,i);
-		}
-
-		std::sort (d_xvec.begin(), d_xvec.end());
-		std::sort (d_yvec.begin(), d_yvec.end());
-		std::sort (d_zvec.begin(), d_zvec.end());
-
-		int src_mid_ind = s_nr_data/2;
-		int dst_mid_ind = d_nr_data/2;
-
-		s_mean_x = s_xvec[src_mid_ind];
-		s_mean_y = s_xvec[src_mid_ind];
-		s_mean_z = s_xvec[src_mid_ind];
-
-		d_mean_x = d_xvec[dst_mid_ind];
-		d_mean_y = d_xvec[dst_mid_ind];
-		d_mean_z = d_xvec[dst_mid_ind];
-	}
-
-	Eigen::Affine3d Ymean = Eigen::Affine3d::Identity();
-	Ymean(0,3) = d_mean_x;
-	Ymean(1,3) = d_mean_y;
-	Ymean(2,3) = d_mean_z;
-
-	Eigen::Affine3d Xmean = Eigen::Affine3d::Identity();
-	Xmean(0,3) = s_mean_x;
-	Xmean(1,3) = s_mean_y;
-	Xmean(2,3) = s_mean_z;
-*/
-
-
-	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+	unsigned int s_nr_data = src.size();
 
 	Eigen::Affine3d Xmean = getMean(src,src_meantype);
 	Eigen::Affine3d Ymean = getMean(dst,dst_meantype);
@@ -373,18 +245,15 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 	std::vector<FusionResults> fr_X;
 	fr_X.resize(nr_r);
 
-
-
-	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
-	//refinement->visualizationLvl = visualizationLvl;
-	//#pragma omp parallel for num_threads(8)
+	refinement->visualizationLvl = visualizationLvl;
+	#pragma omp parallel for num_threads(8) schedule(dynamic)
 	for(unsigned int r = 0; r < nr_r; r++){
-		//printf("registering: %i / %i\n",r+1,nr_r);
 		double start = getTime();
 
 		double meantime = 999999999999;
 		if(sumtimeOK != 0){meantime = sumtimeSum/double(sumtimeOK+1.0);}
-		refinement->maxtime = std::min(0.5,3*meantime);
+		refinement->maxtime = 5.0;//std::min(0.5,3*meantime);
+		//refinement->maxtime = std::min(0.5,3*meantime);
 		if(refinement->visualizationLvl > 0){
 			refinement->maxtime = 99999;
 		}
@@ -397,26 +266,24 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 		Eigen::Affine3d current_guess = Ymean*randomrot*Xmean.inverse();//*Ymean;
 
 		FusionResults fr = refinement->getTransform(current_guess.matrix());
-		//fr_X[r] = refinement->getTransform(current_guess.matrix());
 
 #pragma omp critical
 		{
 			fr_X[r] = fr;
 
-			//printf("%5.5i -> %5.5f %5.5f %5.5f -> score: %10.10f\n",r,rxs[r],rys[r],rzs[r],fr.score);
 			double stoptime = getTime();
 			sumtime += stoptime-start;
 			if(!fr_X[r].timeout){
 				sumtimeSum += stoptime-start;
 				sumtimeOK++;
 			}
-			//		bool exists2 = false;
-			//		for(unsigned int ax = 0; ax < fr_X.size(); ax++){
-			//			if(issame(fr, fr_X[ax],stepxsmall)){exists2 = true; break;}
-			//		}
-			//		if(!exists2){fr_X.push_back(fr);}
 		}
 	}
+
+//	printf("%s::%5.5fs\n",__PRETTY_FUNCTION__,getTime()-startTime);
+//	refinement->printDebuggTimes();
+
+	//printf("meantime: %f\n",sumtimeSum/double(sumtimeOK+1.0));
 
 
 	FusionResults fr = FusionResults();
@@ -424,14 +291,14 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 
 	int tpbef = refinement->target_points;
 
-	int mul = 2;
-	for(int tp = 500; tp <= 16000; tp *= 2){
+	int mul = 4;
+	for(int tp = 500; tp <= 1000; tp *= 2){
 		//printf("------------------------");
 		std::sort (fr_X.begin(), fr_X.end(), compareFusionResults);
 		refinement->target_points = tp;
 
 		unsigned int nr_X = fr_X.size()/mul;
-		//#pragma omp parallel for num_threads(8)
+		#pragma omp parallel for num_threads(8) schedule(dynamic)
 		for(unsigned int ax = 0; ax < nr_X; ax++){
 			//printf("%5.5i score: %10.10f ",ax,fr_X[ax].score);
 			fr_X[ax] = refinement->getTransform(fr_X[ax].guess);
@@ -472,6 +339,8 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 	}
 
 	refinement->target_points = tpbef;
+
+	printf("%s::%5.5fs\n",__PRETTY_FUNCTION__,getTime()-startTime);
 	return fr;
 }
 

@@ -195,22 +195,19 @@ void MassRegistrationPPR2::addModel(Model * model){
 		pind[rind] = pind1;
 	}
 
-
-
 	for(unsigned long c = 0; c < count; c++){
-		//superpoint & sp = model->points[c*step];
 		superpoint & sp = model->points[pind[c]];
-		ap[3*c+0] = sp.point(0);
-		ap[3*c+1] = sp.point(1);
-		ap[3*c+2] = sp.point(2);
+		ap[3*c+0] = sp.x;
+		ap[3*c+1] = sp.y;
+		ap[3*c+2] = sp.z;
 
-		an[3*c+0] = sp.normal(0);
-		an[3*c+1] = sp.normal(1);
-		an[3*c+2] = sp.normal(2);
+		an[3*c+0] = sp.nx;
+		an[3*c+1] = sp.ny;
+		an[3*c+2] = sp.nz;
 
-		ac[3*c+0] = sp.feature(0);
-		ac[3*c+1] = sp.feature(1);
-		ac[3*c+2] = sp.feature(2);
+		ac[3*c+0] = sp.r;
+		ac[3*c+1] = sp.g;
+		ac[3*c+2] = sp.b;
 
 		ai[c] = sqrt(1.0/sp.point_information);//1.0/(z*z);
 
@@ -225,33 +222,6 @@ void MassRegistrationPPR2::addModel(Model * model){
 		C(0,c) = ac[3*c+0];
 		C(1,c) = ac[3*c+1];
 		C(2,c) = ac[3*c+2];
-
-
-		//		ap[3*c+0] = model->points[c*step].point(0);
-		//		ap[3*c+1] = model->points[c*step].point(1);
-		//		ap[3*c+2] = model->points[c*step].point(2);
-
-		//		an[3*c+0] = model->points[c*step].normal(0);
-		//		an[3*c+1] = model->points[c*step].normal(1);
-		//		an[3*c+2] = model->points[c*step].normal(2);
-
-		//		ac[3*c+0] =model->points[c*step].feature(0);
-		//		ac[3*c+1] =model->points[c*step].feature(1);
-		//		ac[3*c+2] =model->points[c*step].feature(2);
-
-		//		ai[c] = 1.0/model->points[c*step].point_information;//1.0/(z*z);
-
-		//		X(0,c)	= ap[3*c+0];
-		//		X(1,c)	= ap[3*c+1];
-		//		X(2,c)	= ap[3*c+2];
-		//		Xn(0,c)	= an[3*c+0];
-		//		Xn(1,c)	= an[3*c+1];
-		//		Xn(2,c)	= an[3*c+2];
-
-		//		information(c) = ai[c];//1.0/(z*z);
-		//		C(0,c) = ac[3*c+0];
-		//		C(1,c) = ac[3*c+1];
-		//		C(2,c) = ac[3*c+2];
 	}
 
 	informations[i] = information;
