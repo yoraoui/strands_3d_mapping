@@ -288,6 +288,9 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 		float src_x = sp.point(0);
 		float src_y = sp.point(1);
 		float src_z = sp.point(2);
+		float tz	= m20*src_x + m21*src_y + m22*src_z + m23;
+
+		if(tz < 0){continue;}
 
 		float src_nx = sp.normal(0);
 		float src_ny = sp.normal(1);
@@ -298,7 +301,6 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 
 		float tx	= m00*src_x + m01*src_y + m02*src_z + m03;
 		float ty	= m10*src_x + m11*src_y + m12*src_z + m13;
-		float tz	= m20*src_x + m21*src_y + m22*src_z + m23;
 
 		float itz	= 1.0/tz;
 		float dst_w	= dst_fx*tx*itz + dst_cx;
@@ -507,7 +509,7 @@ void ModelUpdater::testgetDynamicWeights(bool store_distance, std::vector<double
 	//printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);
 	//	std::vector<superpoint> framesp = frame->getSuperPoints();
 
-	std::vector<ReprojectionResult> rr_vec	= frame->getReprojections(sp,p,0,false);
+	std::vector<ReprojectionResult> rr_vec	= frame->getReprojections(sp,p,0,false,true);
 	unsigned long nr_rr = rr_vec.size();
 
 	double threshold = 0;
@@ -537,10 +539,7 @@ void ModelUpdater::testgetDynamicWeights(bool store_distance, std::vector<double
 		double total_stdiv = sqrt(total_variance);
 		double d = rr.residualZ/total_stdiv;
 		double surface_angle = rr.angle;
-		if(fabs(d) < 0.000001){
-
-			continue;
-		}
+		//if(fabs(d) < 0.000001){continue;}
 		if(store_distance){
 			dvec.push_back(d);
 			nvec.push_back(1-surface_angle);
@@ -2522,7 +2521,7 @@ void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & 
 
 void ModelUpdater::getDynamicWeights(bool store_distance, std::vector<double> & dvec, std::vector<double> & nvec, DistanceWeightFunction2 * dfunc, DistanceWeightFunction2 * nfunc, Matrix4d p, RGBDFrame* frame1, double * overlaps, double * occlusions, double * notocclusions, RGBDFrame* frame2,  int offset1, int offset2, std::vector< std::vector<int> > & interframe_connectionId, std::vector< std::vector<float> > & interframe_connectionStrength, double debugg){
 	std::vector<superpoint> framesp1_test		= frame1->getSuperPoints(Eigen::Matrix4d::Identity(),10,false);
-	std::vector<ReprojectionResult> rr_vec_test	= frame2->getReprojections(framesp1_test,p,0,false);
+	std::vector<ReprojectionResult> rr_vec_test	= frame2->getReprojections(framesp1_test,p,0,false,true);
 
 	double inlierratio = double(rr_vec_test.size())/double(framesp1_test.size());
 
@@ -2769,7 +2768,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	dfuncTMP->fixed_histogram_size	= false;
 	dfuncTMP->startmaxd				= dfuncTMP->maxd;
 	dfuncTMP->starthistogram_size	= dfuncTMP->histogram_size;
-	dfuncTMP->blurval				= 0.5;
+	dfuncTMP->blurval				= 1.5;
 	dfuncTMP->maxnoise				= dstdval;
 	dfuncTMP->compute_infront		= true;
 	dfuncTMP->ggd					= true;
@@ -2795,7 +2794,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	nfuncTMP->fixed_histogram_size	= true;
 	nfuncTMP->startmaxd				= nfuncTMP->maxd;
 	nfuncTMP->starthistogram_size	= nfuncTMP->histogram_size;
-	nfuncTMP->blurval				= 0.5;
+	nfuncTMP->blurval				= 1.5;
 	nfuncTMP->stdval2				= 1;
 	nfuncTMP->maxnoise				= 1;
 	nfuncTMP->ggd					= true;

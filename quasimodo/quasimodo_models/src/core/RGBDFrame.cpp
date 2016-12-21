@@ -1420,7 +1420,7 @@ RGBDFrame * RGBDFrame::load(Camera * cam, std::string path){
 	}else{printf("cant open %s\n",(path+"/data.txt").c_str());}
 }
 
-std::vector<ReprojectionResult> RGBDFrame::getReprojections(std::vector<superpoint> & spvec, Eigen::Matrix4d cp, bool * maskvec, bool useDet){
+std::vector<ReprojectionResult> RGBDFrame::getReprojections(std::vector<superpoint> & spvec, Eigen::Matrix4d cp, bool * maskvec, bool useDet, bool prefilter){
 	std::vector<ReprojectionResult> ret;
 
 	unsigned char  * dst_detdata		= (unsigned char	*)(det_dilate.data);
@@ -1453,6 +1453,9 @@ std::vector<ReprojectionResult> RGBDFrame::getReprojections(std::vector<superpoi
 		float src_x = sp.point(0);
 		float src_y = sp.point(1);
 		float src_z = sp.point(2);
+		float tz	= m20*src_x + m21*src_y + m22*src_z + m23;
+
+		if(prefilter && tz < 0){continue;}
 
 		float src_nx = sp.normal(0);
 		float src_ny = sp.normal(1);
@@ -1460,7 +1463,6 @@ std::vector<ReprojectionResult> RGBDFrame::getReprojections(std::vector<superpoi
 
 		float tx	= m00*src_x + m01*src_y + m02*src_z + m03;
 		float ty	= m10*src_x + m11*src_y + m12*src_z + m13;
-		float tz	= m20*src_x + m21*src_y + m22*src_z + m23;
 
 		float itz	= 1.0/tz;
 		float dst_w	= dst_fx*tx*itz + dst_cx;

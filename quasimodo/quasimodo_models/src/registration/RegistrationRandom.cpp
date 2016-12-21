@@ -140,6 +140,9 @@ double getPsphere(double p, double & x, double & y,double & z, double & r, pcl::
 }
 
 Eigen::Affine3d RegistrationRandom::getMean(CloudData * data, int type){
+
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+
 	unsigned int nr_data = src->data.cols();
 
 	double mean_x = 0;
@@ -147,7 +150,14 @@ Eigen::Affine3d RegistrationRandom::getMean(CloudData * data, int type){
 	double mean_z = 0;
 
 	if(type == 0 || type == 2){
+		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+
+
+		printf("rows: %i cols: %i\n",src->data.rows(),src->data.cols());
 		for(unsigned int i = 0; i < nr_data; i++){
+
+			printf("rows: %i cols: %i <---> %i / %i <--> %f %f %f\n",src->data.rows(),src->data.cols(),i,nr_data,data->data(0,i),data->data(1,i),data->data(2,i));
+
 			mean_x += data->data(0,i);
 			mean_y += data->data(1,i);
 			mean_z += data->data(2,i);
@@ -155,6 +165,9 @@ Eigen::Affine3d RegistrationRandom::getMean(CloudData * data, int type){
 		mean_x /= double(nr_data);
 		mean_y /= double(nr_data);
 		mean_z /= double(nr_data);
+
+
+		printf("%f %f %f\n",mean_x,mean_y,mean_z);
 
 		if(type == 2){
 			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
@@ -164,6 +177,8 @@ Eigen::Affine3d RegistrationRandom::getMean(CloudData * data, int type){
 			double sphere_r = 0;
 			double score = getPsphere(1.0, mean_x,mean_y,mean_z,sphere_r,cloud);
 		}
+
+		printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 	}else if(type == 1){
 		std::vector<double> xvec;
 		std::vector<double> yvec;
@@ -196,6 +211,10 @@ Eigen::Affine3d RegistrationRandom::getMean(CloudData * data, int type){
 }
 
 FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
+
+
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+
 	std::vector< double > rxs;
 	std::vector< double > rys;
 	std::vector< double > rzs;
@@ -224,11 +243,15 @@ FusionResults RegistrationRandom::getTransform(Eigen::MatrixXd guess){
 	}
 
 	unsigned int nr_r = steprx*stepry*steprz*steptx*stepty*steptz;
-	for(unsigned int r = 0; r < nr_r; r++){
-		printf("registering: %i / %i -> R(%5.5f  %5.5f  %5.5f) T(%5.5f  %5.5f  %5.5f)\n",r+1,nr_r,rxs[r],rys[r],rzs[r],txs[r],tys[r],tzs[r]);
-	}
-printf("exit:%s::%i",__PRETTY_FUNCTION__,__LINE__);
-exit(0);
+//	for(unsigned int r = 0; r < nr_r; r++){
+//		printf("registering: %i / %i -> R(%5.5f  %5.5f  %5.5f) T(%5.5f  %5.5f  %5.5f)\n",r+1,nr_r,rxs[r],rys[r],rzs[r],txs[r],tys[r],tzs[r]);
+//	}
+//printf("exit:%s::%i",__PRETTY_FUNCTION__,__LINE__);
+//exit(0);
+
+
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+
 	refinement->allow_regularization = true;
 
 	unsigned int s_nr_data = src->data.cols();
@@ -332,6 +355,9 @@ exit(0);
 	Xmean(2,3) = s_mean_z;
 */
 
+
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
+
 	Eigen::Affine3d Xmean = getMean(src,src_meantype);
 	Eigen::Affine3d Ymean = getMean(dst,dst_meantype);
 
@@ -347,6 +373,9 @@ exit(0);
 	std::vector<FusionResults> fr_X;
 	fr_X.resize(nr_r);
 
+
+
+	printf("%s::%i\n",__PRETTY_FUNCTION__,__LINE__);
 	//refinement->visualizationLvl = visualizationLvl;
 	//#pragma omp parallel for num_threads(8)
 	for(unsigned int r = 0; r < nr_r; r++){
@@ -374,7 +403,7 @@ exit(0);
 		{
 			fr_X[r] = fr;
 
-            printf("%5.5i -> %5.5f %5.5f %5.5f -> score: %10.10f\n",r,rxs[r],rys[r],rzs[r],fr.score);
+			//printf("%5.5i -> %5.5f %5.5f %5.5f -> score: %10.10f\n",r,rxs[r],rys[r],rzs[r],fr.score);
 			double stoptime = getTime();
 			sumtime += stoptime-start;
 			if(!fr_X[r].timeout){
@@ -397,16 +426,16 @@ exit(0);
 
 	int mul = 2;
 	for(int tp = 500; tp <= 16000; tp *= 2){
-		printf("------------------------");
+		//printf("------------------------");
 		std::sort (fr_X.begin(), fr_X.end(), compareFusionResults);
 		refinement->target_points = tp;
 
 		unsigned int nr_X = fr_X.size()/mul;
 		//#pragma omp parallel for num_threads(8)
 		for(unsigned int ax = 0; ax < nr_X; ax++){
-			printf("%5.5i score: %10.10f ",ax,fr_X[ax].score);
+			//printf("%5.5i score: %10.10f ",ax,fr_X[ax].score);
 			fr_X[ax] = refinement->getTransform(fr_X[ax].guess);
-			printf("-> score: %10.10f\n",fr_X[ax].score);
+			//printf("-> score: %10.10f\n",fr_X[ax].score);
 		}
 
 		for(unsigned int ax = 0; ax < fr_X.size(); ax++){

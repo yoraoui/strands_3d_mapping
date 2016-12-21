@@ -1,6 +1,309 @@
 #include "Util.h"
 
 namespace quasimodo_brain {
+/*
+reglib::Model * processAV(std::string path, bool compute_edges = true, std::string savePath = ""){
+	printf("processAV: %s\n",path.c_str());
+
+	int slash_pos = path.find_last_of("/");
+	std::string sweep_folder = path.substr(0, slash_pos) + "/";
+
+	std::vector<cv::Mat> viewrgbs;
+	std::vector<cv::Mat> viewdepths;
+	std::vector<tf::StampedTransform > viewtfs;
+
+	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("*object*.xml"));
+	for (auto objectFile : objectFiles){
+		auto object = loadDynamicObjectFromSingleSweep<PointType>(sweep_folder+objectFile.toStdString(),false);
+		for (unsigned int i=0; i<object.vAdditionalViews.size(); i++){
+			CloudPtr cloud = object.vAdditionalViews[i];
+
+			cv::Mat rgb;
+			rgb.create(cloud->height,cloud->width,CV_8UC3);
+			unsigned char * rgbdata = (unsigned char *)rgb.data;
+
+			cv::Mat depth;
+			depth.create(cloud->height,cloud->width,CV_16UC1);
+			unsigned short * depthdata = (unsigned short *)depth.data;
+
+			unsigned int nr_data = cloud->height * cloud->width;
+			for(unsigned int j = 0; j < nr_data; j++){
+				PointType p = cloud->points[j];
+				rgbdata[3*j+0]	= p.b;
+				rgbdata[3*j+1]	= p.g;
+				rgbdata[3*j+2]	= p.r;
+				depthdata[j]	= short(5000.0 * p.z);
+			}
+
+			viewrgbs.push_back(rgb);
+			viewdepths.push_back(depth);
+			viewtfs.push_back(object.vAdditionalViewsTransforms[i]);
+		}
+	}
+
+	reglib::Model * sweep = quasimodo_brain::load_metaroom_model(path,savePath);
+	if(sweep->frames.size() == 0){
+		printf("no frames in sweep, returning\n");
+		return sweep;
+	}
+
+	for(unsigned int i = 0; (i < sweep->frames.size()) && (sweep->frames.size() == sweepPoses.size()) ; i++){
+		sweep->frames[i]->pose	= sweep->frames.front()->pose * sweepPoses[i];processAV
+		sweep->relativeposes[i] = sweepPoses[i];
+		if(basecam != 0){
+			delete sweep->frames[i]->camera;
+			sweep->frames[i]->camera = basecam->clone();
+		}
+	}
+
+	std::vector<reglib::RGBDFrame *> frames;
+	std::vector<reglib::ModelMask *> masks;
+	std::vector<Eigen::Matrix4d> unrefined;
+
+	std::vector<Eigen::Matrix4d> both_unrefined;
+	both_unrefined.push_back(Eigen::Matrix4d::Identity());
+	std::vector<double> times;
+	for(unsigned int i = 0; i < 3000 &&  i < viewrgbs.size(); i++){
+		printf("additional view: %i\n",i);
+		geometry_msgs::TransformStamped msg;
+		tf::transformStampedTFToMsg(viewtfs[i], msg);
+		long sec = msg.header.stamp.sec;
+		long nsec = msg.header.stamp.nsec;
+		double time = double(sec)+1e-9*double(nsec);
+
+		Eigen::Matrix4d m = quasimodo_brain::getMat(viewtfs[i]);
+
+		cout << m << endl << endl;
+
+		unrefined.push_back(m);
+		times.push_back(time);
+
+		cv::Mat fullmask;
+		fullmask.create(480,640,CV_8UC1);
+		unsigned char * maskdata = (unsigned char *)fullmask.data;
+		for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
+		masks.push_back(new reglib::ModelMask(fullmask));
+
+		reglib::Camera * cam		= sweep->frames.front()->camera->clone();
+		reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,viewrgbs[i],viewdepths[i],time, m,true,savePath);//a.matrix());
+		frames.push_back(frame);
+
+		both_unrefined.push_back(sweep->frames.front()->pose.inverse()*m);
+	}
+
+	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
+	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( sweep, reg);
+	mu->occlusion_penalty               = 15;
+	mu->massreg_timeout                 = 60*4;
+	mu->viewer							= viewer;
+
+	sweep->recomputeModelPoints();
+	reglib::Model * fullmodel = new reglib::Model();
+	fullmodel->savePath = savePath+"/";
+	fullmodel->frames = sweep->frames;
+	fullmodel->relativeposes = sweep->relativeposes;
+	fullmodel->modelmasks = sweep->modelmasks;
+	//
+	if(frames.size() > 0){
+
+		reglib::RegistrationRefinement * refinement = new reglib::RegistrationRefinement();
+		refinement->viewer	= viewer;
+		refinement->visualizationLvl	= visualization_lvl_regini;
+		refinement->normalize_matchweights = false;
+		refinement->target_points = 4000;
+		////double register_setup_start = getTime();
+
+		//
+		reglib::CloudData * cd1 = sweep->getCD(sweep->points.size());
+		refinement->setDst(cd1);
+
+		fullmodel->points = frames.front()->getSuperPoints(Eigen::Matrix4d::Identity(),1,false);
+		reglib::CloudData * cd2	= fullmodel->getCD(fullmodel->points.size());
+		refinement->setSrc(cd2);
+		//
+		//////printf("register_setup_start:          %5.5f\n",getTime()-register_setup_start);
+		////double register_compute_start = getTime();
+		Eigen::Matrix4d guess = both_unrefined[1]*both_unrefined[0].inverse();
+
+		reglib::FusionResults fr = refinement->getTransform(guess);
+		Eigen::Matrix4d offset = fr.guess*guess.inverse();
+		for(unsigned int i = 1; i < both_unrefined.size(); i++){
+			both_unrefined[i] = offset*both_unrefined[i];
+		}
+
+		delete refinement;
+
+		fullmodel->points.clear();
+		delete cd1;
+		delete cd2;
+
+		reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.25);
+		if(savePath.size() != 0){
+			bgmassreg->savePath = savePath+"/processAV_"+std::to_string(fullmodel->id);
+		}
+
+		bgmassreg->timeout = 300;
+		bgmassreg->viewer = viewer;
+		bgmassreg->use_surface = true;
+		bgmassreg->use_depthedge = false;
+		bgmassreg->visualizationLvl = visualization_lvl_regref;
+		bgmassreg->maskstep = 5;
+		bgmassreg->nomaskstep = 5;
+		bgmassreg->nomask = true;
+		bgmassreg->stopval = 0.0005;
+		bgmassreg->addModel(sweep);
+		bgmassreg->setData(frames,masks);
+
+		reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
+
+		delete bgmassreg;
+
+		for(unsigned int i = 0; i < frames.size(); i++){frames[i]->pose = sweep->frames.front()->pose * bgmfr.poses[i+1];}
+
+		for(unsigned int i = 0; i < frames.size(); i++){
+			fullmodel->frames.push_back(frames[i]);
+			fullmodel->modelmasks.push_back(masks[i]);
+			fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
+		}
+		fullmodel->recomputeModelPoints();
+
+		if(savePath.size() != 0){
+			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = fullmodel->getPCLnormalcloud(1, false);
+			pcl::io::savePCDFileBinaryCompressed (savePath+"/processAV_"+std::to_string(fullmodel->id)+"_fused.pcd", *cld);
+		}
+		//pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr Model::getPCLnormalcloud(int step, bool color){
+
+	}else{
+		fullmodel->points = sweep->points;
+	}
+
+	delete reg;
+	delete mu;
+	delete sweep;
+
+	return fullmodel;
+}
+*/
+void readViewXML(std::string roomLogName, std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames, std::vector<Eigen::Matrix4d> & poses, bool compute_edges, std::string savePath){
+	QFile file(xmlFile.c_str());
+	if (!file.exists()){
+		ROS_ERROR("Could not open file %s to load room.",xmlFile.c_str());
+		return;
+	}
+
+	QString xmlFileQS(xmlFile.c_str());
+	int index = xmlFileQS.lastIndexOf('/');
+	std::string roomFolder = xmlFileQS.left(index).toStdString();
+
+	file.open(QIODevice::ReadOnly);
+	ROS_INFO_STREAM("Parsing xml file: "<<xmlFile.c_str());
+
+	QXmlStreamReader* xmlReader = new QXmlStreamReader(&file);
+
+	while (!xmlReader->atEnd() && !xmlReader->hasError()){
+		QXmlStreamReader::TokenType token = xmlReader->readNext();
+		if (token == QXmlStreamReader::StartDocument)
+			continue;
+
+		if (xmlReader->hasError()){
+			ROS_ERROR("XML error: %s",xmlReader->errorString().toStdString().c_str());
+			return;
+		}
+
+		QString elementName = xmlReader->name().toString();
+
+		if (token == QXmlStreamReader::StartElement){
+			if (xmlReader->name() == "View"){
+				cv::Mat rgb;
+				cv::Mat depth;
+				//printf("elementName: %s\n",elementName.toStdString().c_str());
+				QXmlStreamAttributes attributes = xmlReader->attributes();
+				if (attributes.hasAttribute("RGB")){
+					std::string imgpath = attributes.value("RGB").toString().toStdString();
+					rgb = cv::imread(roomFolder+"/"+imgpath, CV_LOAD_IMAGE_UNCHANGED);
+				}else{break;}
+
+				if (attributes.hasAttribute("DEPTH")){
+					std::string imgpath = attributes.value("DEPTH").toString().toStdString();
+					depth = cv::imread(roomFolder+"/"+imgpath, CV_LOAD_IMAGE_UNCHANGED);
+				}else{break;}
+
+
+				token = xmlReader->readNext();//Stamp
+				elementName = xmlReader->name().toString();
+
+				token = xmlReader->readNext();//sec
+				elementName = xmlReader->name().toString();
+				int sec = atoi(xmlReader->readElementText().toStdString().c_str());
+
+				token = xmlReader->readNext();//nsec
+				elementName = xmlReader->name().toString();
+				int nsec = atoi(xmlReader->readElementText().toStdString().c_str());
+				token = xmlReader->readNext();//end stamp
+
+				token = xmlReader->readNext();//Camera
+				elementName = xmlReader->name().toString();
+
+				reglib::Camera * cam = new reglib::Camera();
+
+				token = xmlReader->readNext();//fx
+				cam->fx = atof(xmlReader->readElementText().toStdString().c_str());
+
+				token = xmlReader->readNext();//fy
+				cam->fy = atof(xmlReader->readElementText().toStdString().c_str());
+
+				token = xmlReader->readNext();//cx
+				cam->cx = atof(xmlReader->readElementText().toStdString().c_str());
+
+				token = xmlReader->readNext();//cy
+				cam->cy = atof(xmlReader->readElementText().toStdString().c_str());
+
+				token = xmlReader->readNext();//Camera
+				elementName = xmlReader->name().toString();
+
+				double time = double(sec)+double(nsec)/double(1e9);
+
+				token = xmlReader->readNext();//RegisteredPose
+				elementName = xmlReader->name().toString();
+
+				Eigen::Matrix4d regpose = quasimodo_brain::getPose(xmlReader);
+
+				token = xmlReader->readNext();//RegisteredPose
+				elementName = xmlReader->name().toString();
+
+
+				token = xmlReader->readNext();//Pose
+				elementName = xmlReader->name().toString();
+
+				Eigen::Matrix4d pose = quasimodo_brain::getPose(xmlReader);
+
+				token = xmlReader->readNext();//Pose
+				elementName = xmlReader->name().toString();
+
+				reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb,depth, time, regpose,true,savePath,compute_edges);
+				frame->keyval = roomLogName+"_frame_"+std::to_string(frames.size());
+				frames.push_back(frame);
+				poses.push_back(pose);
+			}
+		}
+	}
+	delete xmlReader;
+}
+
+void setLargeStack(){
+	const rlim_t kStackSize = 256 * 1024 * 1024;   // min stack size = 256 MB
+	struct rlimit rl;
+	unsigned long result;
+
+	result = getrlimit(RLIMIT_STACK, &rl);
+	if (result == 0){
+		if (rl.rlim_cur < kStackSize){
+			rl.rlim_cur = kStackSize;
+			result = setrlimit(RLIMIT_STACK, &rl);
+			if (result != 0){fprintf(stderr, "setrlimit returned result = %d\n", int(result));}
+		}
+	}
+}
 
 reglib::RGBDFrame * getFrame(std::string soma_id, ros::NodeHandle * np){
 	//printf("getFrame(%s)\n",soma_id.c_str());

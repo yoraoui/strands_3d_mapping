@@ -89,9 +89,22 @@
 #include <string>
 #include <iostream>
 
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
+
 #include <boost/filesystem.hpp>
 
 namespace quasimodo_brain {
+
+//reglib::Model * processAV(std::string path, bool compute_edges = true, std::string savePath = "");
+
+void readViewXML(std::string roomLogName, std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames, std::vector<Eigen::Matrix4d> & poses, bool compute_edges = true, std::string savePath = "");
+
+void setLargeStack();
 
 reglib::RGBDFrame * getFrame(std::string soma_id, ros::NodeHandle * np);
 
