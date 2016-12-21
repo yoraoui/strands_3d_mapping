@@ -375,17 +375,14 @@ addTime("init", getTime()-initStart);
 						addTime("optimize", getTime()-optimizeStart);
 
 						double stop1 = (X-Xo1).colwise().norm().mean();
-						//printf("stop1: %5.5f\n",stop1);
 						Xo1 = X;
 						if(stop1 < stop) break;
 					}
 					double stop2 = (X-Xo2).colwise().norm().mean();
-					//printf("stop2: %5.5f\n",stop2);
 					Xo2 = X;
 					if(stop2 < stop) break;
 				}
 				double stop3 = (X-Xo3).colwise().norm().mean();
-				//printf("stop3: %5.5f\n",stop3);
 				Xo3 = X;
 				if(stop3 < stop) break;
 			}

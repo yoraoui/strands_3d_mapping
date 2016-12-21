@@ -232,53 +232,6 @@ void MassRegistrationPPR2::addModel(Model * model){
 	a3dv[i]		= a3d;
 	trees3d[i]	= new Tree3d(3, *a3d, nanoflann::KDTreeSingleIndexAdaptorParams(10));
 	trees3d[i]->buildIndex();
-
-	/*
-	long depthedge_count = 0;
-	for(unsigned long w = 0; w < width; w++){
-		for(unsigned long h = 0; h < height; h++){
-			long ind = h*width+w;
-			if(maskvec[ind] && edgedata[ind] == 255){
-				float z = idepth*float(depthdata[ind]);
-				if(z > 0.2){depthedge_count++;}
-			}
-		}
-	}
-
-	if(depthedge_count < 10){
-		double * depthedge_ap = new double[3*depthedge_count];
-		double * depthedge_ai = new double[3*depthedge_count];
-		depthedge_nr_arraypoints[i] = depthedge_count;
-		depthedge_arraypoints[i] = depthedge_ap;
-		depthedge_arrayinformations[i] = depthedge_ai;
-
-		c = 0;
-		for(unsigned long w = 0; w < width; w++){
-			for(unsigned long h = 0; h < height; h++){
-				if(c == depthedge_count){continue;}
-				long ind = h*width+w;
-				if(maskvec[ind] && edgedata[ind] == 255){
-					float z = idepth*float(depthdata[ind]);
-					if(z > 0.2){
-						depthedge_ap[3*c+0] = (w - cx) * z * ifx;
-						depthedge_ap[3*c+1] = (h - cy) * z * ify;;
-						depthedge_ap[3*c+2] = z;
-						depthedge_ai[c] = pow(fabs(z),-2);//1.0/(z*z);
-						c++;
-					}
-				}
-			}
-		}
-
-		ArrayData3D<double> * depthedge_a3d = new ArrayData3D<double>;
-		depthedge_a3d->data					= depthedge_ap;
-		depthedge_a3d->rows					= depthedge_count;
-		depthedge_a3dv[i]					= depthedge_a3d;
-		depthedge_trees3d[i]				= new Tree3d(3, *depthedge_a3d, nanoflann::KDTreeSingleIndexAdaptorParams(10));
-		depthedge_trees3d[i]->buildIndex();
-	}
-*/
-	//printf("addModel total load time:          %5.5f points: %6.6i\n",getTime()-total_load_time_start,count);
 }
 
 void MassRegistrationPPR2::addModelData(Model * model_, bool submodels){

@@ -37,7 +37,6 @@ FusionResults ModelUpdaterBasicFuse::registerModel(Model * model2, Eigen::Matrix
 
 	if(model->points.size() > 0 && model2->points.size() > 0){
 		registration->viewer	= viewer;
-
 		registration->setDst(model->points);
 		registration->setSrc(model2->points);
 

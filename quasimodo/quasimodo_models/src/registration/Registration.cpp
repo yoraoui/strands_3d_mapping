@@ -42,7 +42,6 @@ void Registration::show(Eigen::MatrixXd X, Eigen::MatrixXd Y, bool stop){
 	viewer->removeAllPointClouds();
 }
 
-
 void Registration::addTime(std::string key, double time){
 	if (debugg_times.count(key) == 0){debugg_times[key] = 0;}
 	debugg_times[key] += time;

@@ -456,15 +456,10 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 				reg->viewer	= viewer;
 				reg->target_points = 100000;
 
-//				reglib::CloudData * cd1 = fullmodel ->getCD(fullmodel->points.size());
-//				reglib::CloudData * cd2	= mod2		->getCD(mod2->points.size());
-//				reg->setDst(cd1);
-//				reg->setSrc(cd2);
 				reg->setDst(fullmodel->points);
 				reg->setSrc(mod2->points);
 				reglib::FusionResults fr = reg->getTransform(Eigen::Matrix4d::Identity());
-//				delete cd1;
-//				delete cd2;
+
 
 				delete reg;
 				delete mu;

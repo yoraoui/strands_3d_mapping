@@ -43,8 +43,6 @@ void MassRegistration::addModelData(Model * model, bool submodels){
 		for(unsigned int i = 0; i < model->submodels.size(); i++){
 			addData(model->submodels[i]->getPCLnormalcloud(1,false));
 		}
-	}else{
-
 	}
 }
 

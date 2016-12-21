@@ -1297,19 +1297,5 @@ void Model::getRepFrame(RGBDFrame * & frame, ModelMask * & modelmask, std::strin
 }
 
 
-//RGBDFrame * Model::getFrame(std::string keyval){
-//	if(keyval.length() == 0){return 0;}
-//	for(unsigned int i = 0; i < frames.size(); i++){
-//		if(frames[i]->keyval.compare(keyval) == 0){return frames[i];}
-//	}
-
-//	for(unsigned int i = 0; i < submodels.size(); i++){
-//		RGBDFrame * retval = submodels[i]->getFrame(keyval);
-//		if(retval != 0){return retval;}
-//	}
-//	return 0;
-//}
-
-
 }
 

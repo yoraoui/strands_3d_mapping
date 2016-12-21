@@ -69,7 +69,6 @@ MassRegistrationPPR::~MassRegistrationPPR(){
 }
 
 void MassRegistrationPPR::addModelData(Model * model_, bool submodels){
-	//model = model_;
 	printf("addModelData\n");
 
 	if(submodels){

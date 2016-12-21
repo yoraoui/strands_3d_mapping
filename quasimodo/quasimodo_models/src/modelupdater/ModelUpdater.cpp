@@ -1006,9 +1006,7 @@ void ModelUpdater::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFr
 	const float ifx				= 1.0/camera->fx;
 	const float ify				= 1.0/camera->fy;
 
-	//bool * isfused = new bool[width*height];
 	std::vector<bool> isfused;
-	//printf("wh: %i %i -> %i\n",width,height,width*height);
 	isfused.resize(width*height);
 	for(unsigned int i = 0; i < width*height; i++){isfused[i] = false;}
 
