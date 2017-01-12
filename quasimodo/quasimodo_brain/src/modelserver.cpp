@@ -2,8 +2,8 @@
 #include "ModelStorage/ModelStorage.h"
 #include "Util/Util.h"
 
-bool addToDB(ModelDatabase * database, reglib::Model * model, bool add);
-bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Model * model2);
+bool addToDB(ModelDatabase * database, reglib::Model * model, bool add, int depth);
+bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Model * model2, int depth);
 void addNewModel(reglib::Model * model);
 
 using namespace quasimodo_brain;
@@ -182,7 +182,7 @@ bool recognizeService(quasimodo_msgs::recognize::Request  & req, quasimodo_msgs:
 	}
 }
 
-bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Model * model2){
+bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Model * model2, int depth){
 	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom(5);
 	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model2, reg);
 	mu->occlusion_penalty               = occlusion_penalty;
@@ -209,8 +209,8 @@ bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Mode
 				models_deleted_pub.publish(getModelMSG(ud.updated_models[j]));
 			}
 
-			for(unsigned int j = 0; j < ud.updated_models.size();	j++){	addToDB(database, ud.updated_models[j], true);}
-			for(unsigned int j = 0; j < ud.new_models.size();	j++){		addToDB(database, ud.new_models[j],		true);}
+			for(unsigned int j = 0; j < ud.updated_models.size();	j++){	addToDB(database, ud.updated_models[j], true,depth+1);}
+			for(unsigned int j = 0; j < ud.new_models.size();	j++){		addToDB(database, ud.new_models[j],		true,depth+1);}
 
 			return true;
 		}
@@ -221,7 +221,7 @@ bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Mode
 	return false;
 }
 
-bool addToDB(ModelDatabase * database, reglib::Model * model, bool add){// = true){, bool deleteIfFail = false){
+bool addToDB(ModelDatabase * database, reglib::Model * model, bool add, int depth){// = true){, bool deleteIfFail = false){
     printf("start: %s\n",__PRETTY_FUNCTION__);
 	if(add){
 		if(model->submodels.size() > 2){
@@ -242,13 +242,15 @@ bool addToDB(ModelDatabase * database, reglib::Model * model, bool add){// = tru
 		model->last_changed = ++current_model_update;
 	}
 
+	if(depth > 10){return true;}//Avoid infinite loops if something wierd happens... TODO:: update by making sure two things which have previously been split are never merged without extra content...
+
     std::vector<reglib::Model * > res = modeldatabase->search(model,1);
 
 	if(show_search){showModels(res);}
 
 
     for(unsigned int i = 0; i < res.size(); i++){
-		if(addIfPossible(database,model,res[i])){
+		if(addIfPossible(database,model,res[i],depth)){
 			printf("stop: %s\n",__PRETTY_FUNCTION__);
 			return true;
 		}
@@ -346,7 +348,7 @@ printf("start: %s\n",__PRETTY_FUNCTION__);
 	modeldatabase->add(newmodelHolder);
 
 
-	addToDB(modeldatabase, newmodelHolder,false);
+	addToDB(modeldatabase, newmodelHolder,false, 0);
 
 	show_sorted();
 
