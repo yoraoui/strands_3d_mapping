@@ -242,8 +242,12 @@ bool addToDB(ModelDatabase * database, reglib::Model * model, bool add, int dept
 		model->last_changed = ++current_model_update;
 	}
 
-	if(depth > 10){return true;}//Avoid infinite loops if something wierd happens... TODO:: update by making sure two things which have previously been split are never merged without extra content...
+	if(depth > 10){//Avoid infinite loops if something wierd happens... TODO:: update by making sure two things which have previously been split are never merged without extra content...
+		printf("breaking due to depth\n");
+		return true;
+	}
 
+	printf("time to search\n");
     std::vector<reglib::Model * > res = modeldatabase->search(model,1);
 
 	if(show_search){showModels(res);}
@@ -347,6 +351,8 @@ printf("start: %s\n",__PRETTY_FUNCTION__);
     storage->print();
 	modeldatabase->add(newmodelHolder);
 
+printf("modelserver line:: %i\n",__LINE__);
+exit(0);
 
 	addToDB(modeldatabase, newmodelHolder,false, 0);
 
