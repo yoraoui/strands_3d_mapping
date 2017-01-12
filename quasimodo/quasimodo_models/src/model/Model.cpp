@@ -827,6 +827,7 @@ void Model::saveFast(std::string path){
 
 	std::vector<std::string> rep_spms;
 	for(unsigned int k = 0; k < rep_frames.size();k++){
+		printf("%i::%i / %i",__LINE__,k,rep_modelmasks.size());
 		std::string spm = rep_modelmasks[k]->savepath;
 		spm = spm.substr(path.length(),spm.length());
 		rep_spms.push_back(spm);
