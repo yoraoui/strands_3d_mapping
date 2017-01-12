@@ -40,11 +40,6 @@ FusionResults ModelUpdaterBasicFuse::registerModel(Model * model2, Eigen::Matrix
 		registration->setDst(model->points);
 		registration->setSrc(model2->points);
 
-		for(unsigned int i = 0; i < 200; i++){
-			FusionResults fr1 = registration->getTransform(guess);
-			printf("%i :: score :: %f\n",i,fr1.scores.front());
-		}
-		exit(0);
 		FusionResults fr = registration->getTransform(guess);
 //		delete cd1;
 //		delete cd2;
@@ -57,7 +52,7 @@ FusionResults ModelUpdaterBasicFuse::registerModel(Model * model2, Eigen::Matrix
 		addModelsToVector(testmodels,testrps,model,Eigen::Matrix4d::Identity());
 		addModelsToVector(testmodels,testrps,model2,Eigen::Matrix4d::Identity());
 
-		int todo = fr.candidates.size();
+		int todo = std::min(50,int(fr.candidates.size()));
 		double expectedCost = double(todo)*computeOcclusionScoreCosts(testmodels);
 
 		int step = 0.5 + expectedCost/11509168.5;// ~1 sec predicted

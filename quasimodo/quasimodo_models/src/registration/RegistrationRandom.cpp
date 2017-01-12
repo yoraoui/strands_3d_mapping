@@ -245,7 +245,7 @@ double startTime = getTime();
 	std::vector<FusionResults> fr_X;
 	fr_X.resize(nr_r);
 
-	refinement->visualizationLvl = visualizationLvl;
+	refinement->visualizationLvl = 0;
 	#pragma omp parallel for num_threads(8) schedule(dynamic)
 	for(unsigned int r = 0; r < nr_r; r++){
 		double start = getTime();
@@ -302,7 +302,6 @@ double startTime = getTime();
 		for(unsigned int ax = 0; ax < nr_X; ax++){
 			//printf("%5.5i score: %10.10f ",ax,fr_X[ax].score);
 			fr_X[ax] = refinement->getTransform(fr_X[ax].guess);
-			//printf("-> score: %10.10f\n",fr_X[ax].score);
 		}
 
 		for(unsigned int ax = 0; ax < fr_X.size(); ax++){
@@ -340,7 +339,6 @@ double startTime = getTime();
 
 	refinement->target_points = tpbef;
 
-	printf("%s::%5.5fs\n",__PRETTY_FUNCTION__,getTime()-startTime);
 	return fr;
 }
 
