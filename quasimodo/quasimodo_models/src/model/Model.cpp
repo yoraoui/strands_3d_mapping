@@ -774,7 +774,8 @@ void Model::save(std::string path){
 
 void Model::saveFast(std::string path){
 	printf("Model::saveFast(%s)\n",path.c_str());
-	printf("frames:%i masks:%i rep_frames:%i rep_masks:%i\n",frames.size(),masks.size(),rep_masks.size(),rep_frames.size());
+	printf("%i %i %i and %i %i %i\n",relativeposes.size(),frames.size(),modelmasks.size(),rep_relativeposes.size(),rep_frames.size(),rep_modelmasks.size());
+
 
 	double startTime = getTime();
 	pointspath = path+"points.bin";
