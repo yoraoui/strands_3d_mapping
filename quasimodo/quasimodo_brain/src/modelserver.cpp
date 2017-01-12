@@ -352,7 +352,6 @@ printf("start: %s\n",__PRETTY_FUNCTION__);
 	modeldatabase->add(newmodelHolder);
 
 printf("modelserver line:: %i\n",__LINE__);
-exit(0);
 
 	addToDB(modeldatabase, newmodelHolder,false, 0);
 
