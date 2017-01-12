@@ -314,9 +314,9 @@ RGBDFrame * RGBDFrame::clone(){
 
 	frame->connections = connections;
 	frame->intersections = intersections;
-	frame->nr_labels = nr_labels;
-	frame->labels = new int[nr_pixels];
-	for(int i = 0; i < nr_pixels; i++){frame->labels[i] = labels[i];}
+//	frame->nr_labels = nr_labels;
+//	frame->labels = new int[nr_pixels];
+//	for(int i = 0; i < nr_pixels; i++){frame->labels[i] = labels[i];}
 
 	return frame;//new RGBDFrame(camera->clone(), rgb.clone(),depth.clone(),capturetime, pose, true);
 }
@@ -372,9 +372,9 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	intersections[0].resize(1);
 	intersections[0][0] = 0;
 
-	nr_labels = 1;
-	labels = new int[nr_pixels];
-	for(unsigned int i = 0; i < nr_pixels; i++){labels[i] = 0;}
+//	nr_labels = 1;
+//	labels = new int[nr_pixels];
+//	for(unsigned int i = 0; i < nr_pixels; i++){labels[i] = 0;}
 
 	unsigned short * depthdata = (unsigned short *)depth.data;
 	unsigned char * rgbdata = (unsigned char *)rgb.data;
@@ -1268,6 +1268,11 @@ RGBDFrame * RGBDFrame::loadFast(std::string path){
 		frame->pose = pose;
         frame->keyval = keyval;
         frame->soma_id = soma_id;
+
+//		unsigned int nr_pixels = height*width;
+//		frame->nr_labels = 1;
+//		frame->labels = new int[nr_pixels];
+//		for(int i = 0; i < nr_pixels; i++){frame->labels[i] = 0;}
 
 		frame->rgb.create(height,width,CV_8UC3);
 		frame->depth.create(height,width,CV_16UC1);

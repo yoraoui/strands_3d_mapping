@@ -636,13 +636,9 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 		}
 	}
 
-	//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
-
 	double dstdval = 0;
 	for(unsigned int i = 0; i < dvec.size(); i++){dstdval += dvec[i]*dvec[i];}
 	dstdval = sqrt(dstdval/double(dvec.size()-1));
-
-	//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
 
 	GeneralizedGaussianDistribution * dggdnfunc	= new GeneralizedGaussianDistribution(true,false,false,false,false);
 	dggdnfunc->nr_refineiters					= 1;

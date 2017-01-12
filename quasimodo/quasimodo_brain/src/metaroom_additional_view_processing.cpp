@@ -999,20 +999,40 @@ void chatterCallback(const std_msgs::String::ConstPtr& msg){
 }
 
 std::vector<reglib::Model *> loadModels(std::string path){
-	printf("loadModels(%s)\n",path.c_str());
+printf("loadModels(%s)\n",path.c_str());
 
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(path,std::vector<std::string>(),false,false);
 	std::string roomLogName = roomData.roomLogName;
-	printf("roomLogName: %s\n",roomLogName.c_str());
 
 	std::vector<reglib::Model *> models;
 	int slash_pos = path.find_last_of("/");
 	std::string sweep_folder = path.substr(0, slash_pos) + "/";
 
-	std::vector<reglib::RGBDFrame *> frames;
+
+	std::vector<reglib::RGBDFrame * > frames;
+
+	char buf [1024];
+	int counter = 0;
+	while(true){//Load all frames that can be loaded
+		sprintf(buf,"%s/frame_%5.5i",sweep_folder.c_str(),counter);
+		string tmp = string(buf)+"_data.txt";
+		QFile file(tmp.c_str());
+		if (!file.exists()){ break; }
+		reglib::Camera * cam = reglib::Camera::load(std::string(buf)+"_camera");
+		if(cam == 0){break;}
+		reglib::RGBDFrame * frame = reglib::RGBDFrame::load(cam,std::string(buf));
+		if(frame == 0){delete cam; break;}
+
+		frames.push_back(frame);
+
+		counter++;
+	}
+
 	std::vector<Eigen::Matrix4d> poses;
-	quasimodo_brain::readViewXML(roomLogName, sweep_folder+"ViewGroup.xml",frames,poses,false);
+	for(unsigned int i = 0; i < frames.size(); i++){
+		poses.push_back(frames.front()->pose.inverse() * frames[i]->pose);
+	}
 
 	int objcounter = -1;
 	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("dynamic_obj*.xml"));
