@@ -102,6 +102,12 @@ namespace quasimodo_brain {
 
 //reglib::Model * processAV(std::string path, bool compute_edges = true, std::string savePath = "");
 
+std::string getUniqueId(SimpleXMLParser<pcl::PointXYZRGB>::RoomData & roomData);
+
+reglib::Camera * getCam(image_geometry::PinholeCameraModel aCameraModel);
+
+cv::Mat getFullMask(int width = 640, int height = 480);
+
 void readViewXML(std::string roomLogName, std::string xmlFile, std::vector<reglib::RGBDFrame *> & frames, std::vector<Eigen::Matrix4d> & poses, bool compute_edges = true, std::string savePath = "");
 
 void setLargeStack();

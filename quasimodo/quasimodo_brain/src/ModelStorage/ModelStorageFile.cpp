@@ -81,7 +81,7 @@ bool ModelStorageFile::add(reglib::Model * model, std::string key){
     if(model->parrent == 0){
         activeModels[model->keyval] = model;
     }
-    print();
+	//print();
 }
 
 bool ModelStorageFile::update(reglib::Model * model){

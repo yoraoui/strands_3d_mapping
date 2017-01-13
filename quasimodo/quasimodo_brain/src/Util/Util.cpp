@@ -1,6 +1,28 @@
 #include "Util.h"
 
 namespace quasimodo_brain {
+
+
+std::string getUniqueId(SimpleXMLParser<pcl::PointXYZRGB>::RoomData & roomData){
+	return roomData.roomLogName+"_room_"+std::to_string(roomData.roomRunNumber);
+}
+
+reglib::Camera * getCam(image_geometry::PinholeCameraModel aCameraModel){
+	reglib::Camera * cam		= new reglib::Camera();
+	cam->fx = aCameraModel.fx();
+	cam->fy = aCameraModel.fy();
+	cam->cx = aCameraModel.cx();
+	cam->cy = aCameraModel.cy();
+	return cam;
+}
+
+cv::Mat getFullMask(int width, int height){
+	cv::Mat fullmask;
+	fullmask.create(height,width,CV_8UC1);
+	unsigned char * maskdata = (unsigned char *)fullmask.data;
+	for(int j = 0; j < width*height; j++){maskdata[j] = 255;}
+	return fullmask;
+}
 /*
 reglib::Model * processAV(std::string path, bool compute_edges = true, std::string savePath = ""){
 	printf("processAV: %s\n",path.c_str());
@@ -756,8 +778,9 @@ reglib::RGBDFrame * getFrame(soma_llsd_msgs::Scene & scene){
 	}
 
 	//reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, 0, epose.matrix(),true,"",true);
-	reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, 0, getCameraMapPose(scene),true,"",true);
-	frame->soma_id = scene.id;
+	reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,rgb, depth, 0, getCameraMapPose(scene),true,"",true);
+	frame->soma_id				= scene.id;
+	frame->keyval				= scene.id;
 	return frame;
 }
 
@@ -1164,6 +1187,11 @@ void remove_old_seg(std::string sweep_folder){
 				printf ("removing %s\n", ent->d_name);
 				std::remove((sweep_folder+"/"+file).c_str());
 			}
+
+			if (file.find("_object_") !=std::string::npos && file.find(".xml") !=std::string::npos){
+				printf ("removing %s\n", ent->d_name);
+				std::remove((sweep_folder+"/"+file).c_str());
+			}
 		}
 		closedir (dir);
 	}
@@ -1300,6 +1328,8 @@ reglib::Model * getModelFromMSG(quasimodo_msgs::model & msg, bool compute_edges)
 	reglib::Model * model = new reglib::Model();
 	model->keyval = msg.keyval;
 
+	//printf("getModelFromMSG keyval: [%s]\n",model->keyval.c_str());
+
 	for(unsigned int i = 0; i < msg.local_poses.size(); i++){
 		sensor_msgs::CameraInfo		camera			= msg.frames[i].camera;
 		ros::Time					capture_time	= msg.frames[i].capture_time;
@@ -1328,6 +1358,7 @@ reglib::Model * getModelFromMSG(quasimodo_msgs::model & msg, bool compute_edges)
 
 		reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, double(capture_time.sec)+double(capture_time.nsec)/1000000000.0, epose.matrix(),true,"",compute_edges);
 		frame->keyval = msg.frames[i].keyval;
+		//printf("frame keyval: [%s]\n",frame->keyval.c_str());
 		model->frames.push_back(frame);
 
 		geometry_msgs::Pose	pose1 = msg.local_poses[i];

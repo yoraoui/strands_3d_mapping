@@ -821,16 +821,22 @@ void Model::saveFast(std::string path){
 	std::vector<std::string> spms;
 	for(unsigned int k = 0; k < frames.size();k++){
 		std::string spm = modelmasks[k]->savepath;
+		printf("spm before: %s ",spm.c_str());
 		spm = spm.substr(path.length(),spm.length());
+
+		printf("spm after: %s\n",spm.c_str());
 		spms.push_back(spm);
 	}
 
 	std::vector<std::string> rep_spms;
 	for(unsigned int k = 0; k < rep_frames.size();k++){
-		printf("%i::%i / %i",__LINE__,k,rep_modelmasks.size());
+		printf("%i::%i / %i\n",__LINE__,k,rep_modelmasks.size());
 		std::string spm = rep_modelmasks[k]->savepath;
+		printf("rep_spm before: %s ",spm.c_str());
 		spm = spm.substr(path.length(),spm.length());
+		printf("rep_spm after: %s\n",spm.c_str());
 		rep_spms.push_back(spm);
+		printf("PART 1 SAVING: rep_frames[k]->keyval.length() = %i\n",rep_frames[k]->keyval.length());
 	}
 
 	unsigned long buffersize = 2*sizeof(double)+10*sizeof(unsigned long)+keyval.length()+soma_id.length()+retrieval_object_id.length()+retrieval_vocabulary_id.length();
@@ -930,6 +936,10 @@ void Model::saveFast(std::string path){
 		Eigen::Matrix4d pose = rep_relativeposes[k];
 		buffer_long[counter++] = rep_frames[k]->keyval.length();
 		buffer_long[counter++] = rep_spms[k].length();
+
+		printf("SAVING: rep_frames[k]->keyval.length() = %i\n",rep_frames[k]->keyval.length());
+		printf("SAVING: rep_spms[k].length() = %i\n",rep_frames[k]->keyval.length());
+
 		for(int i = 0; i < 4; i++){
 			for(int j = 0; j < 4; j++){
 				buffer_double[counter++] = pose(i,j);
@@ -1125,6 +1135,7 @@ Model * Model::loadFast(std::string path){
 					pose(i,j) = buffer_double[counter++];
 				}
 			}
+			std::cout << pose << std::endl << std::endl;
 		}
 
 		unsigned int count4 = sizeof(double)*counter;
@@ -1190,8 +1201,9 @@ Model * Model::loadFast(std::string path){
 		//printf("---------------------------\n");
 
 		//Set up to use already loaded frames
-        //printf("rep_framessize: %i\n",rep_framessize);
+		printf("LOADED rep_framessize: %i\n",rep_framessize);
 		for(unsigned int k = 0; k < rep_framessize;k++){
+			printf("rep_frames_keyvallength: %i\n",rep_frames_keyvallength[k]);
 			std::string rep_frames_keyval;
 			rep_frames_keyval.resize(rep_frames_keyvallength[k]);
 			for(unsigned int i = 0; i < rep_frames_keyvallength[k];i++){
@@ -1202,12 +1214,14 @@ Model * Model::loadFast(std::string path){
 			for(unsigned int i = 0; i < rep_spms_length[k];i++){
 				rep_spm[i] = buffer[count4++];
 			}
+			printf("rep_spm: %s\n",rep_spm.c_str());
             RGBDFrame * frame = 0;
             ModelMask * modelmask = 0;
-            mod->getRepFrame(frame,modelmask,rep_frames_keyval);
+			mod->getRepFrame(frame,modelmask,rep_frames_keyval);
+			//mod->getRepFrame(frame,modelmask,rep_spm);
             mod->rep_frames.push_back(frame);
             mod->rep_modelmasks.push_back(modelmask);
-            //frame->show(true);
+			mod->rep_frames.back()->show(true);
 		}
 	}
 	//if(mod->parrent == 0){printf("Model::loadFast(%s): %7.7fs\n",path.c_str(),getTime()-startTime);}
@@ -1277,28 +1291,30 @@ Model * Model::load(Camera * cam, std::string path){
 }
 
 void Model::getRepFrame(RGBDFrame * & frame, ModelMask * & modelmask, std::string keyval){
-    if(keyval.length() == 0){return;}
-    for(unsigned int i = 0; i < frames.size(); i++){
-        if(frames[i]->keyval.compare(keyval) == 0){
-            frame = frames[i];
-            modelmask = modelmasks[i];
-            return;
-        }
-    }
+	//printf("getRepFrame(%s)\n",keyval.c_str());
+	if(keyval.length() == 0){return;}
+	for(unsigned int i = 0; i < modelmasks.size(); i++){
+		//printf("comparing %s to %s\n",keyval.c_str(),frames[i]->keyval.c_str());
+		if(frames[i]->keyval.compare(keyval) == 0){
+			//printf("AND WE HAVE A WINNER\n");
+			frame = frames[i];
+			modelmask = modelmasks[i];
+			return;
+		}
+	}
 
-    for(unsigned int i = 0; i < submodels.size(); i++){
-        RGBDFrame * fr = 0;
-        ModelMask * mm = 0;
-        submodels[i]->getRepFrame(fr,mm,keyval);
-        if(fr != 0){
-            frame = fr;
-            modelmask = mm;
-            return;
-        }
-    }
-    return;
+	for(unsigned int i = 0; i < submodels.size(); i++){
+		RGBDFrame * fr = 0;
+		ModelMask * mm = 0;
+		submodels[i]->getRepFrame(fr,mm,keyval);
+		if(fr != 0){
+			frame = fr;
+			modelmask = mm;
+			return;
+		}
+	}
+	return;
 }
-
 
 }
 
