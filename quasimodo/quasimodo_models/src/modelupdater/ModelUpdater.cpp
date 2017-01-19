@@ -595,7 +595,19 @@ void ModelUpdater::testgetDynamicWeights(bool store_distance, std::vector<double
 
 
 vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Model *> models, vector<Matrix4d> rps, int step, bool debugg){
-	//printf("computeOcclusionScore\n");
+
+	if(debugg){
+		char buf [1024];
+		viewer->removeAllPointClouds();
+		for(unsigned int i = 0; i < models.size(); i++){
+			pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZRGB> ());
+			pcl::transformPointCloud (*(models[i]->getPCLcloud()), *transformed_cloud, rps[i]);
+			sprintf(buf,"tcld_%i",i);
+			viewer->addPointCloud<pcl::PointXYZRGB> (transformed_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(transformed_cloud), buf);
+		}
+		viewer->spin();
+	}
+
 	std::vector<double> dvec;
 	std::vector<double> nvec;
 	DistanceWeightFunction2 * dfunc;
@@ -631,7 +643,7 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 			for(unsigned int k = 0; k < model2->relativeposes.size(); k++){
 				Eigen::Matrix4d p;
 				p = model2->relativeposes[k].inverse()*(rps[j].inverse() * rps[i]);
-				testgetDynamicWeights(true,dvec,nvec,dfunc,nfunc,p, model1->points,0,0,0,model2->frames[k]);
+				testgetDynamicWeights(true,dvec,nvec,dfunc,nfunc,p, model1->points,0,0,0,model2->frames[k],debugg);
 			}
 		}
 	}
@@ -640,11 +652,14 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 	for(unsigned int i = 0; i < dvec.size(); i++){dstdval += dvec[i]*dvec[i];}
 	dstdval = sqrt(dstdval/double(dvec.size()-1));
 
-	GeneralizedGaussianDistribution * dggdnfunc	= new GeneralizedGaussianDistribution(true,false,false,false,false);
-	dggdnfunc->nr_refineiters					= 1;
-	dggdnfunc->costpen							= -1;
-	dggdnfunc->debugg_print						= false;
+	GeneralizedGaussianDistribution * dggdnfunc	= new GeneralizedGaussianDistribution(true,false,false);
+//	dggdnfunc->nr_refineiters					= 1;
+//	//dggdnfunc->costpen							= -1;
+//	dggdnfunc->debugg_print						= false;
 	DistanceWeightFunction2PPR3 * dfuncTMP		= new DistanceWeightFunction2PPR3(dggdnfunc);
+
+	//GaussianDistribution * dggdnfunc = new GaussianDistribution(true,true,false,false,5);
+	//DistanceWeightFunction2PPR3 * dfuncTMP		= new DistanceWeightFunction2PPR3();
 	dfunc = dfuncTMP;
 	dfuncTMP->startreg				= 0.001;
 	dfuncTMP->max_under_mean		= false;
@@ -664,9 +679,9 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 	dfuncTMP->reset();
 
 	dfunc->computeModel(dvec);
-
-	//	printf("dfunc->getNoise() = %f\n",dfunc->getNoise());
-	//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
+//exit(0);
+//	//	printf("dfunc->getNoise() = %f\n",dfunc->getNoise());
+//	//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
 
 	GeneralizedGaussianDistribution * ggdnfunc	= new GeneralizedGaussianDistribution(true,true);
 	ggdnfunc->nr_refineiters		= 10;
@@ -2722,14 +2737,14 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		framesp_test.push_back(frames[i]->getSuperPoints(Eigen::Matrix4d::Identity(),10,false));
 		framesp.push_back(frames[i]->getSuperPoints());
 	}
-	printf("frames init time: %5.5fs\n",getTime()-startTime);
+	//printf("frames init time: %5.5fs\n",getTime()-startTime);
 
 	startTime = getTime();
 	std::vector< std::vector<superpoint> > bgsp;
 	for(unsigned int i = 0; i < bgcf.size(); i++){
 		bgsp.push_back(bgcf[i]->getSuperPoints());
 	}
-	printf("bg init time:     %5.5fs\n",getTime()-startTime);
+	//printf("bg init time:     %5.5fs\n",getTime()-startTime);
 
 	startTime = getTime();
 	for(unsigned int i = 0; i < frames.size(); i++){
@@ -2801,7 +2816,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 
 
-	printf("training time:     %5.5fs\n",getTime()-startTime);
+	//printf("training time:     %5.5fs\n",getTime()-startTime);
 
 	long frameConnections = 0;
 	std::vector< std::vector< std::vector<float> > > pixel_weights;
@@ -2817,7 +2832,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	double maxprob_same = 0.999999999999999999;
 
 	for(unsigned int i = 0; i < frames.size(); i++){
-		if(debugg != 0){printf("currently workin on frame %i\n",i);}
+		//if(debugg != 0){printf("currently workin on frame %i\n",i);}
 		int offset = offsets[i];
 		RGBDFrame * frame = frames[i];
 		float		   * normalsdata	= (float			*)(frame->normals.data);
@@ -2876,8 +2891,6 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		}
 
 		total_Dynw += getTime()-startTime;
-
-
 
 		startTime = getTime();
 		unsigned char * detdata = (unsigned char*)(frame->det_dilate.data);
@@ -3068,11 +3081,11 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	delete dfuncTMP;
 	delete nfuncTMP;
 
-	printf("total_priortime        = %5.5fs\n",		total_priortime);
-	printf("total_connectiontime   = %5.5fs\n",		total_connectiontime);
-	printf("total_alloctime        = %5.5fs\n",		total_alloctime);
-	printf("total_dealloctime      = %5.5fs\n",		total_dealloctime);
-	printf("total_Dynw             = %5.5fs\n",		total_Dynw);
+//	printf("total_priortime        = %5.5fs\n",		total_priortime);
+//	printf("total_connectiontime   = %5.5fs\n",		total_connectiontime);
+//	printf("total_alloctime        = %5.5fs\n",		total_alloctime);
+//	printf("total_dealloctime      = %5.5fs\n",		total_dealloctime);
+//	printf("total_Dynw             = %5.5fs\n",		total_Dynw);
 
 	long interframeConnections = 0;
 	for(unsigned int i = 0; i < interframe_connectionId.size();i++){interframeConnections += interframe_connectionId[i].size();}
@@ -3405,7 +3418,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	for(unsigned int i = 0; i < interframe_connectionStrength.size();i++){interframe_connectionStrength[i].clear();}
 	interframe_connectionStrength.clear();
 
-	printf("connectedComponent: %5.5fs\n",getTime()-start_inf);
+	//printf("connectedComponent: %5.5fs\n",getTime()-start_inf);
 
 	int current = 0;
 	for(unsigned long i = 0; i < frames.size(); i++){

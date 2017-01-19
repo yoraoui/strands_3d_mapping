@@ -125,30 +125,25 @@ bool testDynamicObjectServiceCallback(std::string path);
 bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res);
 
 reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::string saveVisuals_sp = ""){
-	printf("getAVMetaroom: %s\n",path.c_str());
+	//printf("getAVMetaroom: %s\n",path.c_str());
 
 	if ( ! boost::filesystem::exists( path ) ){return 0;}
 
 	int slash_pos = path.find_last_of("/");
 	std::string sweep_folder = path.substr(0, slash_pos) + "/";
-	//int viewgroup_nrviews = quasimodo_brain::readNumberOfViews(sweep_folder+"ViewGroup.xml");
-
-	printf("sweep_folder: %s\n",sweep_folder.c_str());
+	//printf("sweep_folder: %s\n",sweep_folder.c_str());
 
 	int additional_nrviews = 0;
 	QStringList objectFiles = QDir(sweep_folder.c_str()).entryList(QStringList("*object*.xml"));
 	for (auto objectFile : objectFiles){
-		//printf("objectFile: %s\n",(sweep_folder+objectFile.toStdString()).c_str());
-		auto object = loadDynamicObjectFromSingleSweep<PointType>(sweep_folder+objectFile.toStdString(),false);
-		additional_nrviews += object.vAdditionalViews.size();
+		additional_nrviews += loadDynamicObjectFromSingleSweep<PointType>(sweep_folder+objectFile.toStdString(),false).vAdditionalViews.size();
 	}
 
 	SimpleXMLParser<pcl::PointXYZRGB> parser;
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(path,std::vector<std::string>{"RoomIntermediateCloud","IntermediatePosition"});
 
-	//printf("viewgroup_nrviews: %i\n",viewgroup_nrviews);
-	printf("additional_nrviews: %i\n",additional_nrviews);
-	printf("metaroom_nrviews: %i\n",roomData.vIntermediateRoomClouds.size());
+	//printf("additional_nrviews: %i\n",additional_nrviews);
+	//printf("metaroom_nrviews: %i\n",roomData.vIntermediateRoomClouds.size());
 
 	std::vector<reglib::RGBDFrame * > frames;
 
@@ -187,8 +182,8 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 	for (size_t i=0; i<roomData.vIntermediateRoomClouds.size(); i++){
 		if(i >= counter){
 			reglib::Camera * cam		= quasimodo_brain::getCam(roomData.vIntermediateRoomCloudCamParamsCorrected[i]);
-			Eigen::Matrix4d m = m2*quasimodo_brain::getMat(roomData.vIntermediateRoomCloudTransformsRegistered[i]);
-			reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,roomData.vIntermediateRGBImages[i],5.0*roomData.vIntermediateDepthImages[i],0, m,true,saveVisuals_sp);
+			Eigen::Matrix4d m			= m2*quasimodo_brain::getMat(roomData.vIntermediateRoomCloudTransformsRegistered[i]);
+			reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,roomData.vIntermediateRGBImages[i],5.0*roomData.vIntermediateDepthImages[i],0, m,true,saveVisuals_sp);
 
 			sprintf(buf,"%s_frame_%5.5i",room_id.c_str(),counter);
 			frame->keyval = std::string(buf);
@@ -216,8 +211,8 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 		sweepmodel->recomputeModelPoints();
 		quasimodo_brain::saveSuperPoints(sweep_folder+"/sweepmodel_superpoints.bin",sweepmodel->points,Eigen::Matrix4d::Identity(),1.0);
 	}
-	printf("sweepmodel fully loaded!\n");
-	return sweepmodel;
+	//printf("sweepmodel fully loaded!\n");
+	if(false){return sweepmodel;}
 
 	//Load rest of model if possible
 	std::vector<Eigen::Matrix4d> both_unrefined;
@@ -269,6 +264,9 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 				av_frames.push_back(frame);
 				frames.push_back(frame);
 			}
+
+			std::cout << av_frames.back()->pose << std::endl << std::endl;
+
 			both_unrefined.push_back(metaroom_frames.front()->pose.inverse()*av_frames.back()->pose);
 			av_mm.push_back(new reglib::ModelMask(quasimodo_brain::getFullMask()));
 			current_counter++;
@@ -276,9 +274,13 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 	}
 
 	for (unsigned int i = sweepmodel->frames.size() + av_frames.size(); i < frames.size(); i++){
+		Eigen::Matrix4d invp = frames[i]->pose.inverse();
+		frames[i]->pose = invp;
 		av_frames.push_back(frames[i]);
 		both_unrefined.push_back(sweepmodel->frames.front()->pose.inverse()*av_frames.back()->pose);
 		av_mm.push_back(new reglib::ModelMask(quasimodo_brain::getFullMask()));
+
+		std::cout << av_frames.back()->pose << std::endl << std::endl;
 	}
 
 	reglib::Model * fullmodel	= new reglib::Model();
@@ -296,177 +298,82 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 
 		QStringList fileoutput = QDir(sweep_folder.c_str()).entryList(QStringList("recomputeRelativePosesoutput.txt"));
 
-		//if(recomputeRelativePoses || loadedPoses.size() != (av_frames.size()+metaroom_frames.size())){
 		if(recomputeRelativePoses || fileoutput.size() == 0){
 
-			ros::ServiceClient client2 = np->serviceClient<observation_registration_services::AdditionalViewRegistrationService>("additional_view_registration_server");
-			observation_registration_services::AdditionalViewRegistrationService srv2;
-			srv2.request.observation_xml = path;
+			reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.01);
+			bgmassreg->timeout = 300;
+			bgmassreg->viewer = viewer;
+			bgmassreg->use_surface = true;
+			bgmassreg->use_depthedge = false;
+			bgmassreg->visualizationLvl = visualization_lvl_regref;
+			bgmassreg->maskstep = 5;
+			bgmassreg->nomaskstep = 5;
+			bgmassreg->nomask = true;
+			bgmassreg->stopval = 0.0005;
+			bgmassreg->addModel(sweepmodel);
+			bgmassreg->setData(av_frames,av_mm);
+			reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
+			delete bgmassreg;
 
-			for (size_t i=0; i<av_frames.size(); i++){
-				sensor_msgs::PointCloud2 cloud_msg;
-				pcl::toROSMsg(*av_frames[i]->getPCLcloud(), cloud_msg);
-				srv2.request.additional_views.push_back(cloud_msg);
+			reglib::RegistrationRefinement *	reg	= new reglib::RegistrationRefinement();
+			reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( fullmodel, reg);
+			mu->occlusion_penalty               = 3;
+			mu->massreg_timeout                 = 60*4;
+			mu->show_scoring					= false;
+			mu->viewer							= viewer;
+
+			std::vector<reglib::Model *> models;
+			models.push_back(sweepmodel);
+			for(unsigned int i = 0; i < av_frames.size(); i++){
+				reglib::Model * mod = new reglib::Model();
+				mod->frames.push_back(av_frames[i]);
+				mod->modelmasks.push_back(av_mm[i]);
+				mod->relativeposes.push_back(Eigen::Matrix4d::Identity());
+				mod->recomputeModelPoints();
+				models.push_back(mod);
 			}
-			srv2.request.additional_views_odometry_transforms.clear();
 
-			ROS_INFO_STREAM("Testing additional_view_registration_server service");
-
-			if (client2.call(srv2)){
-				int total_constraints = 0;
-				std::for_each(srv2.response.additional_view_correspondences.begin(), srv2.response.additional_view_correspondences.end(), [&] (int n) {
-					total_constraints += n;
-				});
-
-				ROS_INFO_STREAM("Registration done. Number of additional view registration constraints "<<total_constraints<<". Number of additional view transforms "<<srv2.response.additional_view_transforms.size());
-
-				geometry_msgs::Pose obs_poseMsg;
-				obs_poseMsg.position.x	= srv2.response.observation_transform.translation.x;
-				obs_poseMsg.position.y	= srv2.response.observation_transform.translation.y;
-				obs_poseMsg.position.z	= srv2.response.observation_transform.translation.z;
-				obs_poseMsg.orientation	= srv2.response.observation_transform.rotation;
-
-				Eigen::Affine3d obs_affinepose;
-				tf::poseMsgToEigen(obs_poseMsg, obs_affinepose);
-
-				Eigen::Matrix4d obst = (frames.front()->pose.inverse() * obs_affinepose.matrix()).inverse();
-				std::cout << obst << std::endl << std::endl;
-
-				std::vector<Eigen::Matrix4d> tposes;
-				tposes.push_back(obst);
-				//tposes.push_back(Eigen::Matrix4d::Identity());
-				for (auto tr : srv2.response.additional_view_transforms){
-					geometry_msgs::Pose poseMsg;
-					poseMsg.position.x	= tr.translation.x;
-					poseMsg.position.y	= tr.translation.y;
-					poseMsg.position.z	= tr.translation.z;
-					poseMsg.orientation	= tr.rotation;
-
-					Eigen::Affine3d affinepose;
-					tf::poseMsgToEigen(poseMsg, affinepose);
-
-					tposes.push_back(affinepose.matrix());
-
-					std::cout << affinepose.matrix() << std::endl << std::endl;
-				}
-				reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.01);
-				bgmassreg->timeout = 300;
-				bgmassreg->viewer = viewer;
-				bgmassreg->use_surface = true;
-				bgmassreg->use_depthedge = false;
-				bgmassreg->visualizationLvl = visualization_lvl_regref;
-				bgmassreg->maskstep = 5;
-				bgmassreg->nomaskstep = 5;
-				bgmassreg->nomask = true;
-				bgmassreg->stopval = 0.0005;
-				bgmassreg->addModel(sweepmodel);
-				bgmassreg->setData(av_frames,av_mm);
-				reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(tposes);
-				delete bgmassreg;
-
-				reglib::RegistrationRefinement *	reg	= new reglib::RegistrationRefinement();
-				reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( fullmodel, reg);
-				mu->occlusion_penalty               = 3;
-				mu->massreg_timeout                 = 60*4;
-				mu->viewer							= viewer;
-
-				std::vector<reglib::Model *> models;
-				models.push_back(sweepmodel);
-				for(unsigned int i = 0; i < av_frames.size(); i++){
-					reglib::Model * mod = new reglib::Model();
-					mod->frames.push_back(av_frames[i]);
-					mod->modelmasks.push_back(av_mm[i]);
-					mod->relativeposes.push_back(Eigen::Matrix4d::Identity());
-					mod->recomputeModelPoints();
-					models.push_back(mod);
-				}
-
-				std::vector< std::vector < reglib::OcclusionScore > > ocs	= mu->computeOcclusionScore(models,bgmfr.poses,1);
-				std::vector<std::vector < float > > scores					= mu->getScores(ocs);
-				std::vector<int> partition									= mu->getPartition(scores,2,5,2);
-
-
-
-
-				for(unsigned int i = 0; i < scores.size(); i++){
-					for(unsigned int j = 0; j < scores.size(); j++){
-						if(scores[i][j] >= 0){printf(" ");}
-						printf("%5.5f ",0.00001*scores[i][j]);
-					}
-					printf("\n");
-				}
-				printf("partition "); for(unsigned int i = 0; i < partition.size(); i++){printf("%i ", partition[i]);} printf("\n");
-
-				int sweeppart = partition.front();
-
-
-				std::vector<reglib::Model *> models2;
-				models2.push_back(sweepmodel);
-
-				std::vector<Eigen::Matrix4d> testomg;
-				testomg.push_back(Eigen::Matrix4d::Identity());
-				for(unsigned int i = 0; i < av_frames.size(); i++){
-					if(partition[i] == sweeppart){
-						fullmodel->frames.push_back(av_frames[i]);
-						fullmodel->modelmasks.push_back(av_mm[i]);
-						fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
-
-						reglib::Model * mod = new reglib::Model();
-						mod->frames.push_back(av_frames[i]);
-						mod->modelmasks.push_back(av_mm[i]);
-						mod->relativeposes.push_back(Eigen::Matrix4d::Identity());
-						mod->recomputeModelPoints();
-
-						models2.push_back(mod);
-						testomg.push_back(bgmfr.poses[i+1]);
-					}
-				}
-				mu->computeOcclusionScore(models2,testomg,1,true);
-
-
-
-				reglib::Model * mod2 = new reglib::Model();
-
-				for(unsigned int i = 0; i < av_frames.size(); i++){
-					av_frames[i]->pose = sweepmodel->frames.front()->pose * bgmfr.poses[i+1];
-					if(partition[i] == sweeppart){
-						fullmodel->frames.push_back(av_frames[i]);
-						fullmodel->modelmasks.push_back(av_mm[i]);
-						fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
-					}else{
-//						delete av_frames[i];
-//						delete av_mm[i];
-						mod2->frames.push_back(av_frames[i]);
-						mod2->modelmasks.push_back(av_mm[i]);
-						mod2->relativeposes.push_back(bgmfr.poses[i+1]);
-					}
-					//delete models[i+1];
-				}
-
-				fullmodel->recomputeModelPoints();
-				mod2->recomputeModelPoints();
-				reg->visualizationLvl = 5;
-				reg->viewer	= viewer;
-				reg->target_points = 100000;
-
-				reg->setDst(fullmodel->points);
-				reg->setSrc(mod2->points);
-				reglib::FusionResults fr = reg->getTransform(Eigen::Matrix4d::Identity());
-
-
-				delete reg;
-				delete mu;
-				quasimodo_brain::savePoses(sweep_folder+"/fullmodel_poses.xml", fullmodel->relativeposes);
-
-				std::ofstream myfile;
-				myfile.open (sweep_folder+"recomputeRelativePosesoutput.txt");
-				myfile << "dummy";
-				myfile.close();
-
-			}else{
-				ROS_ERROR("Failed to call service object_additional_view_registration_server");
-				printf("do not add new frames..\n");
+			std::vector< Eigen::Matrix4d> bgposes;
+			for (unsigned int i = 0; i < bgmfr.poses.size(); i++){
+				bgposes.push_back(bgmfr.poses[i]);
 			}
+
+			std::vector< std::vector < reglib::OcclusionScore > > ocs	= mu->computeOcclusionScore(models,bgposes,1,false);
+			std::vector<std::vector < float > > scores					= mu->getScores(ocs);
+			std::vector<int> partition									= mu->getPartition(scores,2,5,2);
+
+			for(unsigned int i = 0; i < scores.size(); i++){
+				for(unsigned int j = 0; j < scores.size(); j++){
+					if(scores[i][j] >= 0){printf(" ");}
+					printf("%5.5f ",0.00001*scores[i][j]);
+				}
+				printf("\n");
+			}
+			printf("partition "); for(unsigned int i = 0; i < partition.size(); i++){printf("%i ", partition[i]);} printf("\n");
+
+			int sweeppart = partition.front();
+
+			for(unsigned int i = 0; i < av_frames.size(); i++){
+				av_frames[i]->pose = sweepmodel->frames.front()->pose * bgmfr.poses[i+1];
+				if(partition[i] == sweeppart){
+					fullmodel->frames.push_back(av_frames[i]);
+					fullmodel->modelmasks.push_back(av_mm[i]);
+					fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
+				}else{
+					models[i+1]->fullDelete();
+				}
+				delete models[i+1];
+			}
+
+			delete reg;
+			delete mu;
+			quasimodo_brain::savePoses(sweep_folder+"/fullmodel_poses.xml", fullmodel->relativeposes);
+
+			std::ofstream myfile;
+			myfile.open (sweep_folder+"recomputeRelativePosesoutput.txt");
+			myfile << "dummy";
+			myfile.close();
+
 		}else{
 			for(unsigned int i = 0; i < av_frames.size(); i++){
 				fullmodel->frames.push_back(av_frames[i]);
@@ -488,7 +395,6 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 		quasimodo_brain::saveSuperPoints(	sweep_folder+"/fullmodel_superpoints.bin",fullmodel->points,Eigen::Matrix4d::Identity(),1.0);
 	}
 
-	printf("fullmodel->points.size() = %i\n",fullmodel->points.size());
 	quasimodo_brain::writeXml(sweep_folder+"ViewGroup.xml",fullmodel->frames,fullmodel->relativeposes);
 	fullmodel->pointspath = sweep_folder+"/fullmodel_superpoints.bin";
 
@@ -502,7 +408,14 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 	path = quasimodo_brain::replaceAll(path, "//", "/");
 	quasimodo_brain::cleanPath(path);
 	int returnval = 0;
+	printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
 	printf("processMetaroom: %s\n",path.c_str());
+	printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+
 
 	int slash_pos = path.find_last_of("/");
 	std::string sweep_folder = path.substr(0, slash_pos) + "/";

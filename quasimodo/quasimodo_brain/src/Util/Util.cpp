@@ -799,10 +799,7 @@ std::vector<reglib::superpoint> getSuperPoints(std::string path){
 		file.read (memblock, size);
 		file.close();
 
-		cout << "the entire file content is in memory";
-
 		long nr_points = size / (sizeof(float)*12);
-		printf("loading %i points\n",nr_points);
 
 		float * data = (float *)memblock;
 
@@ -870,7 +867,7 @@ void transformSuperPoints(std::vector<reglib::superpoint> & spvec, Eigen::Matrix
 }
 
 void saveSuperPoints(std::string path, std::vector<reglib::superpoint> & spvec, Eigen::Matrix4d pose, float ratio_keep){
-	printf("saveSuperPoints(%s)\n",path.c_str());
+	//printf("saveSuperPoints(%s)\n",path.c_str());
 	transformSuperPoints(spvec,pose);
 	//XYZ RGB NXNYNZ W1 W2
 	long sizeofSuperPoint = 3*(3+1);
@@ -899,7 +896,7 @@ void saveSuperPoints(std::string path, std::vector<reglib::superpoint> & spvec, 
 			added++;
 		}
 		if(added > 0){
-			printf("saving %i points\n",added);
+			//printf("saving %i points\n",added);
 			file.write( (char*)data, added*sizeofSuperPoint*sizeof(float));
 		}
 		delete[] data;
@@ -966,7 +963,7 @@ void savePoses(std::string xmlFile, std::vector<Eigen::Matrix4d> poses, int maxp
 	xmlWriter->writeStartElement("Poses");
 	//	xmlWriter->writeAttribute("number_of_poses", QString::number(poses.size()));
 	for(unsigned int i = 0; i < poses.size() && (maxposes == -1 || int(i) < maxposes); i++){
-		printf("saving %i\n",i);
+		//printf("saving %i\n",i);
 		xmlWriter->writeStartElement("Pose");
 		writePose(xmlWriter,poses[i]);
 		xmlWriter->writeEndElement();
