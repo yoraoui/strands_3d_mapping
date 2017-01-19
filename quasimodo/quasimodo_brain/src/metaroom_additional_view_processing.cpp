@@ -211,8 +211,8 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 		sweepmodel->recomputeModelPoints();
 		quasimodo_brain::saveSuperPoints(sweep_folder+"/sweepmodel_superpoints.bin",sweepmodel->points,Eigen::Matrix4d::Identity(),1.0);
 	}
-	//printf("sweepmodel fully loaded!\n");
-	if(false){return sweepmodel;}
+	printf("sweepmodel fully loaded!\n");
+	if(true){return sweepmodel;}
 
 	//Load rest of model if possible
 	std::vector<Eigen::Matrix4d> both_unrefined;
