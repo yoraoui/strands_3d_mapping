@@ -10,6 +10,7 @@ using namespace quasimodo_brain;
 
 bool visualization = false;
 bool show_db = false;//Full database show
+int show_db_lvl = 0;//Full database show
 bool save_db = false;//Full database save
 int save_db_counter = 0;
 
@@ -49,7 +50,7 @@ ros::ServiceClient retrieval_client;
 ros::ServiceClient conversion_client;
 ros::ServiceClient insert_client;
 
-double occlusion_penalty	= 5;
+double occlusion_penalty	= 10;
 double massreg_timeout		= 120;
 bool run_search				= false;
 int sweepid_counter			= 0;
@@ -183,7 +184,8 @@ bool recognizeService(quasimodo_msgs::recognize::Request  & req, quasimodo_msgs:
 }
 
 bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Model * model2, int depth){
-	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom(5);
+	if(show_db_lvl > 1){printf("----- addIfPossible ------\n");}
+	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom(7);
 	reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( model2, reg);
 	mu->occlusion_penalty               = occlusion_penalty;
 	mu->massreg_timeout                 = massreg_timeout;
@@ -194,11 +196,15 @@ bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Mode
 	reg->visualizationLvl				= show_reg_lvl;
 
 	reglib::FusionResults fr = mu->registerModel(model);
+	if(show_db_lvl > 1){printf("registration complete\n");}
 	if(fr.score > 100){
 		reglib::UpdatedModels ud = mu->fuseData(&fr, model2, model);
 		delete mu;
 		delete reg;
+		printf("fuseData ran\n");
         if(ud.deleted_models.size() > 0 || ud.updated_models.size() > 0 || ud.new_models.size() > 0){
+			printf("---> something changes\n");
+
 			for(unsigned int j = 0; j < ud.deleted_models.size();	j++){
 				database->remove(ud.deleted_models[j]);
 				delete ud.deleted_models[j];
@@ -207,6 +213,20 @@ bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Mode
 			for(unsigned int j = 0; j < ud.updated_models.size();	j++){
 				database->remove(ud.updated_models[j]);
 				models_deleted_pub.publish(getModelMSG(ud.updated_models[j]));
+			}
+
+			if(show_db_lvl > 1){
+				printf("Succeded to merge models\n");
+				viewer->setBackgroundColor(0.0,1.0,0.0);
+				if(ud.updated_models.size() > 0){
+					viewer->removeAllPointClouds();
+					showModels(ud.updated_models);
+				}
+				if(ud.new_models.size() > 0){
+					viewer->removeAllPointClouds();
+					showModels(ud.new_models);
+				}
+				viewer->setBackgroundColor(1.0,1.0,1.0);
 			}
 
 			for(unsigned int j = 0; j < ud.updated_models.size();	j++){	addToDB(database, ud.updated_models[j], true,depth+1);}
@@ -218,6 +238,18 @@ bool addIfPossible(ModelDatabase * database, reglib::Model * model, reglib::Mode
 		delete mu;
 		delete reg;
 	}
+
+	if(show_db_lvl > 1){
+		printf("Failed to merge models\n");
+		std::vector<reglib::Model * > m;
+		m.push_back(model);
+		m.push_back(model2);
+		viewer->setBackgroundColor(1.0,0.0,0.0);
+		viewer->removeAllPointClouds();
+		showModels(m);
+		viewer->setBackgroundColor(1.0,1.0,1.0);
+	}
+
 	return false;
 }
 
@@ -242,13 +274,22 @@ bool addToDB(ModelDatabase * database, reglib::Model * model, bool add, int dept
 		model->last_changed = ++current_model_update;
 	}
 
+	if(show_db_lvl > 0){
+		printf("addToDB\n");
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = reglib::getPointCloudFromVector(model->points);
+		viewer->setBackgroundColor(0.5,0.5,0.5);
+		viewer->removeAllPointClouds();
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cld), "cld");
+		viewer->spin();
+	}
+
 	if(depth > 10){//Avoid infinite loops if something wierd happens... TODO:: update by making sure two things which have previously been split are never merged without extra content...
 		printf("breaking due to depth\n");
 		return true;
 	}
 
 	printf("time to search\n");
-    std::vector<reglib::Model * > res = modeldatabase->search(model,1);
+	std::vector<reglib::Model * > res = modeldatabase->search(model,5);
 
 	if(show_search){showModels(res);}
 
@@ -312,11 +353,7 @@ std::set<int> searchset;
 
 void addNewModel(reglib::Model * model){
 
-//	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = reglib::getPointCloudFromVector(model->points);
-//	viewer->setBackgroundColor(1.0,0.0,1.0);
-//	viewer->removeAllPointClouds();
-//	viewer->addPointCloud<pcl::PointXYZRGBNormal> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cld), "cld");
-//	viewer->spin();
+
 
 printf("start: %s\n",__PRETTY_FUNCTION__);
 	reglib::RegistrationRandom *	reg	= new reglib::RegistrationRandom();
@@ -343,16 +380,21 @@ printf("start: %s\n",__PRETTY_FUNCTION__);
 	}else{
 		newmodelHolder->recomputeModelPoints();
     }
-	//printf("%ld front point: ",long(newmodelHolder));
-	//newmodelHolder->points.front().print();
+
     model->updated = true;
     newmodelHolder->updated = true;
 
-	//storage->print();
+	if(show_db_lvl > 0){
+		printf("New model has arrived\n");
+		//Show new model
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = reglib::getPointCloudFromVector(model->points);
+		viewer->setBackgroundColor(1.0,0.0,1.0);
+		viewer->removeAllPointClouds();
+		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cld), "cld");
+		viewer->spin();
+	}
+
 	modeldatabase->add(newmodelHolder);
-
-printf("modelserver line:: %i\n",__LINE__);
-
 	addToDB(modeldatabase, newmodelHolder,false, 0);
 
 	show_sorted();
@@ -464,7 +506,7 @@ int main(int argc, char **argv){
 		else if(std::string(argv[i]).compare("-v_refine") == 0 || std::string(argv[i]).compare("-v_ref") == 0){	printf("visualization refinement turned on\n");     visualization = true; inputstate = 9;}
 		else if(std::string(argv[i]).compare("-v_register") == 0 || std::string(argv[i]).compare("-v_reg") == 0){	printf("visualization registration turned on\n");	visualization = true; inputstate = 10;}
 		else if(std::string(argv[i]).compare("-v_scoring") == 0 || std::string(argv[i]).compare("-v_score") == 0 || std::string(argv[i]).compare("-v_sco") == 0){	printf("visualization scoring turned on\n");        visualization = true; show_scoring = true;}
-		else if(std::string(argv[i]).compare("-v_db") == 0){        printf("visualization db turned on\n");             visualization = true; show_db = true;}
+		else if(std::string(argv[i]).compare("-v_db") == 0){        printf("visualization db turned on\n");             visualization = true; show_db = true; inputstate = 14;}
 		else if(std::string(argv[i]).compare("-s_db") == 0){        printf("save db turned on\n"); save_db = true;}
 		else if(std::string(argv[i]).compare("-intopic") == 0){	printf("intopic input state\n");	inputstate = 11;}
 		else if(std::string(argv[i]).compare("-mdb") == 0){	printf("intopic input state\n");		inputstate = 12;}
@@ -514,7 +556,10 @@ int main(int argc, char **argv){
 			}
 		}else if(inputstate == 13){
 			modelpcds.push_back( std::string(argv[i]) );
+		}else if(inputstate == 14){
+			show_db_lvl = atoi(argv[i]);
 		}
+
 	}
 
 

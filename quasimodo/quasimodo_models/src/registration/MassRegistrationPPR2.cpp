@@ -20,7 +20,7 @@ MassRegistrationPPR2::MassRegistrationPPR2(double startreg, bool visualize){
 
 
 	use_surface = true;
-	use_depthedge = true;
+	use_depthedge = false;
 
 	DistanceWeightFunction2PPR2 * dwf = new DistanceWeightFunction2PPR2();
 	dwf->update_size		= true;
@@ -47,7 +47,7 @@ MassRegistrationPPR2::MassRegistrationPPR2(double startreg, bool visualize){
 	maskstep = 1;
 	nomaskstep = 100000;
 
-	stopval = 0.001;
+	stopval = 0.0005;
 	steps = 4;
 
 	timeout = 6000;

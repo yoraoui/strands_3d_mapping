@@ -125,7 +125,7 @@ public:
 	virtual OcclusionScore computeOcclusionScore(vector<superpoint> & spvec, Matrix4d cp, RGBDFrame* cf, ModelMask* cm, int step = 1,  bool debugg = false);
 	virtual OcclusionScore computeOcclusionScore(Model * mod, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<ModelMask*> cm, Matrix4d rp = Matrix4d::Identity(), int step = 1, bool debugg = false);
 	virtual OcclusionScore computeOcclusionScore(Model * model1, Model * model2, Matrix4d rp = Matrix4d::Identity(),int step = 1, bool debugg = false);
-	virtual vector<vector < OcclusionScore > > computeOcclusionScore(vector<Model *> models, vector<Matrix4d> rps, int step = 1, bool debugg = false);
+	virtual vector<vector < OcclusionScore > > computeOcclusionScore(vector<Model *> models, vector<Matrix4d> rps, int step = 1, bool debugg = false, double max_noise = 0.01);
 
 	virtual double computeOcclusionScoreCosts(vector<Model *> models);
 

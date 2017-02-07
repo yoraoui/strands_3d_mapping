@@ -244,7 +244,7 @@ bool ModelUpdater::isRefinementNeeded(){
 	return failed;
 }
 
-OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, Matrix4d cp, RGBDFrame* cf, ModelMask* cm, int step,  bool debugg){
+OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, Matrix4d cp, RGBDFrame* cf, ModelMask* cm, int step,  bool debugg ){
 	OcclusionScore oc;
 
 	unsigned char  * dst_maskdata		= (unsigned char	*)(cm->mask.data);
@@ -326,9 +326,9 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 				double d = mysign(dst_z-tz)*fabs(tnx*(dst_x-tx) + tny*(dst_y-ty) + tnz*(dst_z-tz));
 				double dst_noise = dst_z * dst_z;
 				double point_noise = 1.0/sqrt(point_information);
-
 				double compare_mul = sqrt(dst_noise*dst_noise + point_noise*point_noise);
 				d *= compare_mul;
+				//d /= compare_mul;
 
 				double dist_dst = sqrt(dst_x*dst_x+dst_y*dst_y+dst_z*dst_z);
 				double angle_dst = fabs((dst_x*dst_nx+dst_y*dst_ny+dst_z*dst_nz)/dist_dst);
@@ -355,7 +355,7 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 
 	DistanceWeightFunction2 * func = new DistanceWeightFunction2();
 	func->f = THRESHOLD;
-	func->p = 0.02;
+	func->p = 0.04;
 
 	Eigen::MatrixXd X = Eigen::MatrixXd::Zero(1,residuals.size());
 	for(unsigned int i = 0; i < residuals.size(); i++){X(0,i) = residuals[i];}
@@ -486,8 +486,6 @@ OcclusionScore ModelUpdater::computeOcclusionScore(Model * mod, vector<Matrix4d>
 
 OcclusionScore ModelUpdater::computeOcclusionScore(Model * model1, Model * model2, Matrix4d rp, int step, bool debugg){
 	OcclusionScore ocs;
-	//	ocs.add(computeOcclusionScore(model1, model2->rep_relativeposes,model2->rep_frames,model2->rep_modelmasks,rp.inverse(),step,debugg));
-	//	ocs.add(computeOcclusionScore(model2, model1->rep_relativeposes,model1->rep_frames,model1->rep_modelmasks,rp,step,debugg));
 	ocs.add(computeOcclusionScore(model1, model2->relativeposes,model2->frames,model2->modelmasks,rp.inverse(),step,debugg));
 	ocs.add(computeOcclusionScore(model2, model1->relativeposes,model1->frames,model1->modelmasks,rp,step,debugg));
 	return ocs;
@@ -506,6 +504,7 @@ void ModelUpdater::testgetDynamicWeights(bool store_distance, std::vector<double
 	if(debugg){
 		//cld = getPointCloudFromVector(sp,3,127,127,127);
 	}
+
 	//printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);
 	//	std::vector<superpoint> framesp = frame->getSuperPoints();
 
@@ -585,7 +584,7 @@ void ModelUpdater::testgetDynamicWeights(bool store_distance, std::vector<double
 		viewer->removeAllPointClouds();
 		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cld), "cld");
 
-		std::vector<superpoint> framesp = frame->getSuperPoints(p.inverse(),5);
+		std::vector<superpoint> framesp = frame->getSuperPoints(p.inverse(),1);
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr fcld = getPointCloudFromVector(framesp,3,255,0,255);
 		viewer->addPointCloud<pcl::PointXYZRGBNormal> (fcld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(fcld), "fcld");
 
@@ -594,8 +593,7 @@ void ModelUpdater::testgetDynamicWeights(bool store_distance, std::vector<double
 }
 
 
-vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Model *> models, vector<Matrix4d> rps, int step, bool debugg){
-
+vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Model *> models, vector<Matrix4d> rps, int step, bool debugg, double max_noise){
 	if(debugg){
 		char buf [1024];
 		viewer->removeAllPointClouds();
@@ -607,6 +605,9 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 		}
 		viewer->spin();
 	}
+
+	//OcclusionScore ModelUpdater::computeOcclusionScore(Model * model1, Model * model2, Matrix4d rp, int step, bool debugg)
+
 
 	std::vector<double> dvec;
 	std::vector<double> nvec;
@@ -623,7 +624,24 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 		}
 	}
 
-	double startTime = getTime();
+	for(unsigned int i = 0; i < models.size(); i++){
+		Model * model1 = models[i];
+		for(unsigned int j = 0; j < models.size(); j++){
+			if(i == j){continue;}
+
+			//printf("%i %i %i\n",i,j,debugg);
+			Model * model2 = models[j];
+			Eigen::Matrix4d p = rps[j].inverse() * rps[i];
+			OcclusionScore oc = computeOcclusionScore(model2,model1,p,step,debugg);
+			occlusionScores[i][j].add(oc);
+			occlusionScores[j][i] = occlusionScores[i][j];
+			if(debugg){oc.print();}
+		}
+	}
+
+	//exit(0);
+
+	return occlusionScores;
 
 	int tot_nr_pixels = 0;
 	std::vector<int> offsets;
@@ -634,7 +652,6 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 		tot_nr_pixels += nr_pixels;
 	}
 
-
 	for(unsigned int i = 0; i < models.size(); i++){
 		Model * model1 = models[i];
 		for(unsigned int j = 0; j < models.size(); j++){
@@ -643,18 +660,19 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 			for(unsigned int k = 0; k < model2->relativeposes.size(); k++){
 				Eigen::Matrix4d p;
 				p = model2->relativeposes[k].inverse()*(rps[j].inverse() * rps[i]);
-				testgetDynamicWeights(true,dvec,nvec,dfunc,nfunc,p, model1->points,0,0,0,model2->frames[k],debugg);
+				testgetDynamicWeights(true,dvec,nvec,dfunc,nfunc,p, model1->points,0,0,0,model2->frames[k],false);//debugg);
 			}
 		}
 	}
-
+	//printf("computeOcclusionScore::%i\n",__LINE__);
 	double dstdval = 0;
 	for(unsigned int i = 0; i < dvec.size(); i++){dstdval += dvec[i]*dvec[i];}
 	dstdval = sqrt(dstdval/double(dvec.size()-1));
+	//printf("dstdval: %f\n",dstdval);
 
 	GeneralizedGaussianDistribution * dggdnfunc	= new GeneralizedGaussianDistribution(true,false,false);
 //	dggdnfunc->nr_refineiters					= 1;
-//	//dggdnfunc->costpen							= -1;
+	dggdnfunc->costpen							= 20;
 //	dggdnfunc->debugg_print						= false;
 	DistanceWeightFunction2PPR3 * dfuncTMP		= new DistanceWeightFunction2PPR3(dggdnfunc);
 
@@ -663,24 +681,25 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 	dfunc = dfuncTMP;
 	dfuncTMP->startreg				= 0.001;
 	dfuncTMP->max_under_mean		= false;
-	dfuncTMP->debugg_print			= debugg;
+	dfuncTMP->debugg_print			= false;
 	dfuncTMP->bidir					= true;
 	dfuncTMP->zeromean				= false;
 	dfuncTMP->maxp					= 0.9999;
-	dfuncTMP->maxd					= dstdval*10;
+	dfuncTMP->maxd					= std::min(max_noise,dstdval)*10;
 	dfuncTMP->histogram_size		= 1000;
 	dfuncTMP->fixed_histogram_size	= false;
 	dfuncTMP->startmaxd				= dfuncTMP->maxd;
 	dfuncTMP->starthistogram_size	= dfuncTMP->histogram_size;
 	dfuncTMP->blurval				= 1.0;
-	dfuncTMP->maxnoise				= dstdval;
+	dfuncTMP->maxnoise				= std::min(max_noise,dstdval);
 	dfuncTMP->compute_infront		= true;
 	dfuncTMP->ggd					= true;
 	dfuncTMP->reset();
 
 	dfunc->computeModel(dvec);
-//exit(0);
-//	//	printf("dfunc->getNoise() = %f\n",dfunc->getNoise());
+
+	//printf("dfunc->getNoise() = %f\n",dfunc->getNoise());
+	//if(debugg){exit(0);}
 //	//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
 
 	GeneralizedGaussianDistribution * ggdnfunc	= new GeneralizedGaussianDistribution(true,true);
@@ -690,7 +709,7 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 	ggdnfunc->debugg_print			= false;
 	DistanceWeightFunction2PPR3 * nfuncTMP		= new DistanceWeightFunction2PPR3(ggdnfunc);
 	nfunc = nfuncTMP;
-	nfuncTMP->startreg				= 0.05;
+	nfuncTMP->startreg				= 10.05;
 	nfuncTMP->debugg_print			= debugg;
 	nfuncTMP->bidir					= false;
 	nfuncTMP->zeromean				= true;
@@ -729,9 +748,6 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 			bg_notocclusions[m] = 0.0;
 		}
 
-		if(debugg){
-			printf("SELF OCCLUSION\n");
-		}
 		for(unsigned int k = 0; k < model1->relativeposes.size(); k++){
 			Eigen::Matrix4d p = model1->relativeposes[k].inverse();
 			//testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,bg_overlaps, bg_occlusions, bg_notocclusions,model1->frames[k],debugg);
@@ -743,12 +759,7 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 		}
 
 		for(unsigned int j = 0; j < models.size(); j++){
-
 			if(i == j){continue;}
-
-			if(debugg){
-				printf("COMPARE %i to %i\n",i,j);
-			}
 
 			for(unsigned int m = 0; m < nr_pixels; m++){
 				current_overlaps[m] = 0;
@@ -759,18 +770,8 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 			Model * model2 = models[j];
 			//For all frames
 			for(unsigned int k = 0; k < model2->relativeposes.size(); k++){
-				Eigen::Matrix4d p;
-				//p = model2->relativeposes[k].inverse()*(rps[i].inverse() * rps[j]);
-				//testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,current_overlaps, current_occlusions, current_notocclusions,model2->frames[k],debugg);
-
-				p = model2->relativeposes[k].inverse()*(rps[j].inverse() * rps[i]);
+				Eigen::Matrix4d p = model2->relativeposes[k].inverse()*(rps[j].inverse() * rps[i]);
 				testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,current_overlaps, current_occlusions, current_notocclusions,model2->frames[k],debugg);
-
-				//p = model2->relativeposes[k].inverse()*(rps[i] * rps[j].inverse());
-				//testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,current_overlaps, current_occlusions, current_notocclusions,model2->frames[k],debugg);
-
-				//p = model2->relativeposes[k].inverse()*(rps[j].inverse() * rps[i].inverse());
-				//testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,current_overlaps, current_occlusions, current_notocclusions,model2->frames[k],debugg);
 			}
 
 			for(unsigned int m = 0; m < nr_pixels; m++){
@@ -793,6 +794,7 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 			occlusionScores[j][i].add(oc);
 
 			if(debugg){
+				printf("Occlusion: %f overlap %f ",occlusion_count,overlap_count);
 				printf("dfunc->getNoise() = %f\n",dfunc->getNoise());
 				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = getPointCloudFromVector(model1->points);
 				for(unsigned int ind = 0; ind < nr_pixels; ind++){

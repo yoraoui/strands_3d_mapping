@@ -125,7 +125,7 @@ bool testDynamicObjectServiceCallback(std::string path);
 bool dynamicObjectsServiceCallback(DynamicObjectsServiceRequest &req, DynamicObjectsServiceResponse &res);
 
 reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::string saveVisuals_sp = ""){
-	//printf("getAVMetaroom: %s\n",path.c_str());
+	printf("getAVMetaroom: %s\n",path.c_str());
 
 	if ( ! boost::filesystem::exists( path ) ){return 0;}
 
@@ -143,7 +143,7 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 	SimpleXMLParser<pcl::PointXYZRGB>::RoomData roomData  = parser.loadRoomFromXML(path,std::vector<std::string>{"RoomIntermediateCloud","IntermediatePosition"});
 
 	//printf("additional_nrviews: %i\n",additional_nrviews);
-	//printf("metaroom_nrviews: %i\n",roomData.vIntermediateRoomClouds.size());
+	printf("metaroom_nrviews: %i\n",roomData.vIntermediateRoomClouds.size());
 
 	std::vector<reglib::RGBDFrame * > frames;
 
@@ -212,7 +212,7 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 		quasimodo_brain::saveSuperPoints(sweep_folder+"/sweepmodel_superpoints.bin",sweepmodel->points,Eigen::Matrix4d::Identity(),1.0);
 	}
 	printf("sweepmodel fully loaded!\n");
-	if(true){return sweepmodel;}
+	//if(true){return sweepmodel;}
 
 	//Load rest of model if possible
 	std::vector<Eigen::Matrix4d> both_unrefined;
@@ -291,7 +291,6 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 	fullmodel->points			= sweepmodel->points;
 
 	std::vector<Eigen::Matrix4d> loadedPoses	= quasimodo_brain::readPoseXML(		sweep_folder+"/fullmodel_poses.xml");
-	std::vector<reglib::superpoint> spvec		= quasimodo_brain::getSuperPoints(	sweep_folder+"/fullmodel_superpoints.bin");
 
 	//Check if poses already computed
 	if(av_frames.size() > 0){
@@ -303,77 +302,28 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 			reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.01);
 			bgmassreg->timeout = 300;
 			bgmassreg->viewer = viewer;
-			bgmassreg->use_surface = true;
-			bgmassreg->use_depthedge = false;
 			bgmassreg->visualizationLvl = visualization_lvl_regref;
 			bgmassreg->maskstep = 5;
 			bgmassreg->nomaskstep = 5;
 			bgmassreg->nomask = true;
-			bgmassreg->stopval = 0.0005;
 			bgmassreg->addModel(sweepmodel);
 			bgmassreg->setData(av_frames,av_mm);
 			reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(both_unrefined);
 			delete bgmassreg;
 
-			reglib::RegistrationRefinement *	reg	= new reglib::RegistrationRefinement();
-			reglib::ModelUpdaterBasicFuse * mu	= new reglib::ModelUpdaterBasicFuse( fullmodel, reg);
-			mu->occlusion_penalty               = 3;
-			mu->massreg_timeout                 = 60*4;
-			mu->show_scoring					= false;
-			mu->viewer							= viewer;
-
-			std::vector<reglib::Model *> models;
-			models.push_back(sweepmodel);
-			for(unsigned int i = 0; i < av_frames.size(); i++){
-				reglib::Model * mod = new reglib::Model();
-				mod->frames.push_back(av_frames[i]);
-				mod->modelmasks.push_back(av_mm[i]);
-				mod->relativeposes.push_back(Eigen::Matrix4d::Identity());
-				mod->recomputeModelPoints();
-				models.push_back(mod);
-			}
-
-			std::vector< Eigen::Matrix4d> bgposes;
-			for (unsigned int i = 0; i < bgmfr.poses.size(); i++){
-				bgposes.push_back(bgmfr.poses[i]);
-			}
-
-			std::vector< std::vector < reglib::OcclusionScore > > ocs	= mu->computeOcclusionScore(models,bgposes,1,false);
-			std::vector<std::vector < float > > scores					= mu->getScores(ocs);
-			std::vector<int> partition									= mu->getPartition(scores,2,5,2);
-
-			for(unsigned int i = 0; i < scores.size(); i++){
-				for(unsigned int j = 0; j < scores.size(); j++){
-					if(scores[i][j] >= 0){printf(" ");}
-					printf("%5.5f ",0.00001*scores[i][j]);
-				}
-				printf("\n");
-			}
-			printf("partition "); for(unsigned int i = 0; i < partition.size(); i++){printf("%i ", partition[i]);} printf("\n");
-
-			int sweeppart = partition.front();
-
 			for(unsigned int i = 0; i < av_frames.size(); i++){
 				av_frames[i]->pose = sweepmodel->frames.front()->pose * bgmfr.poses[i+1];
-				if(partition[i] == sweeppart){
-					fullmodel->frames.push_back(av_frames[i]);
-					fullmodel->modelmasks.push_back(av_mm[i]);
-					fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
-				}else{
-					models[i+1]->fullDelete();
-				}
-				delete models[i+1];
+				fullmodel->frames.push_back(av_frames[i]);
+				fullmodel->modelmasks.push_back(av_mm[i]);
+				fullmodel->relativeposes.push_back(bgmfr.poses[i+1]);
 			}
 
-			delete reg;
-			delete mu;
 			quasimodo_brain::savePoses(sweep_folder+"/fullmodel_poses.xml", fullmodel->relativeposes);
 
 			std::ofstream myfile;
 			myfile.open (sweep_folder+"recomputeRelativePosesoutput.txt");
 			myfile << "dummy";
 			myfile.close();
-
 		}else{
 			for(unsigned int i = 0; i < av_frames.size(); i++){
 				fullmodel->frames.push_back(av_frames[i]);
@@ -381,7 +331,6 @@ reglib::Model * getAVMetaroom(std::string path, bool compute_edges = true, std::
 			}
 			fullmodel->relativeposes = loadedPoses;
 		}
-
 
 		fullmodel->points = sweepmodel->points;
 		if(loadedPoses.size() != fullmodel->frames.size()){//If poses changed, recompute superpoints
@@ -640,7 +589,6 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 				printf("peopleoverlaps: %i cloud_cluster->points.size(): %i\n",peopleoverlaps,cloud_cluster->points.size());
 
 				if(masks.size() > 0 && cloud_cluster->points.size() != 0){
-					printf("masks.size() : %i\n",masks.size());
 					if(peopleoverlaps == 0 && cloud_cluster->points.size() >= minClusterSize){
 
 						if(store_old_xml){
@@ -660,11 +608,11 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 							ss_obj<<boost::posix_time::to_simple_string(sweep.roomLogStartTime);
 							ss_obj<<"_object_";ss_obj<<(dynamicCounter-1);
 							std::string tmp = ss_obj.str();
-							printf("ss_obj.str(): %s\n",tmp.c_str());
+							//printf("ss_obj.str(): %s\n",tmp.c_str());
 							//roomObject->m_label = tmp;
 							roomObject->setLabel(tmp);
 							std::string xml_file = objectparser.saveAsXML(roomObject);
-							printf("xml_file: %s\n",xml_file.c_str());
+							//printf("xml_file: %s\n",xml_file.c_str());
 						}
 
 
@@ -679,7 +627,7 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 						//					std::cout << objectpcd.substr(0,objectpcd.size()-4) << std::endl;
 
 						sprintf(buf,"%s/dynamic_obj%10.10i.xml",sweep_folder.c_str(),dynamicCounter-1);
-						printf("saving dynamic objec: %s\n",buf);
+						printf("saving dynamic objec: %s :: masks.size() : %i\n",buf,masks.size());
 						QFile file(buf);
 						if (file.exists()){file.remove();}
 						if (!file.open(QIODevice::ReadWrite | QIODevice::Text)){std::cerr<<"Could not open file "<< buf <<" to save dynamic object as XML"<<std::endl;}
@@ -743,7 +691,7 @@ int processMetaroom(CloudPtr dyncloud, std::string path, bool store_old_xml = tr
 							sprintf(buf2,"/home/johane/imgregion/region%10.10i.png",totalcounter++);
 							cv::imwrite(buf2, localimg );
 
-							printf("saving dynamic mask: dynamicmask_%i_%i.png\n",dynamicCounter-1,imgnr[j]);
+							//printf("saving dynamic mask: dynamicmask_%i_%i.png\n",dynamicCounter-1,imgnr[j]);
 
 							sprintf(buf,"dynamicmask_%i_%i.png",dynamicCounter-1,imgnr[j]);
 							xmlWriter->writeStartElement("Mask");
@@ -1422,7 +1370,7 @@ void processSweep(std::string path, std::string savePath){
 
 	CloudPtr dyncloud (new Cloud());
 	int ret = processMetaroom(dyncloud,path);
-	printf("ret: %i\n",ret);
+
 	std_msgs::String msg;
 	if(ret == 0){
 		ROS_ERROR_STREAM("Xml file does not exist. Aborting.");
@@ -1431,9 +1379,7 @@ void processSweep(std::string path, std::string savePath){
 
 	if(ret == 1){ROS_ERROR_STREAM("First metaroom.");}
 	if(ret == 2){ROS_ERROR_STREAM("No moving objects found.");}
-	if(ret == 3){ROS_ERROR_STREAM("Moving objects found.");}
-
-
+	if(ret == 3){ROS_ERROR_STREAM("Objects found.");}
 
 	sensor_msgs::PointCloud2 input;
 	pcl::toROSMsg (*dyncloud,input);
@@ -1443,8 +1389,6 @@ void processSweep(std::string path, std::string savePath){
 
 	roomObservationCallback_pubs.publish(input);
 
-
-	printf("m_PublisherStatuss.size(): %i\n",m_PublisherStatuss.size());
 	for(unsigned int i = 0; i < m_PublisherStatuss.size(); i++){m_PublisherStatuss[i].publish(msg);}
 
 	//Send the previous room to the modelserver...
@@ -1521,7 +1465,7 @@ void add_soma_id_callback(const std_msgs::String::ConstPtr& msg){
 		CloudPtr dyncloud (new Cloud());
 		int ret = processMetaroom(dyncloud,lastSweep);
 		//if(prevind >= 0){
-		sendRoomToSomaLLSD(lastSweep);
+		//sendRoomToSomaLLSD(lastSweep);
 		sendMetaroomToServer(lastSweep);
 		//}
 	}else{

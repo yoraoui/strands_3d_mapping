@@ -1142,7 +1142,7 @@ void RGBDFrame::save(std::string path){
 }
 
 void RGBDFrame::saveFast(std::string path){
-	printf("saveFast(%s) keyval: %s\n",path.c_str(),keyval.c_str());
+	//printf("saveFast(%s) keyval: %s\n",path.c_str(),keyval.c_str());
 	double startTime = getTime();
 
 	const unsigned int width	= camera->width;

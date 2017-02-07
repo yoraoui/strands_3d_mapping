@@ -254,9 +254,7 @@ double startTime = getTime();
 		if(sumtimeOK != 0){meantime = sumtimeSum/double(sumtimeOK+1.0);}
 		refinement->maxtime = 5.0;//std::min(0.5,3*meantime);
 		//refinement->maxtime = std::min(0.5,3*meantime);
-		if(refinement->visualizationLvl > 0){
-			refinement->maxtime = 99999;
-		}
+		if(refinement->visualizationLvl > 0){refinement->maxtime = 99999;}
 
 		Eigen::Affine3d randomrot = Eigen::Affine3d::Identity();
 		randomrot =	Eigen::AngleAxisd(rxs[r], Eigen::Vector3d::UnitX()) *
@@ -329,7 +327,7 @@ double startTime = getTime();
 		refinement->visualizationLvl = visualizationLvl;
 		refinement->target_points = 1000000;
 		refinement->maxtime = 10000;
-		for(unsigned int ax = 0; ax < fr_X.size() && ax < 5; ax++){
+		for(unsigned int ax = 0; ax < fr_X.size() && ax < 50; ax++){
 			printf("%i -> %f\n",ax,fr_X[ax].score);
 			std::cout << fr_X[ax].guess << std::endl << std::endl;
 			refinement->getTransform(fr_X[ax].guess);
