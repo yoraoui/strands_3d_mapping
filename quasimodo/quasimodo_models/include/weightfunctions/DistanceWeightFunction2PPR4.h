@@ -1,5 +1,5 @@
-#ifndef DistanceWeightFunction2PPR3_H
-#define DistanceWeightFunction2PPR3_H
+#ifndef DistanceWeightFunction2PPR4_H
+#define DistanceWeightFunction2PPR4_H
 
 #include <cmath>
 #include <sys/time.h>
@@ -25,7 +25,7 @@
 using namespace Eigen;
 namespace reglib{
 
-class DistanceWeightFunction2PPR3 : public DistanceWeightFunction2
+class DistanceWeightFunction2PPR4 : public DistanceWeightFunction2
 {
 public:
 
@@ -72,19 +72,19 @@ public:
 	bool ggd;
 	bool compute_infront;
 
-//    std::vector<float> prob;
-//    std::vector<float> infront;
-//    std::vector<float> histogram;
-//    std::vector<float> blur_histogram;
-//    std::vector<float> noise;
-//    std::vector<float> noisecdf;
+    std::vector<float> prob;
+    std::vector<float> infront;
+    std::vector<float> histogram;
+    std::vector<float> blur_histogram;
+    std::vector<float> noise;
+    std::vector<float> noisecdf;
 
-    float * prob;
-    float * infront;
-    float * histogram;
-    float * blur_histogram;
-    float * noise;
-    float * noisecdf;
+//    float * prob;
+//    float * infront;
+//    float * histogram;
+//    float * blur_histogram;
+//    float * noise;
+//    float * noisecdf;
 
 	int nr_refineiters;
 	bool refine_mean;
@@ -112,18 +112,15 @@ public:
     int max_histogram_size;
 
 
-    double reg_shrinkage;
-
-
     virtual DistanceWeightFunction2 * clone();
 
-    DistanceWeightFunction2PPR3(Distribution * dist,	double maxd_	= 0.25, int histogram_size_ = 25000);
+    DistanceWeightFunction2PPR4(Distribution * dist,	double maxd_	= 0.25, int histogram_size_ = 25000);
 
-    DistanceWeightFunction2PPR3(	double maxd_	= 0.25, int histogram_size_ = 25000);
-    ~DistanceWeightFunction2PPR3();
+    DistanceWeightFunction2PPR4(	double maxd_	= 0.25, int histogram_size_ = 25000);
+    ~DistanceWeightFunction2PPR4();
 
-    void recomputeHistogram(float * hist, double * vec, unsigned int nr_data);
-    virtual void recomputeHistogram(float * hist, MatrixXd & mat);
+    void recomputeHistogram(std::vector<float> & hist, double * vec, unsigned int nr_data);
+    virtual void recomputeHistogram(std::vector<float> & hist, MatrixXd & mat);
     virtual void recomputeProbs();
 
     void initComputeModel();
@@ -144,4 +141,4 @@ public:
 
 }
 
-#endif // DistanceWeightFunction2PPR3test_H
+#endif // DistanceWeightFunction2PPR4test_H

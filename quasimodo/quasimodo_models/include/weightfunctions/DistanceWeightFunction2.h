@@ -41,15 +41,20 @@ public:
 	double convergence_threshold;
 	bool debugg_print;
 
-	std::string savePath;
+    std::string name;
+
+    std::string savePath;
 	std::stringstream saveData;
 
 	DistanceWeightFunction2();
 	~DistanceWeightFunction2();
 
+    virtual DistanceWeightFunction2 * clone();
+
 	MatrixXd getMat(std::vector<double> & vec);
 
-	virtual void computeModel(std::vector<double> & vec);
+    virtual void computeModel(std::vector<double> & vec);
+    virtual void computeModel(double * vec, unsigned int nr_data, unsigned int dim = 1);
 	virtual void computeModel(MatrixXd mat);
 	virtual VectorXd getProbs(std::vector<double> & vec);
 	virtual VectorXd getProbs(MatrixXd mat);

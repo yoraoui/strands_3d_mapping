@@ -734,6 +734,48 @@ double DistanceWeightFunction2PPR::getConvergenceThreshold(){
 	}
 	//return convergence_threshold;
 }
+
+DistanceWeightFunction2 * DistanceWeightFunction2PPR::clone(){
+    DistanceWeightFunction2PPR * func = new DistanceWeightFunction2PPR();
+    func->name                      = name;
+    func->f                         = f;
+    func->p                         = p;
+    func->regularization            = regularization;
+    func->convergence_threshold     = convergence_threshold;
+    func->debugg_print              = debugg_print;
+    func->savePath                  = savePath;
+    func->stdval                    = stdval;
+    func->mulval                    = mulval;
+    func->meanval                   = meanval;
+    func->maxd                      = maxd;
+    func->histogram_size            = histogram_size;
+    func->blurval = blurval;
+    func->stdgrow = stdgrow;
+    func->noiseval = noiseval;
+    func->startreg = startreg;
+    func->update_size = update_size;
+    func->target_length = target_length;
+    func->data_per_bin = data_per_bin;
+    func->meanoffset = meanoffset;
+    func->blur = blur;
+    func->start_maxd = start_maxd;
+    func->prob = prob;
+    func->histogram = histogram;
+    func->smallblur_histogram = smallblur_histogram;
+    func->blur_histogram = blur_histogram;
+    func->noise = noise;
+    func->max_under_mean = max_under_mean;
+    func->interp = interp;
+    func->threshold = threshold;
+    func->uniform_bias = uniform_bias;
+    func->scale_convergence = scale_convergence;
+    func->nr_inliers = nr_inliers;
+    func->maxp = maxp;
+    func->bidir = bidir;
+    func->iter = iter;
+
+    return func;
+}
 }
 
 

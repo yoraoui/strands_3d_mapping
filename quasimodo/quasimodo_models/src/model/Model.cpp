@@ -58,6 +58,138 @@ void Model::getData(std::vector<Eigen::Matrix4d> & po, std::vector<RGBDFrame*> &
 	}
 }
 
+void Model::mergeKeyPoints(Model * model, Eigen::Matrix4d p){
+    const double & m00 = p(0,0); const double & m01 = p(0,1); const double & m02 = p(0,2); const double & m03 = p(0,3);
+    const double & m10 = p(1,0); const double & m11 = p(1,1); const double & m12 = p(1,2); const double & m13 = p(1,3);
+    const double & m20 = p(2,0); const double & m21 = p(2,1); const double & m22 = p(2,2); const double & m23 = p(2,3);
+
+    std::vector<KeyPoint> & kps = model->keypoints;
+
+    for(unsigned int i = 0; i < kps.size(); i++){
+        superpoint & sp = kps[i].point;
+        const double x = sp.x;
+        const double y = sp.y;
+        const double z = sp.z;
+        const double nx = sp.nx;
+        const double ny = sp.ny;
+        const double nz = sp.nz;
+
+        sp.x = m00*x + m01*y + m02*z + m03;
+        sp.y = m10*x + m11*y + m12*z + m13;
+        sp.z = m20*x + m21*y + m22*z + m23;
+        sp.nx = m00*nx + m01*ny + m02*nz;
+        sp.ny = m10*nx + m11*ny + m12*nz;
+        sp.nz = m20*nx + m21*ny + m22*nz;
+    }
+
+    unsigned int d_nrp = keypoints.size();
+    if(d_nrp == 0){keypoints = kps;}
+    else{
+        double * dp = new double[3*d_nrp];
+        //printf("d_nrp: %i\n",d_nrp);
+
+
+        for(unsigned int i = 0; i < d_nrp; i++){
+            superpoint & p = keypoints[i].point;
+            dp[3*i+0]   = p.x;
+            dp[3*i+1]   = p.y;
+            dp[3*i+2]   = p.z;
+        }
+
+        ArrayData3D<double> * a3d = new ArrayData3D<double>;
+        a3d->data	= dp;
+        a3d->rows	= d_nrp;
+        Tree3d * trees3d	= new Tree3d(3, *a3d, nanoflann::KDTreeSingleIndexAdaptorParams(10));
+        trees3d->buildIndex();
+        //keypoints = kps;
+
+        int capacity = 1;
+        size_t * ret_indexes = new size_t[capacity];
+        double * out_dists_sqr = new double[capacity];
+        nanoflann::KNNResultSet<double> resultSet(capacity);
+        std::vector<int> matches;
+        matches.resize(kps.size());
+
+        //printf("kps.size()): %i\n",kps.size());
+
+        std::vector<double> residuals;
+        double stdval = 0;
+
+        double tsp [3];
+        for(unsigned int i = 0; i < kps.size(); i++){
+            superpoint & sp = kps[i].point;
+
+
+            tsp[0] = sp.x;
+            tsp[1] = sp.y;
+            tsp[2] = sp.z;
+
+            resultSet.init(ret_indexes, out_dists_sqr);
+            trees3d->findNeighbors(resultSet,tsp, nanoflann::SearchParams(10));
+            unsigned int id = ret_indexes[0];
+
+            matches[i] = id;
+
+            superpoint & skp = keypoints[id].point;
+
+            double rangew = sqrt( 1.0/(1.0/skp.point_information +1.0/sp.point_information) );
+
+            double dx = rangew * (tsp[0]-dp[3*id+0]);
+            double dy = rangew * (tsp[1]-dp[3*id+1]);
+            double dz = rangew * (tsp[2]-dp[3*id+2]);
+
+            residuals.push_back(dx);
+            residuals.push_back(dy);
+            residuals.push_back(dz);
+            stdval += dx*dx+dy*dy+dz*dz;
+        }
+
+
+        stdval = sqrt(stdval/double(kps.size()*3 -1 ));
+
+        DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
+        func->zeromean				= true;
+        func->maxp					= 0.99;
+        func->startreg				= 0.0005;
+        func->debugg_print			= false;
+        func->maxd					= 0.1;
+        func->startmaxd				= func->maxd;
+        func->histogram_size		= 100;
+        func->starthistogram_size	= func->histogram_size;
+        func->stdval2				= stdval;
+        func->maxnoise				= stdval;
+        func->reset();
+        ((DistanceWeightFunction2*)func)->computeModel(residuals);
+
+        printf("===================================\n");
+        printf("before keypoints.size(): %i kps.size(): %i\n",keypoints.size(),kps.size());
+        for(unsigned int i = 0; i < kps.size(); i++){
+            KeyPoint & sp1 = kps[i];
+            KeyPoint & sp2 = keypoints[matches[i]];
+
+            double probX = func->getProb(residuals[3*i+0]);
+            double probY = func->getProb(residuals[3*i+1]);
+            double probZ = func->getProb(residuals[3*i+2]);
+            double prob = probX*probY*probZ/(probX*probY*probZ + (1-probX)*(1-probY)*(1-probZ));
+
+            if(prob > 0.5){
+                sp2.merge(sp1);
+            }else{
+                keypoints.push_back(sp1);
+            }
+
+        }
+        printf("after keypoints.size(): %i\n",keypoints.size());
+
+        delete func;
+        delete[] out_dists_sqr;
+        delete[] ret_indexes;
+        delete trees3d;
+        delete a3d;
+        delete[] dp;
+    }
+}
+
 void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* frame, ModelMask* modelmask, boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer){
 	Camera * camera				= frame->camera;
 	const unsigned int width	= camera->width;
@@ -75,6 +207,9 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 	bool * maskvec							= modelmask->maskvec;
 	std::vector<ReprojectionResult> rr_vec	= frame->getReprojections(spvec,p.inverse(),modelmask->maskvec,false);
 	std::vector<superpoint> framesp			= frame->getSuperPoints(p);
+
+
+    for(unsigned long ind = 0; ind < nr_pixels;ind++){framesp[ind].last_update_frame_id = last_changed;}
 
 	unsigned long nr_rr = rr_vec.size();
 	if(nr_rr > 10){
@@ -97,7 +232,7 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 		DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
 		func->zeromean				= true;
 		func->maxp					= 0.99;
-		func->startreg				= 0.001;
+        func->startreg				= 0.00;
 		func->debugg_print			= false;
 		func->maxd					= 0.1;
 		func->startmaxd				= func->maxd;
@@ -466,6 +601,7 @@ void Model::addFrameToModel(RGBDFrame * frame,  ModelMask * modelmask, Eigen::Ma
 }
 
 void Model::merge(Model * model, Eigen::Matrix4d p){
+    printf("merge: %i\n",__LINE__);
 	for(unsigned int i = 0; i < model->frames.size(); i++){
 		relativeposes.push_back(p * model->relativeposes[i]);
 		frames.push_back(model->frames[i]);
@@ -481,49 +617,49 @@ void Model::merge(Model * model, Eigen::Matrix4d p){
 	recomputeModelPoints();
 }
 
-CloudData * Model::getCD(unsigned int target_points){
-	std::vector<unsigned int> ro;
-	unsigned int nc = points.size();
-	ro.resize(nc);
-	for(unsigned int i = 0; i < nc; i++){ro[i] = i;}
-	for(unsigned int i = 0; i < nc; i++){
-		unsigned int randval = rand();
-		unsigned int rind = randval%nc;
-		int tmp = ro[i];
-		ro[i] = ro[rind];
-		ro[rind] = tmp;
-	}
-	//Build registration input
-	unsigned int nr_points = std::min(unsigned(points.size()),target_points);
-	MatrixXd data			(6,nr_points);
-	MatrixXd data_normals	(3,nr_points);
-	MatrixXd information	(6,nr_points);
+//CloudData * Model::getCD(unsigned int target_points){
+//	std::vector<unsigned int> ro;
+//	unsigned int nc = points.size();
+//	ro.resize(nc);
+//	for(unsigned int i = 0; i < nc; i++){ro[i] = i;}
+//	for(unsigned int i = 0; i < nc; i++){
+//		unsigned int randval = rand();
+//		unsigned int rind = randval%nc;
+//		int tmp = ro[i];
+//		ro[i] = ro[rind];
+//		ro[rind] = tmp;
+//	}
+//	//Build registration input
+//	unsigned int nr_points = std::min(unsigned(points.size()),target_points);
+//	MatrixXd data			(6,nr_points);
+//	MatrixXd data_normals	(3,nr_points);
+//	MatrixXd information	(6,nr_points);
 
-	for(unsigned int k = 0; k < nr_points; k++){
-		superpoint & p		= points[ro[k]];
-		data(0,k)			= p.x;
-		data(1,k)			= p.y;
-		data(2,k)			= p.z;
-		data(3,k)			= p.r;
-		data(4,k)			= p.g;
-		data(5,k)			= p.b;
-		data_normals(0,k)	= p.nx;
-		data_normals(1,k)	= p.ny;
-		data_normals(2,k)	= p.nz;
-		information(0,k)	= p.point_information;
-		information(1,k)	= p.point_information;
-		information(2,k)	= p.point_information;
-		information(3,k)	= p.colour_information;
-		information(4,k)	= p.colour_information;
-		information(5,k)	= p.colour_information;
-	}
+//	for(unsigned int k = 0; k < nr_points; k++){
+//		superpoint & p		= points[ro[k]];
+//		data(0,k)			= p.x;
+//		data(1,k)			= p.y;
+//		data(2,k)			= p.z;
+//		data(3,k)			= p.r;
+//		data(4,k)			= p.g;
+//		data(5,k)			= p.b;
+//		data_normals(0,k)	= p.nx;
+//		data_normals(1,k)	= p.ny;
+//		data_normals(2,k)	= p.nz;
+//		information(0,k)	= p.point_information;
+//		information(1,k)	= p.point_information;
+//		information(2,k)	= p.point_information;
+//		information(3,k)	= p.colour_information;
+//		information(4,k)	= p.colour_information;
+//		information(5,k)	= p.colour_information;
+//	}
 
-	CloudData * cd			= new CloudData();
-	cd->data				= data;
-	cd->information			= information;
-	cd->normals				= data_normals;
-	return cd;
-}
+//	CloudData * cd			= new CloudData();
+//	cd->data				= data;
+//	cd->information			= information;
+//	cd->normals				= data_normals;
+//	return cd;
+//}
 
 Model::~Model(){
     //printf("delete(%i) -> %s\n",long(this),keyval.c_str());
@@ -587,29 +723,248 @@ pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr Model::getPCLnormalcloud(int step, 
 }
 
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr Model::getPCLcloud(int step, bool color){
-	int rr = 50+rand()%205;
-	int rg = 50+rand()%205;
-	int rb = 50+rand()%205;
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
-	for(unsigned int i = 0; i < points.size(); i+=step){
-		superpoint & sp = points[i];
-		pcl::PointXYZRGB p;
-		p.x = sp.x;
-		p.y = sp.y;
-		p.z = sp.z;
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
+    for(unsigned int i = 0; i < points.size(); i+=step){
+        superpoint & sp = points[i];
+        pcl::PointXYZRGB p;
+        p.x = sp.x;
+        p.y = sp.y;
+        p.z = sp.z;
 
-		if(color){
-			p.b =   rb;
-			p.g =   rg;
-			p.r =   rr;
-		}else{
-			p.b = sp.r;
-			p.g = sp.g;
-			p.r = sp.b;
-		}
-		cloud_ptr->points.push_back(p);
-	}
-	return cloud_ptr;
+        if(color){
+            p.b =   0;
+            p.g = 255;
+            p.r =   0;
+        }else{
+            p.b = sp.r;
+            p.g = sp.g;
+            p.r = sp.b;
+        }
+        cloud_ptr->points.push_back(p);
+    }
+    return cloud_ptr;
+}
+
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr Model::getPCLEdgeCloud(int step, int type){
+
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
+
+    int rr = 55 + rand()%200;
+    int rg = 55 + rand()%200;
+    int rb = 55 + rand()%200;
+    for(unsigned int i = 0; i < color_edgepoints.size(); i+=step){
+        superpoint & sp = color_edgepoints[i];
+        pcl::PointXYZRGB p;
+        p.x = sp.x;
+        p.y = sp.y;
+        p.z = sp.z;
+
+        if(type == 0){
+            p.b =   0;
+            p.g =   0;
+            p.r =   255;
+        }
+
+        if(type == 1){
+            p.b = sp.r;
+            p.g = sp.g;
+            p.r = sp.b;
+        }
+
+        if(type == 2){
+            p.b = rb;
+            p.g = rg;
+            p.r = rr;
+        }
+
+        if(type == 3){
+            if(sp.is_boundry){
+                p.b = 0;
+                p.g = 0;
+                p.r = 0;
+            }else{
+                p.b = 255*fabs(sp.nz);
+                p.g = 255*fabs(sp.ny);
+                p.r = 255*fabs(sp.nx);
+            }
+        }
+
+        cloud_ptr->points.push_back(p);
+    }
+    return cloud_ptr;
+}
+
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr Model::getPCLcloud(int step, int type){
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
+
+    int rr = 55 + rand()%200;
+    int rg = 55 + rand()%200;
+    int rb = 55 + rand()%200;
+    for(unsigned int i = 0; i < points.size(); i+=step){
+        superpoint & sp = points[i];
+        pcl::PointXYZRGB p;
+        p.x = sp.x;
+        p.y = sp.y;
+        p.z = sp.z;
+
+        if(type == 0){
+            p.b =   0;
+            p.g = 255;
+            p.r =   0;
+        }
+
+        if(type == 1){
+            p.b = sp.r;
+            p.g = sp.g;
+            p.r = sp.b;
+        }
+
+        if(type == 2){
+            p.b = rb;
+            p.g = rg;
+            p.r = rr;
+        }
+
+        if(type == 3){
+            if(sp.is_boundry){
+                p.b = 0;
+                p.g = 0;
+                p.r = 0;
+            }else{
+                p.b = 255*fabs(sp.nz);
+                p.g = 255*fabs(sp.ny);
+                p.r = 255*fabs(sp.nx);
+            }
+        }
+
+        cloud_ptr->points.push_back(p);
+    }
+    return cloud_ptr;
+}
+
+void Model::mergePoints( std::vector<superpoint> & spoints, std::vector<superpoint> & dpoints, Eigen::Matrix4d p){
+    const double & m00 = p(0,0); const double & m01 = p(0,1); const double & m02 = p(0,2); const double & m03 = p(0,3);
+    const double & m10 = p(1,0); const double & m11 = p(1,1); const double & m12 = p(1,2); const double & m13 = p(1,3);
+    const double & m20 = p(2,0); const double & m21 = p(2,1); const double & m22 = p(2,2); const double & m23 = p(2,3);
+
+
+    unsigned int s_nrp = spoints.size();
+    unsigned int d_nrp = dpoints.size();
+    for(unsigned int i = 0; i <d_nrp; i++){
+        superpoint & sp = dpoints[i];
+        const double x = sp.x;
+        const double y = sp.y;
+        const double z = sp.z;
+        const double nx = sp.nx;
+        const double ny = sp.ny;
+        const double nz = sp.nz;
+
+        sp.x = m00*x + m01*y + m02*z + m03;
+        sp.y = m10*x + m11*y + m12*z + m13;
+        sp.z = m20*x + m21*y + m22*z + m23;
+        sp.nx = m00*nx + m01*ny + m02*nz;
+        sp.ny = m10*nx + m11*ny + m12*nz;
+        sp.nz = m20*nx + m21*ny + m22*nz;
+    }
+
+
+    if(s_nrp == 0){spoints = dpoints;}
+    else{
+        double * sp = new double[3*s_nrp];
+        for(unsigned int i = 0; i < s_nrp; i++){
+            superpoint & p = spoints[i];
+            sp[3*i+0]   = p.x;
+            sp[3*i+1]   = p.y;
+            sp[3*i+2]   = p.z;
+        }
+
+        ArrayData3D<double> * a3d = new ArrayData3D<double>;
+        a3d->data	= sp;
+        a3d->rows	= s_nrp;
+        Tree3d * trees3d	= new Tree3d(3, *a3d, nanoflann::KDTreeSingleIndexAdaptorParams(10));
+        trees3d->buildIndex();
+//        //keypoints = kps;
+
+        int capacity = 1;
+        size_t * ret_indexes = new size_t[capacity];
+        double * out_dists_sqr = new double[capacity];
+        nanoflann::KNNResultSet<double> resultSet(capacity);
+        std::vector<int> matches;
+        matches.resize(d_nrp);
+
+        std::vector<double> residuals;
+        double stdval = 0;
+        double tdp [3];
+        for(unsigned int i = 0; i < d_nrp; i++){
+            superpoint & dp = dpoints[i];
+            tdp[0] = dp.x;
+            tdp[1] = dp.y;
+            tdp[2] = dp.z;
+
+            resultSet.init(ret_indexes, out_dists_sqr);
+            trees3d->findNeighbors(resultSet,tdp, nanoflann::SearchParams(10));
+            unsigned int id = ret_indexes[0];
+
+            matches[i] = id;
+
+            superpoint & skp = spoints[id];
+
+            double rangew = sqrt( 1.0/(1.0/skp.point_information +1.0/dp.point_information) );
+
+            double dx = rangew * (tdp[0]-sp[3*id+0]);
+            double dy = rangew * (tdp[1]-sp[3*id+1]);
+            double dz = rangew * (tdp[2]-sp[3*id+2]);
+
+            residuals.push_back(dx);
+            residuals.push_back(dy);
+            residuals.push_back(dz);
+            stdval += dx*dx+dy*dy+dz*dz;
+        }
+
+
+        stdval = sqrt(stdval/double(d_nrp*3 -1 ));
+
+        DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
+        func->zeromean				= true;
+        func->maxp					= 0.99;
+        func->startreg				= 0.0005;
+        func->debugg_print			= false;
+        func->maxd					= 0.1;
+        func->startmaxd				= func->maxd;
+        func->histogram_size		= 100;
+        func->starthistogram_size	= func->histogram_size;
+        func->stdval2				= stdval;
+        func->maxnoise				= stdval;
+        func->reset();
+        ((DistanceWeightFunction2*)func)->computeModel(residuals);
+
+        printf("===================================\n");
+        printf("before s_nrp: %i d_nrp.size(): %i\n",s_nrp,d_nrp);
+        for(unsigned int i = 0; i < d_nrp; i++){
+            superpoint & sp1 = dpoints[i];
+            superpoint & sp2 = spoints[matches[i]];
+
+            double probX = func->getProb(residuals[3*i+0]);
+            double probY = func->getProb(residuals[3*i+1]);
+            double probZ = func->getProb(residuals[3*i+2]);
+            double prob = probX*probY*probZ/(probX*probY*probZ + (1-probX)*(1-probY)*(1-probZ));
+
+            if(prob > 0.5){
+                sp2.merge(sp1);
+            }else{
+                spoints.push_back(sp1);
+            }
+
+        }
+        printf("after s_nrp: %i\n",spoints.size());
+
+        delete   func;
+        delete[] out_dists_sqr;
+        delete[] ret_indexes;
+        delete   trees3d;
+        delete   a3d;
+        delete[] sp;
+    }
 }
 
 void Model::save(std::string path){
@@ -776,9 +1131,7 @@ void Model::save(std::string path){
 
 
 void Model::saveFast(std::string path){
-	//printf("Model::saveFast(%s)\n",path.c_str());
-	//printf("%i %i %i and %i %i %i\n",relativeposes.size(),frames.size(),modelmasks.size(),rep_relativeposes.size(),rep_frames.size(),rep_modelmasks.size());
-
+    //printf("Model::saveFast(%s)\n",path.c_str());
 
 	double startTime = getTime();
 	pointspath = path+"points.bin";
@@ -824,22 +1177,15 @@ void Model::saveFast(std::string path){
 	std::vector<std::string> spms;
 	for(unsigned int k = 0; k < frames.size();k++){
 		std::string spm = modelmasks[k]->savepath;
-		//printf("spm before: %s ",spm.c_str());
 		spm = spm.substr(path.length(),spm.length());
-
-		//printf("spm after: %s\n",spm.c_str());
 		spms.push_back(spm);
 	}
 
 	std::vector<std::string> rep_spms;
 	for(unsigned int k = 0; k < rep_frames.size();k++){
-		//printf("%i::%i / %i\n",__LINE__,k,rep_modelmasks.size());
 		std::string spm = rep_modelmasks[k]->savepath;
-		//printf("rep_spm before: %s ",spm.c_str());
 		spm = spm.substr(path.length(),spm.length());
-		//printf("rep_spm after: %s\n",spm.c_str());
 		rep_spms.push_back(spm);
-		//printf("PART 1 SAVING: rep_frames[k]->keyval.length() = %i\n",rep_frames[k]->keyval.length());
 	}
 
 	unsigned long buffersize = 2*sizeof(double)+10*sizeof(unsigned long)+keyval.length()+soma_id.length()+retrieval_object_id.length()+retrieval_vocabulary_id.length();
@@ -939,10 +1285,6 @@ void Model::saveFast(std::string path){
 		Eigen::Matrix4d pose = rep_relativeposes[k];
 		buffer_long[counter++] = rep_frames[k]->keyval.length();
 		buffer_long[counter++] = rep_spms[k].length();
-
-		//printf("SAVING: rep_frames[k]->keyval.length() = %i\n",rep_frames[k]->keyval.length());
-		//printf("SAVING: rep_spms[k].length() = %i\n",rep_frames[k]->keyval.length());
-
 		for(int i = 0; i < 4; i++){
 			for(int j = 0; j < 4; j++){
 				buffer_double[counter++] = pose(i,j);
@@ -1138,7 +1480,6 @@ Model * Model::loadFast(std::string path){
 					pose(i,j) = buffer_double[counter++];
 				}
 			}
-			std::cout << pose << std::endl << std::endl;
 		}
 
 		unsigned int count4 = sizeof(double)*counter;
@@ -1204,9 +1545,8 @@ Model * Model::loadFast(std::string path){
 		//printf("---------------------------\n");
 
 		//Set up to use already loaded frames
-		//printf("LOADED rep_framessize: %i\n",rep_framessize);
+        //printf("rep_framessize: %i\n",rep_framessize);
 		for(unsigned int k = 0; k < rep_framessize;k++){
-			//printf("rep_frames_keyvallength: %i\n",rep_frames_keyvallength[k]);
 			std::string rep_frames_keyval;
 			rep_frames_keyval.resize(rep_frames_keyvallength[k]);
 			for(unsigned int i = 0; i < rep_frames_keyvallength[k];i++){
@@ -1217,14 +1557,12 @@ Model * Model::loadFast(std::string path){
 			for(unsigned int i = 0; i < rep_spms_length[k];i++){
 				rep_spm[i] = buffer[count4++];
 			}
-			//printf("rep_spm: %s\n",rep_spm.c_str());
             RGBDFrame * frame = 0;
             ModelMask * modelmask = 0;
-			mod->getRepFrame(frame,modelmask,rep_frames_keyval);
-			//mod->getRepFrame(frame,modelmask,rep_spm);
+            mod->getRepFrame(frame,modelmask,rep_frames_keyval);
             mod->rep_frames.push_back(frame);
             mod->rep_modelmasks.push_back(modelmask);
-			//mod->rep_frames.back()->show(true);
+            //frame->show(true);
 		}
 	}
 	//if(mod->parrent == 0){printf("Model::loadFast(%s): %7.7fs\n",path.c_str(),getTime()-startTime);}
@@ -1294,30 +1632,28 @@ Model * Model::load(Camera * cam, std::string path){
 }
 
 void Model::getRepFrame(RGBDFrame * & frame, ModelMask * & modelmask, std::string keyval){
-	//printf("getRepFrame(%s)\n",keyval.c_str());
-	if(keyval.length() == 0){return;}
-	for(unsigned int i = 0; i < modelmasks.size(); i++){
-		//printf("comparing %s to %s\n",keyval.c_str(),frames[i]->keyval.c_str());
-		if(frames[i]->keyval.compare(keyval) == 0){
-			//printf("AND WE HAVE A WINNER\n");
-			frame = frames[i];
-			modelmask = modelmasks[i];
-			return;
-		}
-	}
+    if(keyval.length() == 0){return;}
+    for(unsigned int i = 0; i < frames.size(); i++){
+        if(frames[i]->keyval.compare(keyval) == 0){
+            frame = frames[i];
+            modelmask = modelmasks[i];
+            return;
+        }
+    }
 
-	for(unsigned int i = 0; i < submodels.size(); i++){
-		RGBDFrame * fr = 0;
-		ModelMask * mm = 0;
-		submodels[i]->getRepFrame(fr,mm,keyval);
-		if(fr != 0){
-			frame = fr;
-			modelmask = mm;
-			return;
-		}
-	}
-	return;
+    for(unsigned int i = 0; i < submodels.size(); i++){
+        RGBDFrame * fr = 0;
+        ModelMask * mm = 0;
+        submodels[i]->getRepFrame(fr,mm,keyval);
+        if(fr != 0){
+            frame = fr;
+            modelmask = mm;
+            return;
+        }
+    }
+    return;
 }
+
 
 }
 

@@ -27,6 +27,8 @@
 #include "../core/Util.h"
 #include "../model/Model.h"
 
+#include "Registration.h"
+
 namespace reglib
 {
 /*
@@ -46,6 +48,7 @@ namespace reglib
 		public:
 
 		std::vector<Eigen::Matrix4d> poses;
+        std::vector<double> scores;
 		double score;
 
 		MassFusionResults(){score = -1;}
@@ -102,5 +105,6 @@ namespace reglib
 
 #include "MassRegistrationPPR.h"
 #include "MassRegistrationPPR2.h"
+#include "MassRegistrationPPR3.h"
 
 #endif // MassRegistration_H

@@ -41,7 +41,11 @@ public:
     GeneralizedGaussianDistribution(bool refine_std_ = true, bool refine_power_ = false, bool zeromean = true, bool refine_mean = false, bool refine_mul = false, double costpen_ = 3,int nr_refineiters_ = 1,double mul_ = 1, double mean_ = 0,	double stdval_ = 1, double power_ = 2);
     //GeneralizedGaussianDistribution(double mul_ = 1, double mean_ = 0,	double stdval_ = 1);
     ~GeneralizedGaussianDistribution();
+
+
+    virtual Distribution * clone();
     virtual void train(std::vector<float> & hist, unsigned int nr_bins = 0);
+    virtual void train(float * hist, unsigned int nr_bins);
     virtual void update();
 	virtual double getInp(double x = 0);
     virtual double getNoise();
@@ -58,6 +62,12 @@ public:
     double fitMean3     (double mul, double mean, double std_mid, double power, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen);
     double fitMul3      (double mul, double mean, double std_mid, double power, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen);
     double fitPower3    (double mul, double mean, double std_mid, double power, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen);
+
+    double scoreCurrent3(double mul, double mean, double stddiv,  double power, float * X, float * Y, unsigned int nr_data, double costpen);
+    double fitStdval3   (double mul, double mean, double std_mid, double power, float * X, float * Y, unsigned int nr_data, double costpen);
+    double fitMean3     (double mul, double mean, double std_mid, double power, float * X, float * Y, unsigned int nr_data, double costpen);
+    double fitMul3      (double mul, double mean, double std_mid, double power, float * X, float * Y, unsigned int nr_data, double costpen);
+    double fitPower3    (double mul, double mean, double std_mid, double power, float * X, float * Y, unsigned int nr_data, double costpen);
 
     virtual void update_numcdf_vec(unsigned int bins = 1000, double prob = 0.000001);
     //double interp(double x);

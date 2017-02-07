@@ -61,6 +61,9 @@ public:
 	bool bidir;
 	int iter;
 
+
+    virtual DistanceWeightFunction2 * clone();
+
 	DistanceWeightFunction2PPR(	double maxd_	= 0.25, int histogram_size_ = 25000);
 	~DistanceWeightFunction2PPR();
 	virtual void computeModel(MatrixXd mat);

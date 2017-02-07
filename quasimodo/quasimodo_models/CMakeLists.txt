@@ -65,33 +65,43 @@ target_link_libraries(quasimodo_weightlib quasimodo_SignalProcessing quasimodo_d
 add_library(quasimodo_superpoint src/core/superpoint.cpp)
 target_link_libraries(quasimodo_superpoint ${catkin_LIBRARIES})
 
+add_library(quasimodo_descriptor src/core/Descriptor.cpp src/core/DescriptorORB.cpp)
+target_link_libraries(quasimodo_descriptor ${catkin_LIBRARIES})
+
+add_library(quasimodo_KeyPoint src/core/KeyPoint.cpp)
+target_link_libraries(quasimodo_KeyPoint quasimodo_superpoint quasimodo_descriptor ${catkin_LIBRARIES})
+
 add_library(quasimodo_ReprojectionResult src/core/ReprojectionResult.cpp)
 target_link_libraries(quasimodo_ReprojectionResult quasimodo_superpoint ${catkin_LIBRARIES})
 
 add_library(quasimodo_OcclusionScore src/core/OcclusionScore.cpp)
 target_link_libraries(quasimodo_OcclusionScore ${catkin_LIBRARIES})
 
-
 add_library(quasimodo_core src/core/Util.cpp src/core/Camera.cpp src/core/RGBDFrame.cpp)
-target_link_libraries(quasimodo_core quasimodo_OcclusionScore quasimodo_ReprojectionResult quasimodo_superpoint quasimodo_weightlib ${CERES_LIBRARIES} ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(quasimodo_core quasimodo_descriptor quasimodo_OcclusionScore quasimodo_ReprojectionResult quasimodo_superpoint quasimodo_weightlib ${CERES_LIBRARIES} ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
-add_library(quasimodo_reglib src/registration/Registration.cpp src/registration/RegistrationRandom.cpp src/registration/RegistrationRefinement.cpp)
-target_link_libraries(quasimodo_reglib quasimodo_superpoint quasimodo_weightlib ceres glog ${catkin_LIBRARIES})
+add_library(quasimodo_DescriptorExtractor src/core/DescriptorExtractor.cpp src/core/DescriptorExtractorORB.cpp src/core/DescriptorExtractorSURF.cpp)
+target_link_libraries(quasimodo_DescriptorExtractor quasimodo_core quasimodo_KeyPoint ${catkin_LIBRARIES})
 
 add_library(quasimodo_modelmask src/model/ModelMask.cpp)
-target_link_libraries(quasimodo_modelmask quasimodo_core quasimodo_reglib ${catkin_LIBRARIES})
+target_link_libraries(quasimodo_modelmask quasimodo_core ${catkin_LIBRARIES})
 
 add_library(quasimodo_model src/model/Model.cpp)
-target_link_libraries(quasimodo_model quasimodo_modelmask quasimodo_core quasimodo_reglib ${catkin_LIBRARIES})
+target_link_libraries(quasimodo_model quasimodo_KeyPoint quasimodo_DescriptorExtractor quasimodo_modelmask quasimodo_core ${catkin_LIBRARIES})
 
-add_library(quasimodo_massreglib src/registration/MassRegistration.cpp src/registration/MassRegistrationPPR.cpp src/registration/MassRegistrationPPR2.cpp)
-target_link_libraries(quasimodo_massreglib quasimodo_model quasimodo_reglib quasimodo_core)
+add_library(quasimodo_reglib src/registration/Registration.cpp src/registration/RegistrationRandom.cpp src/registration/RegistrationRefinement.cpp src/registration/RegistrationRefinement2.cpp src/registration/RegistrationRefinement3.cpp)
+target_link_libraries(quasimodo_reglib quasimodo_model quasimodo_core)
+#target_link_libraries(quasimodo_reglib quasimodo_model quasimodo_superpoint quasimodo_weightlib ceres glog ${catkin_LIBRARIES})
+
+add_library(quasimodo_massreglib src/registration/MassRegistration.cpp src/registration/MassRegistrationPPR.cpp src/registration/MassRegistrationPPR2.cpp src/registration/MassRegistrationPPR3.cpp)
+target_link_libraries(quasimodo_massreglib quasimodo_model quasimodo_core quasimodo_reglib)
+#target_link_libraries(quasimodo_massreglib quasimodo_model quasimodo_reglib quasimodo_core)
 
 add_library(quasimodo_Mesher src/mesher/Mesh.cpp)
 target_link_libraries(quasimodo_Mesher quasimodo_model ${catkin_LIBRARIES})
 
 add_library(quasimodo_ModelUpdater src/modelupdater/ModelUpdater.cpp src/modelupdater/ModelUpdaterBasic.cpp src/modelupdater/ModelUpdaterBasicFuse.cpp)
-target_link_libraries(quasimodo_ModelUpdater quasimodo_Mesher quasimodo_model quasimodo_reglib quasimodo_massreglib ${catkin_LIBRARIES})
+target_link_libraries(quasimodo_ModelUpdater quasimodo_KeyPoint quasimodo_Mesher quasimodo_model quasimodo_reglib quasimodo_massreglib ${catkin_LIBRARIES})
 
 
 

@@ -4,6 +4,7 @@ namespace reglib
 {
 
 DistanceWeightFunction2::DistanceWeightFunction2(){
+    name = "func";
 	p = 0.5;
 	f = PNORM;
 	convergence_threshold = 0.0001;
@@ -21,6 +22,10 @@ MatrixXd DistanceWeightFunction2::getMat(std::vector<double> & vec){
 
 void DistanceWeightFunction2::computeModel(std::vector<double> & vec){
 	computeModel(getMat(vec));
+}
+
+void DistanceWeightFunction2::computeModel(double * vec, unsigned int nr_data, unsigned int dim){
+    //printf("Error: %s not implemented\n",__PRETTY_FUNCTION__);
 }
 
 
@@ -71,8 +76,28 @@ VectorXd DistanceWeightFunction2::getProbs(MatrixXd mat){
 }
 
 double DistanceWeightFunction2::getProb(double d, bool debugg){
-	printf("double DistanceWeightFunction2::getProbs(double d){ not implemented\n");
-	exit(0);
+    switch(f) {
+        case THRESHOLD:
+            return fabs(d) < p;
+        break;
+        case PNORM:
+            return p/(std::pow(fabs(d),2-p) + 0.00001);
+        break;
+        case TUKEY:
+            if(fabs(d) > p){ return 0.0; }
+            else { return std::pow((1.0 - std::pow(fabs(d)/p,2.0)), 2.0); }
+        break;
+        case FAIR:
+            return 1.0/(1.0 + fabs(d)/p);
+        break;
+        case LOGISTIC:
+            return (p/fabs(d))*std::tanh(fabs(d)/p);
+        break;
+        case TRIMMED: return 1; break;
+        case NONE: return 1; break;
+        default: return 1; break;
+    }
+
 	return 0;
 }
 
@@ -82,7 +107,10 @@ double DistanceWeightFunction2::getProbInfront(double d, bool debugg){
 	return 0;
 }
 
-double DistanceWeightFunction2::getNoise(){return 1;}
+double DistanceWeightFunction2::getNoise(){
+    if(f == THRESHOLD){return p / 4;}
+    return 0.001;
+}
 bool DistanceWeightFunction2::update(){return true;}
 void DistanceWeightFunction2::reset(){}
 
@@ -106,6 +134,19 @@ std::string DistanceWeightFunction2::getString(){
 double DistanceWeightFunction2::getConvergenceThreshold(){
 	return convergence_threshold;
 }
+
+DistanceWeightFunction2 * DistanceWeightFunction2::clone(){
+    DistanceWeightFunction2 * func  = new DistanceWeightFunction2();
+    func->name                      = name;
+    func->f                         = f;
+    func->p                         = p;
+    func->regularization            = regularization;
+    func->convergence_threshold     = convergence_threshold;
+    func->debugg_print              = debugg_print;
+    func->savePath                  = savePath;
+    return func;
+}
+
 
 }
 

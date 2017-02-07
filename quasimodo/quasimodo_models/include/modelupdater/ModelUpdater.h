@@ -35,6 +35,10 @@
 #include <pcl/segmentation/extract_clusters.h>
 #include <map>
 
+
+#include "../core/DescriptorExtractor.h"
+#include "../core/KeyPoint.h"
+
 //#include "../../densecrf/include/densecrf.h"
 
 namespace reglib
@@ -125,7 +129,7 @@ public:
 	virtual OcclusionScore computeOcclusionScore(vector<superpoint> & spvec, Matrix4d cp, RGBDFrame* cf, ModelMask* cm, int step = 1,  bool debugg = false);
 	virtual OcclusionScore computeOcclusionScore(Model * mod, vector<Matrix4d> cp, vector<RGBDFrame*> cf, vector<ModelMask*> cm, Matrix4d rp = Matrix4d::Identity(), int step = 1, bool debugg = false);
 	virtual OcclusionScore computeOcclusionScore(Model * model1, Model * model2, Matrix4d rp = Matrix4d::Identity(),int step = 1, bool debugg = false);
-	virtual vector<vector < OcclusionScore > > computeOcclusionScore(vector<Model *> models, vector<Matrix4d> rps, int step = 1, bool debugg = false, double max_noise = 0.01);
+	virtual vector<vector < OcclusionScore > > computeOcclusionScore(vector<Model *> models, vector<Matrix4d> rps, int step = 1, bool debugg = false);
 
 	virtual double computeOcclusionScoreCosts(vector<Model *> models);
 
@@ -146,8 +150,6 @@ public:
 	std::vector<int> getPartition(std::vector< std::vector< float > > & scores, int dims = 2, int nr_todo = 5, double timelimit = 2);
 
 	virtual void recomputeScores();
-
-	CloudData * getCD(std::vector<Eigen::Matrix4d> current_poses, std::vector<RGBDFrame*> current_frames,std::vector<cv::Mat> current_masks, int step);
 };
 
 }

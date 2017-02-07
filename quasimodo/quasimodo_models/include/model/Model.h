@@ -14,7 +14,21 @@
 #include <pcl/point_types.h>
 
 #include "../core/RGBDFrame.h"
-#include "../registration/Registration.h"
+
+// PCL specific includes
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl/common/transformation_from_correspondences.h>
+#include <pcl_ros/transforms.h>
+#include <pcl_ros/point_cloud.h>
+#include <pcl/ros/conversions.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/visualization/pcl_visualizer.h>
+
+#include "../core/KeyPoint.h"
+
+
+//#include "../registration/Registration.h"
 
 #include "ModelMask.h"
 
@@ -30,7 +44,7 @@ using namespace Eigen;
         double score;
 		unsigned long id;
 
-		int last_changed;
+        int last_changed;
         bool updated;
 
 		std::string keyval;
@@ -40,8 +54,9 @@ using namespace Eigen;
 		std::string retrieval_object_id;
 		std::string retrieval_vocabulary_id;
 
-		std::string pointspath;
-		std::vector<superpoint> points;
+        std::string pointspath;
+        std::vector<superpoint> points;
+        std::vector<superpoint> color_edgepoints;
 
 		std::vector< std::vector<cv::KeyPoint> >	all_keypoints;
 		std::vector< cv::Mat >						all_descriptors;
@@ -61,6 +76,8 @@ using namespace Eigen;
 		std::vector<std::vector < float > > submodels_scores;
 		Model * parrent;
 
+        std::vector<KeyPoint> keypoints;
+
 		Model();
 		Model(RGBDFrame * frame_, cv::Mat mask, Eigen::Matrix4d pose = Eigen::Matrix4d::Identity());
 		~Model();
@@ -73,6 +90,9 @@ using namespace Eigen;
 
 		std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> getHistory();
 
+        void mergeKeyPoints(Model * model, Eigen::Matrix4d p);
+        void mergePoints( std::vector<superpoint> & kfpoints, std::vector<superpoint> & otherpoints, Eigen::Matrix4d p);
+
 		void addSuperPoints(	vector<superpoint> & spvec, Matrix4d p, RGBDFrame* frame, ModelMask* modelmask, boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = 0);
 		void addAllSuperPoints(	vector<superpoint> & spvec, Eigen::Matrix4d pose,								boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = 0);
 		void recomputeModelPoints(Eigen::Matrix4d pose = Eigen::Matrix4d::Identity(),							boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = 0);
@@ -80,8 +100,10 @@ using namespace Eigen;
 
 		//void addFrameToModel(RGBDFrame * frame, cv::Mat mask, Eigen::Matrix4d p);
 		void addFrameToModel(RGBDFrame * frame, ModelMask * modelmask, Eigen::Matrix4d p);
-		CloudData * getCD(unsigned int target_points = 2000);
+        //CloudData * getCD(unsigned int target_points = 2000);
 		pcl::PointCloud<pcl::PointXYZRGB>::Ptr getPCLcloud(int step = 5, bool color = true);
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr getPCLcloud(int step, int type);
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr getPCLEdgeCloud(int step, int type);
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr getPCLnormalcloud(int step = 5, bool color = true);
 		void print();
 		void save(std::string path = "");

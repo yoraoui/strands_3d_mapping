@@ -1,4 +1,4 @@
-#include "weightfunctions/DistanceWeightFunction2PPR3.h"
+#include "weightfunctions/DistanceWeightFunction2PPR4.h"
 
 #include <stdio.h>
 #include <execinfo.h>
@@ -14,7 +14,7 @@ double getTime3(){
 
 namespace reglib{
 
-DistanceWeightFunction2PPR3::DistanceWeightFunction2PPR3(Distribution * dist_,	double maxd_, int histogram_size_){
+DistanceWeightFunction2PPR4::DistanceWeightFunction2PPR4(Distribution * dist_,	double maxd_, int histogram_size_){
     noise_min = 0;
 	savePath = "";
 	saveData.str("");
@@ -31,15 +31,16 @@ DistanceWeightFunction2PPR3::DistanceWeightFunction2PPR3(Distribution * dist_,	d
 	maxnoise = 99999999999999;
 	noiseval = 100.0;
 
-    prob = new float[histogram_size+1];
-    infront = new float[histogram_size+1];
-    histogram = new float[histogram_size+1];
-    blur_histogram = new float[histogram_size+1];
-    noise = new float[histogram_size+1];
-    noisecdf = new float[histogram_size+1];
-
+    prob.resize(histogram_size+1);
     prob[histogram_size] = 0;
+
+    infront.resize(histogram_size+1);
     infront[histogram_size] = 1;
+
+    histogram.resize(histogram_size+1);
+    blur_histogram.resize(histogram_size+1);
+    noise.resize(histogram_size+1);
+    noisecdf.resize(histogram_size+1);
 
 	mulval = 1;
     meanval = 0;
@@ -84,7 +85,7 @@ DistanceWeightFunction2PPR3::DistanceWeightFunction2PPR3(Distribution * dist_,	d
 	dist    = dist_;//new GeneralizedGaussianDistribution(true,true);//GaussianDistribution();//GeneralizedGaussianDistribution();//GaussianDistribution();
 }
 
-DistanceWeightFunction2PPR3::DistanceWeightFunction2PPR3(	double maxd_, int histogram_size_){
+DistanceWeightFunction2PPR4::DistanceWeightFunction2PPR4(	double maxd_, int histogram_size_){
     noise_min = 0;
 
 	fixed_histogram_size = false;
@@ -99,16 +100,16 @@ DistanceWeightFunction2PPR3::DistanceWeightFunction2PPR3(	double maxd_, int hist
 	maxnoise = 99999999999999;
 	noiseval = 100.0;
 
-    prob = new float[histogram_size+1];
-    infront = new float[histogram_size+1];
-    histogram = new float[histogram_size+1];
-    blur_histogram = new float[histogram_size+1];
-    noise = new float[histogram_size+1];
-    noisecdf = new float[histogram_size+1];
-
+    prob.resize(histogram_size+1);
     prob[histogram_size] = 0;
-    infront[histogram_size] = 1;
 
+    infront.resize(histogram_size+1);
+    infront[histogram_size] = 1;
+	
+    histogram.resize(histogram_size+1);
+    blur_histogram.resize(histogram_size+1);
+    noise.resize(histogram_size+1);
+    noisecdf.resize(histogram_size+1);
 
 	mulval = 1;
 	meanval = 0;
@@ -153,26 +154,20 @@ DistanceWeightFunction2PPR3::DistanceWeightFunction2PPR3(	double maxd_, int hist
 	dist    = new GeneralizedGaussianDistribution(true,true);//GaussianDistribution();//GeneralizedGaussianDistribution();//GaussianDistribution();
 }
 
-DistanceWeightFunction2PPR3::~DistanceWeightFunction2PPR3(){
-    if(sp != 0)             {delete sp;}
-    if(dist != 0)           {delete dist;}
-    if(prob != 0)           {delete prob;}
-    if(infront != 0)        {delete infront;}
-    if(histogram != 0)      {delete histogram;}
-    if(blur_histogram != 0) {delete blur_histogram;}
-    if(noise != 0)          {delete noise;}
-    if(noisecdf != 0)       {delete noisecdf;}
+DistanceWeightFunction2PPR4::~DistanceWeightFunction2PPR4(){
+    if(sp != 0){delete sp;}
+    if(dist != 0){delete dist;}
 }
 
-double DistanceWeightFunction2PPR3::getNoise(){
+double DistanceWeightFunction2PPR4::getNoise(){
 	if(bidir){
-        return 0.5*fabs(maxd-mind)*dist->getNoise()/double(histogram_size);//0.5*fabs(maxd-mind);
+		return 0.5*fabs(maxd-mind);
 	}else{
-        return fabs(maxd-mind)*dist->getNoise()/double(histogram_size);//fabs(maxd-mind);
+		return fabs(maxd-mind);
 	}
 }
 
-void DistanceWeightFunction2PPR3::recomputeHistogram(float * hist, MatrixXd & mat){
+void DistanceWeightFunction2PPR4::recomputeHistogram(std::vector<float> & hist, MatrixXd & mat){
 	const unsigned int nr_data = mat.cols();
 	const int nr_dim = mat.rows();
 	histogram_mul2	= double(histogram_size)/(maxd-mind);
@@ -187,7 +182,7 @@ void DistanceWeightFunction2PPR3::recomputeHistogram(float * hist, MatrixXd & ma
 	}
 }
 
-void DistanceWeightFunction2PPR3::recomputeHistogram(float * hist, double * vec, unsigned int nr_data){
+void DistanceWeightFunction2PPR4::recomputeHistogram(std::vector<float> & hist, double * vec, unsigned int nr_data){
     histogram_mul2	= double(histogram_size)/(maxd-mind);
     for(int j = 0; j < histogram_size; j++){hist[j] = 0;}
     for(unsigned int j = 0; j < nr_data; j++){
@@ -198,7 +193,7 @@ void DistanceWeightFunction2PPR3::recomputeHistogram(float * hist, double * vec,
     }
 }
 
-void DistanceWeightFunction2PPR3::recomputeProbs(){
+void DistanceWeightFunction2PPR4::recomputeProbs(){
 	for(int k = 0; k < histogram_size; k++){noise[k] = dist->getval(k);}
 	if(compute_infront){
 		for(int k = 0; k < histogram_size; k++){noisecdf[k] = dist->getcdf(k);}
@@ -225,7 +220,7 @@ void DistanceWeightFunction2PPR3::recomputeProbs(){
 }
 
 
-void DistanceWeightFunction2PPR3::initComputeModel(){
+void DistanceWeightFunction2PPR4::initComputeModel(){
     if( debugg_print){printf("\n%%################################################### ITER:%i ############################################################\n",iter);}
     if(	savePath.size() != 0 && iter == 0){	saveData.str("");}
     if(	savePath.size() != 0){saveData << "\n%################################################### ITER:" << iter << " ############################################################\n";}
@@ -233,13 +228,13 @@ void DistanceWeightFunction2PPR3::initComputeModel(){
 }
 
 
-inline void DistanceWeightFunction2PPR3::setInitialNoise(double stdval){
+inline void DistanceWeightFunction2PPR4::setInitialNoise(double stdval){
     if(debugg_print){printf("%%stdval: %f\n",stdval);}
     histogram_mul2	= double(histogram_size)/(maxd-mind);
     dist->setNoise(stdval*histogram_mul2);
 }
 
-void DistanceWeightFunction2PPR3::computeModel(double * vec, unsigned int nr_data, unsigned int nr_dim){
+void DistanceWeightFunction2PPR4::computeModel(double * vec, unsigned int nr_data, unsigned int nr_dim){
     double start_time1 = getTime();
     double init_start_time = start_time1;
     double start_time = start_time1;
@@ -253,9 +248,6 @@ void DistanceWeightFunction2PPR3::computeModel(double * vec, unsigned int nr_dat
             for(unsigned int j = 0; j < nr_inds; j++){sum += vec[j]*vec[j];}
             double var = sum / double(nr_inds);
             double stdval = sqrt(var);
-
-            if(debugg_print){printf("%% START stdval: %7.7fs\n",stdval);}
-
             setInitialNoise(stdval);
             //if(debugg_print){printf("%%setInitialNoise time: %7.7fs\n",getTime()-start_time);}
             start_time = getTime();
@@ -289,7 +281,7 @@ void DistanceWeightFunction2PPR3::computeModel(double * vec, unsigned int nr_dat
             }
             //if(debugg_print){printf("%%nr_inside time: %5.5fs\n",getTime()-start_time);}
 
-            int new_histogram_size = std::min(int(starthistogram_size),std::max(min_histogram_size,int(0.5 + nr_inside/data_per_bin)));
+            int new_histogram_size = std::min(int(histogram.size()),std::max(min_histogram_size,int(0.5 + nr_inside/data_per_bin)));
             histogram_size = std::min(max_histogram_size,new_histogram_size);
             blurval = blur*double(histogram_size)*float(histogram_size)/float(new_histogram_size);
             //if(debugg_print){printf("%%nr_inside: %f histogram_size: %i blurval: %f\n",nr_inside,histogram_size,blurval);}
@@ -332,13 +324,11 @@ void DistanceWeightFunction2PPR3::computeModel(double * vec, unsigned int nr_dat
     if(debugg_print){printf("hist = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%i ",	int(histogram[k]));}		printf("];\n");}
     if(debugg_print){printf("hist_smooth = [");		for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%i ",	int(blur_histogram[k]));}	printf("];\n");}
     if(debugg_print){printf("noise = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%i ",	int(noise[k]));}			printf("];\n");}
-    if(debugg_print && compute_infront){printf("noisecdf = [");		for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%2.2f ",int(noisecdf[k]));}			printf("];\n");}
+    if(debugg_print){printf("noisecdf = [");		for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%2.2f ",int(noisecdf[k]));}			printf("];\n");}
     if(debugg_print){printf("prob = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%2.2f ",prob[k]);}					printf("];\n");}
-    if(debugg_print && compute_infront){printf("infront = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%2.2f ",infront[k]);}				printf("];\n");}
+    if(debugg_print){printf("infront = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%2.2f ",infront[k]);}				printf("];\n");}
     if(debugg_print){printf("figure(%i);",iter+1);}
-    if(debugg_print){printf("clf; hold on; plot(hist_smooth,'r','LineWidth',2); plot(hist,'m','LineWidth',2); plot(noise,'b','LineWidth',2); plot(prob*max(noise),'g','LineWidth',2); ");}
-    if(debugg_print && compute_infront){printf("plot(infront*max(noise),'g','LineWidth',2");}
-    if(debugg_print){printf("\n");}
+    if(debugg_print){printf("clf; hold on; plot(hist_smooth,'r','LineWidth',2); plot(hist,'m','LineWidth',2); plot(noise,'b','LineWidth',2); plot(prob*max(noise),'g','LineWidth',2); plot(infront*max(noise),'g','LineWidth',2);\n");}
 
     if(	savePath.size() != 0){
         saveData << "d = [";
@@ -443,10 +433,9 @@ void DistanceWeightFunction2PPR3::computeModel(double * vec, unsigned int nr_dat
     }
 
     if(debugg_print){printf("%%full time: %7.7fs\n",getTime()-start_time1);}
-    if(debugg_print){printf("%%stdval:  %7.7f regularization: %7.7f\n",getNoise(),regularization);}
 }
 
-void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
+void DistanceWeightFunction2PPR4::computeModel(MatrixXd mat){
 	const unsigned int nr_data = mat.cols();
 	const int nr_dim = mat.rows();
 	double start_time;
@@ -503,7 +492,7 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
 			}
 			if(debugg_print){printf("%%nr_inside time: %5.5fs\n",getTime()-start_time);}
 
-            int new_histogram_size = std::min(int(starthistogram_size),std::max(min_histogram_size,int(0.5 + nr_inside/data_per_bin)));
+            int new_histogram_size = std::min(int(histogram.size()),std::max(min_histogram_size,int(0.5 + nr_inside/data_per_bin)));
             histogram_size = std::min(max_histogram_size,new_histogram_size);
 			blurval = blur*double(histogram_size)*float(histogram_size)/float(new_histogram_size);
 			if(debugg_print){printf("%%nr_inside: %f histogram_size: %i blurval: %f\n",nr_inside,histogram_size,blurval);}
@@ -647,7 +636,7 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
 	}
 }
 
-VectorXd DistanceWeightFunction2PPR3::getProbs(MatrixXd mat){
+VectorXd DistanceWeightFunction2PPR4::getProbs(MatrixXd mat){
 	const unsigned int nr_data = mat.cols();
 	const int nr_dim = mat.rows();
 
@@ -672,7 +661,7 @@ VectorXd DistanceWeightFunction2PPR3::getProbs(MatrixXd mat){
 	return weights;
 }
 
-double DistanceWeightFunction2PPR3::getProb(double d, bool debugg){
+double DistanceWeightFunction2PPR4::getProb(double d, bool debugg){
 	double ind = getInd(d,debugg);
 	float p = 0;
 	if(interp){
@@ -687,12 +676,13 @@ double DistanceWeightFunction2PPR3::getProb(double d, bool debugg){
 		}
 	}
 
+
 	if(debugg){printf("d: %5.5f -> ind: %5.5f -> p: %5.5f histogramsize: %5.5i maxd: %5.5f\n",d,ind,p,histogram_size,maxd);}
 	return p;
 }
 
 
-double DistanceWeightFunction2PPR3::getProbInfront(double d, bool debugg){
+double DistanceWeightFunction2PPR4::getProbInfront(double d, bool debugg){
 	double ind = getInd(d,debugg);
 	float p;
 	if(ind > meanval){	p = 1;}
@@ -714,7 +704,7 @@ double DistanceWeightFunction2PPR3::getProbInfront(double d, bool debugg){
 	return p;
 }
 
-bool DistanceWeightFunction2PPR3::update(){
+bool DistanceWeightFunction2PPR4::update(){
     if(debugg_print){printf("%% ============================================================ update() =============================================================\n");}
 	double start_time;
 
@@ -736,16 +726,14 @@ bool DistanceWeightFunction2PPR3::update(){
 	double regularization_before = regularization;
 	for(int i = 0; i < 500; i++){
 		iteration++;
-        regularization *= reg_shrinkage;
+        regularization *= 0.5;
 
 		start_time = getTime();
-        double before_noise = getNoise();
+		double before_noise = dist->getNoise();
 
 		dist->setRegularization(double(histogram_size)*regularization/(maxd-mind));
 		dist->update();
-        double after_noise = getNoise();
-
-        //printf("%%before_noise: %5.5f after_noise: %5.5f regularization:%5.5f \n",before_noise,after_noise,regularization);
+		double after_noise = dist->getNoise();
 
         //double noise_before = func->getNoise()*func->dist->getNoise()/double(func->histogram_size);//func->dist->getNoise();
 
@@ -757,15 +745,9 @@ bool DistanceWeightFunction2PPR3::update(){
 		recomputeProbs();
         //if(debugg_print){printf("%%recomputeProbs time: %5.5fs\n",getTime()-start_time);}
 
-        for(endLen = 0; endLen < histogram_size; endLen++){
-            if(prob[endLen] < 0.01){break;}
-        }
-
         if(debugg_print){
             printf("p = [");for(int k = 0; k < endLen; k++){printf(" %2.2f",prob[k]);}printf("];\n");
         }
-
-
 
 		if(0.99*before_noise < after_noise){return true;}
 
@@ -774,13 +756,13 @@ bool DistanceWeightFunction2PPR3::update(){
 
         //if(debugg_print){printf("%% new_sum_prob: %5.5f old_sum_prob: %5.5f regularization: %5.5f regularization_before: %5.5f\n",new_sum_prob,old_sum_prob,regularization,regularization_before);}
 
-        //printf("new_sum_prob %f old_sum_prob %f ratio: %f\n",new_sum_prob,old_sum_prob,new_sum_prob/old_sum_prob);
-        if( 0.5*before_noise < after_noise || new_sum_prob < 0.99*old_sum_prob || regularization*10 < regularization_before){return false;}
+		//printf("new_sum_prob %f old_sum_prob %f ratio: %f\n",new_sum_prob,old_sum_prob,new_sum_prob/old_sum_prob);
+		if(new_sum_prob < 0.99*old_sum_prob || regularization*10 < regularization_before){return false;}
 	}
 	return true;
 }
 
-void DistanceWeightFunction2PPR3::reset(){
+void DistanceWeightFunction2PPR4::reset(){
 	nr_inliers = 9999999;
 	regularization	= startreg;
 	maxd			= startmaxd;
@@ -797,13 +779,13 @@ void DistanceWeightFunction2PPR3::reset(){
 
 }
 
-std::string DistanceWeightFunction2PPR3::getString(){
+std::string DistanceWeightFunction2PPR4::getString(){
 	char buf [1024];
-    sprintf(buf,"PPR3_%i_%i_%i_%i",int(1000.0*startreg),int(1000.0*blur),interp,int(data_per_bin));
+	sprintf(buf,"PPR_%i_%i_%i_%i",int(1000.0*startreg),int(1000.0*blur),interp,int(data_per_bin));
 	return std::string(buf);
 }
 
-double DistanceWeightFunction2PPR3::getConvergenceThreshold(){
+double DistanceWeightFunction2PPR4::getConvergenceThreshold(){
 	if(scale_convergence){
 		return convergence_threshold*getNoise()/sqrt(nr_inliers);
 	}else{
@@ -811,7 +793,7 @@ double DistanceWeightFunction2PPR3::getConvergenceThreshold(){
 	}
 }
 
-inline double DistanceWeightFunction2PPR3::getInd(double d, bool debugg){
+inline double DistanceWeightFunction2PPR4::getInd(double d, bool debugg){
     if(bidir){
         return 0.00001+(d-mind)*histogram_mul2;
     }else{
@@ -819,7 +801,7 @@ inline double DistanceWeightFunction2PPR3::getInd(double d, bool debugg){
     }
 }
 
-inline double DistanceWeightFunction2PPR3::getDfromInd(double ind, bool debugg){
+inline double DistanceWeightFunction2PPR4::getDfromInd(double ind, bool debugg){
     if(bidir){
         return ind/histogram_mul2+mind;
     }else{
@@ -827,77 +809,10 @@ inline double DistanceWeightFunction2PPR3::getDfromInd(double ind, bool debugg){
     }
 }
 
-DistanceWeightFunction2 * DistanceWeightFunction2PPR3::clone(){
-    DistanceWeightFunction2PPR3 * func = new DistanceWeightFunction2PPR3(dist->clone(),startmaxd,starthistogram_size);
-    func->name                      = name;
-    func->f                         = f;
-    func->p                         = p;
-    func->regularization            = regularization;
-    func->convergence_threshold     = convergence_threshold;
-    func->debugg_print              = debugg_print;
-    func->savePath                  = savePath;
-
-    if(func->sp != 0)             {delete func->sp;}
-    func->sp = sp->clone();
-
-    func->fixed_histogram_size = fixed_histogram_size;
-    func->stdval = stdval;
-    func->stdval2 = stdval2;
-    func->mulval = mulval;
-    func->meanval = meanval;
-    func->meanval2 = meanval2;
-    func->maxnoise = maxnoise;
-    func->zeromean = zeromean;
-    func->costpen = costpen;
-    func->maxp = maxp;
-    func->first = first;
-    func->update_size = update_size;
-    func->target_length = target_length;
-    func->data_per_bin = data_per_bin;
-    func->meanoffset = meanoffset;
-    func->blur = blur;
-    func->startmaxd = startmaxd;
-    func->maxd = maxd;
-    func->mind = mind;
-    func->noise_min = noise_min;
-    func->histogram_size = histogram_size;
-    func->starthistogram_size = starthistogram_size;
-    func->blurval = blurval;
-    func->stdgrow = stdgrow;
-    func->noiseval = noiseval;
-    func->startreg = startreg;
-    func->ggd = ggd;
-    func->compute_infront = compute_infront;
-
-    func->nr_refineiters = nr_refineiters;
-    func->refine_mean = refine_mean;
-    func->refine_mul = refine_mul;
-    func->refine_std = refine_std;
-    func->threshold = threshold;
-    func->uniform_bias = uniform_bias;
-    func->scale_convergence = scale_convergence;
-    func->nr_inliers = nr_inliers;
-    func->rescaling = rescaling;
-    func->interp = interp;
-    func->max_under_mean = max_under_mean;
-    func->bidir = bidir;
-    func->iter = iter;
-    func->histogram_mul = histogram_mul;
-    func->histogram_mul2 = histogram_mul2;
-    func->min_histogram_size = min_histogram_size;
-    func->max_histogram_size = max_histogram_size;
-    func->reg_shrinkage = reg_shrinkage;
-
-//    float * prob;
-//    float * infront;
-//    float * histogram;
-//    float * blur_histogram;
-//    float * noise;
-//    float * noisecdf;
-
+DistanceWeightFunction2 * DistanceWeightFunction2PPR4::clone(){
+    DistanceWeightFunction2 * func = new DistanceWeightFunction2();
     return func;
 }
-
 
 }
 

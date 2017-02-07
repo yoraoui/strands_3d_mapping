@@ -20,7 +20,7 @@ MassRegistrationPPR2::MassRegistrationPPR2(double startreg, bool visualize){
 
 
 	use_surface = true;
-	use_depthedge = false;
+	use_depthedge = true;
 
 	DistanceWeightFunction2PPR2 * dwf = new DistanceWeightFunction2PPR2();
 	dwf->update_size		= true;
@@ -47,7 +47,7 @@ MassRegistrationPPR2::MassRegistrationPPR2(double startreg, bool visualize){
 	maskstep = 1;
 	nomaskstep = 100000;
 
-	stopval = 0.0005;
+	stopval = 0.001;
 	steps = 4;
 
 	timeout = 6000;
@@ -1527,7 +1527,7 @@ std::vector<Eigen::Matrix4d> MassRegistrationPPR2::optimize(std::vector<Eigen::M
 				unsigned long depthedge_count			= 0;
 				double * depthedge_api					= depthedge_arraypoints[i];
 				double * depthedge_aii					= depthedge_arrayinformations[i];
-				const unsigned long depthedge_nr_api		= depthedge_nr_arraypoints[i];
+                const unsigned long depthedge_nr_api	= depthedge_nr_arraypoints[i];
 
 				Eigen::Affine3d rpi = Eigen::Affine3d(poses[i]);
 				const double & mi00 = rpi(0,0); const double & mi01 = rpi(0,1); const double & mi02 = rpi(0,2); const double & mi03 = rpi(0,3);

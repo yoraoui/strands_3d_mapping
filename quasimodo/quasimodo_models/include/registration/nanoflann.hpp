@@ -62,7 +62,7 @@ namespace nanoflann
 	  *  @{ */
 	template <typename DistanceType, typename IndexType = size_t, typename CountType = size_t>
 	class KNNResultSet
-	{
+    {
 		IndexType * indices;
 		DistanceType* dists;
 		CountType capacity;
@@ -71,7 +71,7 @@ namespace nanoflann
 	public:
 		inline KNNResultSet(CountType capacity_) : capacity(capacity_), count(0)
 		{
-		}
+        }
 
 		inline void init(IndexType* indices_, DistanceType* dists_)
 		{

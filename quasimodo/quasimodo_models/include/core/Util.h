@@ -63,6 +63,10 @@ using Components = boost::component_index<VertexIndex>;
 namespace reglib
 {
 
+double getChange(Eigen::Matrix4d & change, double meandist);
+
+double getChange(Eigen::Matrix4d & before, Eigen::Matrix4d & after, double meandist);
+
 void pn(double p, unsigned int len = 3);
 
 

@@ -67,9 +67,10 @@ namespace reglib
 		void saveFast(std::string path = "");
 		RGBDFrame * clone();
 		static RGBDFrame * load(Camera * cam, std::string path);
-		static RGBDFrame * loadFast(std::string path);
-		std::vector<ReprojectionResult> getReprojections(std::vector<superpoint> & spvec, Eigen::Matrix4d cp, bool * maskvec,  bool useDet = true, bool prefilter = true);
+        static RGBDFrame * loadFast(std::string path);
+        std::vector<ReprojectionResult> getReprojections(std::vector<superpoint> & spvec, Eigen::Matrix4d cp, bool * maskvec,  bool useDet = true, bool prefilter = true);
 
+        std::vector<superpoint> getEdges(Eigen::Matrix4d cp = Eigen::Matrix4d::Identity(), unsigned int step = 1, bool * maskvec = 0);
 		std::vector<superpoint> getSuperPoints(Eigen::Matrix4d cp = Eigen::Matrix4d::Identity(), unsigned int step = 1, bool zeroinclude = true);
 
 		std::vector< std::vector<float> > getImageProbs(bool depthonly = false);

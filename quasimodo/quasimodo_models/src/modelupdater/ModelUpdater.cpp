@@ -244,7 +244,7 @@ bool ModelUpdater::isRefinementNeeded(){
 	return failed;
 }
 
-OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, Matrix4d cp, RGBDFrame* cf, ModelMask* cm, int step,  bool debugg ){
+OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, Matrix4d cp, RGBDFrame* cf, ModelMask* cm, int step,  bool debugg){
 	OcclusionScore oc;
 
 	unsigned char  * dst_maskdata		= (unsigned char	*)(cm->mask.data);
@@ -326,9 +326,9 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 				double d = mysign(dst_z-tz)*fabs(tnx*(dst_x-tx) + tny*(dst_y-ty) + tnz*(dst_z-tz));
 				double dst_noise = dst_z * dst_z;
 				double point_noise = 1.0/sqrt(point_information);
+
 				double compare_mul = sqrt(dst_noise*dst_noise + point_noise*point_noise);
 				d *= compare_mul;
-				//d /= compare_mul;
 
 				double dist_dst = sqrt(dst_x*dst_x+dst_y*dst_y+dst_z*dst_z);
 				double angle_dst = fabs((dst_x*dst_nx+dst_y*dst_ny+dst_z*dst_nz)/dist_dst);
@@ -355,7 +355,7 @@ OcclusionScore ModelUpdater::computeOcclusionScore(vector<superpoint> & spvec, M
 
 	DistanceWeightFunction2 * func = new DistanceWeightFunction2();
 	func->f = THRESHOLD;
-	func->p = 0.04;
+	func->p = 0.02;
 
 	Eigen::MatrixXd X = Eigen::MatrixXd::Zero(1,residuals.size());
 	for(unsigned int i = 0; i < residuals.size(); i++){X(0,i) = residuals[i];}
@@ -486,6 +486,8 @@ OcclusionScore ModelUpdater::computeOcclusionScore(Model * mod, vector<Matrix4d>
 
 OcclusionScore ModelUpdater::computeOcclusionScore(Model * model1, Model * model2, Matrix4d rp, int step, bool debugg){
 	OcclusionScore ocs;
+	//	ocs.add(computeOcclusionScore(model1, model2->rep_relativeposes,model2->rep_frames,model2->rep_modelmasks,rp.inverse(),step,debugg));
+	//	ocs.add(computeOcclusionScore(model2, model1->rep_relativeposes,model1->rep_frames,model1->rep_modelmasks,rp,step,debugg));
 	ocs.add(computeOcclusionScore(model1, model2->relativeposes,model2->frames,model2->modelmasks,rp.inverse(),step,debugg));
 	ocs.add(computeOcclusionScore(model2, model1->relativeposes,model1->frames,model1->modelmasks,rp,step,debugg));
 	return ocs;
@@ -504,7 +506,6 @@ void ModelUpdater::testgetDynamicWeights(bool store_distance, std::vector<double
 	if(debugg){
 		//cld = getPointCloudFromVector(sp,3,127,127,127);
 	}
-
 	//printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);
 	//	std::vector<superpoint> framesp = frame->getSuperPoints();
 
@@ -584,7 +585,7 @@ void ModelUpdater::testgetDynamicWeights(bool store_distance, std::vector<double
 		viewer->removeAllPointClouds();
 		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cld), "cld");
 
-		std::vector<superpoint> framesp = frame->getSuperPoints(p.inverse(),1);
+		std::vector<superpoint> framesp = frame->getSuperPoints(p.inverse(),5);
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr fcld = getPointCloudFromVector(framesp,3,255,0,255);
 		viewer->addPointCloud<pcl::PointXYZRGBNormal> (fcld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(fcld), "fcld");
 
@@ -593,22 +594,8 @@ void ModelUpdater::testgetDynamicWeights(bool store_distance, std::vector<double
 }
 
 
-vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Model *> models, vector<Matrix4d> rps, int step, bool debugg, double max_noise){
-	if(debugg){
-		char buf [1024];
-		viewer->removeAllPointClouds();
-		for(unsigned int i = 0; i < models.size(); i++){
-			pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZRGB> ());
-			pcl::transformPointCloud (*(models[i]->getPCLcloud()), *transformed_cloud, rps[i]);
-			sprintf(buf,"tcld_%i",i);
-			viewer->addPointCloud<pcl::PointXYZRGB> (transformed_cloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(transformed_cloud), buf);
-		}
-		viewer->spin();
-	}
-
-	//OcclusionScore ModelUpdater::computeOcclusionScore(Model * model1, Model * model2, Matrix4d rp, int step, bool debugg)
-
-
+vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Model *> models, vector<Matrix4d> rps, int step, bool debugg){
+	//printf("computeOcclusionScore\n");
 	std::vector<double> dvec;
 	std::vector<double> nvec;
 	DistanceWeightFunction2 * dfunc;
@@ -624,24 +611,7 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 		}
 	}
 
-	for(unsigned int i = 0; i < models.size(); i++){
-		Model * model1 = models[i];
-		for(unsigned int j = 0; j < models.size(); j++){
-			if(i == j){continue;}
-
-			//printf("%i %i %i\n",i,j,debugg);
-			Model * model2 = models[j];
-			Eigen::Matrix4d p = rps[j].inverse() * rps[i];
-			OcclusionScore oc = computeOcclusionScore(model2,model1,p,step,debugg);
-			occlusionScores[i][j].add(oc);
-			occlusionScores[j][i] = occlusionScores[i][j];
-			if(debugg){oc.print();}
-		}
-	}
-
-	//exit(0);
-
-	return occlusionScores;
+	double startTime = getTime();
 
 	int tot_nr_pixels = 0;
 	std::vector<int> offsets;
@@ -652,6 +622,7 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 		tot_nr_pixels += nr_pixels;
 	}
 
+
 	for(unsigned int i = 0; i < models.size(); i++){
 		Model * model1 = models[i];
 		for(unsigned int j = 0; j < models.size(); j++){
@@ -660,47 +631,46 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 			for(unsigned int k = 0; k < model2->relativeposes.size(); k++){
 				Eigen::Matrix4d p;
 				p = model2->relativeposes[k].inverse()*(rps[j].inverse() * rps[i]);
-				testgetDynamicWeights(true,dvec,nvec,dfunc,nfunc,p, model1->points,0,0,0,model2->frames[k],false);//debugg);
+				testgetDynamicWeights(true,dvec,nvec,dfunc,nfunc,p, model1->points,0,0,0,model2->frames[k]);
 			}
 		}
 	}
-	//printf("computeOcclusionScore::%i\n",__LINE__);
+
+	//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
+
 	double dstdval = 0;
 	for(unsigned int i = 0; i < dvec.size(); i++){dstdval += dvec[i]*dvec[i];}
 	dstdval = sqrt(dstdval/double(dvec.size()-1));
-	//printf("dstdval: %f\n",dstdval);
 
-	GeneralizedGaussianDistribution * dggdnfunc	= new GeneralizedGaussianDistribution(true,false,false);
-//	dggdnfunc->nr_refineiters					= 1;
-	dggdnfunc->costpen							= 20;
-//	dggdnfunc->debugg_print						= false;
+	//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
+
+	GeneralizedGaussianDistribution * dggdnfunc	= new GeneralizedGaussianDistribution(true,false,false,false,false);
+	dggdnfunc->nr_refineiters					= 1;
+	dggdnfunc->costpen							= -1;
+	dggdnfunc->debugg_print						= false;
 	DistanceWeightFunction2PPR3 * dfuncTMP		= new DistanceWeightFunction2PPR3(dggdnfunc);
-
-	//GaussianDistribution * dggdnfunc = new GaussianDistribution(true,true,false,false,5);
-	//DistanceWeightFunction2PPR3 * dfuncTMP		= new DistanceWeightFunction2PPR3();
 	dfunc = dfuncTMP;
 	dfuncTMP->startreg				= 0.001;
 	dfuncTMP->max_under_mean		= false;
-	dfuncTMP->debugg_print			= false;
+	dfuncTMP->debugg_print			= debugg;
 	dfuncTMP->bidir					= true;
 	dfuncTMP->zeromean				= false;
 	dfuncTMP->maxp					= 0.9999;
-	dfuncTMP->maxd					= std::min(max_noise,dstdval)*10;
+	dfuncTMP->maxd					= dstdval*10;
 	dfuncTMP->histogram_size		= 1000;
 	dfuncTMP->fixed_histogram_size	= false;
 	dfuncTMP->startmaxd				= dfuncTMP->maxd;
 	dfuncTMP->starthistogram_size	= dfuncTMP->histogram_size;
 	dfuncTMP->blurval				= 1.0;
-	dfuncTMP->maxnoise				= std::min(max_noise,dstdval);
+	dfuncTMP->maxnoise				= dstdval;
 	dfuncTMP->compute_infront		= true;
 	dfuncTMP->ggd					= true;
 	dfuncTMP->reset();
 
 	dfunc->computeModel(dvec);
 
-	//printf("dfunc->getNoise() = %f\n",dfunc->getNoise());
-	//if(debugg){exit(0);}
-//	//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
+	//	printf("dfunc->getNoise() = %f\n",dfunc->getNoise());
+	//	printf("%s :: %5.5f s :: %i\n",__FUNCTION__,getTime()-startTime,__LINE__);startTime = getTime();
 
 	GeneralizedGaussianDistribution * ggdnfunc	= new GeneralizedGaussianDistribution(true,true);
 	ggdnfunc->nr_refineiters		= 10;
@@ -709,7 +679,7 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 	ggdnfunc->debugg_print			= false;
 	DistanceWeightFunction2PPR3 * nfuncTMP		= new DistanceWeightFunction2PPR3(ggdnfunc);
 	nfunc = nfuncTMP;
-	nfuncTMP->startreg				= 10.05;
+	nfuncTMP->startreg				= 0.05;
 	nfuncTMP->debugg_print			= debugg;
 	nfuncTMP->bidir					= false;
 	nfuncTMP->zeromean				= true;
@@ -748,6 +718,9 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 			bg_notocclusions[m] = 0.0;
 		}
 
+		if(debugg){
+			printf("SELF OCCLUSION\n");
+		}
 		for(unsigned int k = 0; k < model1->relativeposes.size(); k++){
 			Eigen::Matrix4d p = model1->relativeposes[k].inverse();
 			//testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,bg_overlaps, bg_occlusions, bg_notocclusions,model1->frames[k],debugg);
@@ -759,7 +732,12 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 		}
 
 		for(unsigned int j = 0; j < models.size(); j++){
+
 			if(i == j){continue;}
+
+			if(debugg){
+				printf("COMPARE %i to %i\n",i,j);
+			}
 
 			for(unsigned int m = 0; m < nr_pixels; m++){
 				current_overlaps[m] = 0;
@@ -770,8 +748,18 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 			Model * model2 = models[j];
 			//For all frames
 			for(unsigned int k = 0; k < model2->relativeposes.size(); k++){
-				Eigen::Matrix4d p = model2->relativeposes[k].inverse()*(rps[j].inverse() * rps[i]);
+				Eigen::Matrix4d p;
+				//p = model2->relativeposes[k].inverse()*(rps[i].inverse() * rps[j]);
+				//testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,current_overlaps, current_occlusions, current_notocclusions,model2->frames[k],debugg);
+
+				p = model2->relativeposes[k].inverse()*(rps[j].inverse() * rps[i]);
 				testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,current_overlaps, current_occlusions, current_notocclusions,model2->frames[k],debugg);
+
+				//p = model2->relativeposes[k].inverse()*(rps[i] * rps[j].inverse());
+				//testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,current_overlaps, current_occlusions, current_notocclusions,model2->frames[k],debugg);
+
+				//p = model2->relativeposes[k].inverse()*(rps[j].inverse() * rps[i].inverse());
+				//testgetDynamicWeights(false,dvec,nvec,dfunc,nfunc,p, model1->points,current_overlaps, current_occlusions, current_notocclusions,model2->frames[k],debugg);
 			}
 
 			for(unsigned int m = 0; m < nr_pixels; m++){
@@ -794,7 +782,6 @@ vector<vector < OcclusionScore > > ModelUpdater::computeOcclusionScore(vector<Mo
 			occlusionScores[j][i].add(oc);
 
 			if(debugg){
-				printf("Occlusion: %f overlap %f ",occlusion_count,overlap_count);
 				printf("dfunc->getNoise() = %f\n",dfunc->getNoise());
 				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cld = getPointCloudFromVector(model1->points);
 				for(unsigned int ind = 0; ind < nr_pixels; ind++){
@@ -2739,14 +2726,14 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		framesp_test.push_back(frames[i]->getSuperPoints(Eigen::Matrix4d::Identity(),10,false));
 		framesp.push_back(frames[i]->getSuperPoints());
 	}
-	//printf("frames init time: %5.5fs\n",getTime()-startTime);
+	printf("frames init time: %5.5fs\n",getTime()-startTime);
 
 	startTime = getTime();
 	std::vector< std::vector<superpoint> > bgsp;
 	for(unsigned int i = 0; i < bgcf.size(); i++){
 		bgsp.push_back(bgcf[i]->getSuperPoints());
 	}
-	//printf("bg init time:     %5.5fs\n",getTime()-startTime);
+	printf("bg init time:     %5.5fs\n",getTime()-startTime);
 
 	startTime = getTime();
 	for(unsigned int i = 0; i < frames.size(); i++){
@@ -2818,7 +2805,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 
 
-	//printf("training time:     %5.5fs\n",getTime()-startTime);
+	printf("training time:     %5.5fs\n",getTime()-startTime);
 
 	long frameConnections = 0;
 	std::vector< std::vector< std::vector<float> > > pixel_weights;
@@ -2834,7 +2821,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	double maxprob_same = 0.999999999999999999;
 
 	for(unsigned int i = 0; i < frames.size(); i++){
-		//if(debugg != 0){printf("currently workin on frame %i\n",i);}
+		if(debugg != 0){printf("currently workin on frame %i\n",i);}
 		int offset = offsets[i];
 		RGBDFrame * frame = frames[i];
 		float		   * normalsdata	= (float			*)(frame->normals.data);
@@ -2894,6 +2881,8 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 
 		total_Dynw += getTime()-startTime;
 
+
+
 		startTime = getTime();
 		unsigned char * detdata = (unsigned char*)(frame->det_dilate.data);
 		for(unsigned int h = 0; h < height;h++){
@@ -2912,7 +2901,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 				current_point++;
 			}
 		}
-
+		printf("seg:%i\n",__LINE__);
 		double start_inf = getTime();
 		gc::Graph<double,double,double> * g = new gc::Graph<double,double,double>(nr_pixels,2*nr_pixels);
 		for(unsigned long ind = 0; ind < nr_pixels;ind++){
@@ -2921,6 +2910,8 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			double weightBG = prior_weights[2*(offset+ind)+1];
 			g -> add_tweights( ind, weightFG, weightBG );
 		}
+
+		printf("seg:%i\n",__LINE__);
 
 		for(unsigned int w = 0; w < width;w++){
 			for(unsigned int h = 0; h < height;h++){
@@ -2943,10 +2934,11 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			}
 		}
 
+		printf("seg:%i\n",__LINE__);
 		g -> maxflow();
 		for(unsigned long ind = 0; ind < nr_pixels;ind++){labels[offset+ind] = g->what_segment(ind);}
 
-		//if(debugg != 0){printf("local inference time: %10.10fs\n\n",getTime()-start_inf);}
+		if(debugg != 0){printf("local inference time: %10.10fs\n\n",getTime()-start_inf);}
 
 
 
@@ -3083,11 +3075,11 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	delete dfuncTMP;
 	delete nfuncTMP;
 
-//	printf("total_priortime        = %5.5fs\n",		total_priortime);
-//	printf("total_connectiontime   = %5.5fs\n",		total_connectiontime);
-//	printf("total_alloctime        = %5.5fs\n",		total_alloctime);
-//	printf("total_dealloctime      = %5.5fs\n",		total_dealloctime);
-//	printf("total_Dynw             = %5.5fs\n",		total_Dynw);
+	printf("total_priortime        = %5.5fs\n",		total_priortime);
+	printf("total_connectiontime   = %5.5fs\n",		total_connectiontime);
+	printf("total_alloctime        = %5.5fs\n",		total_alloctime);
+	printf("total_dealloctime      = %5.5fs\n",		total_dealloctime);
+	printf("total_Dynw             = %5.5fs\n",		total_Dynw);
 
 	long interframeConnections = 0;
 	for(unsigned int i = 0; i < interframe_connectionId.size();i++){interframeConnections += interframe_connectionId[i].size();}
@@ -3098,6 +3090,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		g -> add_node();
 		double weightFG = prior_weights[2*i+0];
 		double weightBG = prior_weights[2*i+1];
+
 		g -> add_tweights( i, weightFG, weightBG );
 	}
 
@@ -3179,7 +3172,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		double adds = 100000;
 		double prob = std::min(adds / diffs,1.0);
 		printf("diffs: %f adds: %f prob: %f ",diffs,adds,prob);
-		printf("ratio of total diffs: %f ",diffs/double(frameConnections+interframeConnections));
+		printf("ratio of total diffs: %f\n",diffs/double(frameConnections+interframeConnections));
 
 		if(diffs == 0){break;}
 
@@ -3211,11 +3204,10 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		for(unsigned long ind = 0; ind < current_point;ind++){labels[ind] = g->what_segment(ind);}
 
 		tot_inf += getTime()-start_inf1;
-		if(debugg != 0){printf("static inference1 time: %10.10fs total: %10.10f\n",getTime()-start_inf1,tot_inf);}
+		if(debugg != 0){printf("static inference1 time: %10.10fs total: %10.10f\n\n",getTime()-start_inf1,tot_inf);}
 
 		if(tot_inf > 90){break;}
 	}
-	printf("\n");
 
 	double interfrace_constraints_added = 0;
 	for(unsigned int i = 0; i < interframe_connectionId.size();i++){
@@ -3245,16 +3237,6 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	std::vector<int> labelID;
 	labelID.push_back(0);
 	objectlabel.resize(nr_pixels);
-
-
-	double total_score0  = 0;
-	double total_score1  = 0;
-	double total_pscore0 = 0;
-	double total_pscore1 = 0;
-	double total_nscore0 = 0;
-	double total_nscore1 = 0;
-
-
 
 	for(unsigned long i = 0; i < nr_pixels; i++){objectlabel[i] = 0;}
 	for(unsigned long ind = 0; ind < nr_pixels; ind++){
@@ -3350,61 +3332,35 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 			score1 = pscore1+nscore1;
 
 
-			total_score0  += score0;
-			total_score1  += score1;
-			total_pscore0 += pscore0;
-			total_pscore1 += pscore1;
-			total_nscore0 += nscore0;
-			total_nscore1 += nscore1;
-
-
 			labelID.push_back(0);
-//			if(debugg != 0){
-//				if(totsum > 100){
-//					printf("Object stats: (Dynamic) score0: %10.10f (Moving) score1: %10.10f ",score0,score1);
-//					printf("totsum: %10.10f\n",totsum);
-//				}
-//			}
+			if(debugg != 0){
+				if(totsum > 100){
+					printf("---------------------------\n");
+					printf("score0: %10.10f score1: %10.10f ",score0,score1);
+					printf("totsum: %10.10f\n",totsum);
 
-
+					printf("pscore0: %10.10f nscore0: %10.10f ",pscore0,nscore0);
+					printf("pscore1: %10.10f nscore1: %10.10f\n",pscore1,nscore1);
+				}
+			}
 
 			if(std::max(score0,score1) < 100){continue;}
 
-			printf("Object stats: (Moving) score0: %10.10f (Dynamic) score1: %10.10f ",score0,score1);
-			printf("totsum: %10.10f\n",totsum);
-
 			if(score1 > score0){
 				labelID.back() = ++nr_obj_dyn;
-				//if(debugg != 0){printf("Dynamic: %f -> %f\n",score1,totsum);}
+				if(debugg != 0){printf("Dynamic: %f -> %f\n",score1,totsum);}
 				sr.component_dynamic.push_back(todo);
 				sr.scores_dynamic.push_back(score1);
 				sr.total_dynamic.push_back(totsum);
 			}else{
 				labelID.back() = --nr_obj_mov;
-				//if(debugg != 0){printf("Moving: %f -> %f\n",score0,totsum);}
+				if(debugg != 0){printf("Moving: %f -> %f\n",score0,totsum);}
 				sr.component_moving.push_back(todo);
 				sr.scores_moving.push_back(score0);
 				sr.total_moving.push_back(totsum);
 			}
 		}
 	}
-
-	long nonstatic_pixels = 0;
-	for(unsigned long ind = 0; ind < nr_pixels; ind++){
-		if(valids[ind] && labels[ind] != 0){nonstatic_pixels++;}
-	}
-
-	printf("======= ======= FINAL PIXEL STATS ========= =========\n");
-	printf("total nonstatic pixels              : %i\n",nonstatic_pixels);
-	printf("total_pscore0(probably moving)      : %10.10f\n",total_pscore0);
-	printf("total_pscore1(probably dynamic)     : %10.10f\n",total_pscore1);
-	printf("total_nscore0(probably NOT moving)  : %10.10f\n",total_nscore0);
-	printf("total_nscore1(probably NOT dynamic) : %10.10f\n",total_nscore1);
-	printf("======= ======= FINAL SEGMENT STATS ========= =======\n");
-	printf("total dynamic segments : %i\n",sr.component_dynamic.size());
-	printf("total moving segments : %i\n",sr.component_moving.size());
-	printf("=====================================================\n");
-
 
 	for(unsigned long ind = 0; ind < nr_pixels; ind++){
 		unsigned int ol = objectlabel[ind];
@@ -3420,7 +3376,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 	for(unsigned int i = 0; i < interframe_connectionStrength.size();i++){interframe_connectionStrength[i].clear();}
 	interframe_connectionStrength.clear();
 
-	//printf("connectedComponent: %5.5fs\n",getTime()-start_inf);
+	printf("connectedComponent: %5.5fs\n",getTime()-start_inf);
 
 	int current = 0;
 	for(unsigned long i = 0; i < frames.size(); i++){
@@ -3564,6 +3520,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		cloud_sample->points.clear();
 		for(unsigned int i = 0; i < current_point; i++){
 			if(rand() % 4 == 0){
+
 				double p_fg = exp(-prior_weights[2*i+0]);
 
 				cloud_sample->points.push_back(cloud->points[i]);
@@ -3575,6 +3532,7 @@ void ModelUpdater::computeMovingDynamicStatic(std::vector<cv::Mat> & movemask, s
 		viewer->removeAllPointClouds();
 		viewer->addPointCloud<pcl::PointXYZRGBNormal> (cloud_sample, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(cloud_sample), "cloud");
 		viewer->spin();
+
 
 		cloud_sample->points.clear();
 		for(unsigned int i = 0; i < current_point; i++){
@@ -5806,8 +5764,6 @@ vector<vector < OcclusionScore > > ModelUpdater::getOcclusionScores(std::vector<
 	}
 	return occlusionScores;
 }
-
-CloudData * ModelUpdater::getCD(std::vector<Eigen::Matrix4d> current_poses, std::vector<RGBDFrame*> current_frames,std::vector<cv::Mat> current_masks, int step){return 0;}
 
 void ModelUpdater::computeMassRegistration(std::vector<Eigen::Matrix4d> current_poses, std::vector<RGBDFrame*> current_frames,std::vector<cv::Mat> current_masks){}
 

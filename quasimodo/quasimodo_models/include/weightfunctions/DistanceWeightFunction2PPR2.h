@@ -73,6 +73,7 @@ public:
 	double blurval;
 	double stdgrow;
 
+    double minNoise;
 	double noiseval;
 	double startreg;
 
@@ -107,6 +108,8 @@ public:
 
 	double histogram_mul;
 	double histogram_mul2;
+
+    virtual DistanceWeightFunction2 * clone();
 
 	DistanceWeightFunction2PPR2(	double maxd_	= 0.25, int histogram_size_ = 25000);
 	~DistanceWeightFunction2PPR2();

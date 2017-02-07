@@ -30,6 +30,9 @@ RegistrationRefinement::RegistrationRefinement(){
 	allow_regularization = true;
 	maxtime = 9999999;
 
+    regularization = 0.1;
+    convergence = 0.25;
+
 	//	func = new DistanceWeightFunction2PPR2();
 	//	func->startreg			= 0.1;
 	//	func->debugg_print		= false;
@@ -82,7 +85,7 @@ void RegistrationRefinement::setDst(std::vector<superpoint> & dst_){
 	trees3d->buildIndex();
 
 	DST_INORMATION = Eigen::VectorXd::Zero(ycols);
-	for(unsigned int i = 0; i < d_nr_data/stepy; i++){DST_INORMATION(i) = dst[i*stepy].point_information;}
+    for(unsigned int i = 0; i < d_nr_data/stepy; i++){DST_INORMATION(i) = sqrt(dst[i*stepy].point_information);}
 
 	addTime("setDst", getTime()-startTime);
 }
@@ -95,15 +98,15 @@ double initStart = getTime();
 
 	DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
 	if(allow_regularization){
-		func->startreg			= 0.1;
+        func->startreg			= regularization;
 	}else{
 		func->startreg			= 0.0;
 	}
-	func->debugg_print		= false;
+    func->debugg_print		= visualizationLvl > 3;
+    func->minNoise              = 0.0005;
 
 
-	unsigned int s_nr_data = src.size();//src->data.cols();
-	int stepx = std::max(1,int(s_nr_data)/target_points);
+
 
 	double stop		= 0.00001;
 
@@ -113,6 +116,54 @@ double initStart = getTime();
 	float m10 = guess(1,0); float m11 = guess(1,1); float m12 = guess(1,2); float m13 = guess(1,3);
 	float m20 = guess(2,0); float m21 = guess(2,1); float m22 = guess(2,2); float m23 = guess(2,3);
 
+
+    unsigned int s_nr_data = src.size();
+    std::vector<int> inds;
+    inds.resize(s_nr_data);
+    for(unsigned int i = 0; i < s_nr_data; i++){inds[i] = i;}
+    for(unsigned int i = 0; i < s_nr_data; i++){
+        int rind = rand()%s_nr_data;
+        int tmp = inds[i];
+        inds[i] = inds[rind];
+        inds[rind] = tmp;
+    }
+
+    unsigned int xcols = std::min(int(s_nr_data),int(target_points));
+
+    Eigen::Matrix<double, 3, Eigen::Dynamic> X;
+    Eigen::Matrix<double, 3, Eigen::Dynamic> Xn;
+    X.resize( Eigen::NoChange,xcols);
+    Xn.resize(Eigen::NoChange,xcols);
+
+    /// Buffers
+    Eigen::Matrix3Xd Qp		= Eigen::Matrix3Xd::Zero(3,	xcols);
+    Eigen::Matrix3Xd Qn		= Eigen::Matrix3Xd::Zero(3,	xcols);
+    Eigen::VectorXd  W		= Eigen::VectorXd::Zero(	xcols);
+    Eigen::VectorXd  Wold	= Eigen::VectorXd::Zero(	xcols);
+    Eigen::VectorXd  rangeW	= Eigen::VectorXd::Zero(	xcols);
+
+    Eigen::VectorXd SRC_INORMATION = Eigen::VectorXd::Zero(xcols);
+    for(unsigned int i = 0; i < xcols; i++){
+        superpoint & p = src[inds[i]];
+
+        SRC_INORMATION(i) = sqrt(p.point_information);//src->information(0,i*stepx);
+        float x		= p.x;//src->data(0,i*stepx);
+        float y		= p.y;//src->data(1,i*stepx);
+        float z		= p.z;//src->data(2,i*stepx);
+        float xn	= p.nx;//src->normals(0,i*stepx);
+        float yn	= p.ny;//src->normals(1,i*stepx);
+        float zn	= p.nz;//src->normals(2,i*stepx);
+        X(0,i)	= m00*x + m01*y + m02*z + m03;
+        X(1,i)	= m10*x + m11*y + m12*z + m13;
+        X(2,i)	= m20*x + m21*y + m22*z + m23;
+        Xn(0,i)	= m00*xn + m01*yn + m02*zn;
+        Xn(1,i)	= m10*xn + m11*yn + m12*zn;
+        Xn(2,i)	= m20*xn + m21*yn + m22*zn;
+    }
+
+/*
+    unsigned int s_nr_data = src.size();//src->data.cols();
+    int stepx = std::max(1,int(s_nr_data)/target_points);
 	Eigen::Matrix<double, 3, Eigen::Dynamic> X;
 	Eigen::Matrix<double, 3, Eigen::Dynamic> Xn;
 	X.resize(Eigen::NoChange,s_nr_data/stepx);
@@ -143,7 +194,7 @@ double initStart = getTime();
 		Xn(1,i)	= m10*xn + m11*yn + m12*zn;
 		Xn(2,i)	= m20*xn + m21*yn + m22*zn;
 	}
-
+*/
 	Eigen::Matrix3Xd Xo1 = X;
 	Eigen::Matrix3Xd Xo2 = X;
 	Eigen::Matrix3Xd Xo3 = X;
@@ -155,7 +206,7 @@ double initStart = getTime();
 	double score = 0;
 	stop = 99999;
 
-	if(visualizationLvl >= 3){show(X,Y,true);}
+    if(visualizationLvl >= 3){printf("before noise: %f\n",func->getNoise());show(X,Y,true);}
 
 	//	//printf("X: %i %i Y: %i %i\n",X.cols(), X.rows(),Y.cols(), Y.rows());
 	//double startTest = getTime();
@@ -180,6 +231,10 @@ double initStart = getTime();
 int wasted = 0;
 int total = 0;
 
+double last_stop1 = 1000000;
+double last_stop2 = 1000000;
+double last_stop3 = 1000000;
+
 addTime("init", getTime()-initStart);
 
 	double min_meaningfull_distance = 90000000000000000000000;
@@ -190,40 +245,45 @@ addTime("init", getTime()-initStart);
 	/// ICP
 	for(int funcupdate=0; funcupdate < 100; ++funcupdate) {
 		if( (getTime()-start) > maxtime ){timestopped = true; break;}
-		for(int rematching=0; rematching < 100; ++rematching) {
+
+
+        double last_stop4 = 1000000;
+        for(int rematching=0; rematching < 5; ++rematching) {
 			if( (getTime()-start) > maxtime ){timestopped = true; break;}
+            if(visualizationLvl >= 1){printf("func: %i rematch: %i\n",funcupdate,rematching);}
 
-			double matchStart = getTime();
+            double matchStart = getTime();
+            if(funcupdate==0 || rematching > 0){
+                //#pragma omp parallel for
+                for(unsigned int i=0; i< xcols; ++i) {
+                    std::vector<size_t>   ret_indexes(1);
+                    std::vector<double> out_dists_sqr(1);
+                    nanoflann::KNNResultSet<double> resultSet(1);
 
-			//#pragma omp parallel for
-			for(unsigned int i=0; i< xcols; ++i) {
-				std::vector<size_t>   ret_indexes(1);
-				std::vector<double> out_dists_sqr(1);
-				nanoflann::KNNResultSet<double> resultSet(1);
+                    double * qp = X.col(i).data();
+                    resultSet.init(&ret_indexes[0], &out_dists_sqr[0] );
+                    trees3d->findNeighbors(resultSet, qp, nanoflann::SearchParams(10));
+                    wasted += matchid[i] == ret_indexes[0];
+                    total++;
+                    matchid[i] = ret_indexes[0];
+                }
+                matches += xcols;
 
-				double * qp = X.col(i).data();
-				resultSet.init(&ret_indexes[0], &out_dists_sqr[0] );
-				trees3d->findNeighbors(resultSet, qp, nanoflann::SearchParams(10));
-				wasted += matchid[i] == ret_indexes[0];
-				total++;
-				matchid[i] = ret_indexes[0];
-			}
-			matches += xcols;
+                /// Find closest point
+                //#pragma omp parallel for
+                for(unsigned int i=0; i< xcols; ++i) {
+                    int id = matchid[i];
+                    Qn.col(i) = N.col(id);
+                    Qp.col(i) = Y.col(id);
+                    rangeW(i) = 1.0/(1.0/SRC_INORMATION(i)+1.0/DST_INORMATION(id));
+                }
+            }
+            addTime("matching", getTime()-matchStart);
 
-			/// Find closest point
-			//#pragma omp parallel for
-			for(unsigned int i=0; i< xcols; ++i) {
-				int id = matchid[i];
-				Qn.col(i) = N.col(id);
-				Qp.col(i) = Y.col(id);
-				rangeW(i) = 1.0/(1.0/SRC_INORMATION(i)+1.0/DST_INORMATION(id));
-			}
-
-
-			addTime("matching", getTime()-matchStart);
-
+            double last_stop3 = 1000000;
 			for(int outer=0; outer< 1; ++outer) {
 				if( (getTime()-start) > maxtime ){timestopped = true; break;}
+
 
 				double computeModelStart = getTime();
 
@@ -240,24 +300,25 @@ addTime("init", getTime()-initStart);
 						float qy = Qn(1,i);
 						float qz = Qn(2,i);
 						float di = qx*dx + qy*dy + qz*dz;
-						residuals(0,i) = di;
+                        residuals(0,i) = di*rangeW(i);
 					}
 				}break;
 				default:			{printf("type not set\n");}					break;
 				}
-				for(unsigned int i=0; i<xcols; ++i) {residuals.col(i) *= rangeW(i);}
+                //for(unsigned int i=0; i<xcols; ++i) {residuals.col(i) *= rangeW(i);}
 				switch(type) {
 				case PointToPoint:	{func->computeModel(residuals);} 	break;
 				case PointToPlane:	{func->computeModel(residuals);}	break;
 				default:  			{printf("type not set\n");} break;
 				}
 
-
-
 				addTime("computeModel", getTime()-computeModelStart);
 
+                double last_stop2 = 1000000;
 				for(int rematching2=0; rematching2 < 3; ++rematching2) {
 					if( (getTime()-start) > maxtime ){timestopped = true; break;}
+
+                    //printf("RegistrationRefinement::funcupdate: %i rematching: %i outer: %i\n",funcupdate,rematching,outer);
 
 					matchStart = getTime();
 
@@ -285,7 +346,9 @@ addTime("init", getTime()-initStart);
 
 					addTime("matching", getTime()-computeModelStart);
 
-					for(int inner=0; inner< 40; ++inner) {
+
+                    double last_stop1 = 1000000;
+                    for(int inner=0; inner< 10; ++inner) {
 						if( (getTime()-start) > maxtime ){timestopped = true; break;}
 
 						double optimizeStart = getTime();
@@ -307,7 +370,7 @@ addTime("init", getTime()-initStart);
 							}break;
 							default:			{printf("type not set\n");}					break;
 							}
-							for(unsigned int i=0; i<xcols; ++i) {residuals.col(i) *= rangeW(i);}
+                            for(unsigned int i=0; i<xcols; ++i) {residuals.col(i) *= rangeW(i);}
 						}
 
 						switch(type) {
@@ -338,15 +401,25 @@ addTime("init", getTime()-initStart);
 						if(visualizationLvl == 3){
 							show(X,Y,false);
 						}else if(visualizationLvl >= 4){
+
+                            Eigen::VectorXd  Wold2 = func->getProbs(residuals);
+
 							unsigned int s_nr_data = X.cols();
 							unsigned int d_nr_data = Y.cols();
+
+//                            for(unsigned int i = 0; i < s_nr_data; i++){
+//                                if(Wold2(i) < 0.5){
+//                                   printf("ID: %6.6i -> R:%5.5f -> W:%5.5f\n",i,residuals(i),Wold2(i));
+//                                }
+//                            }
+
 
 							viewer->removeAllPointClouds();
 							pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr scloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 							pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr dcloud (new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 							scloud->points.clear();
 							dcloud->points.clear();
-							for(unsigned int i = 0; i < s_nr_data; i++){pcl::PointXYZRGBNormal p;p.x = X(0,i);p.y = X(1,i);p.z = X(2,i);p.b = 255.0*Wold(i);p.g = 255.0*Wold(i);p.r = 255.0*Wold(i);scloud->points.push_back(p);}
+                            for(unsigned int i = 0; i < s_nr_data; i++){pcl::PointXYZRGBNormal p;p.x = X(0,i);p.y = X(1,i);p.z = X(2,i);p.b = 255.0*Wold2(i);p.g = 255.0*Wold2(i);p.r = 255.0*Wold2(i);scloud->points.push_back(p);}
 							for(unsigned int i = 0; i < d_nr_data; i++){pcl::PointXYZRGBNormal p;p.x = Y(0,i);p.y = Y(1,i);p.z = Y(2,i);p.b = 0;			p.g = 0;			p.r = 255;			dcloud->points.push_back(p);}
 							viewer->addPointCloud<pcl::PointXYZRGBNormal> (scloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(scloud), "scloud");
 							viewer->addPointCloud<pcl::PointXYZRGBNormal> (dcloud, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGBNormal>(dcloud), "dcloud");
@@ -369,33 +442,60 @@ addTime("init", getTime()-initStart);
 						default:  			{printf("type not set\n"); } break;
 						}
 
-						stop = 0.25*func->getNoise();
-						score = Wold.sum()/(func->getNoise()*float(xcols));
+                        stop = convergence*func->getNoise();
+                        score = Wold.sum();///(func->getNoise()*float(xcols));
 
 						addTime("optimize", getTime()-optimizeStart);
 
+
+
 						double stop1 = (X-Xo1).colwise().norm().mean();
 						Xo1 = X;
-						if(stop1 < stop) break;
+
+                        //if(visualizationLvl >= 1){printf("Inner: %i -> stop1: %15.15f stop: %15.15f\n",inner,stop1,stop);}
+                        if(stop1 < stop) {break;}
+
+                        if(fabs(last_stop1-stop1) <= stop1*1){break;} last_stop1 = stop1;
 					}
 					double stop2 = (X-Xo2).colwise().norm().mean();
 					Xo2 = X;
 					if(stop2 < stop) break;
+
+//                    if(last_stop2 <= stop2*1.00001){break;}
+//                    last_stop2 = stop2;
 				}
 				double stop3 = (X-Xo3).colwise().norm().mean();
-				Xo3 = X;
+                Xo3 = X;
 				if(stop3 < stop) break;
+
+//                if(last_stop3 <= stop3*1.00001){break;}
+//                last_stop3 = stop3;
 			}
 			double stop4 = (X-Xo4).colwise().norm().mean();
-			//printf("stop4: %5.5f\n",stop4);
-			Xo4 = X;
-			if(stop4 < stop) break;
+            if(visualizationLvl >= 1){printf("stop4: %8.8f stop: %8.8f last_stop4: %8.8f\n",stop4,stop,last_stop4);}
+            if(funcupdate==0 || rematching > 0){ Xo4 = X; }
+            if(stop4 < stop) { break; } //if(visualizationLvl >= 1){printf("break from conv threshold\n"); }
+
+
+            if(fabs(last_stop4-stop4) <= stop4*0.001){break;} last_stop4 = stop4;
+
+//            if(last_stop4 <= stop4*1.000001){
+//                if(visualizationLvl >= 1){printf("break from no change");}
+//                break;
+//            }
+//            last_stop4 = stop4;
 		}
+
+
+        //for(unsigned int i=0; i<xcols; i+=10) {printf("%4.4f ",residuals(0,i));} printf("\n");
+
 		double funcUpdateStart = getTime();
 		double noise_before = func->getNoise();
-		func->update();
+        //func->debugg_print = true;
+        func->update();
+        //func->debugg_print = false;
 		double noise_after = func->getNoise();
-		//printf("before: %f after: %f\n",noise_before,noise_after);
+        //printf("before: %f after: %f\n",noise_before,noise_after);
 
 		addTime("funcUpdate", getTime()-funcUpdateStart);
 		if(fabs(1.0 - noise_after/noise_before) < 0.01){break;}
@@ -404,7 +504,7 @@ addTime("init", getTime()-initStart);
 
 	double cleanupStart = getTime();
 
-	if(visualizationLvl == 2){printf("xcols: %i stepx: %i stop: %f noise: %f\n",xcols,stepx,stop,func->getNoise()); show(X,Y);}
+    if(visualizationLvl == 2 || visualizationLvl == 3){printf("after noise: %f\n",func->getNoise()); show(X,Y);}
 	if(visualizationLvl >= 4){
 		printf("visualizationLvl: %i\n",visualizationLvl);
 		unsigned int s_nr_data = X.cols();
@@ -429,7 +529,8 @@ addTime("init", getTime()-initStart);
 	pcl::TransformationFromCorrespondences tfc;
 	tfc.reset();
 	for(unsigned int i = 0; i < xcols; i++){
-		tfc.add(Eigen::Vector3f(src[i*stepx].x,	src[i*stepx].y,	src[i*stepx].z),Eigen::Vector3f (X(0,i),X(1,i),	X(2,i)));
+        //tfc.add(Eigen::Vector3f(src[i*stepx].x,	src[i*stepx].y,	src[i*stepx].z),Eigen::Vector3f (X(0,i),X(1,i),	X(2,i)));
+        tfc.add(Eigen::Vector3f(src[inds[i]].x,	src[inds[i]].y,	src[inds[i]].z),Eigen::Vector3f (X(0,i),X(1,i),	X(2,i)));
 	}
 	guess = tfc.getTransformation().matrix().cast<double>();
 

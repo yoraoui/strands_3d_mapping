@@ -1,6 +1,27 @@
 #include "core/Util.h"
 namespace reglib{
 
+    double getChange(Eigen::Matrix4d & change, double meandist){
+        double change_t = 0;
+        double change_r = 0;
+        for(unsigned long k = 0; k < 3; k++){
+            change_t += change(k,3)*change(k,3);
+            for(unsigned long l = 0; l < 3; l++){
+                if(k == l){ change_r += fabs(1-change(k,l));}
+                else{		change_r += fabs(change(k,l));}
+            }
+        }
+        change_t = sqrt(change_t);
+        //printf("t: %5.5f r: %f\n",change_t,change_r);
+        double total_change = change_t + meandist*change_r;
+        return total_change;
+    }
+
+    double getChange(Eigen::Matrix4d & before, Eigen::Matrix4d & after, double meandist){
+        Eigen::Matrix4d change = after*before.inverse();
+        return getChange(change,meandist);
+    }
+
 	pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr getPointCloudFromVector(std::vector<superpoint> & spvec, int colortype, int r, int g, int b){
 		unsigned long nr_points = spvec.size();
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGBNormal>);

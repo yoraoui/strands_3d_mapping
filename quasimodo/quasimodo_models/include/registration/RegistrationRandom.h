@@ -12,7 +12,9 @@ namespace reglib
 	{
 		public:
 
-		Registration * refinement;
+        Registration * refinement;
+        Registration * refinement2;
+
 		unsigned int steprx;
 		unsigned int stepry;
 		unsigned int steprz;

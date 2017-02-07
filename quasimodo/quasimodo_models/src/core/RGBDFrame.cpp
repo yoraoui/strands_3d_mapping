@@ -314,9 +314,9 @@ RGBDFrame * RGBDFrame::clone(){
 
 	frame->connections = connections;
 	frame->intersections = intersections;
-//	frame->nr_labels = nr_labels;
-//	frame->labels = new int[nr_pixels];
-//	for(int i = 0; i < nr_pixels; i++){frame->labels[i] = labels[i];}
+	frame->nr_labels = nr_labels;
+	frame->labels = new int[nr_pixels];
+	for(int i = 0; i < nr_pixels; i++){frame->labels[i] = labels[i];}
 
 	return frame;//new RGBDFrame(camera->clone(), rgb.clone(),depth.clone(),capturetime, pose, true);
 }
@@ -372,9 +372,9 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 	intersections[0].resize(1);
 	intersections[0][0] = 0;
 
-//	nr_labels = 1;
-//	labels = new int[nr_pixels];
-//	for(unsigned int i = 0; i < nr_pixels; i++){labels[i] = 0;}
+	nr_labels = 1;
+	labels = new int[nr_pixels];
+	for(unsigned int i = 0; i < nr_pixels; i++){labels[i] = 0;}
 
 	unsigned short * depthdata = (unsigned short *)depth.data;
 	unsigned char * rgbdata = (unsigned char *)rgb.data;
@@ -1142,7 +1142,6 @@ void RGBDFrame::save(std::string path){
 }
 
 void RGBDFrame::saveFast(std::string path){
-	//printf("saveFast(%s) keyval: %s\n",path.c_str(),keyval.c_str());
 	double startTime = getTime();
 
 	const unsigned int width	= camera->width;
@@ -1269,11 +1268,6 @@ RGBDFrame * RGBDFrame::loadFast(std::string path){
 		frame->pose = pose;
         frame->keyval = keyval;
         frame->soma_id = soma_id;
-
-//		unsigned int nr_pixels = height*width;
-//		frame->nr_labels = 1;
-//		frame->labels = new int[nr_pixels];
-//		for(int i = 0; i < nr_pixels; i++){frame->labels[i] = 0;}
 
 		frame->rgb.create(height,width,CV_8UC3);
 		frame->depth.create(height,width,CV_16UC1);
@@ -1526,6 +1520,7 @@ std::vector<superpoint> RGBDFrame::getSuperPoints(Eigen::Matrix4d cp, unsigned i
 	ret.resize((width/step)*(height/step));
 	unsigned long count = 0;
 
+    unsigned long bordercount = 0;
 	for(unsigned long h = 0; h < height;h += step){
 		for(unsigned long w = 0; w < width;w += step){
 			unsigned int ind = h * width + w;
@@ -1546,16 +1541,104 @@ std::vector<superpoint> RGBDFrame::getSuperPoints(Eigen::Matrix4d cp, unsigned i
 				float tny	= m10*nx + m11*ny + m12*nz;
 				float tnz	= m20*nx + m21*ny + m22*nz;
 
-				ret[count++]	= superpoint(Vector3f(tx,ty,tz),Vector3f(tnx,tny,tnz),rgb, getInformation(z), 1, 0);
+                bool is_boundry = false;
+                if(w == 0 || h == 0 || w == width-1 || h == height-1){
+                    is_boundry = true;
+                }else if((normalsdata[3*(ind-1)] == 2) || (normalsdata[3*(ind+1)] == 2) || (normalsdata[3*(ind-width)] == 2) || (normalsdata[3*(ind+width)] == 2)){
+                    is_boundry = true;
+                }else if((depthdata[(ind-1)] == 0) || (depthdata[(ind+1)] == 0) || (depthdata[(ind-width)] == 0) || (depthdata[(ind+width)] == 0)){
+                    is_boundry = true;
+                }
+
+                bordercount+=is_boundry;
+
+                ret[count++]	= superpoint(Vector3f(tx,ty,tz),Vector3f(tnx,tny,tnz),rgb, getInformation(z), 1, 0,is_boundry);
 			}else{
 				if(zeroinclude){
-					ret[count++]	= superpoint(Eigen::Vector3f(0,0,0),Eigen::Vector3f(0,0,0),rgb, 0, 1, 0);
+                    ret[count++]	= superpoint(Eigen::Vector3f(0,0,0),Eigen::Vector3f(0,0,0),rgb, 0, 1, 0);
 				}
 			}
 		}
 	}
 	ret.resize(count);
+
+    //printf("bordercount: %i\n",bordercount);
 	return ret;
+}
+
+std::vector<superpoint> RGBDFrame::getEdges(Eigen::Matrix4d cp, unsigned int step, bool * maskvec){
+    unsigned char  * rgbdata		= (unsigned char	*)(rgb.data);
+    unsigned short * depthdata		= (unsigned short	*)(depth.data);
+    float		   * normalsdata	= (float			*)(normals.data);
+
+    float m00 = cp(0,0); float m01 = cp(0,1); float m02 = cp(0,2); float m03 = cp(0,3);
+    float m10 = cp(1,0); float m11 = cp(1,1); float m12 = cp(1,2); float m13 = cp(1,3);
+    float m20 = cp(2,0); float m21 = cp(2,1); float m22 = cp(2,2); float m23 = cp(2,3);
+
+    const unsigned int width	= camera->width;
+    const unsigned int height	= camera->height;
+    const float idepth			= camera->idepth_scale;
+    const float cx				= camera->cx;
+    const float cy				= camera->cy;
+    const float ifx				= 1.0/camera->fx;
+    const float ify				= 1.0/camera->fy;
+
+    std::vector<superpoint> ret;
+
+    float * cedata = (float*)ce.data;
+    float * dedata = (float*)de.data;
+    unsigned char * det_dilatedata = det_dilate.data;
+
+//	std::vector<float> dxc;
+//	dxc.resize(nr_pixels);
+
+//	std::vector<float> dyc;
+//	dyc.resize(nr_pixels);
+
+//	for(unsigned int i = 0; i < nr_pixels;i++){
+//		//dxc[i] = 1.0-std::max(dedata[3*i+1],cedata[3*i+1]);
+//		//dyc[i] = 1.0-std::max(dedata[3*i+2],cedata[3*i+2]);
+//		//ProcessedImages
+
+
+
+//		if(!depthonly){
+//			if(!det_dilatedata[i]){
+//				dxc[i] = 1.0-std::max(dedata[3*i+1],0.8f*cedata[3*i+1]);
+//				dyc[i] = 1.0-std::max(dedata[3*i+2],0.8f*cedata[3*i+2]);
+//			}else{
+//				dxc[i] = 1.0-std::max(dedata[3*i+1],0.8f*cedata[3*i+1]);
+//				dyc[i] = 1.0-std::max(dedata[3*i+2],0.8f*cedata[3*i+2]);
+//			}
+//		}else{
+//			dxc[i] = 1.0-dedata[3*i+1];
+//			dyc[i] = 1.0-dedata[3*i+2];
+//		}
+
+//	}
+
+    for(unsigned long h = 0; h < height;h += step){
+        for(unsigned long w = 0; w < width;w += step){
+            unsigned int ind = h * width + w;
+            if(cedata[3*ind+1] > 0.5 || cedata[3*ind+2] > 0.5){
+                float z		= idepth*float(depthdata[ind]);
+                if(z > 0){
+                    float x = (float(w) - cx) * z * ifx;
+                    float y = (float(h) - cy) * z * ify;
+
+                    float tx	= m00*x + m01*y + m02*z + m03;
+                    float ty	= m10*x + m11*y + m12*z + m13;
+                    float tz	= m20*x + m21*y + m22*z + m23;
+
+                    Eigen::Vector3f rgb (rgbdata[3*ind+0],rgbdata[3*ind+1],rgbdata[3*ind+2]);
+
+                    ret.push_back(superpoint(Vector3f(tx,ty,tz),Vector3f(0,0,1),rgb, getInformation(z), 1, 0,false));
+                }
+            }
+        }
+    }
+
+    return ret;
 }
 
 std::vector< std::vector<float> > RGBDFrame::getImageProbs(bool depthonly){
@@ -1666,5 +1749,7 @@ void RGBDFrame::saveCombinedProcessedImages(std::string path){
 	//    cv::imshow( "combined",	combined );
 	//    cv::waitKey(0);
 }
+
+
 
 }

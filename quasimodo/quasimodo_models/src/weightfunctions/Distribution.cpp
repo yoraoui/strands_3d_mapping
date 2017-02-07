@@ -5,10 +5,13 @@ namespace reglib
 Distribution::Distribution(){
 	debugg_print = false;
 	traincounter = 0;
+    minstd = 0;
 }
 Distribution::~Distribution(){}
+void	Distribution::setMinStd(double x){minstd = x;}
 void	Distribution::reset(){traincounter = 0;}
 void    Distribution::train(std::vector<float> & hist, unsigned int nr_bins){   printf("%s in %s not implemented, stopping\n",__PRETTY_FUNCTION__,__FILE__);exit(0);}
+void    Distribution::train(float * hist, unsigned int nr_bins){                printf("%s in %s not implemented, stopping\n",__PRETTY_FUNCTION__,__FILE__);exit(0);}
 void    Distribution::update(){                                                 printf("%s in %s not implemented, stopping\n",__PRETTY_FUNCTION__,__FILE__);exit(0);}
 double  Distribution::getval(double x){                                         printf("%s in %s not implemented, stopping\n",__PRETTY_FUNCTION__,__FILE__);exit(0);}
 double  Distribution::getcdf(double x){                                         printf("%s in %s not implemented, stopping\n",__PRETTY_FUNCTION__,__FILE__);exit(0);}
@@ -52,5 +55,15 @@ void    Distribution::getMaxdMind(double & maxd, double & mind, double prob){
 }
 
 void Distribution::rescale(double mul){}
+
+Distribution * Distribution::clone(){
+    Distribution * dist = new Distribution();
+    dist->regularization = regularization;
+    dist->mean = mean;
+    dist->minstd = minstd;
+    dist->debugg_print = debugg_print;
+    dist->traincounter = traincounter;
+    return dist;
+}
 
 }

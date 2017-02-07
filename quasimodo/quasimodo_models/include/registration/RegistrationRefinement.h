@@ -22,8 +22,6 @@ namespace reglib
 
 		Eigen::VectorXd DST_INORMATION;
 
-		//DistanceWeightFunction2PPR2 * func;
-
 		int nr_arraypoints;
 		double * arraypoints;
 		Tree3d * trees3d;
@@ -34,7 +32,7 @@ namespace reglib
 
 		void setDst(std::vector<superpoint> & dst_);
 		
-		FusionResults getTransform(Eigen::MatrixXd guess);
+        FusionResults getTransform(Eigen::MatrixXd guess);
 	};
 }
 

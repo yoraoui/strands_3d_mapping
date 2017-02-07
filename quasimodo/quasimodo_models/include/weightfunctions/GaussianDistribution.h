@@ -34,7 +34,12 @@ public:
     GaussianDistribution(bool refine_std_ = true, bool zeromean = true, bool refine_mean = false, bool refine_mul = false, double costpen_ = 3,int nr_refineiters_ = 1,double mul_ = 1, double mean_ = 0,	double stdval_ = 1);
     //GaussianDistribution(double mul_ = 1, double mean_ = 0,	double stdval_ = 1);
     ~GaussianDistribution();
+
+
+    virtual Distribution * clone();
+
     virtual void train(std::vector<float> & hist, unsigned int nr_bins = 0);
+    virtual void train(float * hist, unsigned int nr_bins);
     virtual void update();
     virtual double getNoise();
     virtual void setNoise(double x);
@@ -43,12 +48,22 @@ public:
     virtual void print();
 	virtual void rescale(double mul);
 
-    //virtual void getMaxdMind(double & maxd, double & mind, double prob = 0.1);
+    virtual void getMaxdMind(double & maxd, double & mind, double prob = 0.00001);
 
     double scoreCurrent2(double mul, double mean, double stddiv,  std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen);
     double fitStdval2   (double mul, double mean, double std_mid, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen);
     double fitMean2     (double mul, double mean, double std_mid, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen);
     double fitMul2      (double mul, double mean, double std_mid, std::vector<float> & X, std::vector<float> & Y, unsigned int nr_data, double costpen);
+
+    double scoreCurrent2(double mul, double mean, double stddiv,  float * X, float * Y, unsigned int nr_data, double costpen);
+    double fitStdval2   (double mul, double mean, double std_mid, float * X, float * Y, unsigned int nr_data, double costpen);
+    double fitMean2     (double mul, double mean, double std_mid, float * X, float * Y, unsigned int nr_data, double costpen);
+    double fitMul2      (double mul, double mean, double std_mid, float * X, float * Y, unsigned int nr_data, double costpen);
+
+//    double scoreCurrent2(double mul, double mean, double stddiv,  float * Y, unsigned int nr_data, double costpen);
+//    double fitStdval2   (double mul, double mean, double std_mid, float * Y, unsigned int nr_data, double costpen);
+//    double fitMean2     (double mul, double mean, double std_mid, float * Y, unsigned int nr_data, double costpen);
+//    double fitMul2      (double mul, double mean, double std_mid, float * Y, unsigned int nr_data, double costpen);
 
 };
 

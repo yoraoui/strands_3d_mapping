@@ -6,6 +6,7 @@ DistanceWeightFunction2PPR2::DistanceWeightFunction2PPR2(	double maxd_, int hist
 	savePath = "";
 	saveData.str("");
 
+    minNoise = 0;
 
     fixed_histogram_size = false;
 
@@ -790,7 +791,7 @@ double startTime = getCurrentTime3();
 //    gd->print();
 //    delete gd;
 //printf("time taken to %5.5i: %10.10f\n",__LINE__,getCurrentTime3()-startTime); startTime = getCurrentTime3();
-	g.stdval = std::max(0.0001*double(histogram_size)/(maxd),std::min(g.stdval,maxnoise*double(histogram_size)/maxd));
+    g.stdval = std::max(0.0001*double(histogram_size)/(maxd),std::max(minNoise*double(histogram_size)/maxd,std::min(g.stdval,maxnoise*double(histogram_size)/maxd)));
 
 	//noiseval = maxd*g.stdval/float(histogram_size);
 	noiseval = (maxd-mind)*g.stdval/float(histogram_size);
@@ -1009,6 +1010,12 @@ double DistanceWeightFunction2PPR2::getProbInfront(double d, bool debugg){
 }
 
 bool DistanceWeightFunction2PPR2::update(){
+    if(debugg_print){printf("%% ============ update() =============\n");}
+    int endLen;
+    for(endLen = 0; endLen < histogram_size; endLen++){
+        if(prob[endLen] < 0.01){break;}
+    }
+
 	if(true){
 		std::vector<float> new_histogram = histogram;
 		std::vector<float> new_blur_histogram = blur_histogram;
@@ -1016,15 +1023,26 @@ bool DistanceWeightFunction2PPR2::update(){
 		float old_sum_prob = 0;
         for(int k = 0; k < histogram_size; k++){old_sum_prob += prob[k] * histogram[k];}
 
+        if(debugg_print){
+            printf("p = [");for(int k = 0; k < endLen; k++){printf(" %2.2f",prob[k]);}printf("];\n");
+            printf("h = [");for(int k = 0; k < endLen; k++){printf(" %4.4i",int(histogram[k]));}printf("];\n");
+            printf("-----\n");
+        }
+
 		Gaussian3 g = Gaussian3(mulval,meanval,stdval);//getModel(stdval,blur_histogram,uniform_bias);
 
 		int iteration = 0;
-        double regularization_before = regularization;
+        double regularization_before = regularization/double(target_length*5);
         for(int i = 0; i < 500; i++){
 			iteration++;
+            double before_noise = getNoise();
             regularization *= 0.5;
+            double after_noise  = getNoise();
+
 			double change = histogram_size*regularization/maxd;
             //printf("DistanceWeightFunction2PPR2::update() %i -> reg %f change %f\n",i,regularization,change);
+
+            //if(debugg_print){printf("%%before_noise: %5.5fs after_noise: %5.5fs\n",before_noise,after_noise);}
 
 			if(change < 0.01*stdval){return true;}
 
@@ -1034,11 +1052,25 @@ bool DistanceWeightFunction2PPR2::update(){
 			float new_sum_prob = 0;
 			for(int k = 0; k < histogram_size; k++){
 				double hs = new_blur_histogram[k] +0.0000001;
-				new_sum_prob += std::min(maxp , g.getval(k)/hs) * new_histogram[k];
+                new_sum_prob += std::min(maxp , g.getval(k)/hs) * new_histogram[k];
 			}
 
-            //printf("new_sum_prob %f old_sum_prob %f ratio: %f\n",new_sum_prob,old_sum_prob,new_sum_prob/old_sum_prob);
-			if(new_sum_prob < 0.99*old_sum_prob || regularization < regularization_before/double(target_length*5)){return false;}
+
+            if(debugg_print){
+                printf("p = [");
+                for(int k = 0; k < endLen; k++){
+                    double hs = new_blur_histogram[k] +0.0000001;
+                    double p = std::min(maxp , g.getval(k)/hs);
+                    printf(" %2.2f",p);
+                }
+                printf("];\n");
+            }
+
+
+
+            //if(debugg_print){printf("%% new_sum_prob: %5.5f old_sum_prob: %5.5f regularization: %5.5f regularization_before: %5.5f\n",new_sum_prob,old_sum_prob,regularization,regularization_before);}
+
+            if(new_sum_prob < 0.99*old_sum_prob || regularization < regularization_before){return false;}
 			g.stdval -= change;
 			g.update();
 		}
@@ -1093,6 +1125,78 @@ inline double DistanceWeightFunction2PPR2::getInd(double d, bool debugg){
 		return 0.00001+fabs(d)*histogram_mul2;
 	}
 }
+
+DistanceWeightFunction2 * DistanceWeightFunction2PPR2::clone(){
+    DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
+    func->name                      = name;
+    func->f                         = f;
+    func->p                         = p;
+    func->regularization            = regularization;
+    func->convergence_threshold     = convergence_threshold;
+    func->debugg_print              = debugg_print;
+    func->savePath                  = savePath;
+    func->stdval                    = stdval;
+    func->stdval                    = stdval2;
+    func->mulval                    = mulval;
+    func->meanval                   = meanval;
+    func->meanval2                  = meanval2;
+    func->maxd                      = maxd;
+    func->histogram_size            = histogram_size;
+    func->blurval = blurval;
+    func->stdgrow = stdgrow;
+    func->noiseval = noiseval;
+    func->startreg = startreg;
+    func->update_size = update_size;
+    func->target_length = target_length;
+    func->data_per_bin = data_per_bin;
+    func->meanoffset = meanoffset;
+    func->blur = blur;
+    //func->start_maxd = start_maxd;
+    func->prob = prob;
+    func->histogram = histogram;
+    //func->smallblur_histogram = smallblur_histogram;
+    func->blur_histogram = blur_histogram;
+    func->noise = noise;
+    func->max_under_mean = max_under_mean;
+    func->interp = interp;
+    func->threshold = threshold;
+    func->uniform_bias = uniform_bias;
+    func->scale_convergence = scale_convergence;
+    func->nr_inliers = nr_inliers;
+    func->maxp = maxp;
+    func->bidir = bidir;
+    func->iter = iter;
+    func->maxnoise = maxnoise;
+    func->zeromean = zeromean;
+    func->costpen = costpen;
+    func->first = first;
+    func->startmaxd = startmaxd;
+    func->mind = mind;
+    func->starthistogram_size = starthistogram_size;
+    func->minNoise = minNoise;
+    func->ggd = ggd;
+    func->compute_infront = compute_infront;
+    func->infront = infront;
+    func->noisecdf = noisecdf;
+    func->nr_refineiters = nr_refineiters;
+    func->refine_mean = refine_mean;
+    func->refine_mul = refine_mul;
+    func->refine_std = refine_std;
+    func->threshold = threshold;
+    func->uniform_bias = uniform_bias;
+    func->scale_convergence = scale_convergence;
+    func->nr_inliers = nr_inliers;
+    func->rescaling = rescaling;
+    func->interp = interp;
+    func->max_under_mean = max_under_mean;
+    func->bidir = bidir;
+    func->iter = iter;
+    func->histogram_mul = histogram_mul;
+    func->histogram_mul2 = histogram_mul2;
+
+    return func;
+}
+
 }
 
 
