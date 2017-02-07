@@ -63,7 +63,7 @@ std::string ModelStorageFile::getNextID(){
 bool ModelStorageFile::add(reglib::Model * model, std::string key){
 	double startTime =quasimodo_brain::getTime();
     if(model->keyval.length() == 0){model->keyval = getNextID();}
-	//printf("ModelStorageFile::add(%s)\n",model->keyval.c_str());
+    printf("ModelStorageFile::add(%s)\n",model->keyval.c_str());
     std::string modelpath = filepath+"/"+model->keyval;
     quasimodo_brain::guaranteeFolder(modelpath);
 	modelpath += "/";
@@ -81,7 +81,7 @@ bool ModelStorageFile::add(reglib::Model * model, std::string key){
     if(model->parrent == 0){
         activeModels[model->keyval] = model;
     }
-	//print();
+    print();
 }
 
 bool ModelStorageFile::update(reglib::Model * model){

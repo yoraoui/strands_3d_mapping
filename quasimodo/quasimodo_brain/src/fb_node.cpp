@@ -1,4 +1,3 @@
-
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 #include <sensor_msgs/PointCloud2.h>
@@ -21,240 +20,664 @@
 
 #include <string.h>
 
+#include "Util/Util.h"
+
+#include "core/DescriptorExtractor.h"
+
 using namespace std;
 
 int counter = 0;
 
 reglib::Camera *						camera;
-//reglib::Registration *					registration;
 std::vector<reglib::RGBDFrame *>		frames;
-//std::vector<reglib::Model *>			models;
-//reglib::ModelUpdater *					updaters;
 reglib::ModelUpdater2 *					updaters2;
 
 std::vector<cv::Mat> rgb_images;
 std::vector<cv::Mat> depth_images;
 std::vector<double> timestamps;
 
+std::vector<Eigen::Matrix4d> gt_poses;
+
 void addFBdata(string path, int start, int stop, int skip){
-	string input 		= path;
-	string input_rgb	= string(input+"/rgb.txt");
-	string input_depth	= string(input+"/depth.txt");
-	//string input_gt		= string(input+"/groundtruth.txt");
-	printf("input:       %s\n",input.c_str());
-	printf("input_rgb:   %s\n",input_rgb.c_str());
-	printf("input_depth: %s\n",input_depth.c_str());
+    string input 		= path;
+    string input_rgb	= string(input+"/rgb.txt");
+    string input_depth	= string(input+"/depth.txt");
+    string input_gt		= string(input+"/groundtruth.txt");
+    printf("input:       %s\n",input.c_str());
+    printf("input_rgb:   %s\n",input_rgb.c_str());
+    printf("input_depth: %s\n",input_depth.c_str());
 
 
-	int camera_id = 0;
-	if(input.find("rgbd_dataset_freiburg1") != -1){camera_id = 1;}
-	if(input.find("rgbd_dataset_freiburg2") != -1){camera_id = 2;}
-	if(input.find("rgbd_dataset_freiburg3") != -1){camera_id = 3;}
-	printf("Camer_id: %i\n",camera_id);
+    int camera_id = 0;
+    if(input.find("rgbd_dataset_freiburg1") != -1){camera_id = 1;}
+    if(input.find("rgbd_dataset_freiburg2") != -1){camera_id = 2;}
+    if(input.find("rgbd_dataset_freiburg3") != -1){camera_id = 3;}
+    printf("Camer_id: %i\n",camera_id);
 
-	camera->idepth_scale = 1.0/5000.0;
+    camera->idepth_scale = 1.0/5000.0;
 
-	if(camera_id == 0){
-		camera->fx			= 525.0;				//Focal Length X
-		camera->fy			= 525.0;				//Focal Length Y
-		camera->cx			= 319.5;				//Center coordinate X
-		camera->cy			= 239.5;				//Center coordinate X
-	}else if(camera_id == 1){
-		camera->fx			= 517.3;				//Focal Length X
-		camera->fy			= 516.5;				//Focal Length Y
-		camera->cx			= 318.6;				//Center coordinate X
-		camera->cy			= 255.3;				//Center coordinate X
-	}else if(camera_id == 2){
-		camera->fx			= 520.9;				//Focal Length X
-		camera->fy			= 521.0;				//Focal Length Y
-		camera->cx			= 325.1;				//Center coordinate X
-		camera->cy			= 249.7;				//Center coordinate X
-	}else if(camera_id == 3){
-		camera->fx			= 535.4;				//Focal Length X
-		camera->fy			= 539.2;				//Focal Length Y
-		camera->cx			= 320.1;				//Center coordinate X
-		camera->cy			= 247.6;				//Center coordinate X
-	}else{printf("Error, should not get to here\n");}
+    if(camera_id == 0){
+        camera->fx			= 525.0;				//Focal Length X
+        camera->fy			= 525.0;				//Focal Length Y
+        camera->cx			= 319.5;				//Center coordinate X
+        camera->cy			= 239.5;				//Center coordinate X
+    }else if(camera_id == 1){
+        camera->fx			= 517.3;				//Focal Length X
+        camera->fy			= 516.5;				//Focal Length Y
+        camera->cx			= 318.6;				//Center coordinate X
+        camera->cy			= 255.3;				//Center coordinate X
+    }else if(camera_id == 2){
+        camera->fx			= 520.9;				//Focal Length X
+        camera->fy			= 521.0;				//Focal Length Y
+        camera->cx			= 325.1;				//Center coordinate X
+        camera->cy			= 249.7;				//Center coordinate X
+    }else if(camera_id == 3){
+        camera->fx			= 535.4;				//Focal Length X
+        camera->fy			= 539.2;				//Focal Length Y
+        camera->cx			= 320.1;				//Center coordinate X
+        camera->cy			= 247.6;				//Center coordinate X
+    }else{printf("Error, should not get to here\n");}
 
-	string line;
+    string line;
 
-	ifstream rgb_file (input_rgb.c_str());
-	vector<pair<double, string> > rgb_lines;
-	if (rgb_file.is_open()){
-		while ( rgb_file.good()){
-			getline (rgb_file,line);
-			if(line[0] != '#'){
-				int space1 = line.find(" ");
-				if(space1 != -1){
-					int dot1		= line.find(".");
-					string secs		= line.substr(0,dot1);
-					string nsecs	= line.substr(dot1+1,space1-dot1);
-					string path		= line.substr(space1+1);
-					double timestamp = double(atoi(secs.c_str()))+0.000001*double(atoi(nsecs.c_str()));
-					rgb_lines.push_back(make_pair(timestamp,path));
-				}
-			}
-		}
-		rgb_file.close();
-	}else{cout << "Unable to open " << input;}
+    ifstream rgb_file (input_rgb.c_str());
+    vector<pair<double, string> > rgb_lines;
+    if (rgb_file.is_open()){
+        while ( rgb_file.good()){
+            getline (rgb_file,line);
+            if(line[0] != '#'){
+                int space1 = line.find(" ");
+                if(space1 != -1){
+                    int dot1		= line.find(".");
+                    string secs		= line.substr(0,dot1);
+                    string nsecs	= line.substr(dot1+1,space1-dot1);
+                    string path		= line.substr(space1+1);
+                    double timestamp = double(atoi(secs.c_str()))+0.000001*double(atoi(nsecs.c_str()));
+                    rgb_lines.push_back(make_pair(timestamp,path));
+                }
+            }
+        }
+        rgb_file.close();
+    }else{cout << "Unable to open " << input;}
 
-	ifstream depth_file (input_depth.c_str());
-	vector<pair<double, string> > depth_lines;
-	if (depth_file.is_open()){
-		while ( depth_file.good()){
-			getline (depth_file,line);
-			if(line[0] != '#'){
-				int space1 = line.find(" ");
-				if(space1 != -1){
-					int dot1		= line.find(".");
-					string secs		= line.substr(0,dot1);
-					string nsecs	= line.substr(dot1+1,space1-dot1);
-					string path		= line.substr(space1+1);
-					double timestamp = double(atoi(secs.c_str()))+0.000001*double(atoi(nsecs.c_str()));
-					depth_lines.push_back(make_pair(timestamp,path));
-				}
-			}
-		}
-		depth_file.close();
-	}else{cout << "Unable to open " << input;}
-
-	unsigned int rgb_counter = 0;
-	unsigned int depth_counter = 0;
-
-	vector<int> rgb_indexes;
-	vector<int> depth_indexes;
-
-	float max_diff = 0.015;
-
-	for(; rgb_counter < rgb_lines.size(); rgb_counter++){
-		double rgb_ts		= rgb_lines.at(rgb_counter).first;
-		double depth_ts		= depth_lines.at(depth_counter).first;
-		double diff_best	= fabs(rgb_ts - depth_ts);
-
-		for(unsigned int current_counter = depth_counter; current_counter < depth_lines.size(); current_counter++){
-			double dts = depth_lines.at(current_counter).first;
-			double diff_current = fabs(rgb_ts - dts);
-			if(diff_current <= diff_best){
-				diff_best = diff_current;
-				depth_counter = current_counter;
-				depth_ts = dts;
-			}else{break;}
-		}
-		if(diff_best > max_diff){continue;}//Failed to find corresponding depth image
-		rgb_indexes.push_back(rgb_counter);
-		depth_indexes.push_back(depth_counter);
-	}
+    ifstream depth_file (input_depth.c_str());
+    vector<pair<double, string> > depth_lines;
+    if (depth_file.is_open()){
+        while ( depth_file.good()){
+            getline (depth_file,line);
+            if(line[0] != '#'){
+                int space1 = line.find(" ");
+                if(space1 != -1){
+                    int dot1		= line.find(".");
+                    string secs		= line.substr(0,dot1);
+                    string nsecs	= line.substr(dot1+1,space1-dot1);
+                    string path		= line.substr(space1+1);
+                    double timestamp = double(atoi(secs.c_str()))+0.000001*double(atoi(nsecs.c_str()));
+                    depth_lines.push_back(make_pair(timestamp,path));
+                }
+            }
+        }
+        depth_file.close();
+    }else{cout << "Unable to open " << input;}
 
 
-	for(unsigned int i = start; i < rgb_indexes.size() && i < stop; i+= skip){
-		string rgbpath = input+"/"+rgb_lines.at(rgb_indexes.at(i)).second;
-		string depthpath = input+"/"+depth_lines.at(depth_indexes.at(i)).second;
+    ifstream gt_file (input_gt.c_str());
+    vector<pair<double, Eigen::Matrix4d> > gt_lines;
+    if (gt_file.is_open()){
+        while ( gt_file.good()){
+            getline (gt_file,line);
+            if(line[0] != '#'){
+                int space1 = line.find(" ");
+                if(space1 != -1){
+                    int dot1		= line.find(".");
+                    string secs		= line.substr(0,dot1);
+                    string nsecs	= line.substr(dot1+1,space1-dot1);
+                    string path		= line.substr(space1+1);
 
-		cv::Mat rgbimage    = cv::imread(rgbpath, CV_LOAD_IMAGE_COLOR);
-		cv::Mat depthimage  = cv::imread(depthpath, CV_LOAD_IMAGE_UNCHANGED);
+                    std::vector<double> v;
+                    for(unsigned int i = 0; i < 7; i++){
+                        int space2 = path.find(" ");
+                        v.push_back(atof(path.substr(0,space2).c_str()));
+                        path = path.substr(space2+1);
+                    }
 
-		rgb_images.push_back(rgbimage);
-		depth_images.push_back(depthimage);
-		timestamps.push_back(depth_lines.at(depth_indexes.at(i)).first);
+                    Eigen::Quaterniond qr(v[6],v[3],v[4],v[5]);//a.rotation());
 
-		std::cout << "\rloaded " << i << " " << std::cout.flush();
-	}
+                    Eigen::Affine3d a(qr);
+                    a(0,3) = v[0];
+                    a(1,3) = v[1];
+                    a(2,3) = v[2];
+
+                    double timestamp = atof(line.substr(0,space1).c_str());//double(atoi(secs.c_str()))+0.000001*double(atoi(nsecs.c_str()));
+                    gt_lines.push_back(make_pair(timestamp,a.matrix()));
+                }
+            }
+        }
+        depth_file.close();
+    }else{cout << "Unable to open " << input;}
+
+    unsigned int rgb_counter = 0;
+    unsigned int depth_counter = 0;
+    unsigned int gt_counter = 0;
+
+    vector<int> rgb_indexes;
+    vector<int> depth_indexes;
+    vector<int> gt_indexes;
+
+    float max_diff = 0.015;
+
+    for(; rgb_counter < rgb_lines.size(); rgb_counter++){
+        double rgb_ts		= rgb_lines.at(rgb_counter).first;
+        double depth_ts		= depth_lines.at(depth_counter).first;
+        double gt_ts		= gt_lines.at(gt_counter).first;
+        double diff_best	= fabs(rgb_ts - depth_ts);
+        double gtdiff_best	= fabs(rgb_ts - gt_ts);
+
+        for(unsigned int current_counter = depth_counter; current_counter < depth_lines.size(); current_counter++){
+            double dts = depth_lines.at(current_counter).first;
+            double diff_current = fabs(rgb_ts - dts);
+            if(diff_current <= diff_best){
+                diff_best = diff_current;
+                depth_counter = current_counter;
+                depth_ts = dts;
+            }else{break;}
+        }
+
+        for(unsigned int current_counter = gt_counter; current_counter < gt_lines.size(); current_counter++){
+        //for(unsigned int current_counter = 0; current_counter < gt_lines.size(); current_counter++){
+            double dts = gt_lines.at(current_counter).first;
+            double diff_current = fabs(rgb_ts - dts);
+            //if(rgb_indexes.size() < 10){printf("rgb: %5.5fs gt: %5.5fs diff: %5.5fs\n",rgb_ts,dts,diff_current);}
+            if(diff_current <= gtdiff_best){
+                gtdiff_best = diff_current;
+                gt_counter = current_counter;
+                gt_ts = dts;
+            }else{break;}
+
+        }
+
+        if(diff_best > max_diff){continue;}//Failed to find corresponding depth image
+        rgb_indexes.push_back(rgb_counter);
+        depth_indexes.push_back(depth_counter);
+        gt_indexes.push_back(gt_counter);
+    }
+
+    for(unsigned int i = start; i < rgb_indexes.size() && i < stop; i+= skip){
+        string rgbpath = input+"/"+rgb_lines.at(rgb_indexes.at(i)).second;
+        string depthpath = input+"/"+depth_lines.at(depth_indexes.at(i)).second;
+
+        cv::Mat rgbimage    = cv::imread(rgbpath, CV_LOAD_IMAGE_COLOR);
+        cv::Mat depthimage  = cv::imread(depthpath, CV_LOAD_IMAGE_UNCHANGED);
+
+        rgb_images.push_back(rgbimage);
+        depth_images.push_back(depthimage);
+        timestamps.push_back(depth_lines.at(depth_indexes.at(i)).first);
+        gt_poses.push_back(gt_lines.at(gt_indexes.at(i)).second);
+
+        std::cout << "\rloaded " << i << " " << std::cout.flush();
+    }
+
+    std::cout << gt_poses.front() << std::endl;
+    Eigen::Matrix4d finv = gt_poses.front().inverse();
+    for(unsigned int i = 0; i < gt_poses.size(); i++){
+        gt_poses[i] = finv*gt_poses[i];
+    }
 }
-/*
-void saveModelToFB(reglib::Model * model, string path = "testoutput.txt"){
-	printf("Saving map in: %s\n",path.c_str());
 
-	ofstream myfile;
-	myfile.open(path.c_str());
+void saveModelToFB(std::vector<Eigen::Matrix4d> poses, std::vector<double> timestamps, string path = "testoutput.txt"){
+    printf("Saving map in: %s\n",path.c_str());
 
-	char buf[1000];
-	for(int i = 0; i < model->frames.size(); i++){
-		printf("pose: %i\n",i);
+    ofstream myfile;
+    myfile.open(path.c_str());
 
-		Matrix4d p = model->relativeposes[i];
-		Eigen::Affine3d a(p.cast<double>());
-		Eigen::Quaterniond qr(a.rotation());
-		double timestamp = model->frames[i]->capturetime;//frames.at(i)->input->rgb_timestamp;
-		float tx = a(0,3);
-		float ty = a(1,3);
-		float tz = a(2,3);
-		float qx = qr.x();
-		float qy = qr.y();
-		float qz = qr.z();
-		float qw = qr.w();
-		int n = sprintf(buf,"%f %f %f %f %f %f %f %f\n",timestamp,tx,ty,tz,qx,qy,qz,qw);
-		myfile << buf;
-	}
-
-	myfile.close();
-
+    char buf[1000];
+    for(int i = 0; i < poses.size(); i++){
+        Matrix4d p = poses[i];
+        Eigen::Affine3d a(p.cast<double>());
+        Eigen::Quaterniond qr(a.rotation());
+        double timestamp = timestamps[i];
+        float tx = a(0,3);
+        float ty = a(1,3);
+        float tz = a(2,3);
+        float qx = qr.x();
+        float qy = qr.y();
+        float qz = qr.z();
+        float qw = qr.w();
+        int n = sprintf(buf,"%f %f %f %f %f %f %f %f\n",timestamp,tx,ty,tz,qx,qy,qz,qw);
+        myfile << buf;
+    }
+    myfile.close();
 }
-*/
-void addAndUpdate(cv::Mat rgb, cv::Mat depth, double timestamp){
-	unsigned int nr_data = 640*480;
-	cv::Mat mask;
-	mask.create(480,640,CV_8UC1);
-	unsigned char * maskdata = (unsigned char *)mask.data;
-	for(unsigned int i = 0; i < nr_data; i++){maskdata[i] = 255;}
 
-	reglib::RGBDFrame	* frame	= new reglib::RGBDFrame(camera,rgb,depth,timestamp, Eigen::Matrix4d::Identity(),false);
-	updaters2->addFrame(frame,mask);
-	//reglib::Model		* model	= new reglib::Model(frame,mask);
-	//frames.push_back(frame);
-//	models.push_back(model);
-/*
-	if(updaters->model->frames.size() == 13){
-		//registration->setVisualizationLvl(3);
-	}
+std::vector<Eigen::Matrix4d> slam_vo2(reglib::Registration * reg, reglib::DescriptorExtractor * de, std::string output_path = "./", bool fuse_surface = true, bool fuse_kp = true, bool visualize = true){
+    printf("slam_vo2\n");
 
-	Eigen::Matrix4d ig = Eigen::Matrix4d::Identity();
-	if(updaters->model->frames.size() > 0){ig = updaters->model->relativeposes.back();}
-	if(updaters->model->frames.size() > 1){ig *= updaters->model->relativeposes[updaters->model->frames.size()-2].inverse() * ig;}
-	updaters->fuse(model,ig,-1);
 
-	if(updaters->model->frames.size() % 10 == 0){
-		//updaters->show(true);
-	}else{
-		//updaters->show(true);
-	}
+    unsigned int nr_frames = rgb_images.size();
 
-	cv::namedWindow(	"rgb", cv::WINDOW_AUTOSIZE );
-	cv::imshow(			"rgb", rgb );
-	cv::waitKey(100);
-*/
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr    coordcloud	(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr    gt_coordcloud	(new pcl::PointCloud<pcl::PointXYZ>);
+
+    if(visualize){
+        viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("viewer"));
+        viewer->setBackgroundColor(0.8,0.8,0.8);
+        viewer->removeAllPointClouds();
+        viewer->removeAllShapes();
+
+        coordcloud->points.resize(4);
+        coordcloud->points[0].x = 0.00; coordcloud->points[0].y = 0.00; coordcloud->points[0].z = 0.00;
+        coordcloud->points[1].x = 0.02; coordcloud->points[1].y = 0.00; coordcloud->points[1].z = 0.00;
+        coordcloud->points[2].x = 0.00; coordcloud->points[2].y = 0.02; coordcloud->points[2].z = 0.00;
+        coordcloud->points[3].x = 0.00; coordcloud->points[3].y = 0.00; coordcloud->points[3].z = 0.02;
+
+        for(int i = 0; i < gt_poses.size(); i++){
+            pcl::PointCloud<pcl::PointXYZ>::Ptr    cloudCoord	(new pcl::PointCloud<pcl::PointXYZ>);
+            char buf [1024];
+            pcl::transformPointCloud (*coordcloud, *cloudCoord, gt_poses[i]);
+            if(i > 0){
+                pcl::PointXYZ p; p.x = gt_poses[i-1](0,3);p.y = gt_poses[i-1](1,3); p.z = gt_poses[i-1](2,3);
+                gt_coordcloud->points.push_back(p);
+                sprintf(buf,"gt_%i",i);viewer->addLine<pcl::PointXYZ> (cloudCoord->points[0],p,0,0,255,buf);
+            }
+        }
+        viewer->spinOnce();
+    }
+
+    std::vector<Eigen::Matrix4d> poses;
+    std::vector<Eigen::Matrix4d> poses2;
+    std::vector<Eigen::Matrix4d> poses3;
+
+    cv::Mat fullmask;
+    fullmask.create(480,640,CV_8UC1);
+    unsigned char * maskdata = (unsigned char *)fullmask.data;
+    for(int j = 0; j < 480*640; j++){maskdata[j] = 255;}
+
+    std::vector<reglib::Model * >       keyframes;
+    std::vector< int >                  keyframe_ind;
+    std::vector<Eigen::Matrix4d>        keyframe_poses;
+    std::vector<double>                 keyframe_time;
+    std::vector<reglib::RGBDFrame *>    keyframes_frames;
+
+    reglib::Model * kf = new reglib::Model();
+    kf->last_changed = 0;
+
+    reglib::Model * current = new reglib::Model();
+    current->relativeposes.push_back(Eigen::Matrix4d::Identity());
+    current->modelmasks.push_back(new reglib::ModelMask(fullmask));
+    current->frames.push_back(0);
+
+
+    reglib::MassRegistrationPPR3 * massreg = new reglib::MassRegistrationPPR3();
+    massreg->viewer = viewer;
+    massreg->visualizationLvl = 0;
+    massreg->convergence_mul = 0.5;
+    massreg->func_setup = 1;
+
+    //reglib::MassFusionResults bgmfr3 = bgmassreg3->getTransforms(keyframe_poses);
+
+
+    //register to last kf
+    std::vector<Eigen::Matrix4d> cp;
+    cp.push_back(Eigen::Matrix4d::Identity());
+    cp.push_back(Eigen::Matrix4d::Identity());
+
+    std::vector<bool> is_kf;
+
+    int kfstep = 5;//std::max(1.0,double(nr_frames)/20.0);
+    //Merge into a new kf
+
+    reglib::RGBDFrame * prev = 0;
+    for(int i = 0; i < nr_frames; i++){
+
+
+
+
+
+        printf("current_frame = %i / %i\n",i+1,nr_frames);
+        reglib::RGBDFrame * frame = new reglib::RGBDFrame(camera,rgb_images[i],depth_images[i],timestamps[i], Eigen::Matrix4d::Identity(),true,"", true);
+        frame->show();
+
+
+        std::vector< reglib::KeyPoint > kps = de->extract(frame);
+        for(unsigned int j = 0; j < kps.size(); j++){ kps[j].point.last_update_frame_id = i; }
+        current->frames[0] = frame;
+        current->keypoints = kps;
+        current->recomputeModelPoints();
+        current->points = frame->getSuperPoints(Eigen::Matrix4d::Identity(), 2, false);
+        current->color_edgepoints = frame->getEdges(Eigen::Matrix4d::Identity(), 1, 0);
+
+        bool is_keyframe = false;
+
+        if(i == 0){//First frame is always a kf
+            kf->frames.push_back(frame);
+            kf->relativeposes.push_back(Eigen::Matrix4d::Identity());
+            kf->modelmasks.push_back(new reglib::ModelMask(fullmask));
+            poses.push_back(Eigen::Matrix4d::Identity());
+            is_keyframe = true;
+        }else{
+            massreg->addModel(current);
+            cp.back() = poses.back();
+
+            double regStart2 = quasimodo_brain::getTime();
+            reglib::MassFusionResults mfr = massreg->getTransforms(cp);
+            massreg->removeLastNode();
+
+            printf("mass registration time: %5.5fs score: %f\n",quasimodo_brain::getTime()-regStart2,mfr.score);
+
+
+            if(mfr.score < 0.4 || keyframe_ind.back() + kfstep < i){
+                is_keyframe = true;
+            }else{
+                poses.push_back(mfr.poses.back());
+            }
+        }
+
+        is_kf.push_back(is_keyframe);
+
+        if(is_keyframe){
+            //kf->mergeKeyPoints(current, poses.back());//Change to prev
+            reglib::Model * new_kf = new reglib::Model();
+            if(i == 0){
+                kf->addSuperPoints(kf->points,          poses.back(),frame,kf->modelmasks.back());
+                kf->mergePoints(kf->color_edgepoints,current->color_edgepoints,poses.back());
+                massreg->addModel(kf);
+
+                keyframe_ind.push_back(0);
+                keyframes_frames.push_back(frame);
+            }else{
+
+                kf->last_changed = keyframe_ind.size();
+
+//                kf->color_edgepoints.clear();
+//                kf->points.clear();
+
+                std::vector<reglib::superpoint> prev_edges = prev->getEdges(Eigen::Matrix4d::Identity(),1,0);
+                kf->addSuperPoints( kf->points,poses.back(),prev,kf->modelmasks.back());
+                kf->mergePoints(kf->color_edgepoints,prev_edges,poses.back());
+                //kf->mergePoints(    kf->color_edgepoints,current->color_edgepoints,poses.back());
+
+                for(unsigned int k = 0; k < kf->points.size(); k++){
+                    if( kf->last_changed - kf->points[k].last_update_frame_id > 10){
+                        kf->points[k] = kf->points.back();
+                        kf->points.pop_back();
+                        k--;
+                    }
+                }
+
+
+                massreg->removeLastNode();
+                massreg->addModel(kf);
+                massreg->addModel(current);
+                cp.back() = poses.back();
+                double regStart2 = quasimodo_brain::getTime();
+                reglib::MassFusionResults kffr = massreg->getTransforms(cp);
+                massreg->removeLastNode();
+
+                printf("mass registration time: %5.5fs score: %f\n",quasimodo_brain::getTime()-regStart2,kffr.score);
+                poses.push_back(kffr.poses.back());
+
+                keyframe_ind.push_back(i-1);
+                keyframes_frames.push_back(prev);
+            }
+
+            keyframe_time.push_back(timestamps[keyframe_ind.back()]);
+            keyframe_poses.push_back(poses[keyframe_ind.back()]);
+
+            keyframes.push_back(new_kf);
+            new_kf->addSuperPoints(new_kf->points,Eigen::Matrix4d::Identity(),keyframes_frames.back(),kf->modelmasks.back());
+
+
+            //viewer->spin();
+
+
+            viewer->removeAllPointClouds();
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr cld = kf->getPCLcloud(1,3);
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr edge_cld = kf->getPCLEdgeCloud(1,0);
+            viewer->addPointCloud<pcl::PointXYZRGB> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cld), "cloud");
+            viewer->addPointCloud<pcl::PointXYZRGB> (edge_cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(edge_cld), "edge_cloud");
+            viewer->addCoordinateSystem(0.1,Eigen::Affine3f(keyframe_poses.back().cast<float>()));
+            viewer->spin();
+
+
+        }
+
+        if(visualize){
+            pcl::PointCloud<pcl::PointXYZ>::Ptr    cloudCoord	(new pcl::PointCloud<pcl::PointXYZ>);
+            char buf [1024];
+            if(i > 0){
+                pcl::transformPointCloud (*coordcloud, *cloudCoord, Eigen::Affine3f(poses.back().cast<float>()));
+                pcl::PointXYZ p; p.x = poses[i-1](0,3);p.y = poses[i-1](1,3); p.z = poses[i-1](2,3);
+                sprintf(buf,"prev_%i",i);viewer->addLine<pcl::PointXYZ> (cloudCoord->points[0],p,0,255,0,buf);
+            }
+            viewer->spinOnce();
+        }
+
+        if(!is_keyframe){delete prev;}
+        prev = frame;
+    }
+
+    saveModelToFB(poses,timestamps,output_path+"odometry.txt");
+    saveModelToFB(poses2,timestamps,output_path+"odometry2.txt");
+    saveModelToFB(poses3,timestamps,output_path+"odometry3.txt");
+
+    if(visualize){
+        viewer->removeAllPointClouds();
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cld = kf->getPCLcloud(1,3);
+        viewer->addPointCloud<pcl::PointXYZRGB> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cld), "cloud");
+        viewer->spin();
+    }
+
+    saveModelToFB(keyframe_poses,keyframe_time,output_path+"preoptimized_ppr3.txt");
+
+
+
+        reglib::MassRegistrationPPR2 * bgmassreg3 = new reglib::MassRegistrationPPR2(0.01);
+        bgmassreg3->timeout = 3600;
+        bgmassreg3->viewer = viewer;
+        bgmassreg3->use_surface = true;
+        bgmassreg3->use_depthedge = false;
+        bgmassreg3->visualizationLvl = 2;
+        bgmassreg3->maskstep = 10;
+        bgmassreg3->nomaskstep = 10;
+        bgmassreg3->nomask = true;
+        bgmassreg3->stopval = 0.0005;
+
+        for(unsigned int i = 0; i < keyframes.size(); i++){
+            bgmassreg3->addModel(keyframes[i]);
+        }
+        reglib::MassFusionResults bgmfr3 = bgmassreg3->getTransforms(keyframe_poses);
+        delete bgmassreg3;
+
+
+        //    reglib::MassRegistrationPPR2 * bgmassreg3 = new reglib::MassRegistrationPPR2();
+        //    bgmassreg3->visualizationLvl = 1;
+        //    bgmassreg3->viewer = viewer;
+        //    bgmassreg3->convergence_mul = 0.1;
+        //    bgmassreg3->func_setup = 1;
+//    for(unsigned int i = 0; i < keyframes.size(); i++){bgmassreg3->addModel(keyframes[i]);}
+//    reglib::MassFusionResults bgmfr3 = bgmassreg3->getTransforms(keyframe_poses);
+//    delete bgmassreg3;
+
+    saveModelToFB(bgmfr3.poses,keyframe_time,output_path+"optimized_ppr3.txt");
+
+    reglib::Model * kf2 = new reglib::Model();
+    for(int k = 0; k < keyframes_frames.size(); k++){
+        int i = keyframe_ind[k];
+        reglib::RGBDFrame * frame = keyframes_frames[k];
+        kf2->last_changed = i;
+
+        std::vector< reglib::KeyPoint > kps = de->extract(frame);
+        for(unsigned int j = 0; j < kps.size(); j++){ kps[j].point.last_update_frame_id = i; }
+        current->frames[0] = frame;
+        current->keypoints = kps;
+        current->recomputeModelPoints();
+
+        kf2->mergeKeyPoints(current, bgmfr3.poses[k]);
+        kf2->addSuperPoints(kf2->points,bgmfr3.poses[k],frame,kf->modelmasks.back());
+    }
+
+
+    reglib::MassRegistrationPPR3 * massreg2 = new reglib::MassRegistrationPPR3();
+    massreg2->viewer = viewer;
+    massreg2->visualizationLvl = 0;
+    massreg2->convergence_mul = 0.5;
+    massreg2->func_setup = 1;
+    massreg2->addModel(kf2);
+
+    printf("kf2: %i\n",kf2->points.size());
+
+
+    std::vector<Eigen::Matrix4d> opt_poses;
+    int current_kf = 0;
+    for(int i = 0; i < nr_frames; i++){
+        printf("%i / %i\n",i+1,nr_frames);
+        if(is_kf[i]){
+            opt_poses.push_back(bgmfr3.poses[current_kf]);
+            current_kf++;
+            continue;
+        }
+        reglib::RGBDFrame * frame = new reglib::RGBDFrame(camera,rgb_images[i],depth_images[i],timestamps[i], Eigen::Matrix4d::Identity(),true,"", false);
+
+
+        std::vector< reglib::KeyPoint > kps = de->extract(frame);
+        for(unsigned int j = 0; j < kps.size(); j++){ kps[j].point.last_update_frame_id = i; }
+        current->frames[0] = frame;
+        current->keypoints = kps;
+        current->recomputeModelPoints();
+
+
+        massreg2->addModel(current);
+        cp.back() =  opt_poses.back();
+
+        double regStart2 = quasimodo_brain::getTime();
+        reglib::MassFusionResults mfr = massreg2->getTransforms(cp);
+        massreg2->removeLastNode();
+
+        printf("opt %i: mass registration time: %5.5fs score: %f\n",i,quasimodo_brain::getTime()-regStart2,mfr.score);
+
+        opt_poses.push_back(mfr.poses.back());
+    }
+
+
+    saveModelToFB(opt_poses,timestamps,output_path+"opt_poses.txt");
+
+    //Merge new map
+
+    //Relocalize frames to map
+//exit(0);
+//        std::vector<Eigen::Matrix4d> kfposes;
+//    for(unsigned int i = 0; i < keyframes.size(); i++){
+//        kfposes.push_back(Eigen::Matrix4d::Identity());
+//    }
+//    reglib::MassRegistrationPPR2 * bgmassreg = new reglib::MassRegistrationPPR2(0.00);
+//    bgmassreg->timeout = 3600;
+//    bgmassreg->viewer = viewer;
+//    bgmassreg->use_surface = true;
+//    bgmassreg->use_depthedge = false;
+//    bgmassreg->visualizationLvl = 1;
+//    bgmassreg->maskstep = 5;
+//    bgmassreg->nomaskstep = 5;
+//    bgmassreg->nomask = true;
+//    bgmassreg->stopval = 0.0005;
+//    for(unsigned int i = 0; i < keyframes.size(); i++){bgmassreg->addModel(keyframes[i]);}
+//    reglib::MassFusionResults bgmfr = bgmassreg->getTransforms(keyframe_poses);
+//    delete bgmassreg;
+//    saveModelToFB(bgmfr.poses,keyframe_time,output_path+"optimized.txt");
+
+
+
+
+//    reglib::MassRegistrationPPR2 * bgmassreg2 = new reglib::MassRegistrationPPR2(0.0);
+//    bgmassreg2->timeout = 3600;
+//    bgmassreg2->viewer = viewer;
+//    bgmassreg2->use_surface = true;
+//    bgmassreg2->use_depthedge = false;
+//    bgmassreg2->visualizationLvl = 1;
+//    bgmassreg2->maskstep = 2;
+//    bgmassreg2->nomaskstep = 2;
+//    bgmassreg2->nomask = true;
+//    bgmassreg2->stopval = 0.0005;
+
+//    for(unsigned int i = 0; i < keyframes.size(); i++){
+//        bgmassreg2->addModel(keyframes[i]);
+//    }
+//    reglib::MassFusionResults bgmfr2 = bgmassreg2->getTransforms(bgmfr.poses);
+//    delete bgmassreg2;
+
+//    saveModelToFB(bgmfr2.poses,keyframe_time,output_path+"optimized2.txt");
+
+    return poses;
 }
 
 int main(int argc, char **argv){
-	camera				= new reglib::Camera();
-//	addFBdata("/home/johane/Downloads/rgbd_dataset_freiburg3_nostructure_texture_near_withloop", 1, 3, 1);
-	addFBdata(argv[1], 1, 1500, 1);
+    camera				= new reglib::Camera();
 
-	updaters2			= new reglib::ModelUpdater2();
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("viewer"));
+    viewer->setBackgroundColor(1.0,0.0,1.0);
+    viewer->addCoordinateSystem(0.1);
 
-	for(int i = 0; i < rgb_images.size(); i++){
-		addAndUpdate(rgb_images[i],depth_images[i],timestamps[i]);
-	}
-
-/*
-	registration		= new reglib::RegistrationPPR();
-	updaters			= new reglib::ModelUpdaterBasicFuse( registration );
-
-	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("viewer"));
-	viewer->addCoordinateSystem();
-	viewer->setBackgroundColor(0.8,0.8,0.8);
-	updaters->viewer	= viewer;
+    std::vector<reglib::Registration *> regs;
 
 
+    reglib::DistanceWeightFunction2PPR3 * func  = new reglib::DistanceWeightFunction2PPR3(new reglib::GaussianDistribution());
+    func->debugg_print                          = false;
+    func->noise_min                             = 0.0001;
+    func->startreg                              = 0.01;
+    func->reg_shrinkage                         = 0.5;
 
-	saveModelToFB(updaters->model,"test.txt");
-*/
-/*
-	for(unsigned int i = 1; i < argc; i++){
-		pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
-		pcl::io::loadPCDFile<pcl::PointXYZRGB> (argv[i], *cloud);
-		addAndUpdate(*cloud);
-	}
-	updaters->show();
-*/
-	return 0;
+//    reglib::DistanceWeightFunction2 * func  = new reglib::DistanceWeightFunction2();
+//    func->p = 0.1;
+
+
+//    reglib::DistanceWeightFunction2 * func  = new reglib::DistanceWeightFunction2();
+//    func->f = reglib::Function::THRESHOLD;
+//    func->p = 0.025;
+
+
+    reglib::RegistrationRefinement3 * rrf = new reglib::RegistrationRefinement3(func);
+    rrf->target_points = 1000;
+    rrf->dst_points = 20000000;
+    rrf->viewer = viewer;
+    rrf->visualizationLvl = 0;
+    rrf->regularization = 0.001;
+    rrf->convergence = 0.05;
+    rrf->normalize_matchweights	= true;
+    rrf->useKeyPoints = false;
+    rrf->useSurfacePoints = true;
+    regs.push_back(rrf);
+
+//    reglib::RegistrationRefinement * rrf = new reglib::RegistrationRefinement();
+//    rrf->target_points = 5000;
+//    rrf->dst_points = 20000000;
+//    rrf->viewer = viewer;
+//    rrf->visualizationLvl = 0;
+//    rrf->regularization = 0.01;
+////    rrf->convergence = 0.2;
+//    rrf->normalize_matchweights	= true;
+////    rrf->useKeyPoints = true;
+////    rrf->useSurfacePoints = true;
+//    regs.push_back(rrf);
+
+    std::vector<reglib::DescriptorExtractor *> des;
+    des.push_back(new reglib::DescriptorExtractorSURF());
+    des.back()->setDebugg(0);
+
+    for(unsigned int arg = 1; arg < argc; arg++){
+        int startind = 0;//42+0.2*30;
+        int stopind = 10000;//4*30;//startind+10;
+        addFBdata(argv[arg], startind, stopind, 1);
+
+
+        for(unsigned int i = 0; i < regs.size(); i++){
+            for(unsigned int j = 0; j < des.size(); j++){
+                std::vector<Eigen::Matrix4d> vo = slam_vo2(regs[i],des[j],std::string(argv[arg])+"/"+regs[i]->getString()+"_",true,true);//rrf->useSurfacePoints,rrf->useKeyPoints);
+            }
+        }
+        rgb_images.clear();
+        depth_images.clear();
+        timestamps.clear();
+    }
+
+    return 0;
 }

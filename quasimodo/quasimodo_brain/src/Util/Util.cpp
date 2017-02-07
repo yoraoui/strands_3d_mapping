@@ -1,28 +1,6 @@
 #include "Util.h"
 
 namespace quasimodo_brain {
-
-
-std::string getUniqueId(SimpleXMLParser<pcl::PointXYZRGB>::RoomData & roomData){
-	return roomData.roomLogName+"_room_"+std::to_string(roomData.roomRunNumber);
-}
-
-reglib::Camera * getCam(image_geometry::PinholeCameraModel aCameraModel){
-	reglib::Camera * cam		= new reglib::Camera();
-	cam->fx = aCameraModel.fx();
-	cam->fy = aCameraModel.fy();
-	cam->cx = aCameraModel.cx();
-	cam->cy = aCameraModel.cy();
-	return cam;
-}
-
-cv::Mat getFullMask(int width, int height){
-	cv::Mat fullmask;
-	fullmask.create(height,width,CV_8UC1);
-	unsigned char * maskdata = (unsigned char *)fullmask.data;
-	for(int j = 0; j < width*height; j++){maskdata[j] = 255;}
-	return fullmask;
-}
 /*
 reglib::Model * processAV(std::string path, bool compute_edges = true, std::string savePath = ""){
 	printf("processAV: %s\n",path.c_str());
@@ -745,9 +723,112 @@ std::string type2str(int type) {
 }
 
 Eigen::Matrix4d getCameraMapPose(soma_llsd_msgs::Scene & scene){
-	Eigen::Affine3d epose;
-	tf::poseMsgToEigen(scene.robot_pose, epose);
-	return epose.matrix();
+
+	//	for(unsigned int i = 0; i < scene.transform.transforms.size(); i++){
+	//		if(			(scene.transform.transforms[i].header.frame_id.compare("/map") == 0)
+	//				||	(scene.transform.transforms[i].child_frame_id.compare("/map") == 0)
+	//				||	(scene.transform.transforms[i].header.frame_id.compare("map") == 0)
+	//				||	(scene.transform.transforms[i].child_frame_id.compare("map") == 0)){
+	//			printf("parrent: %32.32s current:%32.32s\n",scene.transform.transforms[i].header.frame_id.c_str(), scene.transform.transforms[i].child_frame_id.c_str());
+	//		}
+	//	}
+
+	/*
+		std::string prev_frame = scene.cloud.header.frame_id;
+		bool stop = false;
+		for(unsigned int test = 0; test < 10 && !stop; test++){
+			printf("test: %i prev: %s stop: %i\n",test,prev_frame.c_str(),stop);
+	//		for(unsigned int i = 0; i < scene.transform.transforms.size(); i++){
+	//			if((scene.transform.transforms[i].header.frame_id.compare(prev_frame) == 0) || (scene.transform.transforms[i].child_frame_id.compare(prev_frame) == 0)){
+	//				printf("parrent: %32.32s current:%32.32s\n",scene.transform.transforms[i].header.frame_id.c_str(), scene.transform.transforms[i].child_frame_id.c_str());
+	//			}
+	//		}
+
+			stop = true;
+			for(unsigned int i = 0; i < scene.transform.transforms.size(); i++){
+				geometry_msgs::TransformStamped tsa = scene.transform.transforms[i];
+				if(tsa.child_frame_id.compare(prev_frame) == 0){
+					prev_frame = tsa.header.frame_id;
+					stop = false;
+					printf("STOP\n");
+					break;
+				}
+
+	//			if(tsa.header.frame_id.compare(prev_frame) == 0){
+	//				prev_frame = tsa.child_frame_id;
+	//				break;
+	//			}
+			}
+		}
+	*/
+		//printf("%32.32s -> Rot(x: %2.2f y:%2.2f z:%2.2f w:%2.2f) Trans(%2.2f %2.2f %2.2f)\n",tsa.header.frame_id.c_str(), tra.rotation.x,tra.rotation.y,tra.rotation.z,tra.rotation.w,tra.translation.x,tra.translation.y,tra.translation.z);
+
+
+		Eigen::Affine3d epose;
+		tf::poseMsgToEigen(scene.robot_pose, epose);
+
+		//ros::Time t2 = scene.cloud.header.stamp;
+		//ros::Time t2 = scene.header.stamp;
+		//double timestamp2 = t2.sec+1e-9*t2.nsec;
+		double timestamp2 = scene.timestamp;
+		ros::Time t3;
+		int count = 0;
+		for(unsigned int i = 0; i < scene.transform.transforms.size(); i++){
+			if(scene.transform.transforms[i].child_frame_id.compare(scene.cloud.header.frame_id) == 0){
+				t3 = scene.transform.transforms[i].header.stamp;
+				break;
+			}
+		}
+		t3.sec = t3.sec+1.0;
+
+	//	double timestamp3 = t3.sec+1e-9*t3.nsec;
+	//	for(unsigned int i = 0; i < scene.transform.transforms.size(); i++){
+	//		if(scene.transform.transforms[i].child_frame_id.compare(scene.cloud.header.frame_id) == 0){
+	//			ros::Time t = scene.transform.transforms[i].header.stamp;
+	//			double timestamp = t.sec+1e-9*t.nsec;//scene.transform.transforms[i].stamp.sec+1e-9*scene.transform.transforms[i].stamp.nsec;
+	//		//if(scene.transform.transforms[i].child_frame_id.compare("/head_xtion_rgb_optical_frame") == 0){
+	//			geometry_msgs::Transform tra = scene.transform.transforms[i].transform;
+	//			printf("timestamp: %15.15f timestamp2: %15.15f diff: %15.15f\n",timestamp,timestamp2,timestamp2-timestamp);
+	//			////			printf("timestamp diff : parrent: %32.32s current:%32.32s Rot(x: %2.2f y:%2.2f z:%2.2f w:%2.2f) Trans(%2.2f %2.2f %2.2f)\n",scene.transform.transforms[i].header.frame_id.c_str(), scene.transform.transforms[i].child_frame_id.c_str(),tra.rotation.x,tra.rotation.y,tra.rotation.z,tra.rotation.w,tra.translation.x,tra.translation.y,tra.translation.z);
+	//			//break;
+	//		}
+	//	}
+
+		tf2_ros::Buffer tfBuffer (ros::Duration(20));
+		tf2_ros::TransformListener tfListener(tfBuffer);
+
+		for(unsigned int i = 0; i < scene.transform.transforms.size(); i++){
+			static tf2_ros::TransformBroadcaster br;
+			br.sendTransform(scene.transform.transforms[i]);
+		}
+
+	//	printf("scene.cloud.header.frame_id: %s\n",scene.cloud.header.frame_id.c_str());
+
+		//printf("timestamp3: %f\n",timestamp3);
+		geometry_msgs::TransformStamped tsa;
+		try{
+			//tsa = tfBuffer.lookupTransform("head_xtion_rgb_optical_frame", "ptu_pan_motor",t3);//scene.cloud.header.stamp);
+			tsa = tfBuffer.lookupTransform(scene.cloud.header.frame_id, "/map",scene.cloud.header.stamp);
+						//tsa = tfBuffer.lookupTransform("ptu_pan_motor","head_xtion_rgb_optical_frame",t3);//scene.cloud.header.stamp);
+		}catch (tf2::TransformException &ex) {
+			ROS_WARN("%s",ex.what());
+			ros::Duration(1.0).sleep();
+		}
+
+		geometry_msgs::Transform ts = tsa.transform;
+	//	printf("ts: Rot(x: %2.2f y:%2.2f z:%2.2f w:%2.2f) Trans(%2.2f %2.2f %2.2f)\n",ts.rotation.x,ts.rotation.y,ts.rotation.z,ts.rotation.w,ts.translation.x,ts.translation.y,ts.translation.z);
+	//std::cout << epose.matrix() << std::endl << std::endl;
+
+		geometry_msgs::Pose poseMsg;
+		poseMsg.position.x	= ts.translation.x;
+		poseMsg.position.y	= ts.translation.y;
+		poseMsg.position.z	= ts.translation.z;
+		poseMsg.orientation	= ts.rotation;
+
+		Eigen::Affine3d affinepose;
+		tf::poseMsgToEigen(poseMsg, affinepose);
+		//std::cout << affinepose.matrix() << std::endl << std::endl;
+	return affinepose.matrix();
 }
 
 reglib::RGBDFrame * getFrame(soma_llsd_msgs::Scene & scene){
@@ -778,9 +859,8 @@ reglib::RGBDFrame * getFrame(soma_llsd_msgs::Scene & scene){
 	}
 
 	//reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, 0, epose.matrix(),true,"",true);
-	reglib::RGBDFrame * frame	= new reglib::RGBDFrame(cam,rgb, depth, 0, getCameraMapPose(scene),true,"",true);
-	frame->soma_id				= scene.id;
-	frame->keyval				= scene.id;
+	reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, 0, getCameraMapPose(scene),true,"",true);
+	frame->soma_id = scene.id;
 	return frame;
 }
 
@@ -799,7 +879,10 @@ std::vector<reglib::superpoint> getSuperPoints(std::string path){
 		file.read (memblock, size);
 		file.close();
 
+		cout << "the entire file content is in memory";
+
 		long nr_points = size / (sizeof(float)*12);
+		printf("loading %i points\n",nr_points);
 
 		float * data = (float *)memblock;
 
@@ -867,7 +950,7 @@ void transformSuperPoints(std::vector<reglib::superpoint> & spvec, Eigen::Matrix
 }
 
 void saveSuperPoints(std::string path, std::vector<reglib::superpoint> & spvec, Eigen::Matrix4d pose, float ratio_keep){
-	//printf("saveSuperPoints(%s)\n",path.c_str());
+	printf("saveSuperPoints(%s)\n",path.c_str());
 	transformSuperPoints(spvec,pose);
 	//XYZ RGB NXNYNZ W1 W2
 	long sizeofSuperPoint = 3*(3+1);
@@ -896,7 +979,7 @@ void saveSuperPoints(std::string path, std::vector<reglib::superpoint> & spvec, 
 			added++;
 		}
 		if(added > 0){
-			//printf("saving %i points\n",added);
+			printf("saving %i points\n",added);
 			file.write( (char*)data, added*sizeofSuperPoint*sizeof(float));
 		}
 		delete[] data;
@@ -963,7 +1046,7 @@ void savePoses(std::string xmlFile, std::vector<Eigen::Matrix4d> poses, int maxp
 	xmlWriter->writeStartElement("Poses");
 	//	xmlWriter->writeAttribute("number_of_poses", QString::number(poses.size()));
 	for(unsigned int i = 0; i < poses.size() && (maxposes == -1 || int(i) < maxposes); i++){
-		//printf("saving %i\n",i);
+		printf("saving %i\n",i);
 		xmlWriter->writeStartElement("Pose");
 		writePose(xmlWriter,poses[i]);
 		xmlWriter->writeEndElement();
@@ -1184,11 +1267,6 @@ void remove_old_seg(std::string sweep_folder){
 				printf ("removing %s\n", ent->d_name);
 				std::remove((sweep_folder+"/"+file).c_str());
 			}
-
-			if (file.find("_object_") !=std::string::npos && file.find(".xml") !=std::string::npos){
-				printf ("removing %s\n", ent->d_name);
-				std::remove((sweep_folder+"/"+file).c_str());
-			}
 		}
 		closedir (dir);
 	}
@@ -1325,8 +1403,6 @@ reglib::Model * getModelFromMSG(quasimodo_msgs::model & msg, bool compute_edges)
 	reglib::Model * model = new reglib::Model();
 	model->keyval = msg.keyval;
 
-	//printf("getModelFromMSG keyval: [%s]\n",model->keyval.c_str());
-
 	for(unsigned int i = 0; i < msg.local_poses.size(); i++){
 		sensor_msgs::CameraInfo		camera			= msg.frames[i].camera;
 		ros::Time					capture_time	= msg.frames[i].capture_time;
@@ -1355,7 +1431,6 @@ reglib::Model * getModelFromMSG(quasimodo_msgs::model & msg, bool compute_edges)
 
 		reglib::RGBDFrame * frame = new reglib::RGBDFrame(cam,rgb, depth, double(capture_time.sec)+double(capture_time.nsec)/1000000000.0, epose.matrix(),true,"",compute_edges);
 		frame->keyval = msg.frames[i].keyval;
-		//printf("frame keyval: [%s]\n",frame->keyval.c_str());
 		model->frames.push_back(frame);
 
 		geometry_msgs::Pose	pose1 = msg.local_poses[i];
