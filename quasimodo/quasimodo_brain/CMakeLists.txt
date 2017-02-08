@@ -111,7 +111,7 @@ target_link_libraries(	modelserver quasimodo_superpoint quasimodo_brain_util qua
 
 add_executable(			fbnode src/fb_node.cpp)
 add_dependencies(		fbnode roscpp quasimodo_msgs_generate_messages_cpp)
-target_link_libraries(	fbnode quasimodo_superpoint quasimodo_brain_util quasimodo_ModelDatabase  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(	fbnode quasimodo_DescriptorExtractor quasimodo_distribution quasimodo_KeyPoint quasimodo_descriptor quasimodo_superpoint quasimodo_brain_util quasimodo_ModelDatabase  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
 
 add_executable(			massregPCD src/massregPCD.cpp)
