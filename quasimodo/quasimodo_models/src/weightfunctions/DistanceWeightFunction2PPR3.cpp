@@ -329,16 +329,25 @@ void DistanceWeightFunction2PPR3::computeModel(double * vec, unsigned int nr_dat
 //    getProbs(mat);
 //    if(debugg_print){printf("%%get number of inliers time: %7.7fs nr_inliers: %f\n",getTime()-start_time,nr_inliers);}
 
-    if(debugg_print){printf("hist = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%i ",	int(histogram[k]));}		printf("];\n");}
+	if(debugg_print){printf("hist =        [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%i ",	int(histogram[k]));}		printf("];\n");}
     if(debugg_print){printf("hist_smooth = [");		for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%i ",	int(blur_histogram[k]));}	printf("];\n");}
-    if(debugg_print){printf("noise = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%i ",	int(noise[k]));}			printf("];\n");}
+	if(debugg_print){printf("noise =       [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%i ",	int(noise[k]));}			printf("];\n");}
     if(debugg_print && compute_infront){printf("noisecdf = [");		for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%2.2f ",int(noisecdf[k]));}			printf("];\n");}
-    if(debugg_print){printf("prob = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%2.2f ",prob[k]);}					printf("];\n");}
+	if(debugg_print){printf("prob =        [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%2.2f ",prob[k]);}					printf("];\n");}
     if(debugg_print && compute_infront){printf("infront = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%2.2f ",infront[k]);}				printf("];\n");}
     if(debugg_print){printf("figure(%i);",iter+1);}
     if(debugg_print){printf("clf; hold on; plot(hist_smooth,'r','LineWidth',2); plot(hist,'m','LineWidth',2); plot(noise,'b','LineWidth',2); plot(prob*max(noise),'g','LineWidth',2); ");}
-    if(debugg_print && compute_infront){printf("plot(infront*max(noise),'g','LineWidth',2");}
-    if(debugg_print){printf("\n");}
+	if(debugg_print && compute_infront){printf("plot(infront*max(noise),'g','LineWidth',2");}
+	if(debugg_print){printf("\n");}
+	if(debugg_print){
+		double inl = 0;
+		double toth = 0;
+		for(int k = 0; k < histogram_size; k++){
+			inl += histogram[k]*prob[k];
+			toth += histogram[k];
+		}
+		printf("%% inliers = %5.5f ratio: %5.5f\n",inl,inl/toth);
+	}
 
     if(	savePath.size() != 0){
         saveData << "d = [";
@@ -538,7 +547,7 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
 	if(debugg_print){printf("hist_smooth = [");		for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%i ",	int(blur_histogram[k]));}	printf("];\n");}
 	if(debugg_print){printf("noise = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%i ",	int(noise[k]));}			printf("];\n");}
 	if(debugg_print){printf("noisecdf = [");		for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%2.2f ",int(noisecdf[k]));}			printf("];\n");}
-	if(debugg_print){printf("prob = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%2.2f ",prob[k]);}					printf("];\n");}
+	if(debugg_print){printf("prob = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%i ",	int(100.0*prob[k]));}		printf("];\n");}
 	if(debugg_print){printf("infront = [");			for(int k = 0; k < 3000 && k < histogram_size; k++){printf("%2.2f ",infront[k]);}				printf("];\n");}
     if(debugg_print){printf("figure(%i);",iter+1);}
     if(debugg_print){printf("clf; hold on; plot(hist_smooth,'r','LineWidth',2); plot(hist,'m','LineWidth',2); plot(noise,'b','LineWidth',2); plot(prob*max(noise),'g','LineWidth',2); plot(infront*max(noise),'g','LineWidth',2);\n");}

@@ -106,5 +106,7 @@ namespace reglib
 #include "MassRegistrationPPR.h"
 #include "MassRegistrationPPR2.h"
 #include "MassRegistrationPPR3.h"
+#include "MassRegistrationRecursive.h"
+
 
 #endif // MassRegistration_H

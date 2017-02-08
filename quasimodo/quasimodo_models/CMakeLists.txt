@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 2.8.3)
 project(quasimodo_models)
 
 #find_package(catkin REQUIRED)# quasimodo_msgs)# COMPONENTS quasimodo_msgs)
-#set(CMAKE_CXX_FLAGS "-O4 -g -pg -Wunknown-pragmas -Wno-unknown-pragmas -Wsign-compare -fopenmp -fPIC -std=c++0x -o popcnt -mssse3")
-set(CMAKE_CXX_FLAGS "-O2 -g -pg -Wunknown-pragmas -Wno-unknown-pragmas -Wsign-compare -fopenmp -fPIC -std=c++0x -o popcnt -mssse3")
+#set(CMAKE_CXX_FLAGS "-lpthread -O4 -g -pg -Wunknown-pragmas -Wno-unknown-pragmas -Wsign-compare -fopenmp -fPIC -std=c++0x -o popcnt -mssse3")
+set(CMAKE_CXX_FLAGS "-lpthread -O2 -g -pg -Wunknown-pragmas -Wno-unknown-pragmas -Wsign-compare -fopenmp -fPIC -std=c++0x -o popcnt -mssse3")
 
 find_package(catkin REQUIRED COMPONENTS
 	#metaroom_xml_parser
@@ -93,7 +93,7 @@ add_library(quasimodo_reglib src/registration/Registration.cpp src/registration/
 target_link_libraries(quasimodo_reglib quasimodo_model quasimodo_core)
 #target_link_libraries(quasimodo_reglib quasimodo_model quasimodo_superpoint quasimodo_weightlib ceres glog ${catkin_LIBRARIES})
 
-add_library(quasimodo_massreglib src/registration/MassRegistration.cpp src/registration/MassRegistrationPPR.cpp src/registration/MassRegistrationPPR2.cpp src/registration/MassRegistrationPPR3.cpp)
+add_library(quasimodo_massreglib src/registration/MassRegistration.cpp src/registration/MassRegistrationPPR.cpp src/registration/MassRegistrationPPR2.cpp src/registration/MassRegistrationPPR3.cpp src/registration/MassRegistrationRecursive.cpp)
 target_link_libraries(quasimodo_massreglib quasimodo_model quasimodo_core quasimodo_reglib)
 #target_link_libraries(quasimodo_massreglib quasimodo_model quasimodo_reglib quasimodo_core)
 
@@ -112,10 +112,8 @@ target_link_libraries(quasimodo_ModelUpdater quasimodo_KeyPoint quasimodo_Mesher
 # all install targets should use catkin DESTINATION variables
 # See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
 
-
-
 # Mark executables and/or libraries for installation
-install(TARGETS quasimodo_SignalProcessing quasimodo_distribution quasimodo_weightlib quasimodo_superpoint quasimodo_ReprojectionResult quasimodo_OcclusionScore quasimodo_core quasimodo_reglib quasimodo_massreglib quasimodo_modelmask quasimodo_model quasimodo_Mesher quasimodo_ModelUpdater
+install(TARGETS quasimodo_DescriptorExtractor quasimodo_KeyPoint quasimodo_descriptor quasimodo_SignalProcessing quasimodo_distribution quasimodo_weightlib quasimodo_superpoint quasimodo_ReprojectionResult quasimodo_OcclusionScore quasimodo_core quasimodo_reglib quasimodo_massreglib quasimodo_modelmask quasimodo_model quasimodo_Mesher quasimodo_ModelUpdater
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

@@ -195,21 +195,21 @@ void EdgeData::showMatchesW(boost::shared_ptr<pcl::visualization::PCLVisualizer>
 
         const double & angle = nx*dnx+ny*dny+nz*dnz;
 
-        sprintf(buf,"line%i",i);
-        if(angle < 0){
-            viewer->addLine<pcl::PointXYZRGB> (cloud1->points[surface_match1[i]],cloud2->points[surface_match2[i]],1,0,1,buf);
-            continue;
-        }
+//        sprintf(buf,"line%i",i);
+//        if(angle < 0){
+//			viewer->addLine<pcl::PointXYZRGB> (cloud1->points[surface_match1[i]],cloud2->points[surface_match2[i]],1,0,0,buf);
+//            continue;
+//        }
 
         double diffX = sx-dx;
         double diffY = sy-dy;
         double diffZ = sz-dz;
 
-        double d2 = diffX*diffX + diffY*diffY + diffZ*diffZ;
-        if(d2 > stopD2){
-            viewer->addLine<pcl::PointXYZRGB> (cloud1->points[surface_match1[i]],cloud2->points[surface_match2[i]],0,0,1,buf);
-            continue;
-        }
+//        double d2 = diffX*diffX + diffY*diffY + diffZ*diffZ;
+//        if(d2 > stopD2){
+//			viewer->addLine<pcl::PointXYZRGB> (cloud1->points[surface_match1[i]],cloud2->points[surface_match2[i]],1,0,0,buf);
+//            continue;
+//        }
 
         double di = (nx*diffX + ny*diffY + nz*diffZ)*rw;
 
@@ -219,17 +219,10 @@ void EdgeData::showMatchesW(boost::shared_ptr<pcl::visualization::PCLVisualizer>
         cloud_ptr->points.back().r = 255.0*(1-prob);
         cloud_ptr->points.back().g = 255.0*prob;
         cloud_ptr->points.back().b = 0;
-
-        //sprintf(buf,"line%i",i);
-        //viewer->addLine<pcl::PointXYZRGB> (cloud1->points[surface_match1[i]],cloud2->points[surface_match2[i]],1-prob,prob,0,buf);
-
     }
 
-
-
-
     viewer->addPointCloud<pcl::PointXYZRGB> (cloud_ptr, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cloud_ptr), "scloud");
-    viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 5, "scloud");
+	viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 10, "scloud");
     viewer->addPointCloud<pcl::PointXYZRGB> (cloud2, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cloud2), "dcloud");
     viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "dcloud");
     viewer->spin();
@@ -329,20 +322,25 @@ void EdgeData::computeSurfaceResiduals(Eigen::Matrix4d p, double * residuals, un
     const double & m10 = p(1,0); const double & m11 = p(1,1); const double & m12 = p(1,2); const double & m13 = p(1,3);
     const double & m20 = p(2,0); const double & m21 = p(2,1); const double & m22 = p(2,2); const double & m23 = p(2,3);
 
-    int added = 0;
     unsigned int nr_matches = surface_match1.size();
     for(unsigned int i = 0; i < nr_matches; i++){
         unsigned int i1 = surface_match1[i];
         unsigned int i2 = surface_match2[i];
         double rw       = surface_rangew[i];
 
-        double x  = surface_p1[3*i1+0];
-        double y  = surface_p1[3*i1+1];
-        double z  = surface_p1[3*i1+2];
+		double x  = surface_p1[3*i1+0];
+		double y  = surface_p1[3*i1+1];
+		double z  = surface_p1[3*i1+2];
+		double tx = m00*x + m01*y + m02*z + m03;
+		double ty = m10*x + m11*y + m12*z + m13;
+		double tz = m20*x + m21*y + m22*z + m23;
 
-        double tx = m00*x + m01*y + m02*z + m03;
-        double ty = m10*x + m11*y + m12*z + m13;
-        double tz = m20*x + m21*y + m22*z + m23;
+//		double nx  = surface_n1[3*i1+0];
+//		double ny  = surface_n1[3*i1+1];
+//		double nz  = surface_n1[3*i1+2];
+//		double tnx = m00*nx + m01*ny + m02*nz;
+//		double tny = m10*nx + m11*ny + m12*nz;
+//		double tnz = m20*nx + m21*ny + m22*nz;
 
         float dx = tx-surface_p2[3*i2+0];
         float dy = ty-surface_p2[3*i2+1];
@@ -353,6 +351,13 @@ void EdgeData::computeSurfaceResiduals(Eigen::Matrix4d p, double * residuals, un
         float qz = surface_n2[3*i2+2];
 
         float di = qx*dx + qy*dy + qz*dz;
+
+//		const double & angle = qx*tnx+qy*tny+qz*tnz;
+//		if(angle < 0){ continue;}
+
+//		double d2 = dx*dx + dy*dy + dz*dz;
+//		if(d2 > stopD2){continue;}
+
         residuals[counter] = di*rw;
         counter++;
     }
@@ -415,15 +420,9 @@ void EdgeData::addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Mat
         const double & dny = m102*dst_nx + m112*dst_ny + m122*dst_nz;
         const double & dnz = m202*dst_nx + m212*dst_ny + m222*dst_nz;
 
-        const double & angle = nx*dnx+ny*dny+nz*dnz;
-        if(angle < 0){continue;}
-
         double diffX = sx-dx;
         double diffY = sy-dy;
         double diffZ = sz-dz;
-
-        double d2 = diffX*diffX + diffY*diffY + diffZ*diffZ;
-        if(d2 > stopD2){continue;}
 
         double di = (nx*diffX + ny*diffY + nz*diffZ)*rw;
 
@@ -431,6 +430,12 @@ void EdgeData::addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Mat
         if(i < nr_matches_orig){
             score += prob;
         }
+
+		const double & angle = nx*dnx+ny*dny+nz*dnz;
+		if(angle < 0){continue;}
+		double d2 = diffX*diffX + diffY*diffY + diffZ*diffZ;
+		if(d2 > stopD2){continue;}
+
         double weight = info * prob*rw*rw;
 
         const double & a = nz*sy - ny*sz;
@@ -860,7 +865,7 @@ unsigned long MassRegistrationPPR3::refine(std::vector<Eigen::Matrix4d> & poses,
             if(i == 0){normalizePoses(poses);}
         }
     }
-    if(visualizationLvl > 1){show(poses,true);}
+	if(visualizationLvl > 4){show(poses,false);}
     return 1;
 }
 
@@ -909,7 +914,10 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
     std::vector<Eigen::Matrix4d> prev = poses;
 
     for(int func = 0; func < 50; func++){
-
+		if(visualizationLvl == 2){
+			printf("func: %i \n",func);
+			show(poses,false);
+		}
         //printf("func: %i\n",func);
         //if(func == 3){return MassFusionResults(poses,1);}
         std::vector< std::vector<Eigen::Matrix4d> > prevs;
@@ -925,7 +933,7 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
                 not_converged = std::min(not_converged,int(total_nonconverged(prevs[j],poses)));
             }
             //printf("%i -> not_convereturn MassFusionResults(poses,maxscore);rged: %i\n",i, not_converged);
-            if(visualizationLvl > 0 && false){
+			if(visualizationLvl == 3 && i == 0){
 
                 printf("Noise: %f\n",surface_func->getNoise());
                 for(unsigned int i = 0; i < edges.size(); i++){
@@ -950,32 +958,36 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
                     printf("\n");
                 }
 
-
-                double maxnoise = 0;
-
-                //if(i == 0){
-                    show(poses,true);
-                    for(unsigned int i = 0; i < edge_surface_func.size(); i++){
-                        for(unsigned int j = 0; j < edge_surface_func[i].size(); j++){
-                            if(edge_surface_func[i][j] != 0){
-                                maxnoise = std::max(edge_surface_func[i][j]->getNoise(),maxnoise);
-                            }
-                        }
-                    }
+				double maxscore = 0;
+				for(unsigned int i = 0; i < edges.back().size(); i++){
+					if(edges.back()[i] != 0){
+						maxscore = std::max(maxscore,edges.back()[i]->score);
+					}
+				}
 
 
-                    for(unsigned int i = 0; i < edge_surface_func.size(); i++){
-                        for(unsigned int j = 0; j < edge_surface_func[i].size(); j++){
-                            if(edge_surface_func[i][j] != 0 && edge_surface_func[i][j]->getNoise() == maxnoise){
-                                edges[i][j]->showMatchesW(viewer,edge_surface_func[i][j],poses[i],poses[j]);
-                            }
-                        }
-                    }
+				double maxnoise = 0;
 
-                    edges.back().front()->showMatchesW(viewer,edge_surface_func.back().front(),poses.back(),poses.front());
-                //}
+				show(poses,true);
+				for(unsigned int i = 0; i < edge_surface_func.size(); i++){
+					for(unsigned int j = 0; j < edge_surface_func[i].size(); j++){
+						if(edge_surface_func[i][j] != 0){
+							maxnoise = std::max(edge_surface_func[i][j]->getNoise(),maxnoise);
+						}
+					}
+				}
 
-            }
+
+				for(unsigned int i = 0; i < edge_surface_func.size(); i++){
+					for(unsigned int j = 0; j < edge_surface_func[i].size(); j++){
+						if(edge_surface_func[i][j] != 0 && edge_surface_func[i][j]->getNoise() == maxnoise){
+							edges[i][j]->showMatchesW(viewer,edge_surface_func[i][j],poses[i],poses[j]);
+						}
+					}
+				}
+
+				edges.back().front()->showMatchesW(viewer,edge_surface_func.back().front(),poses.back(),poses.front());
+			}
 
             prevs.push_back(poses);
             prev = poses;
@@ -1046,7 +1058,6 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
         if(not_converged == 0){break;}
     }
 
-    if(visualizationLvl > 0){show(poses,true);};
 
     double maxscore = 0;
     for(unsigned int i = 0; i < edges.back().size(); i++){
@@ -1054,6 +1065,44 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
             maxscore = std::max(maxscore,edges.back()[i]->score);
         }
     }
+
+
+	if(visualizationLvl > 0){show(poses,true);};
+	if(visualizationLvl == 1){
+
+		for(unsigned int i = 0; i < edge_surface_func.size(); i++){
+			for(unsigned int j = 0; j < edge_surface_func[i].size(); j++){
+				if(edge_surface_func[i][j] != 0){
+					edge_surface_func[i][j]->debugg_print = true;
+				}
+			}
+		}
+
+		model(poses,true);
+
+		printf("Noise: %f\n",surface_func->getNoise());
+		for(unsigned int i = 0; i < edges.size(); i++){
+			for(unsigned int j = 0; j < edges[i].size(); j++){
+				if(edge_surface_func[i][j] != 0){
+					printf("%5.5f ",1.0*edge_surface_func[i][j]->getNoise());
+				}else{printf("%5.5f ",0.0);}
+			}
+			printf("\n");
+		}
+		printf("maxscore: %f\n",maxscore);
+
+		edges.back().front()->showMatchesW(viewer,edge_surface_func.back().front(),poses.back(),poses.front());
+
+		for(unsigned int i = 0; i < edge_surface_func.size(); i++){
+			for(unsigned int j = 0; j < edge_surface_func[i].size(); j++){
+				if(edge_surface_func[i][j] != 0){
+					edge_surface_func[i][j]->debugg_print = false;
+				}
+			}
+		}
+	}
+
+
     //std::cout<<poses.back()<<std::endl;
     //show(poses,true);
     return MassFusionResults(poses,maxscore);

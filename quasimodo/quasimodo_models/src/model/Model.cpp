@@ -205,7 +205,7 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 	for(unsigned int i = 0; i < width*height; i++){isfused[i] = false;}
 
 	bool * maskvec							= modelmask->maskvec;
-	std::vector<ReprojectionResult> rr_vec	= frame->getReprojections(spvec,p.inverse(),modelmask->maskvec,false);
+	std::vector<ReprojectionResult> rr_vec	= frame->getReprojections(spvec,p.inverse(),modelmask->maskvec,true);
 	std::vector<superpoint> framesp			= frame->getSuperPoints(p);
 
 

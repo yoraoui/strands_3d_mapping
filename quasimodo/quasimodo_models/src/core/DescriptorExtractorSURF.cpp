@@ -29,10 +29,6 @@ std::vector<KeyPoint> DescriptorExtractorSURF::extract(RGBDFrame * frame, ModelM
     cv::Mat descriptors;
     extractor.compute( frame->rgb, keypoints, descriptors );
 
-
-    printf("%i %i\n",descriptors.rows,descriptors.cols);
-
-
 //    std::vector<cv::KeyPoint> keypoints;
 //    cv::Mat descriptors;
 
