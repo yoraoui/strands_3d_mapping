@@ -46,6 +46,8 @@ void MassRegistration::addModelData(Model * model, bool submodels){
 	}
 }
 
+void MassRegistration::addModel(Model * model){}
+
 void MassRegistration::addData(RGBDFrame* frame, ModelMask * mmask){}
 void MassRegistration::addData(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud){}
 

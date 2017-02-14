@@ -322,15 +322,17 @@ std::vector<Eigen::Matrix4d> slam_vo2(reglib::Registration * reg, reglib::Descri
 
     std::vector<bool> is_kf;
 
-	int kfstep = 100000;//std::max(1.0,double(nr_frames)/20.0);
+	int kfstep = 10;//std::max(1.0,double(nr_frames)/20.0);
     //Merge into a new kf
+
+	massreg->visualizationLvl = 0;
 
     reglib::RGBDFrame * prev = 0;
 	for(unsigned int i = 0; i < nr_frames; i++){
 		//if(i > 56){massreg->visualizationLvl = 1;}
 
         printf("current_frame = %i / %i\n",i+1,nr_frames);
-		reglib::RGBDFrame * frame = new reglib::RGBDFrame(camera,rgb_images[i],depth_images[i],timestamps[i], Eigen::Matrix4d::Identity(),true,"", true);
+		reglib::RGBDFrame * frame = new reglib::RGBDFrame(camera,rgb_images[i],depth_images[i],timestamps[i], Eigen::Matrix4d::Identity(),true,"", false);
 		//frame->show();
 
 
@@ -350,6 +352,29 @@ std::vector<Eigen::Matrix4d> slam_vo2(reglib::Registration * reg, reglib::Descri
             kf->modelmasks.push_back(new reglib::ModelMask(fullmask));
             poses.push_back(Eigen::Matrix4d::Identity());
             is_keyframe = true;
+			is_kf.push_back(true);
+
+			reglib::Model * new_kf = new reglib::Model();
+			keyframes.push_back(new_kf);
+			new_kf->modelmasks.push_back(kf->modelmasks.back());
+			new_kf->relativeposes.push_back(Eigen::Matrix4d::Identity());
+			kf->addSuperPoints(kf->points,poses.back(),frame,kf->modelmasks.back());
+			massreg->addModel(kf);
+
+			keyframe_ind.push_back(i);
+			keyframes_frames.push_back(frame);
+			keyframe_time.push_back(timestamps[keyframe_ind.back()]);
+			keyframe_poses.push_back(poses[keyframe_ind.back()]);
+			new_kf->frames.push_back(frame);
+			new_kf->recomputeModelPoints();
+
+			if(visualize){
+				viewer->removeAllPointClouds();
+				pcl::PointCloud<pcl::PointXYZRGB>::Ptr cld = kf->getPCLcloud(1,3);
+				viewer->addPointCloud<pcl::PointXYZRGB> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cld), "cloud");
+				viewer->addCoordinateSystem(0.1,Eigen::Affine3f(keyframe_poses.back().cast<float>()));
+				viewer->spinOnce();
+			}
         }else{
             massreg->addModel(current);
             cp.back() = poses.back();
@@ -359,98 +384,100 @@ std::vector<Eigen::Matrix4d> slam_vo2(reglib::Registration * reg, reglib::Descri
             massreg->removeLastNode();
 
             printf("mass registration time: %5.5fs score: %f\n",quasimodo_brain::getTime()-regStart2,mfr.score);
+			if(mfr.score < 0.5 || keyframe_ind.back() + kfstep < i){//Add keyframe?
+				reglib::Model * new_kf = new reglib::Model();
+				keyframes.push_back(new_kf);
+				new_kf->modelmasks.push_back(kf->modelmasks.back());
+				new_kf->relativeposes.push_back(Eigen::Matrix4d::Identity());
+				kf->last_changed = keyframes.size();
 
+				if(is_kf.back()){//If last frame was also a keyframe, we just have to accept the current frame/registration as a new kf
+					keyframe_ind.push_back(i);
+					keyframes_frames.push_back(frame);
+					new_kf->frames.push_back(frame);
+					is_kf.push_back(true);
+					poses.push_back(mfr.poses.back());
 
-			if(i > 2 || mfr.score < 0.5 || keyframe_ind.back() + kfstep < i){
-                is_keyframe = true;
-            }else{
-                poses.push_back(mfr.poses.back());
-            }
-        }
+					prev = frame;
 
-        is_kf.push_back(is_keyframe);
+					if(visualize){
+						pcl::PointCloud<pcl::PointXYZ>::Ptr    cloudCoord	(new pcl::PointCloud<pcl::PointXYZ>);
+						char buf [1024];
+						pcl::transformPointCloud (*coordcloud, *cloudCoord, Eigen::Affine3f(poses.back().cast<float>()));
+						pcl::PointXYZ p; p.x = poses[i-1](0,3);p.y = poses[i-1](1,3); p.z = poses[i-1](2,3);
+						sprintf(buf,"prev_%i",i);viewer->addLine<pcl::PointXYZ> (cloudCoord->points[0],p,0,255,0,buf);
+						viewer->spinOnce();
+					}
 
-        if(is_keyframe){
-            //kf->mergeKeyPoints(current, poses.back());//Change to prev
-            reglib::Model * new_kf = new reglib::Model();
-            if(i == 0){
-                kf->addSuperPoints(kf->points,          poses.back(),frame,kf->modelmasks.back());
-                kf->mergePoints(kf->color_edgepoints,current->color_edgepoints,poses.back());
-                massreg->addModel(kf);
+				}else{//If last frame was not a keyframe: make it a keyframe and redo current frame
+					i--;
+					keyframe_ind.push_back(i);
+					keyframes_frames.push_back(prev);
+					new_kf->frames.push_back(prev);
+					is_kf.back() = true;
+				}
 
-                keyframe_ind.push_back(0);
-                keyframes_frames.push_back(frame);
-            }else{
+				keyframe_time.push_back(timestamps[keyframe_ind.back()]);
+				keyframe_poses.push_back(poses[keyframe_ind.back()]);
+				kf->addSuperPoints( kf->points,poses.back(),keyframes_frames.back(),kf->modelmasks.back());
+				new_kf->recomputeModelPoints();
 
-                kf->last_changed = keyframe_ind.size();
-
-//                kf->color_edgepoints.clear();
-//                kf->points.clear();
-
-				//std::vector<reglib::superpoint> prev_edges = prev->getEdges(Eigen::Matrix4d::Identity(),1,0);
-                kf->addSuperPoints( kf->points,poses.back(),prev,kf->modelmasks.back());
-				//kf->mergePoints(kf->color_edgepoints,prev_edges,poses.back());
-                //kf->mergePoints(    kf->color_edgepoints,current->color_edgepoints,poses.back());
-
-                for(unsigned int k = 0; k < kf->points.size(); k++){
+				int nr_kfp = kf->points.size();
+				for(int k = 0; k < nr_kfp; k++){
 					if( kf->last_changed - kf->points[k].last_update_frame_id > 20){
-                        kf->points[k] = kf->points.back();
-                        kf->points.pop_back();
-                        k--;
-                    }
-                }
+						kf->points[k] = kf->points.back();
+						kf->points.pop_back();
+						k--;
+						nr_kfp--;
+					}
+				}
+
+				massreg->removeLastNode();
+				massreg->addModel(kf);
+
+				if(visualize){
+					viewer->removeAllPointClouds();
+					pcl::PointCloud<pcl::PointXYZRGB>::Ptr cld = kf->getPCLcloud(1,3);
+					pcl::PointCloud<pcl::PointXYZRGB>::Ptr edge_cld = kf->getPCLEdgeCloud(1,0);
+					viewer->addPointCloud<pcl::PointXYZRGB> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cld), "cloud");
+					viewer->addPointCloud<pcl::PointXYZRGB> (edge_cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(edge_cld), "edge_cloud");
+					viewer->addCoordinateSystem(0.1,Eigen::Affine3f(keyframe_poses.back().cast<float>()));
+					viewer->spinOnce();
+				}
+
+            }else{
+				poses.push_back(mfr.poses.back());
+				//if(!is_kf.back()){delete prev;}
+				prev = frame;
+				is_kf.push_back(false);
 
 
-                massreg->removeLastNode();
-                massreg->addModel(kf);
-                massreg->addModel(current);
-                cp.back() = poses.back();
-                double regStart2 = quasimodo_brain::getTime();
-                reglib::MassFusionResults kffr = massreg->getTransforms(cp);
-                massreg->removeLastNode();
-
-                printf("mass registration time: %5.5fs score: %f\n",quasimodo_brain::getTime()-regStart2,kffr.score);
-                poses.push_back(kffr.poses.back());
-
-                keyframe_ind.push_back(i-1);
-                keyframes_frames.push_back(prev);
+				if(visualize){
+					pcl::PointCloud<pcl::PointXYZ>::Ptr    cloudCoord	(new pcl::PointCloud<pcl::PointXYZ>);
+					char buf [1024];
+					pcl::transformPointCloud (*coordcloud, *cloudCoord, Eigen::Affine3f(poses.back().cast<float>()));
+					pcl::PointXYZ p; p.x = poses[i-1](0,3);p.y = poses[i-1](1,3); p.z = poses[i-1](2,3);
+					sprintf(buf,"prev_%i",i);viewer->addLine<pcl::PointXYZ> (cloudCoord->points[0],p,0,255,0,buf);
+					viewer->spinOnce();
+				}
             }
-
-            keyframe_time.push_back(timestamps[keyframe_ind.back()]);
-            keyframe_poses.push_back(poses[keyframe_ind.back()]);
-
-            keyframes.push_back(new_kf);
-            new_kf->addSuperPoints(new_kf->points,Eigen::Matrix4d::Identity(),keyframes_frames.back(),kf->modelmasks.back());
-
-            viewer->removeAllPointClouds();
-            pcl::PointCloud<pcl::PointXYZRGB>::Ptr cld = kf->getPCLcloud(1,3);
-            pcl::PointCloud<pcl::PointXYZRGB>::Ptr edge_cld = kf->getPCLEdgeCloud(1,0);
-            viewer->addPointCloud<pcl::PointXYZRGB> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cld), "cloud");
-            viewer->addPointCloud<pcl::PointXYZRGB> (edge_cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(edge_cld), "edge_cloud");
-            viewer->addCoordinateSystem(0.1,Eigen::Affine3f(keyframe_poses.back().cast<float>()));
-			viewer->spinOnce();
-        }
-
-        if(visualize){
-            pcl::PointCloud<pcl::PointXYZ>::Ptr    cloudCoord	(new pcl::PointCloud<pcl::PointXYZ>);
-            char buf [1024];
-            if(i > 0){
-                pcl::transformPointCloud (*coordcloud, *cloudCoord, Eigen::Affine3f(poses.back().cast<float>()));
-                pcl::PointXYZ p; p.x = poses[i-1](0,3);p.y = poses[i-1](1,3); p.z = poses[i-1](2,3);
-                sprintf(buf,"prev_%i",i);viewer->addLine<pcl::PointXYZ> (cloudCoord->points[0],p,0,255,0,buf);
-            }
-            viewer->spinOnce();
-        }
-
-        if(!is_keyframe){delete prev;}
-        prev = frame;
+		}
     }
+
+	for(unsigned int i = 0; i < is_kf.size();i++){
+		printf("%i ",int(is_kf[i]));
+	}
+	printf("\n");
+
+	if(visualize){
+		viewer->spin();
+	}
 
     saveModelToFB(poses,timestamps,output_path+"odometry.txt");
     saveModelToFB(poses2,timestamps,output_path+"odometry2.txt");
     saveModelToFB(poses3,timestamps,output_path+"odometry3.txt");
 
-    if(visualize){
+	if(false && visualize){
         viewer->removeAllPointClouds();
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cld = kf->getPCLcloud(1,3);
         viewer->addPointCloud<pcl::PointXYZRGB> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cld), "cloud");
@@ -465,7 +492,7 @@ std::vector<Eigen::Matrix4d> slam_vo2(reglib::Registration * reg, reglib::Descri
 	massreg3->convergence_mul = 0.5;
 	massreg3->func_setup = 1;
 
-	reglib::MassRegistrationRecursive * massregRec = new reglib::MassRegistrationRecursive(massreg3);
+	reglib::MassRegistrationRecursive * massregRec = new reglib::MassRegistrationRecursive(massreg3,15);
 	for(unsigned int i = 0; i < keyframes.size(); i++){massregRec->addModel(keyframes[i]);}
 	reglib::MassFusionResults mrRecFr = massregRec->getTransforms(keyframe_poses);
 
@@ -674,17 +701,45 @@ exit(0);
 }
 
 int main(int argc, char **argv){
+//	reglib::Timer t;
+//	t.start("math/sqrt");
+//	double sum1 = 0;
+//	for(double i = 0.1; i < 10000; i += 0.1){sum1 += sqrt(i);}
 
-	reglib::MassRegistrationPPR3 * massreg3 = new reglib::MassRegistrationPPR3();
-	massreg3->visualizationLvl = 2;
-	massreg3->convergence_mul = 0.5;
-	massreg3->func_setup = 1;
+//	t.start("math/log");
+//	double sum2 = 0;
+//	for(double i = 0.1; i < 10000; i += 0.1){sum2 += log(i);}
 
-	reglib::MassRegistrationRecursive * massregRec = new reglib::MassRegistrationRecursive(massreg3,3);
-	std::vector<Eigen::Matrix4d> pos;
-	pos.resize(31);
-	reglib::MassFusionResults mrRecFr = massregRec->getTransforms(pos);
-exit(0);
+//	t.start("math/pow01");
+//	double sum3 = 0;
+//	for(double i = 0.1; i < 10000; i += 0.1){sum3 += pow(i,0.1);}
+
+//	t.start("rand");
+//	double sum4 = 0;
+//	for(double i = 0.1; i < 10000; i += 0.1){sum4 += rand();}
+
+//	t.start("sum");
+//	double sum5 = 0;
+//	for(double i = 0.1; i < 10000; i += 0.1){sum5 += i;}
+
+////	t.start("a/q/2");
+////	t.start("a/r/3");
+////	t.start("b/r/4");
+////	t.start("b/r/5");
+//	t.print();
+
+//	//printf("sum1: %f sum2: %f\n",sum1,sum2);
+//exit(0);
+//	reglib::MassRegistrationPPR3 * massreg3 = new reglib::MassRegistrationPPR3();
+//	massreg3->visualizationLvl = 2;
+//	massreg3->convergence_mul = 0.5;
+//	massreg3->func_setup = 1;
+
+//	reglib::MassRegistrationRecursive * massregRec = new reglib::MassRegistrationRecursive(massreg3,3);
+//	std::vector<Eigen::Matrix4d> pos;
+//	pos.resize(31);
+//	reglib::MassFusionResults mrRecFr = massregRec->getTransforms(pos);
+//exit(0);
 
 
 
@@ -751,7 +806,7 @@ exit(0);
 
     for(unsigned int arg = 1; arg < argc; arg++){
         int startind = 0;//42+0.2*30;
-		int stopind	 = 150;//4*30;//startind+10;
+		int stopind	 = 500;//4*30;//startind+10;
 		addFBdata(argv[arg], startind, stopind, 5);
 
 

@@ -251,7 +251,7 @@ bool EdgeData::needRefinement(Eigen::Matrix4d p, double convergence){
     return true;
 }
 
-int EdgeData::surfaceRematch(Eigen::Matrix4d p,double convergence, bool force){
+int EdgeData::surfaceRematch(Eigen::Matrix4d p,double convergence, bool force, int visualization){
     if(!force && getChange(rematchPoseLast,p,node1->meandist + node2->meandist) < convergence){return -1;}
     rematchPoseLast = p;
     rematched = true;
@@ -307,6 +307,14 @@ int EdgeData::surfaceRematch(Eigen::Matrix4d p,double convergence, bool force){
     surface_match1.resize(added);
     surface_match2.resize(added);
     surface_rangew.resize(added);
+
+	if(visualization > 0){
+		printf("surface_nr_active1: %i -> added: %i -> surface_match1.size() %i\n",surface_nr_active1,added,surface_match1.size());
+		if(added > surface_nr_active1){
+			exit(0);
+		}
+	}
+
     nr_matches_orig = added;
     return 0;
 }
@@ -363,7 +371,7 @@ void EdgeData::computeSurfaceResiduals(Eigen::Matrix4d p, double * residuals, un
     }
 }
 
-void EdgeData::addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Matrix4d p1, Eigen::Matrix4d p2, Matrix6d & ATA, Vector6d & ATb ){
+void EdgeData::addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Matrix4d p1, Eigen::Matrix4d p2, Matrix6d & ATA, Vector6d & ATb, int visualization ){
     rematched = false;
     optPoseLast = p2.inverse()*p1;
 
@@ -384,9 +392,13 @@ void EdgeData::addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Mat
     double * surface_p2             = node2->surface_p;
     double * surface_n2             = node2->surface_n;
 
-    score = 0;
+	score = 0;
+	double rw_score_sum = 0;
+	double rw_sum = 0;
 
+	double startTime = getTime();
     unsigned int nr_matches = surface_match1.size();
+
     for(unsigned int i = 0; i < nr_matches; i++){
         unsigned int i1 = surface_match1[i];
         unsigned int i2 = surface_match2[i];
@@ -428,7 +440,9 @@ void EdgeData::addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Mat
 
         double prob = func->getProb(di);
         if(i < nr_matches_orig){
-            score += prob;
+			score += prob;
+			rw_score_sum += prob*rw;
+			rw_sum += rw;
         }
 
 		const double & angle = nx*dnx+ny*dny+nz*dnz;
@@ -473,7 +487,14 @@ void EdgeData::addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Mat
         ATb.coeffRef (4) += ny * d;
         ATb.coeffRef (5) += nz * d;
     }
-    score /= double(node1->surface_nr_active);
+	//score /= double(node1->surface_nr_active);
+	score = rw_score_sum/rw_sum;
+
+	if(visualization > 0){
+		double totaltime = getTime()-startTime;
+		//printf("nr_matches: %i time: %7.7fs mps: %10.10f\n",nr_matches,totaltime,double(nr_matches)/totaltime);
+	}
+
 }
 
 
@@ -545,6 +566,8 @@ int MassRegistrationPPR3::total_nonconverged(std::vector<Eigen::Matrix4d> before
 double MassRegistrationPPR3::getConvergence(){return convergence_mul*surface_func->getNoise();}
 
 void MassRegistrationPPR3::show(std::vector<Eigen::Matrix4d> poses, bool stop){
+	//timer.start("show");
+
     viewer->removeAllShapes();
     viewer->removeAllPointClouds();
     char buf [1024];
@@ -555,6 +578,12 @@ void MassRegistrationPPR3::show(std::vector<Eigen::Matrix4d> poses, bool stop){
     }
     if(stop){    viewer->spin();}
     else{        viewer->spinOnce();}
+
+	//timer.stop("show");
+}
+
+void MassRegistrationPPR3::addModel(Model * model){
+	addModel(model, 1000);
 }
 
 void MassRegistrationPPR3::addModel(Model * model, int active){
@@ -598,40 +627,80 @@ void MassRegistrationPPR3::removeLastNode(){
 }
 
 unsigned long MassRegistrationPPR3::rematch(std::vector<Eigen::Matrix4d> poses, bool force, bool debugg_print){
+	timer.start("rematch");
     double convergence = getConvergence();
     unsigned long sum_surface_rematches = 0;
+
+//	if(visualizationLvl == 2){
+//		printf("PRESTART\n");
+//	}
+
+	std::vector< std::vector< bool> > isupdated;
     for(unsigned int i = 0; i < edges.size(); i++){
+		isupdated.push_back(std::vector< bool>());
         for(unsigned int j = 0; j < edges[i].size(); j++){
+			isupdated.back().push_back(false);
             if(edges[i][j] != 0){
                 Eigen::Matrix4d p = poses[j].inverse()*poses[i];
-                sum_surface_rematches += edges[i][j]->surfaceRematch(p,convergence,force) != -1;
+				int res = edges[i][j]->surfaceRematch(p,convergence,force,0);
+				isupdated.back().back() = res != -1;
+				sum_surface_rematches += res != -1;
             }
         }
     }
+
+//	if(visualizationLvl == 2){
+
+//		printf("NODES\n");
+//		for(unsigned int i = 0; i < nodes.size(); i++){
+//			printf("%i -> %i\n",i,nodes[i]->surface_nr_active);
+//		}
+
+//		printf("BEFORE\n");
+//		for(unsigned int i = 0; i < edges.size(); i++){
+//			for(unsigned int j = 0; j < edges[i].size(); j++){
+//				if(edges[i][j] != 0){
+//					printf("%i %i -> %i\n",i,j,edges[i][j]->surface_match1.size());
+//				}
+//			}
+//		}
+//		printf("\n");
+//	}
 
     for(unsigned int i = 0; i < edges.size(); i++){
         for(unsigned int j = i+1; j < edges[i].size(); j++){
             if(edges[i][j] != 0){
                 Eigen::Matrix4d p = poses[j].inverse()*poses[i];
 
-                int nr_matches1 = edges[i][j]->surface_match1.size();
-                int nr_matches2 = edges[j][i]->surface_match1.size();
+				if(isupdated[i][j] || isupdated[j][i]){
 
-                //edges[i][j]->showMatches(viewer,p);
-                //edges[j][i]->showMatches(viewer,p.inverse());
+					edges[i][j]->surface_match1.resize(edges[i][j]->nr_matches_orig);
+					edges[i][j]->surface_match2.resize(edges[i][j]->nr_matches_orig);
+					edges[i][j]->surface_rangew.resize(edges[i][j]->nr_matches_orig);
+
+					edges[j][i]->surface_match1.resize(edges[j][i]->nr_matches_orig);
+					edges[j][i]->surface_match2.resize(edges[j][i]->nr_matches_orig);
+					edges[j][i]->surface_rangew.resize(edges[j][i]->nr_matches_orig);
+
+					int nr_matches1 = edges[i][j]->surface_match1.size();
+					int nr_matches2 = edges[j][i]->surface_match1.size();
+
+					//edges[i][j]->showMatches(viewer,p);
+					//edges[j][i]->showMatches(viewer,p.inverse());
 
 
-                for(unsigned int k = 0; k < nr_matches1; k++){
-                    edges[j][i]->surface_match2.push_back(edges[i][j]->surface_match1[k]);
-                    edges[j][i]->surface_match1.push_back(edges[i][j]->surface_match2[k]);
-                    edges[j][i]->surface_rangew.push_back(edges[i][j]->surface_rangew[k]);
-                }
+					for(unsigned int k = 0; k < nr_matches1; k++){
+						edges[j][i]->surface_match2.push_back(edges[i][j]->surface_match1[k]);
+						edges[j][i]->surface_match1.push_back(edges[i][j]->surface_match2[k]);
+						edges[j][i]->surface_rangew.push_back(edges[i][j]->surface_rangew[k]);
+					}
 
-                for(unsigned int k = 0; k < nr_matches2; k++){
-                    edges[i][j]->surface_match2.push_back(edges[j][i]->surface_match1[k]);
-                    edges[i][j]->surface_match1.push_back(edges[j][i]->surface_match2[k]);
-                    edges[i][j]->surface_rangew.push_back(edges[j][i]->surface_rangew[k]);
-                }
+					for(unsigned int k = 0; k < nr_matches2; k++){
+						edges[i][j]->surface_match2.push_back(edges[j][i]->surface_match1[k]);
+						edges[i][j]->surface_match1.push_back(edges[j][i]->surface_match2[k]);
+						edges[i][j]->surface_rangew.push_back(edges[j][i]->surface_rangew[k]);
+					}
+				}
 
                 //edges[i][j]->showMatches(viewer,p);
                 //edges[j][i]->showMatches(viewer,p.inverse());
@@ -640,11 +709,24 @@ unsigned long MassRegistrationPPR3::rematch(std::vector<Eigen::Matrix4d> poses, 
     }
 
 
+//	if(visualizationLvl == 2){
+//		printf("AFTER\n");
+//		for(unsigned int i = 0; i < edges.size(); i++){
+//			for(unsigned int j = 0; j < edges[i].size(); j++){
+//				if(edges[i][j] != 0){
+//					printf("%i %i -> %i\n",i,j,edges[i][j]->surface_match1.size());
+//				}
+//			}
+//		}
+//		printf("\n");
+//	}
+
+	timer.stop("rematch");
     return sum_surface_rematches > 0;
 }
 
 unsigned long MassRegistrationPPR3::model(std::vector<Eigen::Matrix4d> poses, bool force, bool debugg_print){
-
+	timer.start("model");
     if(useSurfacePoints){
         if(func_setup == 0){
             unsigned long sum_surface_rematches = 0;
@@ -693,16 +775,24 @@ unsigned long MassRegistrationPPR3::model(std::vector<Eigen::Matrix4d> poses, bo
         }
     }
 
+	timer.stop("model");
     return 1;
 }
 
 
 unsigned long MassRegistrationPPR3::refine(std::vector<Eigen::Matrix4d> & poses, bool force, bool debugg_print){
+	//timer.start("getTransforms/refine");
+
+	double total1 = 0;
+	int sum1 = 0;
+	double total2 = 0;
+	int sum2 = 0;
+
     double convergence = getConvergence();
     for(long outer=0; outer < 150; ++outer) {
+		//timer.start("getTransforms/refine/outer/part1");
 
-        int not_converged = 0;
-
+		int not_converged = 0;
         for(unsigned int i = 0; i < edges.size(); i++){
             for(unsigned int j = 0; j < edges[i].size(); j++){
                 if(edges[i][j] != 0  && edges[i][j]->surface_match1.size() > 0){
@@ -713,15 +803,26 @@ unsigned long MassRegistrationPPR3::refine(std::vector<Eigen::Matrix4d> & poses,
                     }
                 }
             }
-        }
+		}
 
-        //printf("outer: %i not_converged: %i \n",outer,not_converged);
+		//if(visualizationLvl == 2){printf("outer: %i not_converged: %i edges: %i\n",outer,not_converged,edges.size());}
+
+		//timer.stop("getTransforms/refine/outer/part1");
+
         if(!(force && outer == 0) && not_converged == 0){break;}
 
 
+		//timer.start("getTransforms/refine/outer/part2");
         for(unsigned int i = 0; i < edges.size(); i++){
+
+			//if(visualizationLvl == 2){printf("outer: %i i: %i\n",outer,i);}
+
+			//timer.start("getTransforms/refine/outer/part3");
             int not_conv = 0;
             for(unsigned int j = 0; j < edges[i].size(); j++){
+
+				//if(visualizationLvl == 2){printf("outer: %i i: %i j: %i\n",outer,i,j);}
+
                 if(edges[i][j] != 0 && edges[i][j]->surface_match1.size() > 0){
                     if(func_setup == 0){
                         if(edges[i][j]->needRefinement(poses[j].inverse()*poses[i],convergence)){not_conv++;}
@@ -736,24 +837,32 @@ unsigned long MassRegistrationPPR3::refine(std::vector<Eigen::Matrix4d> & poses,
                         if(edges[j][i]->needRefinement(poses[i].inverse()*poses[j],convergence_mul*edge_surface_func[j][i]->getNoise())){not_conv++;}
                     }
                 }
-            }
+			}
 
-            if(!(force && outer == 0) && not_conv == 0){continue;}
+			//timer.stop("getTransforms/refine/outer/part3");
+			if(!(force && outer == 0) && not_conv == 0){continue;}
 
+			//timer.start("getTransforms/refine/outer/part4");
+double start1 = getTime();
+timer.start("refine1");
             Matrix6d pATA;
             Vector6d pATb;
             pATA.setZero ();
             pATb.setZero ();
             for(unsigned int j = 0; j < edges[i].size(); j++){
+				//if(visualizationLvl == 2){printf("part 4 outer: %i i: %i j: %i\n",outer,i,j);}
                 EdgeData * e = edges[i][j];
                 DistanceWeightFunction2 * func = 0;
                 if(func_setup == 0){        func = surface_func;}
                 else if(func_setup == 1){   func = edge_surface_func[i][j];}
                 if(e != 0 && func != 0){
-                    e->addSurfaceOptimization(func , poses[i], poses[j],pATA,pATb );
+					sum1 += e->surface_match1.size();
+					e->addSurfaceOptimization(func , poses[i], poses[j],pATA,pATb,visualizationLvl);
                 }
-            }
-
+            }		
+timer.stop("refine1");
+total1 += getTime()-start1;
+			//timer.start("getTransforms/refine/outer/part5");
             pATA.coeffRef (6)  = pATA.coeff (1);
             pATA.coeffRef (12) = pATA.coeff (2);
             pATA.coeffRef (13) = pATA.coeff (8);
@@ -772,32 +881,28 @@ unsigned long MassRegistrationPPR3::refine(std::vector<Eigen::Matrix4d> & poses,
 
             for(long d = 0; d < 6; d++){pATA(d,d) += 0.000000001;}
 
-
-
+double start2 = getTime();
+timer.start("refine2");
             Matrix6d nATA;
             Vector6d nATb;
             nATA.setZero ();
             nATb.setZero ();
-//            for(unsigned int j = 0; j < edges[i].size(); j++){
-//                if(edges[j][i] != 0){
-//                    if(func_setup == 0){
-//                        edges[j][j]->addSurfaceOptimization(surface_func            , poses[j], poses[i],nATA,nATb );
-//                    }else if(func_setup == 1){
-//                        edges[j][j]->addSurfaceOptimization(edge_surface_func[j][i] , poses[j], poses[i],nATA,nATb );
-//                    }
-//                }
-//            }
 
+			//timer.start("getTransforms/refine/outer/part6");
             for(unsigned int j = 0; j < edges[i].size(); j++){
                 EdgeData * e = edges[j][i];
                 DistanceWeightFunction2 * func = 0;
                 if(func_setup == 0){        func = surface_func;}
                 else if(func_setup == 1){   func = edge_surface_func[j][i];}
                 if(e != 0 && func != 0){
-                    e->addSurfaceOptimization(func , poses[j], poses[i],nATA,nATb );
+					sum2 += e->surface_match1.size();
+					e->addSurfaceOptimization(func , poses[j], poses[i],nATA,nATb,visualizationLvl);
                 }
             }
+			//timer.start("getTransforms/refine/outer/part6");
 
+timer.stop("refine2");
+total2 += getTime()-start2;
             nATA.coeffRef (6)  = nATA.coeff (1);
             nATA.coeffRef (12) = nATA.coeff (2);
             nATA.coeffRef (13) = nATA.coeff (8);
@@ -819,53 +924,31 @@ unsigned long MassRegistrationPPR3::refine(std::vector<Eigen::Matrix4d> & poses,
             Matrix6d ATA = pATA+nATA;
             Vector6d ATb = pATb-nATb;
 
-//            Vector6d nx = static_cast<Vector6d> (nATA.inverse () * nATb);
-//            Eigen::Affine3d ntransformation = Eigen::Affine3d(constructTransformationMatrix(nx(0,0),nx(1,0),nx(2,0),nx(3,0),nx(4,0),nx(5,0)));
-//            std::cout << "nATA\n" << nATA << std::endl << std::endl;
-//            std::cout << "nATb\n" << nATb << std::endl << std::endl;
-//            std::cout << "nx\n" << nx << std::endl << std::endl;
-//            std::cout << "ntransformation\n" << ntransformation.matrix() << std::endl << std::endl;
-//            std::cout << "ntransformation.inverse()\n" << ntransformation.matrix().inverse() << std::endl << std::endl;
-
-
-//            Vector6d px = static_cast<Vector6d> (pATA.inverse () * pATb);
-//            Eigen::Affine3d ptransformation = Eigen::Affine3d(constructTransformationMatrix(px(0,0),px(1,0),px(2,0),px(3,0),px(4,0),px(5,0)));
-//            std::cout << "pATA\n" << pATA << std::endl << std::endl;
-//            std::cout << "pATb\n" << pATb << std::endl << std::endl;
-//            std::cout << "px\n" << px << std::endl << std::endl;
-//            std::cout << "ptransformation\n" << ptransformation.matrix() << std::endl << std::endl;
-//            std::cout << "ptransformation.inverse()\n" << ptransformation.matrix().inverse() << std::endl << std::endl;
+			//timer.start("getTransforms/refine/outer/part7");
 
             Vector6d x = static_cast<Vector6d> (ATA.inverse () * ATb);
 
+			//timer.start("getTransforms/refine/outer/part8");
             if(i == 0){
                 Eigen::Affine3d transformation = Eigen::Affine3d(constructTransformationMatrix(-x(0,0),-x(1,0),-x(2,0),-x(3,0),-x(4,0),-x(5,0)));
                 for(unsigned int j = 1; j < poses.size(); j++){
                     poses[j] = transformation*poses[j];
                 }
-
             }else{
                 Eigen::Affine3d transformation = Eigen::Affine3d(constructTransformationMatrix(x(0,0),x(1,0),x(2,0),x(3,0),x(4,0),x(5,0)));
                 poses[i] = transformation*poses[i];
-            }
+			}
 
-//            Eigen::Affine3d transformation = Eigen::Affine3d(constructTransformationMatrix(x(0,0),x(1,0),x(2,0),x(3,0),x(4,0),x(5,0)));
-//            std::cout << "ATA\n" << ATA << std::endl << std::endl;
-//            std::cout << "ATb\n" << ATb << std::endl << std::endl;
-//            std::cout << "x\n" << x << std::endl << std::endl;
-//            std::cout << "transformation\n" << transformation.matrix() << std::endl << std::endl;
-//            std::cout << "transformation.inverse()\n" << transformation.matrix().inverse() << std::endl << std::endl;
-
-
-
-//poses[i] = transformation*poses[i];
-
-
-            //show(poses,true);
-            if(i == 0){normalizePoses(poses);}
+			//timer.stop("getTransforms/refine/outer/part8");
         }
-    }
+		//timer.stop("getTransforms/refine/outer/part2");
+	}
 	if(visualizationLvl > 4){show(poses,false);}
+	//if(visualizationLvl == 2){printf("sum1: %5.5i total1: %7.7fs sum2: %5.5i total2: %7.7fs\n",sum1,total1,sum2,total2);}
+
+
+
+	//timer.stop("getTransforms/refine");
     return 1;
 }
 
@@ -874,10 +957,19 @@ void MassRegistrationPPR3::normalizePoses(std::vector<Eigen::Matrix4d> & poses){
     for(long i = 0; i < poses.size(); i++){poses[i] = firstinv*poses[i];}
 }
 
+
+void MassRegistrationPPR3::clearData(){
+	while(nodes.size() > 0){
+		removeLastNode();
+	}
+}
+
 MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4d> poses){
+	timer.clear();
+	//timer.start("getTransforms");
     //srand(0);
     //printf("\n\n\n\n");
-    if(visualizationLvl > 0){printf("start MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4d> poses)\n");}
+	//if(visualizationLvl > 0){printf("start MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4d> poses)\n");}
     if(poses.size() != nodes.size()){
         printf("MassRegistrationPPR3::getTransforms ERROR:poses.size() != nodes.size()\n");
         return MassFusionResults(poses,-1);
@@ -917,13 +1009,22 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
 		if(visualizationLvl == 2){
 			printf("func: %i \n",func);
 			show(poses,false);
+			//timer.start("getTransforms");
 		}
         //printf("func: %i\n",func);
         //if(func == 3){return MassFusionResults(poses,1);}
         std::vector< std::vector<Eigen::Matrix4d> > prevs;
         //printf("=========================================================================\n");
-        for(int i = 0; i < 150; i++){
-            //printf("func: %i i:%i \n",func,i);
+		for(int i = 0; i < 10; i++){//150; i++){
+			if(visualizationLvl == 2){
+//				printf("=========================================================================\n");
+				printf("func: %i i:%i \n",func,i);
+//				printf("++++TIMER++++\n");
+//				timer.print();
+//				printf("----TIMER----\n");
+				//show(poses,false);
+				//timer.start("getTransforms");
+			}
             rematch(poses,  false,func == 2);
             model(poses,    false,func == 2);
             refine(poses,    true,func == 2);

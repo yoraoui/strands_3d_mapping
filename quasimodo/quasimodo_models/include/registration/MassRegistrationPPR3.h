@@ -53,12 +53,12 @@ namespace reglib
         std::vector<unsigned int>   surface_match2;
         std::vector<double>         surface_rangew;
 
-        int surfaceRematch(Eigen::Matrix4d p, double convergence = 0.0001, bool force = false);
+		int surfaceRematch(Eigen::Matrix4d p, double convergence = 0.0001, bool force = false, int visualization = 0);
         void computeSurfaceResiduals(Eigen::Matrix4d p, double * residuals, unsigned long & counter);
 
         bool needRefinement(Eigen::Matrix4d p, double convergence = 0.0001);
 
-        void addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Matrix4d p1, Eigen::Matrix4d p2, Matrix6d & ATA, Vector6d & ATb );
+		void addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Matrix4d p1, Eigen::Matrix4d p2, Matrix6d & ATA, Vector6d & ATb , int visualization = 0);
         void showMatches(boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer, Eigen::Matrix4d p = Eigen::Matrix4d::Identity());
         void showMatchesW(boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer,  DistanceWeightFunction2 * func, Eigen::Matrix4d p1, Eigen::Matrix4d p2);
 
@@ -70,6 +70,8 @@ namespace reglib
 	{
 		public:
 
+		reglib::Timer timer;
+
         int func_setup;
 
         bool useSurfacePoints;
@@ -78,6 +80,8 @@ namespace reglib
         std::vector< DataNode * > nodes;
         std::vector< std::vector< EdgeData * > > edges;
         std::vector< std::vector< DistanceWeightFunction2 * > > edge_surface_func;
+
+
 
         double convergence_mul;
 
@@ -95,9 +99,12 @@ namespace reglib
 
         int total_nonconverged(std::vector<Eigen::Matrix4d> before, std::vector<Eigen::Matrix4d> after);
 
-        void addModel(Model * model, int active = 1000);
+		void addModel(Model * model);
+		void addModel(Model * model, int active);
         void removeLastNode();
         MassFusionResults getTransforms(std::vector<Eigen::Matrix4d> poses);
+
+		virtual void clearData();
 	};
 
 }

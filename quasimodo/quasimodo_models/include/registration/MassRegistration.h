@@ -85,6 +85,7 @@ namespace reglib
 
 		virtual void clearData();
 		virtual void addData(RGBDFrame* frame, ModelMask * mmask);
+		virtual void addModel(Model * model);
 		virtual void addModelData(Model * model, bool submodels = true);
 		virtual void addData(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud);
 

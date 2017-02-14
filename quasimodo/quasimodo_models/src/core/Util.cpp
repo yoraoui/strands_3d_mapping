@@ -383,4 +383,94 @@ namespace reglib{
 		if(change_trans < stopvalt && change_rot < stopvalr){return true;}
 		else{return false;}
 	}
+
+
+
+	void Timer::start(std::string s, double t){
+		if(t == -1){t = getTime();}
+		if(start_time == -1){start_time = t;}
+
+		std::string frontpart = "";
+		std::string endpart = "";
+
+		std::size_t found = s.find("/");
+		if (found!=std::string::npos){
+			frontpart	= s.substr(0,found);
+			endpart		= s.substr(found+1,s.length()-found);
+		}else{
+			frontpart = s;
+		}
+
+		total_time += t-start_time;
+		start_time = t;
+
+		bool isnew = true;
+		for(unsigned int i = 0; i < subtimers.size(); i++){
+			if(subtimers[i].name.compare(frontpart) == 0){
+				isnew = false;
+				subtimers.back().start(endpart,t);
+			}else{
+				subtimers[i].stop("",t);
+			}
+		}
+
+		if(isnew && s.length() > 0){
+			subtimers.push_back(Timer(frontpart));
+			subtimers.back().start(endpart,t);
+		}
+	}
+
+	void Timer::stop(std::string s, double t){
+		if(t == -1){t = getTime();}
+		if(start_time == -1){return;}
+
+
+		if(s.length() == 0){
+			total_time += t-start_time;
+			start_time = -1;
+
+			for(unsigned int i = 0; i < subtimers.size(); i++){
+				subtimers[i].stop("",t);
+			}
+		}else{
+			//Take out first part
+			std::string frontpart = "";
+			std::string endpart = "";
+
+			std::size_t found = s.find("/");
+			if (found!=std::string::npos){
+				frontpart	= s.substr(0,found);
+				endpart		= s.substr(found+1,s.length()-found);
+			}else{
+				frontpart = s;
+			}
+
+			for(unsigned int i = 0; i < subtimers.size(); i++){
+				if(subtimers[i].name.compare(frontpart) == 0){
+					subtimers[i].stop(endpart,t);
+				}
+			}
+		}
+	}
+
+	void Timer::print(std::string s, double t){
+		bool first = false;
+		if(t == -1){
+			t = getTime();
+			first = true;
+		}
+		double tt = total_time;
+		if(start_time != -1){tt += t-start_time;}
+
+		if(first){printf("/ -> %7.7fs (%7.7f)\n",tt,1.0);}
+
+		for(unsigned int i = 0; i < subtimers.size(); i++){
+			double t2 = subtimers[i].total_time;
+			if(subtimers[i].start_time != -1){t2 += t-subtimers[i].start_time;}
+			printf("%s/%s -> %7.7fs (%7.7f)\n",s.c_str(),subtimers[i].name.c_str(),t2,t2/tt);
+			subtimers[i].print(s+"/"+subtimers[i].name,t);
+		}
+	}
+
+
 }

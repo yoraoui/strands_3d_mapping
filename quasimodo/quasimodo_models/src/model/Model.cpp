@@ -205,7 +205,7 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 	for(unsigned int i = 0; i < width*height; i++){isfused[i] = false;}
 
 	bool * maskvec							= modelmask->maskvec;
-	std::vector<ReprojectionResult> rr_vec	= frame->getReprojections(spvec,p.inverse(),modelmask->maskvec,true);
+	std::vector<ReprojectionResult> rr_vec	= frame->getReprojections(spvec,p.inverse(),modelmask->maskvec,false);
 	std::vector<superpoint> framesp			= frame->getSuperPoints(p);
 
 
@@ -232,7 +232,7 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 		DistanceWeightFunction2PPR2 * func = new DistanceWeightFunction2PPR2();
 		func->zeromean				= true;
 		func->maxp					= 0.99;
-        func->startreg				= 0.00;
+		func->startreg				= 0.001;
 		func->debugg_print			= false;
 		func->maxd					= 0.1;
 		func->startmaxd				= func->maxd;
@@ -249,13 +249,23 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 		}
 
 		for(unsigned long ind = 0; ind < nr_rr;ind++){
-			double p = func->getProb(residualsZ[ind]);
+			double rz = residualsZ[ind];
+			double p = func->getProb(rz);
+
 			if(p > 0.5){
 				ReprojectionResult & rr = rr_vec[ind];
 				superpoint & src_p =   spvec[rr.src_ind];
 				superpoint & dst_p = framesp[rr.dst_ind];
 				float weight = p/sumw[rr.dst_ind];
 				src_p.merge(dst_p,weight);
+			}else if(rz > 0){//If occlusion: either the new or the old point is unreliable, reduce confidence in both
+				ReprojectionResult & rr = rr_vec[ind];
+				superpoint & src_p =   spvec[rr.src_ind];
+				superpoint & dst_p = framesp[rr.dst_ind];
+
+				double dst_pi = dst_p.point_information;
+				src_p.point_information -= 0.5*dst_pi;
+				dst_p.point_information -= 0.5*dst_pi;
 			}
 		}
 		delete func;
@@ -267,6 +277,18 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 			if(sp.point_information > 0){
 				spvec.push_back(sp);
 			}
+		}
+	}
+
+
+	//Clear out points with bad/no information
+	long nr_spvec = spvec.size();
+	for(long ind = 0; ind < nr_spvec;ind++){
+		if(spvec[ind].point_information <= 0){
+			spvec[ind] = spvec.back();
+			spvec.pop_back();
+			ind--;
+			nr_spvec--;
 		}
 	}
 

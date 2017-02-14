@@ -63,6 +63,31 @@ using Components = boost::component_index<VertexIndex>;
 namespace reglib
 {
 
+class Timer{
+	public:
+
+	std::string name;
+	double start_time;
+	double total_time;
+
+	std::vector<Timer> subtimers;
+
+
+
+	void start(std::string s, double t = -1);
+	void stop(std::string s, double t = -1);
+	void print(std::string s = "", double t = -1);
+	void clear(){subtimers.clear();}
+
+	Timer(std::string name_ = "", double t = -1){
+		start_time = t;
+		total_time = 0;
+		name = name_;
+		//printf("new timer with name: %s\n",name.c_str());
+	}
+	~Timer(){clear();}
+};
+
 double getChange(Eigen::Matrix4d & change, double meandist);
 
 double getChange(Eigen::Matrix4d & before, Eigen::Matrix4d & after, double meandist);
