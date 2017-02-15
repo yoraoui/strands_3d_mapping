@@ -322,7 +322,7 @@ std::vector<Eigen::Matrix4d> slam_vo2(reglib::Registration * reg, reglib::Descri
 
     std::vector<bool> is_kf;
 
-	int kfstep = 10;//std::max(1.0,double(nr_frames)/20.0);
+	int kfstep = 1000;//std::max(1.0,double(nr_frames)/20.0);
     //Merge into a new kf
 
 	massreg->visualizationLvl = 0;
@@ -383,7 +383,8 @@ std::vector<Eigen::Matrix4d> slam_vo2(reglib::Registration * reg, reglib::Descri
             reglib::MassFusionResults mfr = massreg->getTransforms(cp);
             massreg->removeLastNode();
 
-            printf("mass registration time: %5.5fs score: %f\n",quasimodo_brain::getTime()-regStart2,mfr.score);
+			double regtime = quasimodo_brain::getTime()-regStart2;
+			printf("mass registration time: %5.5fs score: %f\n",regtime,mfr.score);
 			if(mfr.score < 0.5 || keyframe_ind.back() + kfstep < i){//Add keyframe?
 				reglib::Model * new_kf = new reglib::Model();
 				keyframes.push_back(new_kf);
@@ -419,6 +420,7 @@ std::vector<Eigen::Matrix4d> slam_vo2(reglib::Registration * reg, reglib::Descri
 
 				keyframe_time.push_back(timestamps[keyframe_ind.back()]);
 				keyframe_poses.push_back(poses[keyframe_ind.back()]);
+				kf->points.clear();
 				kf->addSuperPoints( kf->points,poses.back(),keyframes_frames.back(),kf->modelmasks.back());
 				new_kf->recomputeModelPoints();
 
@@ -446,6 +448,14 @@ std::vector<Eigen::Matrix4d> slam_vo2(reglib::Registration * reg, reglib::Descri
 				}
 
             }else{
+				if(regtime > 1.0){
+					massreg->visualizationLvl = 2;
+					massreg->addModel(current);
+					cp.back() = poses.back();
+					reglib::MassFusionResults mfr = massreg->getTransforms(cp);
+					massreg->removeLastNode();
+					massreg->visualizationLvl = 0;
+				}
 				poses.push_back(mfr.poses.back());
 				//if(!is_kf.back()){delete prev;}
 				prev = frame;
@@ -806,8 +816,8 @@ int main(int argc, char **argv){
 
     for(unsigned int arg = 1; arg < argc; arg++){
         int startind = 0;//42+0.2*30;
-		int stopind	 = 500;//4*30;//startind+10;
-		addFBdata(argv[arg], startind, stopind, 5);
+		int stopind	 = 5000;//4*30;//startind+10;
+		addFBdata(argv[arg], startind, stopind, 1);
 
 
         for(unsigned int i = 0; i < regs.size(); i++){

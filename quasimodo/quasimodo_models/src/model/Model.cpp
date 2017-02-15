@@ -258,7 +258,7 @@ void Model::addSuperPoints(vector<superpoint> & spvec, Matrix4d p, RGBDFrame* fr
 				superpoint & dst_p = framesp[rr.dst_ind];
 				float weight = p/sumw[rr.dst_ind];
 				src_p.merge(dst_p,weight);
-			}else if(rz > 0){//If occlusion: either the new or the old point is unreliable, reduce confidence in both
+			}else if(false && p < 0.001 && rz > 0){//If occlusion: either the new or the old point is unreliable, reduce confidence in both
 				ReprojectionResult & rr = rr_vec[ind];
 				superpoint & src_p =   spvec[rr.src_ind];
 				superpoint & dst_p = framesp[rr.dst_ind];

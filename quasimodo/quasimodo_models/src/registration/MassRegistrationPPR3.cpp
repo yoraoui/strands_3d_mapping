@@ -1015,7 +1015,7 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
         //if(func == 3){return MassFusionResults(poses,1);}
         std::vector< std::vector<Eigen::Matrix4d> > prevs;
         //printf("=========================================================================\n");
-		for(int i = 0; i < 10; i++){//150; i++){
+		for(int i = 0; i < 100; i++){//150; i++){
 			if(visualizationLvl == 2){
 //				printf("=========================================================================\n");
 				printf("func: %i i:%i \n",func,i);
@@ -1094,7 +1094,6 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
             prev = poses;
             if(not_converged == 0){break;}
         }
-
 
 
         if(func_setup == 0){
