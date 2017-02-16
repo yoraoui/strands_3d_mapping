@@ -58,7 +58,6 @@ public:
 	virtual void computeModel(MatrixXd mat);
 	virtual VectorXd getProbs(std::vector<double> & vec);
 	virtual VectorXd getProbs(MatrixXd mat);
-
 	virtual double getProbInfront(double d, bool debugg = false);
 	virtual double getProb(double d, bool debugg = false);
 	virtual double getNoise();
@@ -66,6 +65,7 @@ public:
 	virtual bool update();
 	virtual void reset();
 	virtual std::string getString();
+	virtual double getWeight(double invstd, double d, bool debugg = false);
 };
 
 }

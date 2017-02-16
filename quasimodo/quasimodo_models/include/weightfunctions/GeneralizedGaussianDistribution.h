@@ -71,6 +71,8 @@ public:
 
     virtual void update_numcdf_vec(unsigned int bins = 1000, double prob = 0.000001);
     //double interp(double x);
+
+	virtual double getIRLSreweight(double x);
 };
 
 }

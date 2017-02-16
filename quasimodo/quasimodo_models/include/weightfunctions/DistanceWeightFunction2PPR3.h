@@ -32,6 +32,8 @@ public:
     SignalProcessing * sp;
     Distribution * dist;
 
+	bool useIRLSreweight;
+
     bool fixed_histogram_size;
 
 	double stdval;
@@ -79,7 +81,8 @@ public:
 //    std::vector<float> noise;
 //    std::vector<float> noisecdf;
 
-    float * prob;
+	float * prob;
+	float * irls;
     float * infront;
     float * histogram;
     float * blur_histogram;
@@ -132,6 +135,8 @@ public:
 	virtual void computeModel(MatrixXd mat);
 	virtual VectorXd getProbs(MatrixXd mat);
 	virtual double getProb(double d, bool debugg = false);
+	virtual double getProbInp(double d, bool debugg = false);
+	virtual double getIRLS(double d, bool debugg = false);
 	virtual double getProbInfront(double d, bool debugg = false);
 	virtual double getNoise();
 	virtual double getConvergenceThreshold();

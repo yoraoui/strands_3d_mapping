@@ -21,6 +21,8 @@ DistanceWeightFunction2PPR3::DistanceWeightFunction2PPR3(Distribution * dist_,	d
 
 	fixed_histogram_size = false;
 
+	useIRLSreweight = false;
+
 	regularization		= 0.1;
 	maxd 				= maxd_;
 	mind				= 0;
@@ -32,6 +34,7 @@ DistanceWeightFunction2PPR3::DistanceWeightFunction2PPR3(Distribution * dist_,	d
 	noiseval = 100.0;
 
     prob = new float[histogram_size+1];
+	irls = new float[histogram_size+1];
     infront = new float[histogram_size+1];
     histogram = new float[histogram_size+1];
     blur_histogram = new float[histogram_size+1];
@@ -89,6 +92,8 @@ DistanceWeightFunction2PPR3::DistanceWeightFunction2PPR3(	double maxd_, int hist
 
 	fixed_histogram_size = false;
 
+	useIRLSreweight = false;
+
 	regularization		= 0.1;
 	maxd 				= maxd_;
 	mind				= 0;
@@ -100,6 +105,7 @@ DistanceWeightFunction2PPR3::DistanceWeightFunction2PPR3(	double maxd_, int hist
 	noiseval = 100.0;
 
     prob = new float[histogram_size+1];
+	irls = new float[histogram_size+1];
     infront = new float[histogram_size+1];
     histogram = new float[histogram_size+1];
     blur_histogram = new float[histogram_size+1];
@@ -155,8 +161,9 @@ DistanceWeightFunction2PPR3::DistanceWeightFunction2PPR3(	double maxd_, int hist
 
 DistanceWeightFunction2PPR3::~DistanceWeightFunction2PPR3(){
     if(sp != 0)             {delete sp;}
-    if(dist != 0)           {delete dist;}
-    if(prob != 0)           {delete prob;}
+	if(dist != 0)           {delete dist;}
+	if(prob != 0)           {delete prob;}
+	if(irls != 0)           {delete irls;}
     if(infront != 0)        {delete infront;}
     if(histogram != 0)      {delete histogram;}
     if(blur_histogram != 0) {delete blur_histogram;}
@@ -214,7 +221,8 @@ void DistanceWeightFunction2PPR3::recomputeProbs(){
 			double hs = std::max(minhist,std::max(1.0,double(blur_histogram[k])));
 			prob[k] = std::min(maxp , noise[k]/hs);//never fully trust any data
 		}
-        infront[k] = (1-prob[k])*noisecdf[k];
+		infront[k] = (1-prob[k])*noisecdf[k];
+		irls[k] = dist->getIRLSreweight(k);
 	}
 
     if(false && debugg_print){
@@ -665,14 +673,19 @@ VectorXd DistanceWeightFunction2PPR3::getProbs(MatrixXd mat){
 	for(unsigned int j = 0; j < nr_data; j++){
 		float inl  = 1;
 		float ninl = 1;
+		float desum = 0;
 		for(int k = 0; k < nr_dim; k++){
-			float p = getProb(mat(k,j));
+			float di = mat(k,j);
+			desum += di*di;
+			float p = getProbInp(di);
 			inl *= p;
 			ninl *= 1.0-p;
 		}
 		double d = inl / (inl+ninl);
 		nr_inliers += d;
-		weights(j) = d;
+		float irlsw = 1;
+		if(useIRLSreweight){irlsw = getIRLS(sqrt(desum));}
+		weights(j) = d*irlsw;
 	}
 
 	if(threshold){
@@ -681,7 +694,7 @@ VectorXd DistanceWeightFunction2PPR3::getProbs(MatrixXd mat){
 	return weights;
 }
 
-double DistanceWeightFunction2PPR3::getProb(double d, bool debugg){
+double DistanceWeightFunction2PPR3::getProbInp(double d, bool debugg){
 	double ind = getInd(d,debugg);
 	float p = 0;
 	if(interp){
@@ -700,6 +713,33 @@ double DistanceWeightFunction2PPR3::getProb(double d, bool debugg){
 	return p;
 }
 
+double DistanceWeightFunction2PPR3::getProb(double d, bool debugg){
+	float p = getProbInp(d,debugg);
+	float irlsw = 1;
+	if(useIRLSreweight){irlsw = getIRLS(d);}
+
+	//if(debugg){printf("d: %5.5f -> ind: %5.5f -> p: %5.5f irlsw: %5.5f histogramsize: %5.5i maxd: %5.5f\n",d,ind,p,irlsw,histogram_size,maxd);}
+	return irlsw*p;
+}
+
+double DistanceWeightFunction2PPR3::getIRLS(double d, bool debugg){
+	double ind = getInd(d,debugg);
+	float p = 0;
+	if(interp){
+		double w2 = ind-int(ind);
+		double w1 = 1-w2;
+		if(ind >= 0 && (ind+1) < histogram_size){
+			p = irls[int(ind)]*w1 + irls[int(ind+1)]*w2;
+		}
+	}else{
+		if(ind >= 0 && ind < histogram_size){
+			p = irls[int(ind)];
+		}
+	}
+
+	if(debugg){printf("d: %5.5f -> ind: %5.5f -> p: %5.5f histogramsize: %5.5i maxd: %5.5f\n",d,ind,p,histogram_size,maxd);}
+	return p;
+}
 
 double DistanceWeightFunction2PPR3::getProbInfront(double d, bool debugg){
 	double ind = getInd(d,debugg);
@@ -896,13 +936,7 @@ DistanceWeightFunction2 * DistanceWeightFunction2PPR3::clone(){
     func->min_histogram_size = min_histogram_size;
     func->max_histogram_size = max_histogram_size;
     func->reg_shrinkage = reg_shrinkage;
-
-//    float * prob;
-//    float * infront;
-//    float * histogram;
-//    float * blur_histogram;
-//    float * noise;
-//    float * noisecdf;
+	func->useIRLSreweight = useIRLSreweight;
 
     return func;
 }

@@ -398,7 +398,6 @@ void GeneralizedGaussianDistribution::rescale(double mul){
 	stdval *= mul;
 }
 
-
 Distribution * GeneralizedGaussianDistribution::clone(){
     GeneralizedGaussianDistribution * dist = new GeneralizedGaussianDistribution();
     dist->regularization = regularization;
@@ -419,6 +418,11 @@ Distribution * GeneralizedGaussianDistribution::clone(){
     dist->precision = precision;
     dist->refine_power = refine_power;
     return dist;
+}
+
+//return -0.5*pow(fabs(mean-x)/(stdval+regularization),power);
+double GeneralizedGaussianDistribution::getIRLSreweight(double x){
+	return 1.0/pow(std::max(1.0,fabs(mean-x)),2-power);
 }
 
 

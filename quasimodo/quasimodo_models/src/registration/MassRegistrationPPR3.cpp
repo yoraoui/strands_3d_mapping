@@ -130,6 +130,7 @@ void EdgeData::showMatches(boost::shared_ptr<pcl::visualization::PCLVisualizer> 
     viewer->addPointCloud<pcl::PointXYZRGB> (cloud1, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cloud1), "scloud");
     viewer->addPointCloud<pcl::PointXYZRGB> (cloud2, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cloud2), "dcloud");
     viewer->spin();
+    viewer->removeAllShapes();
 }
 
 void EdgeData::showMatchesW(boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer, DistanceWeightFunction2 * func, Eigen::Matrix4d p1, Eigen::Matrix4d p2){
@@ -226,6 +227,7 @@ void EdgeData::showMatchesW(boost::shared_ptr<pcl::visualization::PCLVisualizer>
     viewer->addPointCloud<pcl::PointXYZRGB> (cloud2, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cloud2), "dcloud");
     viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "dcloud");
     viewer->spin();
+    viewer->removeAllShapes();
 }
 
 EdgeData::EdgeData(DataNode * node1_, DataNode * node2_){
@@ -451,6 +453,8 @@ void EdgeData::addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Mat
 		if(d2 > stopD2){continue;}
 
         double weight = info * prob*rw*rw;
+		double newweight = func->getWeight(rw,nx*diffX + ny*diffY + nz*diffZ);
+		printf("weight: %f newweight: %f diff: %f\n",weight,newweight,weight-newweight);
 
         const double & a = nz*sy - ny*sz;
         const double & b = nx*sz - nz*sx;
@@ -568,7 +572,6 @@ double MassRegistrationPPR3::getConvergence(){return convergence_mul*surface_fun
 void MassRegistrationPPR3::show(std::vector<Eigen::Matrix4d> poses, bool stop){
 	//timer.start("show");
 
-    viewer->removeAllShapes();
     viewer->removeAllPointClouds();
     char buf [1024];
     for(unsigned int i = 0; i < nodes.size(); i++){
@@ -583,7 +586,7 @@ void MassRegistrationPPR3::show(std::vector<Eigen::Matrix4d> poses, bool stop){
 }
 
 void MassRegistrationPPR3::addModel(Model * model){
-	addModel(model, 1000);
+    addModel(model, 1000);
 }
 
 void MassRegistrationPPR3::addModel(Model * model, int active){
@@ -998,6 +1001,8 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
         }
     }
 
+    if(visualizationLvl > 0){show(poses,true);};
+
     //show(poses,true);
     rematch(poses,  true);
     model(poses,    true);
@@ -1100,7 +1105,7 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
             double surface_noise_before = surface_func->getNoise();
             surface_func->update();
             double surface_noise_after = surface_func->getNoise();
-            if(fabs(1.0 - surface_noise_after/surface_noise_before) < 0.01){break;}
+            if(fabs(1.0 - surface_noise_after/surface_noise_before) < 0.1){break;}
         }else if(func_setup == 1){
             int not_conv = 0;
             for(unsigned int i = 0; i < edge_surface_func.size(); i++){
@@ -1110,7 +1115,7 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
                         double surface_noise_before = edge_surface_func[i][j]->getNoise();
                         edge_surface_func[i][j]->update();
                         double surface_noise_after = edge_surface_func[i][j]->getNoise();
-                        if(fabs(1.0 - surface_noise_after/surface_noise_before) >= 0.01){not_conv++;}
+                        if(fabs(1.0 - surface_noise_after/surface_noise_before) >= 0.1){not_conv++;}
                     }
                 }
             }

@@ -799,8 +799,8 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 		pcl::IntegralImageNormalEstimation<pcl::PointXYZRGBA, pcl::Normal> ne;
 		ne.setInputCloud(cloud);
 
-		int MaxDepthChangeFactor = 20;
-		int NormalSmoothingSize = 7;
+        int MaxDepthChangeFactor = 20+00;
+        int NormalSmoothingSize = 7+00;
 		int depth_dependent_smoothing = 1;
 
 		ne.setMaxDepthChangeFactor(0.001*double(MaxDepthChangeFactor));

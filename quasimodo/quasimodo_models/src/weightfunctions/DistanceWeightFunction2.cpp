@@ -147,6 +147,11 @@ DistanceWeightFunction2 * DistanceWeightFunction2::clone(){
     return func;
 }
 
+double DistanceWeightFunction2::getWeight(double invstd, double d, bool debugg){
+	double invnoise = invstd/getNoise();
+	return invnoise*invnoise*getProb(d*invstd,debugg);
+}
+
 
 }
 

@@ -66,4 +66,6 @@ Distribution * Distribution::clone(){
     return dist;
 }
 
+double Distribution::getIRLSreweight(double x){return 1.0;}
+
 }

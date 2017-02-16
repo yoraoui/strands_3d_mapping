@@ -33,7 +33,8 @@ public:
     virtual double getNoise();
     virtual void setNoise(double x);
 
-    virtual double getval(double x);
+	virtual double getval(double x);
+	virtual double getIRLSreweight(double x);
     virtual double getcdf(double x);
     virtual void setRegularization(double x);
     virtual void setMinStd(double x);
