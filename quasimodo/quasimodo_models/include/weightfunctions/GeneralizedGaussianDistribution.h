@@ -22,7 +22,7 @@ public:
     double mul;
     double stdval;
     double scaledinformation;
-    double power;
+	//double power;
 	double precision;
 
     bool refine_mean;

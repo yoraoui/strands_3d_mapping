@@ -6,6 +6,7 @@ Distribution::Distribution(){
 	debugg_print = false;
 	traincounter = 0;
     minstd = 0;
+	power = 2;
 }
 Distribution::~Distribution(){}
 void	Distribution::setMinStd(double x){minstd = x;}
@@ -63,6 +64,7 @@ Distribution * Distribution::clone(){
     dist->minstd = minstd;
     dist->debugg_print = debugg_print;
     dist->traincounter = traincounter;
+	dist->power = power;
     return dist;
 }
 

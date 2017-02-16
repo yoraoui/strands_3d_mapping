@@ -942,6 +942,16 @@ DistanceWeightFunction2 * DistanceWeightFunction2PPR3::clone(){
 }
 
 
+double DistanceWeightFunction2PPR3::getWeight(double invstd, double d, bool debugg){
+	double dscaled = d*invstd;
+	double invnoise = invstd/getNoise();
+	double power = dist->power;
+	if(power == 2){
+		return invnoise*invnoise*getProb(d*invstd,debugg);
+	}
+}
+
+
 }
 
 

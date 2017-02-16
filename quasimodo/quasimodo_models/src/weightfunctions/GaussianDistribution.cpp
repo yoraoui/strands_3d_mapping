@@ -13,6 +13,7 @@ GaussianDistribution::GaussianDistribution(bool refine_std_, bool zeromean_, boo
     nr_refineiters = nr_refineiters_;
 	traincounter = 0;
     minstd      = 0;
+	power = 2;
 
     mul         = mul_;
     mean        = mean_;
@@ -306,6 +307,7 @@ Distribution * GaussianDistribution::clone(){
     dist->costpen = costpen;
     dist->zeromean = zeromean;
     dist->nr_refineiters = nr_refineiters;
+	dist->power = power;
     return dist;
 }
 

@@ -15,6 +15,7 @@ class Distribution
 public:
     double regularization;
     double mean;
+	double power;
     double minstd;
     bool debugg_print;
 	int traincounter;

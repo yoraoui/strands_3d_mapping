@@ -145,6 +145,9 @@ public:
 	virtual std::string getString();
 	virtual double getInd(double d, bool debugg = false);
     virtual double getDfromInd(double ind, bool debugg = false);
+
+	virtual double getWeight(double invstd, double d, bool debugg = false);
+
 };
 
 }
