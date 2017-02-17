@@ -261,7 +261,7 @@ void GeneralizedGaussianDistribution::train(std::vector<float> & hist, unsigned 
 
     double prev = scoreCurrent3(mul,mean,stdval,power,X,Y,nr_data_opt,costpen);
 
-    if(debugg_print){
+	if(false && debugg_print){
         printf("%%opt: %i %i %i %i\n",refine_std,refine_mean,refine_mul,refine_power);
     }
     for(int i = 0; i < nr_refineiters; i++){
@@ -271,7 +271,7 @@ void GeneralizedGaussianDistribution::train(std::vector<float> & hist, unsigned 
         if(refine_power){	power	= fitPower3(	mul,mean,stdval,power,X,Y,nr_data_opt,costpen);}
         double current = scoreCurrent3(mul,mean,stdval,power,X,Y,nr_data_opt,costpen);
         double improvement = (prev-current)/prev;
-        if(debugg_print){
+		if(false && debugg_print){
             print();
             printf("%%iteration: %i prev: %10.10f current: %10.10f improvement: %10.10f\n",i,prev,current,improvement);
         }
@@ -318,7 +318,7 @@ void GeneralizedGaussianDistribution::train(float * hist, unsigned int nr_bins){
 
     double prev = scoreCurrent3(mul,mean,stdval,power,X,Y,nr_data_opt,costpen);
 
-    if(debugg_print){
+	if(false && debugg_print){
         printf("%%opt: %i %i %i %i\n",refine_std,refine_mean,refine_mul,refine_power);
     }
     for(int i = 0; i < nr_refineiters; i++){
@@ -328,7 +328,7 @@ void GeneralizedGaussianDistribution::train(float * hist, unsigned int nr_bins){
         if(refine_power){	power	= fitPower3(	mul,mean,stdval,power,X,Y,nr_data_opt,costpen);}
         double current = scoreCurrent3(mul,mean,stdval,power,X,Y,nr_data_opt,costpen);
         double improvement = (prev-current)/prev;
-        if(debugg_print){
+		if(false && debugg_print){
             print();
             printf("%%iteration: %i prev: %10.10f current: %10.10f improvement: %10.10f\n",i,prev,current,improvement);
         }

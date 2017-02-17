@@ -206,6 +206,7 @@ void GaussianDistribution::train(std::vector<float> & hist, unsigned int nr_bins
         if(refine_mul){		mul		= fitMul2(		mul,mean,stdval,X,Y,nr_data_opt,costpen);}
     }
     stdval = std::max(stdval,minstd);
+	if(debugg_print){print();}
 }
 
 void GaussianDistribution::train(float * hist, unsigned int nr_bins){
@@ -255,6 +256,8 @@ void GaussianDistribution::train(float * hist, unsigned int nr_bins){
     stdval = std::max(stdval,minstd);
 //    delete[] X;
 //    delete[] Y;
+
+	if(debugg_print){print();}
 }
 
 void GaussianDistribution::update(){

@@ -65,7 +65,7 @@ public:
 	virtual bool update();
 	virtual void reset();
 	virtual std::string getString();
-	virtual double getWeight(double invstd, double d, bool debugg = false);
+	virtual double getWeight(double invstd, double d, double & infoweight, double & prob, bool debugg = false);
 };
 
 }

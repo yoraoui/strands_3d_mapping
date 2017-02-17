@@ -942,12 +942,19 @@ DistanceWeightFunction2 * DistanceWeightFunction2PPR3::clone(){
 }
 
 
-double DistanceWeightFunction2PPR3::getWeight(double invstd, double d, bool debugg){
+double DistanceWeightFunction2PPR3::getWeight(double invstd, double d,double & infoweight, double & prob, bool debugg){
 	double dscaled = d*invstd;
 	double invnoise = invstd/getNoise();
 	double power = dist->power;
-	if(power == 2){
-		return invnoise*invnoise*getProb(d*invstd,debugg);
+	if(!useIRLSreweight || power == 2){
+		infoweight = invnoise*invnoise;
+		prob = getProb(d*invstd,debugg);
+		return infoweight*prob;
+	}else{
+		infoweight = pow(invnoise,power);
+		prob = getProb(d*invstd,debugg);
+		return infoweight*prob;
+		return pow(invnoise,power)*getProb(dscaled,debugg)/pow(std::max(0.0001,dscaled),2.0-power);
 	}
 }
 

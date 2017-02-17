@@ -146,7 +146,7 @@ public:
 	virtual double getInd(double d, bool debugg = false);
     virtual double getDfromInd(double ind, bool debugg = false);
 
-	virtual double getWeight(double invstd, double d, bool debugg = false);
+	virtual double getWeight(double invstd, double d,double & infoweight, double & prob, bool debugg = false);
 
 };
 

@@ -438,9 +438,15 @@ void EdgeData::addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Mat
         double diffY = sy-dy;
         double diffZ = sz-dz;
 
-        double di = (nx*diffX + ny*diffY + nz*diffZ)*rw;
+		//double di = (nx*diffX + ny*diffY + nz*diffZ)*rw;
 
-        double prob = func->getProb(di);
+		//double prob = func->getProb(di);
+
+		double prob;
+		double infoweight;
+		double weight = func->getWeight(rw,nx*diffX + ny*diffY + nz*diffZ,infoweight,prob);
+
+
         if(i < nr_matches_orig){
 			score += prob;
 			rw_score_sum += prob*rw;
@@ -452,9 +458,9 @@ void EdgeData::addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Mat
 		double d2 = diffX*diffX + diffY*diffY + diffZ*diffZ;
 		if(d2 > stopD2){continue;}
 
-        double weight = info * prob*rw*rw;
-		double newweight = func->getWeight(rw,nx*diffX + ny*diffY + nz*diffZ);
-		printf("weight: %f newweight: %f diff: %f\n",weight,newweight,weight-newweight);
+	   // double weight = info * prob*rw*rw;
+		//double newweight = func->getWeight(rw,nx*diffX + ny*diffY + nz*diffZ);
+		//printf("weight: %f newweight: %f diff: %f\n",weight,newweight,weight-newweight);
 
         const double & a = nz*sy - ny*sz;
         const double & b = nx*sz - nz*sx;
@@ -505,12 +511,19 @@ void EdgeData::addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Mat
 
 MassRegistrationPPR3::MassRegistrationPPR3(){
 
-    GaussianDistribution * gd = new GaussianDistribution();
+	//GaussianDistribution * gd = new GaussianDistribution();
+	//GeneralizedGaussianDistribution(bool refine_std_ = true, bool refine_power_ = false, bool zeromean = true, bool refine_mean = false, bool refine_mul = false, double costpen_ = 3,int nr_refineiters_ = 1,double mul_ = 1, double mean_ = 0,	double stdval_ = 1, double power_ = 2);
+
+	//GeneralizedGaussianDistribution * gd = new GeneralizedGaussianDistribution();
+	GeneralizedGaussianDistribution * gd = new GeneralizedGaussianDistribution(true,true);
+	gd->nr_refineiters = 4;
+	gd->debugg_print = true;
     reglib::DistanceWeightFunction2PPR3 * sfunc  = new reglib::DistanceWeightFunction2PPR3(gd);
     sfunc->debugg_print                          = false;
     sfunc->noise_min                             = 0.0001;
     sfunc->startreg                              = 0.01;
     sfunc->reg_shrinkage                         = 0.5;
+	sfunc->useIRLSreweight = true;
     surface_func = sfunc;
     useSurfacePoints = true;
     convergence_mul = 0.1;
