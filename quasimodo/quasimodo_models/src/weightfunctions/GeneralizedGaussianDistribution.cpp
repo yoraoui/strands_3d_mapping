@@ -24,6 +24,11 @@ GeneralizedGaussianDistribution::GeneralizedGaussianDistribution(bool refine_std
     update();
     debugg_print = false;
 	regularization = 0;
+
+    ratio_costpen = 10;
+
+
+    name = "generalizedgaussian";
 }
 
 GeneralizedGaussianDistribution::~GeneralizedGaussianDistribution(){
@@ -150,13 +155,38 @@ double GeneralizedGaussianDistribution::fitMul3(double mul, double mean, double 
 double GeneralizedGaussianDistribution::scoreCurrent3(double mul, double mean, double stddiv, double power, float * X, float * Y, unsigned int nr_data, double costpen){
     double sum = 0;
     double invstd = 1.0/stddiv;
+    std::vector<double> diffs;
+    diffs.resize(nr_data);
+
+    std::vector<double> ratios;
+    ratios.resize(nr_data);
+    double sumxi = 0;
+    for(unsigned int i = 0; i < nr_data; i++){
+        double yi = Y[i];
+        double xi = X[i];
+        sumxi += xi;
+        double dx = fabs(xi - mean)*invstd;
+        double inp = -0.5*pow(dx,power);
+        if(inp < cutoff_exp){
+            diffs[i] = yi;
+            ratios[i] = 0;
+        }else{
+            double pred = mul*exp(inp);
+            diffs[i] = yi - pred;
+            ratios[i] = pred/(yi+1.0);
+        }
+    }
+    return getDiffScore(diffs,ratios,mul);
+
+/*
     if(costpen > 0){
         for(unsigned int i = 0; i < nr_data; i++){
             double dx = fabs(X[i] - mean)*invstd;
             double inp = -0.5*pow(dx,power);
             if(inp < cutoff_exp){sum += Y[i];}
             else{
-                double diff = Y[i]*Y[i]*(mul*exp(inp) - Y[i]);
+                //double diff = Y[i]*Y[i]*(mul*exp(inp) - Y[i]);
+                double diff = mul*exp(inp) - Y[i];
                 if(diff > 0){	sum += costpen*diff;}
                 else{			sum -= diff;}
 
@@ -168,7 +198,8 @@ double GeneralizedGaussianDistribution::scoreCurrent3(double mul, double mean, d
             double inp = -0.5*pow(dx,power);
             if(inp < cutoff_exp){sum += Y[i];}
             else{
-                double diff = Y[i]*Y[i]*(mul*exp(inp) - Y[i]);
+                //double diff = Y[i]*Y[i]*(mul*exp(inp) - Y[i]);
+                double diff = mul*exp(inp) - Y[i];
     //            if(diff > 0){	sum += costpen*diff;}
     //            else{			sum -= diff;}
                 if(diff > 0){	sum += 1.0*pow(diff,1.25);}
@@ -176,7 +207,10 @@ double GeneralizedGaussianDistribution::scoreCurrent3(double mul, double mean, d
             }
         }
     }
+
+    printf("old: %f new: %f diff: %f\n",sum,getDiffScore(diffs),sum-getDiffScore(diffs));
     return sum;
+*/
 }
 
 double GeneralizedGaussianDistribution::fitStdval3(double mul, double mean, double std_mid, double power, float * X, float * Y, unsigned int nr_data, double costpen){
@@ -244,10 +278,10 @@ void GeneralizedGaussianDistribution::train(std::vector<float> & hist, unsigned 
     std::vector<float> X;
     std::vector<float> Y;
     for(unsigned int k = 0; k < nr_bins; k++){
-        if(hist[k]  > mul*0.001){
+        //if(hist[k]  > mul*0.001){
             X.push_back(k);
             Y.push_back(hist[k]);
-        }
+        //}
     }
 
     unsigned int nr_data_opt = X.size();
@@ -264,7 +298,12 @@ void GeneralizedGaussianDistribution::train(std::vector<float> & hist, unsigned 
 	if(false && debugg_print){
         printf("%%opt: %i %i %i %i\n",refine_std,refine_mean,refine_mul,refine_power);
     }
+    //printf("TESTTESTETSTSETESTSETSETSETSETRESTSET\n");
+    //print();
     for(int i = 0; i < nr_refineiters; i++){
+        //if(debugg_print){print();}
+        //print();
+
         if(refine_std){		stdval	= fitStdval3(	mul,mean,stdval,power,X,Y,nr_data_opt,costpen);}
         if(refine_mean){	mean	= fitMean3(		mul,mean,stdval,power,X,Y,nr_data_opt,costpen);}
         if(refine_mul){		mul		= fitMul3(		mul,mean,stdval,power,X,Y,nr_data_opt,costpen);}
@@ -278,9 +317,21 @@ void GeneralizedGaussianDistribution::train(std::vector<float> & hist, unsigned 
         if(improvement < precision){break;}
         prev = current;
     }
-    if(debugg_print){print();}
+    print();
+    //if(debugg_print){print();}
     traincounter++;
     stdval = std::max(stdval,minstd);
+
+//    double regularization_bef = regularization;
+//    regularization = 0;
+//    double toth = 0;
+//    double totinl = 0;
+//    for(unsigned int k = 0; k < nr_bins; k++){
+//            toth += hist[k];
+//            totinl += std::min(double(hist[k]),double(getval(k)));
+//    }
+//    printf("=============> inlier ratio: %f\n",toth/totinl);
+//    regularization = regularization_bef;
 }
 
 
@@ -300,11 +351,11 @@ void GeneralizedGaussianDistribution::train(float * hist, unsigned int nr_bins){
     float * X = new float[nr_bins];
     float * Y = new float[nr_bins];
     for(unsigned int k = 0; k < nr_bins; k++){
-        if(hist[k]  > mul*0.01){
+        //if(false && hist[k]  > mul*0.01){
             X[nr_data_opt] = k;
             Y[nr_data_opt] = hist[k];
             nr_data_opt++;
-        }
+        //}
     }
 
 
@@ -322,13 +373,14 @@ void GeneralizedGaussianDistribution::train(float * hist, unsigned int nr_bins){
         printf("%%opt: %i %i %i %i\n",refine_std,refine_mean,refine_mul,refine_power);
     }
     for(int i = 0; i < nr_refineiters; i++){
+        //if(debugg_print){print();}
         if(refine_std){		stdval	= fitStdval3(	mul,mean,stdval,power,X,Y,nr_data_opt,costpen);}
         if(refine_mean){	mean	= fitMean3(		mul,mean,stdval,power,X,Y,nr_data_opt,costpen);}
         if(refine_mul){		mul		= fitMul3(		mul,mean,stdval,power,X,Y,nr_data_opt,costpen);}
         if(refine_power){	power	= fitPower3(	mul,mean,stdval,power,X,Y,nr_data_opt,costpen);}
         double current = scoreCurrent3(mul,mean,stdval,power,X,Y,nr_data_opt,costpen);
         double improvement = (prev-current)/prev;
-		if(false && debugg_print){
+        if(false && debugg_print){
             print();
             printf("%%iteration: %i prev: %10.10f current: %10.10f improvement: %10.10f\n",i,prev,current,improvement);
         }
@@ -338,6 +390,17 @@ void GeneralizedGaussianDistribution::train(float * hist, unsigned int nr_bins){
     if(debugg_print){print();}
     traincounter++;
     stdval = std::max(stdval,minstd);
+
+//    double regularization_bef = regularization;
+//    regularization = 0;
+//    double toth = 0;
+//    double totinl = 0;
+//    for(unsigned int k = 0; k < nr_bins; k++){
+//            toth += hist[k];
+//            totinl += std::min(double(hist[k]),double(getval(k)));
+//    }
+//    printf("=============> inlier ratio: %f\n",toth/totinl);
+//    regularization = regularization_bef;
 }
 
 void GeneralizedGaussianDistribution::update(){
@@ -412,11 +475,13 @@ Distribution * GeneralizedGaussianDistribution::clone(){
     dist->refine_mul = refine_mul;
     dist->refine_std = refine_std;
     dist->costpen = costpen;
+    dist->ratio_costpen = ratio_costpen;
     dist->zeromean = zeromean;
     dist->nr_refineiters = nr_refineiters;
     dist->power = power;
     dist->precision = precision;
     dist->refine_power = refine_power;
+    dist->name = name;
     return dist;
 }
 

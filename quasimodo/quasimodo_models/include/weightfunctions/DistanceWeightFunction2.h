@@ -64,8 +64,10 @@ public:
 	virtual double getConvergenceThreshold();
 	virtual bool update();
 	virtual void reset();
-	virtual std::string getString();
-	virtual double getWeight(double invstd, double d, double & infoweight, double & prob, bool debugg = false);
+    virtual std::string getString();
+    virtual double getWeight(double invstd, double d, double & infoweight, double & prob, bool debugg = false);
+    virtual VectorXd getWeights(std::vector<double > invstd, MatrixXd mat, bool debugg = false);
+    virtual void print();
 };
 
 }
@@ -73,4 +75,5 @@ public:
 #include "DistanceWeightFunction2PPR.h"
 #include "DistanceWeightFunction2PPR2.h"
 #include "DistanceWeightFunction2PPR3.h"
+#include "DistanceWeightFunction2Tdist.h"
 #endif // DistanceWeightFunction2_H

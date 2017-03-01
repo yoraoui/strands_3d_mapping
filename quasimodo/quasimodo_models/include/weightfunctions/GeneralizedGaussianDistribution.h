@@ -30,7 +30,6 @@ public:
     bool refine_std;
     bool refine_power;
 
-    double costpen;
     bool zeromean;
     int nr_refineiters;
 

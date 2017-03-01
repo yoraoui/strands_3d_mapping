@@ -18,7 +18,10 @@ public:
 	double power;
     double minstd;
     bool debugg_print;
-	int traincounter;
+    int traincounter;
+    double costpen;
+    double ratio_costpen;
+    std::string name;
 
 
     Distribution();
@@ -29,6 +32,10 @@ public:
     virtual void reset();
     virtual void train(std::vector<float> & hist, unsigned int nr_bins = 0);
     virtual void train(float * hist, unsigned int nr_bins);
+
+
+    virtual void setStart(float * dist, unsigned int nr_data = 0, unsigned int nr_dim = 1);
+
     virtual void update();
 
     virtual double getNoise();
@@ -42,6 +49,7 @@ public:
 	virtual void rescale(double mul);
     virtual void print();
 	virtual void getMaxdMind(double & maxd, double & mind, double prob = 0.00001);
+    double getDiffScore(std::vector<double> & diffs, std::vector<double> & ratios, double ratioweight);
 };
 
 }

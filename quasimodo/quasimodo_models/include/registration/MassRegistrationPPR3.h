@@ -30,6 +30,17 @@ namespace reglib
         unsigned int                surface_nr_active;
         unsigned int *              surface_active;
 
+
+        //Surface
+        unsigned int                edge_nrp;
+        double *                    edge_p;
+        double *                    edge_i;
+        bool *                      edge_valid;
+        ArrayData3D<double> *       edge_a3d;
+        Tree3d *                    edge_trees3d;
+        unsigned int                edge_nr_active;
+        unsigned int *              edge_active;
+
         void init();
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr getPCLcloud(Eigen::Matrix4d p, int r, int g, int b);
         DataNode(Model * model, bool useSurfacePoints = true, unsigned int surface_nr_active_target = 5000);
@@ -42,6 +53,8 @@ namespace reglib
         int nr_matches_orig;
 
         double score;
+        double weights;
+        double weightstd;
         DataNode * node1;
         DataNode * node2;
         bool rematched;
@@ -57,6 +70,7 @@ namespace reglib
         void computeSurfaceResiduals(Eigen::Matrix4d p, double * residuals, unsigned long & counter);
 
         bool needRefinement(Eigen::Matrix4d p, double convergence = 0.0001);
+        void computeSTDchange(DistanceWeightFunction2 * func, Eigen::Matrix4d p1, Eigen::Matrix4d p2_end,Eigen::Matrix4d p2_start);
 
 		void addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Matrix4d p1, Eigen::Matrix4d p2, Matrix6d & ATA, Vector6d & ATb , int visualization = 0);
         void showMatches(boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer, Eigen::Matrix4d p = Eigen::Matrix4d::Identity());
@@ -82,9 +96,11 @@ namespace reglib
         std::vector< std::vector< DistanceWeightFunction2 * > > edge_surface_func;
 
 
-
+        double next_regularizer;
+        bool tune_regularizer;
         double convergence_mul;
 
+        MassRegistrationPPR3(DistanceWeightFunction2 * func);
         MassRegistrationPPR3();
         ~MassRegistrationPPR3();
 

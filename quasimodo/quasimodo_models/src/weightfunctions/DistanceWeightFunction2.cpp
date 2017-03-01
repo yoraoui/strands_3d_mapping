@@ -108,9 +108,10 @@ double DistanceWeightFunction2::getProbInfront(double d, bool debugg){
 }
 
 double DistanceWeightFunction2::getNoise(){
-    if(f == THRESHOLD){return p / 4;}
-    return 0.001;
+    //if(f == THRESHOLD){return p / 4;}
+    return 0.002;
 }
+
 bool DistanceWeightFunction2::update(){return true;}
 void DistanceWeightFunction2::reset(){}
 
@@ -155,6 +156,17 @@ double DistanceWeightFunction2::getWeight(double invstd, double d, double & info
 	return infoweight*prob;
 }
 
+VectorXd DistanceWeightFunction2::getWeights(std::vector<double > invstd, MatrixXd mat, bool debugg){
+    VectorXd probs = getProbs(mat);
+//    for(unsigned int i = 0; i < invstd.size(); i++){
+//        double
+//    }
+    return probs;
+}
+
+void DistanceWeightFunction2::print(){
+
+}
 
 }
 

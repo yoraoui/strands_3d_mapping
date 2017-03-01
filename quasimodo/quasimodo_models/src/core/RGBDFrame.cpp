@@ -52,6 +52,7 @@ RGBDFrame::RGBDFrame(){
 	pose = Eigen::Matrix4d::Identity();
 	keyval = "";
 	soma_id = "";
+    use_range_information = true;
 	labels = 0;
 }
 
@@ -307,6 +308,7 @@ RGBDFrame * RGBDFrame::clone(){
 	frame->ce = ce.clone();
 	frame->ce = ce.clone();
 	frame->ce = ce.clone();
+    frame->use_range_information = use_range_information;
 
 	unsigned int width = camera->width;
 	unsigned int height = camera->height;
@@ -324,6 +326,7 @@ RGBDFrame * RGBDFrame::clone(){
 RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capturetime_, Eigen::Matrix4d pose_, bool compute_normals, std::string savePath, bool compute_imgedges){
 	soma_id = "";
 	labels = 0;
+    use_range_information = true;
 
 	//printf("savepath: %s\n",savePath.c_str());
 	bool verbose = false;
@@ -1552,7 +1555,8 @@ std::vector<superpoint> RGBDFrame::getSuperPoints(Eigen::Matrix4d cp, unsigned i
 
                 bordercount+=is_boundry;
 
-                ret[count++]	= superpoint(Vector3f(tx,ty,tz),Vector3f(tnx,tny,tnz),rgb, getInformation(z), 1, 0,is_boundry);
+                if(use_range_information){ret[count++]	= superpoint(Vector3f(tx,ty,tz),Vector3f(tnx,tny,tnz),rgb, getInformation(z), 1, 0,is_boundry);}
+                else{ret[count++]	= superpoint(Vector3f(tx,ty,tz),Vector3f(tnx,tny,tnz),rgb, 1, 1, 0,is_boundry);}
 			}else{
 				if(zeroinclude){
                     ret[count++]	= superpoint(Eigen::Vector3f(0,0,0),Eigen::Vector3f(0,0,0),rgb, 0, 1, 0);

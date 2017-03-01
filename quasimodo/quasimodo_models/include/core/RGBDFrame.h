@@ -51,6 +51,8 @@ namespace reglib
 		int * labels;
 		int nr_labels;
 
+        bool use_range_information;
+
 		std::vector< std::vector<double> > connections;
 		std::vector< std::vector<double> > intersections;
 

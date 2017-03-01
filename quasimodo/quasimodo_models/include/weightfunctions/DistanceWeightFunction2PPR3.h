@@ -36,7 +36,7 @@ public:
 
     bool fixed_histogram_size;
 
-	double stdval;
+    double stdval;
 	double stdval2;
 	double mulval;
 	double meanval;
@@ -114,7 +114,6 @@ public:
     int min_histogram_size;
     int max_histogram_size;
 
-
     double reg_shrinkage;
 
 
@@ -147,7 +146,8 @@ public:
     virtual double getDfromInd(double ind, bool debugg = false);
 
 	virtual double getWeight(double invstd, double d,double & infoweight, double & prob, bool debugg = false);
-
+    virtual VectorXd getWeights(std::vector<double > invstd, MatrixXd mat, bool debugg = false);
+    virtual void print();
 };
 
 }

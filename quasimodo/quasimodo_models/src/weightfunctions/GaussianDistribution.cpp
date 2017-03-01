@@ -4,6 +4,14 @@ namespace reglib
 {
 
 
+void GaussianDistribution::setStart(float * vec, unsigned int nr_data, unsigned int nr_dim){
+    unsigned int nr_inds = nr_data*nr_dim;
+    double sum = 0;
+    for(unsigned int j = 0; j < nr_inds; j++){sum += vec[j]*vec[j];}
+    double var = sum / double(nr_inds-1);
+    stdval = sqrt(var);
+}
+
 GaussianDistribution::GaussianDistribution(bool refine_std_, bool zeromean_, bool refine_mean_, bool refine_mul_, double costpen_, int nr_refineiters_ ,double mul_, double mean_,double stdval_){
     refine_std  = refine_std_;
     zeromean    = zeromean_;
@@ -20,6 +28,10 @@ GaussianDistribution::GaussianDistribution(bool refine_std_, bool zeromean_, boo
     stdval      = stdval_;
     update();
     debugg_print = false;
+
+    ratio_costpen = 10;
+
+    name = "gaussian";
 }
 //GaussianDistribution::GaussianDistribution(double mul_, double mean_,	double stdval_){
 //    mul = mul_;
@@ -311,6 +323,7 @@ Distribution * GaussianDistribution::clone(){
     dist->zeromean = zeromean;
     dist->nr_refineiters = nr_refineiters;
 	dist->power = power;
+    dist->name = name;
     return dist;
 }
 

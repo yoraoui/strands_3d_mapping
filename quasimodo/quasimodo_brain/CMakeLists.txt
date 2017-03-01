@@ -168,6 +168,12 @@ add_dependencies(		zoomer roscpp quasimodo_msgs_generate_messages_cpp object_man
 target_link_libraries(	zoomer quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
 
+add_executable(			synthetic_test src/synthetic_test.cpp)
+add_dependencies(		synthetic_test roscpp quasimodo_msgs_generate_messages_cpp)
+target_link_libraries(	synthetic_test quasimodo_DescriptorExtractor quasimodo_distribution quasimodo_KeyPoint quasimodo_descriptor quasimodo_superpoint quasimodo_brain_util quasimodo_ModelDatabase  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+
+
+
 #############
 ## Install ##
 #############

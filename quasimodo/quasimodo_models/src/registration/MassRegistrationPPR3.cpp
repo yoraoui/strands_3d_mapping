@@ -12,6 +12,7 @@ namespace reglib
 
 //Surface
 void DataNode::init(){
+
     surface_nrp = 0;
     surface_p = 0;
     surface_n = 0;
@@ -27,6 +28,7 @@ void DataNode::init(){
     randr = 56+rand()%200;
     randg = 56+rand()%200;
     randb = 56+rand()%200;
+    srand(0);
 }
 
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr DataNode::getPCLcloud(Eigen::Matrix4d p, int r, int g, int b){
@@ -79,7 +81,7 @@ DataNode::DataNode(Model * model, bool useSurfacePoints, unsigned int surface_nr
                 surface_n[3*i+1]    = p.ny;
                 surface_n[3*i+2]    = p.nz;
                 surface_i[i]        = p.point_information;
-                surface_valid[i]    = !p.is_boundry;
+                surface_valid[i]    = true;//!p.is_boundry;
                 surface_active[i]   = i;
 
                 meandist_sum    += p.point_information*sqrt(p.x*p.x+p.y*p.y+p.z*p.z);
@@ -286,6 +288,7 @@ int EdgeData::surfaceRematch(Eigen::Matrix4d p,double convergence, bool force, i
     int added = 0;
     for(unsigned int i = 0; i < surface_nr_active1; i++){
         unsigned int ind = surface_active1[i];
+
         double x  = surface_p1[3*ind+0];
         double y  = surface_p1[3*ind+1];
         double z  = surface_p1[3*ind+2];
@@ -297,6 +300,10 @@ int EdgeData::surfaceRematch(Eigen::Matrix4d p,double convergence, bool force, i
         resultSet.init(ret_indexes, out_dists_sqr);
         surface_trees3d2->findNeighbors(resultSet,tpoint, nanoflann::SearchParams(10));
         int match_id = ret_indexes[0];
+
+//        if(visualization == 10 && (i == 792) ){
+//            printf("%i -> (%i %i) -> %20.20f\n",i,ind,match_id,out_dists_sqr[0]);
+//        }
         if(match_id >= 0 && match_id < surface_nrp2){
             if(surface_v2[match_id]){
                 surface_match1[added] = ind;
@@ -310,12 +317,12 @@ int EdgeData::surfaceRematch(Eigen::Matrix4d p,double convergence, bool force, i
     surface_match2.resize(added);
     surface_rangew.resize(added);
 
-	if(visualization > 0){
-		printf("surface_nr_active1: %i -> added: %i -> surface_match1.size() %i\n",surface_nr_active1,added,surface_match1.size());
-		if(added > surface_nr_active1){
-			exit(0);
-		}
-	}
+//	if(visualization > 0){
+//		printf("surface_nr_active1: %i -> added: %i -> surface_match1.size() %i\n",surface_nr_active1,added,surface_match1.size());
+//		if(added > surface_nr_active1){
+//			exit(0);
+//		}
+//	}
 
     nr_matches_orig = added;
     return 0;
@@ -373,12 +380,85 @@ void EdgeData::computeSurfaceResiduals(Eigen::Matrix4d p, double * residuals, un
     }
 }
 
+
+void EdgeData::computeSTDchange(DistanceWeightFunction2 * func, Eigen::Matrix4d p1, Eigen::Matrix4d p2_end,Eigen::Matrix4d p2_start){
+    const double & m001 = p1(0,0); const double & m011 = p1(0,1); const double & m021 = p1(0,2); const double & m031 = p1(0,3);
+    const double & m101 = p1(1,0); const double & m111 = p1(1,1); const double & m121 = p1(1,2); const double & m131 = p1(1,3);
+    const double & m201 = p1(2,0); const double & m211 = p1(2,1); const double & m221 = p1(2,2); const double & m231 = p1(2,3);
+
+    const double & m002 = p2_end(0,0); const double & m012 = p2_end(0,1); const double & m022 = p2_end(0,2); const double & m032 = p2_end(0,3);
+    const double & m102 = p2_end(1,0); const double & m112 = p2_end(1,1); const double & m122 = p2_end(1,2); const double & m132 = p2_end(1,3);
+    const double & m202 = p2_end(2,0); const double & m212 = p2_end(2,1); const double & m222 = p2_end(2,2); const double & m232 = p2_end(2,3);
+
+    const double & m003 = p2_start(0,0); const double & m013 = p2_start(0,1); const double & m023 = p2_start(0,2); const double & m033 = p2_start(0,3);
+    const double & m103 = p2_start(1,0); const double & m113 = p2_start(1,1); const double & m123 = p2_start(1,2); const double & m133 = p2_start(1,3);
+    const double & m203 = p2_start(2,0); const double & m213 = p2_start(2,1); const double & m223 = p2_start(2,2); const double & m233 = p2_start(2,3);
+
+    double * surface_p1             = node1->surface_p;
+    double * surface_n1             = node1->surface_n;
+
+    double * surface_p2             = node2->surface_p;
+    double * surface_n2             = node2->surface_n;
+
+    weights = 0;
+    weightstd = 0;
+
+    unsigned int nr_matches = surface_match1.size();
+
+    for(unsigned int i = 0; i < nr_matches; i++){
+        unsigned int i1 = surface_match1[i];
+        unsigned int i2 = surface_match2[i];
+        double rw       = surface_rangew[i];
+
+        double src_x  = surface_p1[3*i1+0];
+        double src_y  = surface_p1[3*i1+1];
+        double src_z  = surface_p1[3*i1+2];
+        double src_nx = surface_n1[3*i1+0];
+        double src_ny = surface_n1[3*i1+1];
+        double src_nz = surface_n1[3*i1+2];
+
+        const double & sx = m001*src_x + m011*src_y + m021*src_z + m031;
+        const double & sy = m101*src_x + m111*src_y + m121*src_z + m131;
+        const double & sz = m201*src_x + m211*src_y + m221*src_z + m231;
+        const double & nx = m001*src_nx + m011*src_ny + m021*src_nz;
+        const double & ny = m101*src_nx + m111*src_ny + m121*src_nz;
+        const double & nz = m201*src_nx + m211*src_ny + m221*src_nz;
+
+        double dst_x  = surface_p2[3*i2+0];
+        double dst_y  = surface_p2[3*i2+1];
+        double dst_z  = surface_p2[3*i2+2];
+
+        const double & dx = m002*dst_x + m012*dst_y + m022*dst_z + m032;
+        const double & dy = m102*dst_x + m112*dst_y + m122*dst_z + m132;
+        const double & dz = m202*dst_x + m212*dst_y + m222*dst_z + m232;
+
+        const double & dx2 = m003*dst_x + m013*dst_y + m023*dst_z + m033;
+        const double & dy2 = m103*dst_x + m113*dst_y + m123*dst_z + m133;
+        const double & dz2 = m203*dst_x + m213*dst_y + m223*dst_z + m233;
+
+        double diffX = sx-dx;
+        double diffY = sy-dy;
+        double diffZ = sz-dz;
+
+        double diffX2 = sx-dx2;
+        double diffY2 = sy-dy2;
+        double diffZ2 = sz-dz2;
+
+        double di = (nx*diffX + ny*diffY + nz*diffZ)*rw;
+        double prob = func->getProb(di);
+
+        double di2 = (nx*diffX2 + ny*diffY2 + nz*diffZ2)*rw;
+        weightstd += di2*di2*prob;
+        weights += prob;
+    }
+}
+
 void EdgeData::addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Matrix4d p1, Eigen::Matrix4d p2, Matrix6d & ATA, Vector6d & ATb, int visualization ){
     rematched = false;
     optPoseLast = p2.inverse()*p1;
 
     double info = pow(func->getNoise(),-2);
-    double stopD2 = pow(10.0*func->getNoise(),2);
+    double stopD2 = 10000000000000000000;//pow(10.0*func->getNoise(),2);
 
     const double & m001 = p1(0,0); const double & m011 = p1(0,1); const double & m021 = p1(0,2); const double & m031 = p1(0,3);
     const double & m101 = p1(1,0); const double & m111 = p1(1,1); const double & m121 = p1(1,2); const double & m131 = p1(1,3);
@@ -395,6 +475,7 @@ void EdgeData::addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Mat
     double * surface_n2             = node2->surface_n;
 
 	score = 0;
+
 	double rw_score_sum = 0;
 	double rw_sum = 0;
 
@@ -442,21 +523,23 @@ void EdgeData::addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Mat
 
 		//double prob = func->getProb(di);
 
+        double di = nx*diffX + ny*diffY + nz*diffZ;
 		double prob;
 		double infoweight;
-		double weight = func->getWeight(rw,nx*diffX + ny*diffY + nz*diffZ,infoweight,prob);
+        double weight = func->getWeight(rw,di,infoweight,prob);
 
 
         if(i < nr_matches_orig){
+
 			score += prob;
 			rw_score_sum += prob*rw;
 			rw_sum += rw;
         }
 
 		const double & angle = nx*dnx+ny*dny+nz*dnz;
-		if(angle < 0){continue;}
+        //if(angle < 0){continue;}
 		double d2 = diffX*diffX + diffY*diffY + diffZ*diffZ;
-		if(d2 > stopD2){continue;}
+        //if(d2 > stopD2){continue;}
 
 	   // double weight = info * prob*rw*rw;
 		//double newweight = func->getWeight(rw,nx*diffX + ny*diffY + nz*diffZ);
@@ -508,13 +591,19 @@ void EdgeData::addSurfaceOptimization(DistanceWeightFunction2 * func, Eigen::Mat
 }
 
 
+MassRegistrationPPR3::MassRegistrationPPR3(DistanceWeightFunction2 * func){
+    surface_func = func->clone();
+    useSurfacePoints = true;
+    convergence_mul = 0.1;
+    next_regularizer = 0.01;
+
+    func_setup = 0;
+    tune_regularizer = true;
+}
+
 
 MassRegistrationPPR3::MassRegistrationPPR3(){
 
-	//GaussianDistribution * gd = new GaussianDistribution();
-	//GeneralizedGaussianDistribution(bool refine_std_ = true, bool refine_power_ = false, bool zeromean = true, bool refine_mean = false, bool refine_mul = false, double costpen_ = 3,int nr_refineiters_ = 1,double mul_ = 1, double mean_ = 0,	double stdval_ = 1, double power_ = 2);
-
-	//GeneralizedGaussianDistribution * gd = new GeneralizedGaussianDistribution();
 	GeneralizedGaussianDistribution * gd = new GeneralizedGaussianDistribution(true,true);
 	gd->nr_refineiters = 4;
 	gd->debugg_print = true;
@@ -527,8 +616,9 @@ MassRegistrationPPR3::MassRegistrationPPR3(){
     surface_func = sfunc;
     useSurfacePoints = true;
     convergence_mul = 0.1;
-
+    next_regularizer = sfunc->startreg;
     func_setup = 0;
+    tune_regularizer = true;
 }
 
 MassRegistrationPPR3::~MassRegistrationPPR3(){
@@ -589,13 +679,21 @@ void MassRegistrationPPR3::show(std::vector<Eigen::Matrix4d> poses, bool stop){
     char buf [1024];
     for(unsigned int i = 0; i < nodes.size(); i++){
         sprintf(buf,"cloud%i",i);
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cld = nodes[i]->getPCLcloud(poses[i], nodes[i]->randr, nodes[i]->randg, nodes[i]->randb);
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cld;
+        if(i == 0){
+            cld = nodes[i]->getPCLcloud(poses[i], 0, 255, 0);
+        }else if(i == 1){
+            cld = nodes[i]->getPCLcloud(poses[i], 255, 0, 0);
+        }else if(i == 2){
+            cld = nodes[i]->getPCLcloud(poses[i], 0, 0, 255);
+        }else{
+            cld = nodes[i]->getPCLcloud(poses[i], nodes[i]->randr, nodes[i]->randg, nodes[i]->randb);
+        }
+
         viewer->addPointCloud<pcl::PointXYZRGB> (cld, pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB>(cld), buf);
     }
     if(stop){    viewer->spin();}
     else{        viewer->spinOnce();}
-
-	//timer.stop("show");
 }
 
 void MassRegistrationPPR3::addModel(Model * model){
@@ -658,7 +756,7 @@ unsigned long MassRegistrationPPR3::rematch(std::vector<Eigen::Matrix4d> poses, 
 			isupdated.back().push_back(false);
             if(edges[i][j] != 0){
                 Eigen::Matrix4d p = poses[j].inverse()*poses[i];
-				int res = edges[i][j]->surfaceRematch(p,convergence,force,0);
+                int res = edges[i][j]->surfaceRematch(p,convergence,force,visualizationLvl);
 				isupdated.back().back() = res != -1;
 				sum_surface_rematches += res != -1;
             }
@@ -717,9 +815,6 @@ unsigned long MassRegistrationPPR3::rematch(std::vector<Eigen::Matrix4d> poses, 
 						edges[i][j]->surface_rangew.push_back(edges[j][i]->surface_rangew[k]);
 					}
 				}
-
-                //edges[i][j]->showMatches(viewer,p);
-                //edges[j][i]->showMatches(viewer,p.inverse());
             }
         }
     }
@@ -764,6 +859,15 @@ unsigned long MassRegistrationPPR3::model(std::vector<Eigen::Matrix4d> poses, bo
                     }
                 }
             }
+
+            if(false && visualizationLvl == 10){
+                for(unsigned int i = 0; i < surfaceCounter; i++){
+                    printf("%6.6f ",surfaceResiduals[i]);
+                    if(i % 10 == 9){printf("\n");}
+                }
+                printf("\n");
+            }
+
             surface_func->computeModel(surfaceResiduals,surfaceCounter,1);
             delete[] surfaceResiduals;
         }else if(func_setup == 1){
@@ -955,6 +1059,11 @@ total2 += getTime()-start2;
                 poses[i] = transformation*poses[i];
 			}
 
+//            if(visualizationLvl == 10){
+//                std::cout << "ATA\n" << ATA << std::endl << std::endl;
+//                std::cout << "ATb" << ATb.transpose() << std::endl << std::endl;
+//                //show(poses,true);
+//            }
 			//timer.stop("getTransforms/refine/outer/part8");
         }
 		//timer.stop("getTransforms/refine/outer/part2");
@@ -981,6 +1090,9 @@ void MassRegistrationPPR3::clearData(){
 }
 
 MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4d> poses){
+
+    std::vector<Eigen::Matrix4d> start_poses = poses;
+
 	timer.clear();
 	//timer.start("getTransforms");
     //srand(0);
@@ -1012,13 +1124,28 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
                 edge_surface_func[i][j]->reset();
             }
         }
+    }else{
+        if(tune_regularizer){surface_func->regularization = next_regularizer;}
     }
 
     if(visualizationLvl > 0){show(poses,true);};
 
     //show(poses,true);
     rematch(poses,  true);
+
+
+    if(visualizationLvl == 10){  surface_func->debugg_print = true;}
+
     model(poses,    true);
+    if(visualizationLvl == 10){
+        surface_func->debugg_print = false;
+        show(poses,true);
+    }
+    double surface_noise_first = surface_func->getNoise()-surface_func->regularization;
+
+    if(visualizationLvl == 10){
+        printf("surface_func: %10.10f\n",surface_func->getNoise());
+    }
     refine(poses,    true);
 
     std::vector<Eigen::Matrix4d> prev = poses;
@@ -1045,6 +1172,8 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
 			}
             rematch(poses,  false,func == 2);
             model(poses,    false,func == 2);
+
+
             refine(poses,    true,func == 2);
 
             int not_converged = total_nonconverged(prev,poses);
@@ -1115,20 +1244,16 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
 
 
         if(func_setup == 0){
-            double surface_noise_before = surface_func->getNoise();
             surface_func->update();
-            double surface_noise_after = surface_func->getNoise();
-            if(fabs(1.0 - surface_noise_after/surface_noise_before) < 0.1){break;}
+            if(surface_func->regularization/surface_func->getNoise() < 0.01){break;}
         }else if(func_setup == 1){
             int not_conv = 0;
             for(unsigned int i = 0; i < edge_surface_func.size(); i++){
                 for(unsigned int j = 0; j < edge_surface_func[i].size(); j++){
                     if(i == j){continue;}
                     if(edge_surface_func[i][j] != 0){
-                        double surface_noise_before = edge_surface_func[i][j]->getNoise();
                         edge_surface_func[i][j]->update();
-                        double surface_noise_after = edge_surface_func[i][j]->getNoise();
-                        if(fabs(1.0 - surface_noise_after/surface_noise_before) >= 0.1){not_conv++;}
+                        if(edge_surface_func[i][j]->regularization/edge_surface_func[i][j]->getNoise() < 0.01){not_conv++;}
                     }
                 }
             }
@@ -1177,6 +1302,30 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
     }
 
 
+    if(tune_regularizer){
+        if(func_setup == 0){
+            double sumw = 0;
+            double sumstd = 0;
+            for(unsigned int i = 0; i < edges.size(); i++){
+                for(unsigned int j = 0; j < edges.size(); j++){
+                    if(edges[i][j] != 0){
+                        edges[i][j]->computeSTDchange(surface_func, poses[i],poses[j],start_poses[j]);
+                        sumw += edges[i][j]->weights;
+                        sumstd += edges[i][j]->weightstd;
+
+                    }
+                }
+            }
+            double final_to_start_noise = sqrt(sumstd/sumw);
+            next_regularizer = final_to_start_noise;//std::max(0.0,final_to_start_noise-surface_noise_first);
+            printf("next_regularizer = %f final_to_start_noise = %f surface_noise_first = %f surface_noise_final = %f\n",next_regularizer,final_to_start_noise,surface_noise_first,surface_func->getNoise());
+        }else if(func_setup == 1){
+
+        }
+    }
+
+
+
     double maxscore = 0;
     for(unsigned int i = 0; i < edges.back().size(); i++){
         if(edges.back()[i] != 0){
@@ -1184,6 +1333,15 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
         }
     }
 
+    if(visualizationLvl == 10){
+        for(unsigned int i = 0; i < edges.size(); i++){
+            for(unsigned int j = 0; j < edges[i].size(); j++){
+                if(edges[i][j] != 0){
+                    edges[i][j]->showMatchesW(viewer,surface_func,poses[i], poses[j]);
+                }
+            }
+        }
+    }
 
 	if(visualizationLvl > 0){show(poses,true);};
 	if(visualizationLvl == 1){
@@ -1219,6 +1377,13 @@ MassFusionResults MassRegistrationPPR3::getTransforms(std::vector<Eigen::Matrix4
 			}
 		}
 	}
+
+    if(visualizationLvl == 10){  surface_func->debugg_print = true;}
+    model(poses,    true);
+    if(visualizationLvl == 10){
+        surface_func->debugg_print = false;
+        show(poses,true);
+    }
 
 
     //std::cout<<poses.back()<<std::endl;

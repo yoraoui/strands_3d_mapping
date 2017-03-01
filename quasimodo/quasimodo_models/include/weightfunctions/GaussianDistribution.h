@@ -27,7 +27,6 @@ public:
     bool refine_mul;
     bool refine_std;
 
-    double costpen;
     bool zeromean;
     int nr_refineiters;
 
@@ -38,6 +37,7 @@ public:
 
     virtual Distribution * clone();
 
+    virtual void setStart(float * dist, unsigned int nr_data = 0, unsigned int nr_dim = 1);
     virtual void train(std::vector<float> & hist, unsigned int nr_bins = 0);
     virtual void train(float * hist, unsigned int nr_bins);
     virtual void update();
