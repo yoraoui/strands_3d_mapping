@@ -116,6 +116,9 @@ public:
 
     double reg_shrinkage;
 
+	double tinl;
+	double toth;
+
 
     virtual DistanceWeightFunction2 * clone();
 

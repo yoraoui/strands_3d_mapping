@@ -228,6 +228,14 @@ void DistanceWeightFunction2PPR3::recomputeProbs(){
 		irls[k] = dist->getIRLSreweight(k);
 	}
 
+
+
+	for(int k = 0; k < histogram_size; k++){
+		tinl += histogram[k]*prob[k];
+		toth += histogram[k];
+	}
+
+
     if(false && debugg_print){
         for(int k = 0; k < histogram_size; k+=10){
             printf("%i -> hist: %f prob[k]: %f noisecdf[k]: %f infront[k]: %f\n",k,double(blur_histogram[k]),prob[k],noisecdf[k],infront[k]);
@@ -354,19 +362,19 @@ void DistanceWeightFunction2PPR3::computeModel(double * vec, unsigned int nr_dat
 //    getProbs(mat);
 //    if(debugg_print){printf("%%get number of inliers time: %7.7fs nr_inliers: %f\n",getTime()-start_time,nr_inliers);}
 
-	double inl = 0;
-	double toth = 0;
-	for(int k = 0; k < histogram_size; k++){
-		inl += histogram[k]*prob[k];
-		toth += histogram[k];
-	}
+//	double inl = 0;
+//	double toth = 0;
+//	for(int k = 0; k < histogram_size; k++){
+//		inl += histogram[k]*prob[k];
+//		toth += histogram[k];
+//	}
 
-	double newcostpen1 = std::min(pow(toth/inl,3.0),10.0);
+	double newcostpen1 = std::min(pow(toth/tinl,3.0),10.0);
 
 	newcostpen1 = 0.05*newcostpen1 + 0.95*dist->costpen;
     dist->costpen = newcostpen1;
 
-	if(debugg_print){printf("%% toth %f inl %f outlier ratio: %f dist->costpen : %f\n ",toth,inl,toth/inl,dist->costpen);}
+	if(debugg_print){printf("%% toth %f inl %f outlier ratio: %f dist->costpen : %f\n ",toth,tinl,toth/tinl,dist->costpen);}
 	if(debugg_print){printf("%% newcostpen1: %f \n ",newcostpen1);}
 
 
@@ -608,12 +616,11 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
     if(debugg_print){printf("%%get number of inliers time: %5.5fs nr_inliers: %f\n",getTime()-start_time,nr_inliers);}
     //if(debugg_print){printf("%% outlier ratio: %f ",double(nr_inside_fully)/double(nr_inliers));}
 
-    double inl = 0;
-    double toth = 0;
-    for(int k = 0; k < histogram_size; k++){
-        inl += histogram[k]*prob[k];
-        toth += histogram[k];
-    }
+
+//    for(int k = 0; k < histogram_size; k++){
+//		tinl += histogram[k]*prob[k];
+//        toth += histogram[k];
+//    }
 
     double nr_inside_fully = 0;
     for(unsigned int j = 0; j < nr_data; j++){
@@ -629,14 +636,14 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
         nr_inside_fully += good == nr_dim;
     }
 
-    double newcostpen1 = std::min(pow(toth/inl,3.0),10.0);
+	double newcostpen1 = std::min(pow(toth/tinl,3.0),10.0);
     double newcostpen2 = std::min(pow(nr_inside_fully/nr_inliers,2.0),10.0);
 
     newcostpen1 = 0.05*newcostpen1 + 0.95*dist->costpen;
-    dist->costpen = newcostpen1;
+	dist->costpen = newcostpen1;
 
     //dist->costpen = pow(toth/inl,2.0);//pow(double(nr_data)/double(nr_inliers);
-    if(debugg_print){printf("%% toth %f inl %f outlier ratio: %f dist->costpen : %f\n ",toth,inl,toth/inl,dist->costpen);}
+	if(debugg_print){printf("%% toth %f inl %f outlier ratio: %f dist->costpen : %f\n ",toth,tinl,toth/tinl,dist->costpen);}
     if(debugg_print){printf("%% nr_inside_fully: %f inliers: %f ratio: %f\n ",nr_inside_fully,nr_inliers,nr_inliers/nr_inside_fully);}
     if(debugg_print){printf("%% newcostpen1: %f newcostpen2: %f\n ",newcostpen1,newcostpen2);}
     /*
@@ -669,7 +676,7 @@ void DistanceWeightFunction2PPR3::computeModel(MatrixXd mat){
     if(debugg_print){printf("%% getNoise = %7.7f\n",getNoise());}
     if(debugg_print){
 
-        printf("%% inliers = %5.5f ratio: %5.5f\n",inl,inl/toth);
+		printf("%% inliers = %5.5f ratio: %5.5f\n",tinl,tinl/toth);
     }
 
 	if(	savePath.size() != 0){
@@ -783,8 +790,14 @@ VectorXd DistanceWeightFunction2PPR3::getProbs(MatrixXd mat){
 	nr_inliers = 0;
 	VectorXd weights = VectorXd(nr_data);
 	for(unsigned int j = 0; j < nr_data; j++){
-		float inl  = 1;
-		float ninl = 1;
+
+		float inl  = tinl;
+		float ninl = toth;
+
+		double norm = inl+ninl;
+		inl /= norm;
+		ninl /= norm;
+
 		float desum = 0;
 		for(int k = 0; k < nr_dim; k++){
 			float di = mat(k,j);
@@ -833,6 +846,16 @@ double DistanceWeightFunction2PPR3::getProb(double d, bool debugg){
 	float irlsw = 1;
 	if(useIRLSreweight){irlsw = getIRLS(d);}
 
+	double priorInlier = tinl/toth;
+	double priorOutlier = 1-priorInlier;
+
+	double np = 1-p;
+	p *= priorInlier;
+	np *= priorOutlier;
+
+	p = p /(p+np);
+
+//printf("p: %f\n",p);
 	//if(debugg){printf("d: %5.5f -> ind: %5.5f -> p: %5.5f irlsw: %5.5f histogramsize: %5.5i maxd: %5.5f\n",d,ind,p,irlsw,histogram_size,maxd);}
 	return irlsw*p;
 }

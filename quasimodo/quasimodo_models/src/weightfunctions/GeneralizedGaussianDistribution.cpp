@@ -391,6 +391,9 @@ void GeneralizedGaussianDistribution::train(float * hist, unsigned int nr_bins){
     traincounter++;
     stdval = std::max(stdval,minstd);
 
+	delete X;
+	delete Y;
+
 //    double regularization_bef = regularization;
 //    regularization = 0;
 //    double toth = 0;

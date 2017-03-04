@@ -180,7 +180,7 @@ Matrix3Xd align (Matrix3Xd A, Matrix3Xd B, VectorXd W){
 }
 
 
-Matrix3Xd refine (double & match_acc, Matrix3Xd A, Matrix3Xd B, reglib::DistanceWeightFunction2 * func, int nr_correct_matches = 1000, double maxtime = 20000.0){
+Matrix3Xd refine (double & match_acc, Matrix3Xd A, Matrix3Xd B, reglib::DistanceWeightFunction2 * func, int nr_correct_matches = 1000, double maxtime = 10.0){
 	double stop = 0;
 
 	double startTime = reglib::getTime();
@@ -212,9 +212,9 @@ Matrix3Xd refine (double & match_acc, Matrix3Xd A, Matrix3Xd B, reglib::Distance
 			funcc->computeModel(residuals);
 			Matrix3Xd A_old2 = A;
 
-			if(reglib::getTime() - startTime  > maxtime){ break; }
+			if(reglib::getTime() - startTime  > maxtime && !funcc->debugg_print){ break; }
 			for(int inner=0; inner < 10; ++inner) {
-				if(reglib::getTime() - startTime  > maxtime){ break; }
+				if(reglib::getTime() - startTime  > maxtime && !funcc->debugg_print){ break; }
 
 				//printf("%i %i %i\n",funcupdate,outer,inner);
 				tot_inner++;
@@ -283,6 +283,7 @@ Matrix3Xd refine (double & match_acc, Matrix3Xd A, Matrix3Xd B, reglib::Distance
 		double noise_before = funcc->getNoise();
 		funcc->update();
 		double noise_after = funcc->getNoise();
+
 
 		if(fabs(1.0 - noise_after/noise_before) < 0.001){break;}
 	}
@@ -400,7 +401,7 @@ void test(std::string testname, int nr_frames, int nr_correct_matches, int nr_ou
 			vector< double > res_vec;
 			res_vec.resize(nr_sampled);
 
-			#pragma omp parallel for num_threads(8)
+			#pragma omp parallel for num_threads(7)
 			for(unsigned int i = 0; i < nr_sampled; i++){
 				Matrix3Xd measurements_full_trans = conc(transform_points(inlier_sampled[i], translation_transformations[k]),outlier_sampled[i]);
 				double match_acc;
@@ -419,7 +420,7 @@ void test(std::string testname, int nr_frames, int nr_correct_matches, int nr_ou
 					total_time += endTime-startTime;
 					done++;
 					//printf("\r %% %s Translation %4i / %4i -> %4i / %4i -> %4i / %4i",func->name.c_str(), f+1,funcs.size(),k+1,translation_transformations.size(),done,nr_sampled);
-				  //printf("%% Translation %4i / %4i -> %4i / %4i -> %4i / %4i\n",f+1,funcs.size(),k+1,translation_transformations.size(),done,nr_sampled);
+				  printf("%% Translation %4i / %4i -> %4i / %4i -> %4i / %4i\n",f+1,funcs.size(),k+1,translation_transformations.size(),done,nr_sampled);
 				}
 
 			}
@@ -434,7 +435,33 @@ void test(std::string testname, int nr_frames, int nr_correct_matches, int nr_ou
 			double failsratio = 0;
 			analyzeResults(mean_error,failsratio,translation_res_vec[k],noise);
 
-			//printf("%% %4i/%4i -> %4f / %4f\n",k+1,translation_transformations.size(),log(mean_error),failsratio);
+			printf("%% IMPORTANT!!!! ---> %4i/%4i -> %4f / %4f\n",k+1,translation_transformations.size(),log(mean_error),failsratio);
+
+			printf("%s_%s_translation_mean = [",testname.c_str(),func->name.c_str());
+			for(unsigned int k = 0; k < translation_res_vec.size(); k++){
+				double mean_error = 0;
+				double failsratio = 0;
+				analyzeResults(mean_error,failsratio,translation_res_vec[k],noise);
+				printf("%4.4f ",log(mean_error));
+			}
+			printf("];\n");
+
+			printf("%s_%s_translation_fail = [",testname.c_str(),func->name.c_str());
+			for(unsigned int k = 0; k < translation_res_vec.size(); k++){
+				double mean_error = 0;
+				double failsratio = 0;
+				analyzeResults(mean_error,failsratio,translation_res_vec[k],noise);
+				printf("%4.4f ",failsratio);
+			}
+			printf("];\n");
+
+			printf("%s_%s_translation_time = [",testname.c_str(),func->name.c_str());
+			for(unsigned int k = 0; k < translation_meantime_vec.size(); k++){printf("%4.4f ",translation_meantime_vec[k]);}
+			printf("];\n");
+
+			printf("%s_%s_translation_match = [",testname.c_str(),func->name.c_str());
+			for(unsigned int k = 0; k < translation_matchacc_vec.size(); k++){printf("%4.4f ",translation_matchacc_vec[k]);}
+			printf("];\n");
 		}
 
 //#pragma omp critical
@@ -480,7 +507,7 @@ void test(std::string testname, int nr_frames, int nr_correct_matches, int nr_ou
 			vector< double > res_vec;
 			res_vec.resize(nr_sampled);
 
-			#pragma omp parallel for num_threads(11)
+			#pragma omp parallel for num_threads(7)
 			for(unsigned int i = 0; i < nr_sampled; i++){
 				Matrix3Xd measurements_full_trans = conc(transform_points(inlier_sampled[i], angle_transformations[k]),outlier_sampled[i]);
 				double match_acc;
@@ -495,15 +522,50 @@ void test(std::string testname, int nr_frames, int nr_correct_matches, int nr_ou
 					total_time += endTime-startTime;
 					done++;
 //                    //printf("\r %% %s Translation %4i / %4i -> %4i / %4i -> %4i / %4i",func->name.c_str(), f+1,funcs.size(),k+1,angle_transformations.size(),done,nr_sampled);
-					//printf("%% Angle %4i / %4i -> %4i / %4i -> %4i / %4i\n",f+1,funcs.size(),k+1,angle_transformations.size(),done,nr_sampled);
+					printf("%% Angle %4i / %4i -> %4i / %4i -> %4i / %4i\n",f+1,funcs.size(),k+1,angle_transformations.size(),done,nr_sampled);
 				}
 
 			}
+
+			printf("%% Angle %4i / %4i -> %4i / %4i -> %4i / %4i\n",f+1,funcs.size(),k+1,angle_transformations.size(),done,nr_sampled);
+
 
 			total_match_acc /= double(nr_sampled);
 			angle_meantime_vec.push_back(total_time/ double(nr_sampled));
 			angle_matchacc_vec.push_back(total_match_acc);
 			angle_res_vec.push_back(res_vec);
+
+	#pragma omp critical
+			{
+				printf("\r");
+				if(angle_transformations.size() > 0){
+					printf("%s_%s_angle_mean = [",testname.c_str(),func->name.c_str());
+					for(unsigned int k = 0; k < angle_res_vec.size(); k++){
+						double mean_error = 0;
+						double failsratio = 0;
+						analyzeResults(mean_error,failsratio,angle_res_vec[k],noise);
+						printf("%4.4f ",log(mean_error));
+					}
+					printf("];\n");
+
+					printf("%s_%s_angle_fail = [",testname.c_str(),func->name.c_str());
+					for(unsigned int k = 0; k < angle_res_vec.size(); k++){
+						double mean_error = 0;
+						double failsratio = 0;
+						analyzeResults(mean_error,failsratio,angle_res_vec[k],noise);
+						printf("%4.4f ",failsratio);
+					}
+					printf("];\n");
+
+					printf("%s_%s_angle_time = [",testname.c_str(),func->name.c_str());
+					for(unsigned int k = 0; k < angle_meantime_vec.size(); k++){printf("%4.4f ",angle_meantime_vec[k]);}
+					printf("];\n");
+
+					printf("%s_%s_angle_match = [",testname.c_str(),func->name.c_str());
+					for(unsigned int k = 0; k < angle_matchacc_vec.size(); k++){printf("%4.4f ",angle_matchacc_vec[k]);}
+					printf("];\n");
+				}
+			}
 		}
 #pragma omp critical
 		{
@@ -563,7 +625,7 @@ void showTest2d(){
 	gd->debugg_print = true;
 	reglib::DistanceWeightFunction2PPR3 * func = new reglib::DistanceWeightFunction2PPR3(gd);
 	func->startreg                             = 0;
-	func->blur                                 = 0.02;
+	func->blur                                 = 0.01;
 	func->data_per_bin                         = 40;
 	func->debugg_print                         = true;
 	func->threshold                            = false;
@@ -712,8 +774,7 @@ int main(int argc, char **argv){
 	reglib::MassRegistrationPPR3 * massreg = new reglib::MassRegistrationPPR3();
 
 	vector<Matrix4d> translation_transformations;
-	//for(double i = 0; i <= 0.2; i+=0.01){ translation_transformations.push_back(getTransform(i)); }
-	for(int i = 0; i <= 0; i+=1){ translation_transformations.push_back(getMat(0,0,0,double(i*0.01),0,0)); }
+	//for(int i = 0; i <= 100; i+=1){ translation_transformations.push_back(getMat(0,0,0,double(i*0.01),0,0)); }
 	vector<Matrix4d> angle_transformations;
 	for(int i = 0; i <= 100; i+=1){ angle_transformations.push_back(getMat(0.01*double(i)*M_PI,0,0,0,0,0)); }
 
@@ -821,8 +882,8 @@ int main(int argc, char **argv){
 //        funcs.push_back(tfunc);
 //    }
 
-	for(unsigned int setup = 0; setup <= 0b1; setup++){
-		for(double sr = 0.0; sr <= 1.0; sr += 1.0){
+	for(unsigned int setup = 1; setup <= 0b1; setup++){
+		for(double sr = 1.0; sr <= 1.0; sr += 1.0){
 			//for(double cp = 0.01; cp <= 0.05; cp += 0.005){
 				reglib::GeneralizedGaussianDistribution * gd = new reglib::GeneralizedGaussianDistribution(true,(setup & 0b1) > 0,false);
 				gd->nr_refineiters = 6;
@@ -846,10 +907,12 @@ int main(int argc, char **argv){
 				funcs.push_back(sfunc);
 		}
 
-		test("verylow", 100, 1000, 100, 0.01,translation_transformations,angle_transformations,funcs);
+		//test("verylow", 100, 1000, 100, 0.01,translation_transformations,angle_transformations,funcs);
 		test("low", 100, 1000, 1000, 0.01,translation_transformations,angle_transformations,funcs);
-		test("high", 100, 1000, 10000, 0.01,translation_transformations,angle_transformations,funcs);
+		//test("high", 100, 1000, 10000, 0.01,translation_transformations,angle_transformations,funcs);
+		//test("high", 1, 1000, 10000, 0.01,translation_transformations,angle_transformations,funcs);
 		funcs.clear();
+		exit(0);
 	}
 
 //    for(double mul = 3; mul <= 4; mul += 0.5){
@@ -879,23 +942,23 @@ int main(int argc, char **argv){
 //    }
 
 
-//		{
-//			reglib::DistanceWeightFunction2Tdist * tfunc = new reglib::DistanceWeightFunction2Tdist();
-//			tfunc->name                     = "Tdist";
-//			tfunc->debugg_print                         = false;
-//			funcs.push_back(tfunc);
-//			test("verylow", 100, 1000, 100, 0.01,translation_transformations,angle_transformations,funcs);
-//			test("low",		100, 1000, 1000, 0.01,translation_transformations,angle_transformations,funcs);
-//			test("high",	100, 1000, 10000, 0.01,translation_transformations,angle_transformations,funcs);
-//			exit(0);
-//		}
+		{
+			reglib::DistanceWeightFunction2Tdist * tfunc = new reglib::DistanceWeightFunction2Tdist();
+			tfunc->name                     = "Tdist";
+			tfunc->debugg_print                         = false;
+			funcs.push_back(tfunc);
+			//test("verylow", 100, 1000, 100, 0.01,translation_transformations,angle_transformations,funcs);
+			//test("low",		100, 1000, 1000, 0.01,translation_transformations,angle_transformations,funcs);
+			test("high",	100, 1000, 10000, 0.01,translation_transformations,angle_transformations,funcs);
+			exit(0);
+		}
 
 
 //    test("high", 100, 1000, 100, 0.01,translation_transformations,angle_transformations,funcs);
 //    exit(0);
 
 
-	test("verylow", 100, 1000, 100, 0.01,translation_transformations,angle_transformations,funcs);
+	//test("verylow", 100, 1000, 100, 0.01,translation_transformations,angle_transformations,funcs);
 //    test("low", 100, 1000, 1000, 0.01,translation_transformations,angle_transformations,funcs);
 //    test("medium", 100, 1000, 3000, 0.01,translation_transformations,angle_transformations,funcs);
 //    test("high", 100, 1000, 10000, 0.01,translation_transformations,angle_transformations,funcs);
