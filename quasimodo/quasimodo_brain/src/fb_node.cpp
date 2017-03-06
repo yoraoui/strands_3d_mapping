@@ -1239,7 +1239,7 @@ std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, re
 			char buf [1024];
 			pcl::transformPointCloud (*coordcloud, *cloudCoord, Eigen::Affine3f(poses.back().cast<float>()));
 			pcl::PointXYZ p; p.x = poses[i-1](0,3);p.y = poses[i-1](1,3); p.z = poses[i-1](2,3);
-			sprintf(buf,"prev_%i",i);viewer->addLine<pcl::PointXYZ> (cloudCoord->points[0],p,0,255,0,buf);
+            sprintf(buf,"prev_%i",i);viewer->addLine<pcl::PointXYZ> (cloudCoord->points[0],p,0,255,0,buf);
 			viewer->spinOnce();
 		}
 
@@ -1259,7 +1259,7 @@ std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, re
 //            }
 
 			if(!first){massreg->removeLastNode();}
-			massreg->addModel(kf);
+            massreg->addModel(kf);
 		}
 
 		delete frame;

@@ -172,6 +172,14 @@ add_executable(			synthetic_test src/synthetic_test.cpp)
 add_dependencies(		synthetic_test roscpp quasimodo_msgs_generate_messages_cpp)
 target_link_libraries(	synthetic_test quasimodo_DescriptorExtractor quasimodo_distribution quasimodo_KeyPoint quasimodo_descriptor quasimodo_superpoint quasimodo_brain_util quasimodo_ModelDatabase  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
+add_executable(			fb_map_node src/fb_map_node.cpp)
+add_dependencies(		fb_map_node roscpp quasimodo_msgs_generate_messages_cpp)
+target_link_libraries(	fb_map_node quasimodo_DescriptorExtractor quasimodo_distribution quasimodo_KeyPoint quasimodo_descriptor quasimodo_superpoint quasimodo_brain_util quasimodo_ModelDatabase  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+
+add_executable(			camera_opt src/camera_opt.cpp)
+add_dependencies(		camera_opt roscpp quasimodo_msgs_generate_messages_cpp)
+target_link_libraries(	camera_opt quasimodo_DescriptorExtractor quasimodo_distribution quasimodo_KeyPoint quasimodo_descriptor quasimodo_superpoint quasimodo_brain_util quasimodo_ModelDatabase  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+
 
 
 #############

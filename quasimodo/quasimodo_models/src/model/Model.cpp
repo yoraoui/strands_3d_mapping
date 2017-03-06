@@ -990,43 +990,6 @@ void Model::mergePoints( std::vector<superpoint> & spoints, std::vector<superpoi
 }
 
 void Model::save(std::string path){
-	/*
-	unsigned long buffersize = (1+1+16*frames.size());//+1+frames.size()*frames.size()+1*frames.size())*sizeof(double);
-	char* buffer = new char[buffersize];
-	double * buffer_double = (double *)buffer;
-	unsigned long * buffer_long = (unsigned long *)buffer;
-
-	int counter = 0;
-	buffer_long[counter++] = frames.size();
-	//buffer_double[counter++] = score;
-	for(unsigned int f = 0; f < frames.size(); f++){
-		Eigen::Matrix4d pose = relativeposes[f];
-		for(int i = 0; i < 4; i++){
-			for(int j = 0; j < 4; j++){
-				buffer_double[counter++] = pose(i,j);
-			}
-		}
-	}
-
-	buffer_double[counter++] = total_scores;
-
-	for(unsigned int f1 = 0; f1 < frames.size(); f1++){
-		for(unsigned int f2 = 0; f2 < frames.size(); f2++){
-			buffer_double[counter++] = scores[f1][f2];
-		}
-	}
-
-
-	for(unsigned int f1 = 0; f1 < frames.size(); f1++){
-		buffer_long[counter++] = modelmasks[f1]->sweepid;
-	}
-
-	std::ofstream outfile (path+"/data.txt",std::ofstream::binary);
-	outfile.write (buffer,buffersize);
-	outfile.close();
-	delete[] buffer;
-*/
-	printf("%i\n",__LINE__);
 	char buf [1024];
 	struct stat sb;
 
@@ -1043,114 +1006,25 @@ void Model::save(std::string path){
 	for(unsigned int f = 0; f < frames.size(); f++){
 		posesfile << relativeposes[f] << endl <<endl;
 
-		printf("%i\n",__LINE__);
 		sprintf(buf,"%s/frame_%08i",path.c_str(),f);
 		frames[f]->save(std::string(buf));
 
 		sprintf(buf,"%s/frame_%08i.pcd",path.c_str(),f);
 		frames[f]->savePCD(std::string(buf),relativeposes[f]);
-		printf("%i\n",__LINE__);
 		sprintf(buf,"%s/modelmask_%08i.png",path.c_str(),f);
 		cv::imwrite( buf, modelmasks[f]->getMask() );
 	}
-	posesfile.close();
-	printf("%i\n",__LINE__);
+    posesfile.close();
 
 	ofstream submodels_posesfile;
 	submodels_posesfile.open (path+"/submodels_relativeposes.txt");
 	for(unsigned int i = 0; i < submodels.size(); i++){
 		submodels_posesfile << submodels_relativeposes[i] << endl <<endl;
 		sprintf(buf,"%s/submodel%08i",path.c_str(),i);
-		printf("%i\n",__LINE__);
 		submodels[i]->save(std::string(buf));
-		printf("%i\n",__LINE__);
 	}
 	submodels_posesfile.close();
-	/*
-	for(unsigned int f = 0; f < frames.size(); f++){
-		char buf [1024];
-
-		sprintf(buf,"%s/views/cloud_%08i.pcd",path.c_str(),f);
-		frames[f]->savePCD(std::string(buf));
-
-		sprintf(buf,"%s/views/pose_%08i.txt",path.c_str(),f);
-		ofstream posefile;
-		posefile.open (buf);
-
-		Eigen::Matrix4f eigen_tr(relativeposes[f].cast<float>());
-		Eigen::IOFormat CommaInitFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, " ", " ", "", "", "", "");
-		posefile << eigen_tr.format(CommaInitFmt)<<endl;
-		posefile.close();
-
-		bool * maskvec = modelmasks[f]->maskvec;
-		sprintf(buf,"%s/views/object_indices_%08i.txt",path.c_str(),f);
-		ofstream indfile;
-		indfile.open (buf);
-		for(int i = 0; i < 640*480; i++){
-			if(maskvec[i]){indfile << i << std::endl;}
-		}
-		indfile.close();
-		//object_indices_00000030.txt
-
-	}
-	*/
-	/*
-	ofstream raresfile;
-	raresfile.open (path+"/raresposes.txt");
-	Eigen::Matrix4f eigen_tr(Eigen::Matrix4f::Identity() );
-	Eigen::IOFormat CommaInitFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, " ", " ", "", "", "", "");
-	raresfile << eigen_tr.format(CommaInitFmt)<<endl;
-
-
-	//printf("saving model %i to %s\n",id,path.c_str());
-	for(unsigned int f = 0; f < frames.size(); f++){
-		char buf [1024];
-
-		sprintf(buf,"%s/frame_%i",path.c_str(),f);
-		frames[f]->save(std::string(buf));
-
-		sprintf(buf,"%s/modelmask_%i.png",path.c_str(),f);
-		cv::imwrite( buf, modelmasks[f]->getMask() );
-
-		Eigen::Matrix4f eigen_tr(relativeposes[f].cast<float>());
-		Eigen::IOFormat CommaInitFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, " ", " ", "", "", "", "");
-		raresfile << eigen_tr.format(CommaInitFmt)<<endl;
-	}
-
-	raresfile.close();
-
-
-	for(unsigned int f = 0; f < frames.size(); f++){
-		char buf [1024];
-
-		sprintf(buf,"%s/views/cloud_%08i.pcd",path.c_str(),f);
-		frames[f]->savePCD(std::string(buf));
-
-		sprintf(buf,"%s/views/pose_%08i.txt",path.c_str(),f);
-		ofstream posefile;
-		posefile.open (buf);
-
-		Eigen::Matrix4f eigen_tr(relativeposes[f].cast<float>());
-		Eigen::IOFormat CommaInitFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, " ", " ", "", "", "", "");
-		posefile << eigen_tr.format(CommaInitFmt)<<endl;
-		posefile.close();
-
-		bool * maskvec = modelmasks[f]->maskvec;
-		sprintf(buf,"%s/views/object_indices_%08i.txt",path.c_str(),f);
-		ofstream indfile;
-		indfile.open (buf);
-		for(int i = 0; i < 640*480; i++){
-			if(maskvec[i]){indfile << i << std::endl;}
-		}
-		indfile.close();
-		//object_indices_00000030.txt
-
-	}
-	*/
 }
-
-
-
 
 void Model::saveFast(std::string path){
     //printf("Model::saveFast(%s)\n",path.c_str());

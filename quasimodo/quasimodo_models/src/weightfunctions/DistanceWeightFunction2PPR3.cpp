@@ -846,14 +846,14 @@ double DistanceWeightFunction2PPR3::getProb(double d, bool debugg){
 	float irlsw = 1;
 	if(useIRLSreweight){irlsw = getIRLS(d);}
 
-	double priorInlier = tinl/toth;
-	double priorOutlier = 1-priorInlier;
+//	double priorInlier = tinl/toth;
+//	double priorOutlier = 1-priorInlier;
 
-	double np = 1-p;
-	p *= priorInlier;
-	np *= priorOutlier;
+//	double np = 1-p;
+//	p *= priorInlier;
+//	np *= priorOutlier;
 
-	p = p /(p+np);
+//	p = p /(p+np);
 
 //printf("p: %f\n",p);
 	//if(debugg){printf("d: %5.5f -> ind: %5.5f -> p: %5.5f irlsw: %5.5f histogramsize: %5.5i maxd: %5.5f\n",d,ind,p,irlsw,histogram_size,maxd);}

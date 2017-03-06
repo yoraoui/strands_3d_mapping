@@ -81,7 +81,7 @@ DataNode::DataNode(Model * model, bool useSurfacePoints, unsigned int surface_nr
                 surface_n[3*i+1]    = p.ny;
                 surface_n[3*i+2]    = p.nz;
                 surface_i[i]        = p.point_information;
-                surface_valid[i]    = true;//!p.is_boundry;
+				surface_valid[i]    = true;//!p.is_boundry;
                 surface_active[i]   = i;
 
                 meandist_sum    += p.point_information*sqrt(p.x*p.x+p.y*p.y+p.z*p.z);
