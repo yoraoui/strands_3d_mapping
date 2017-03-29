@@ -119,6 +119,8 @@ public:
 	double tinl;
 	double toth;
 
+    bool tune;
+
 
     virtual DistanceWeightFunction2 * clone();
 
@@ -140,6 +142,7 @@ public:
 	virtual double getProbInp(double d, bool debugg = false);
 	virtual double getIRLS(double d, bool debugg = false);
 	virtual double getProbInfront(double d, bool debugg = false);
+    virtual double getProbInfront(double start, double stop, bool debugg = false);
 	virtual double getNoise();
 	virtual double getConvergenceThreshold();
 	virtual bool update();
@@ -151,6 +154,8 @@ public:
 	virtual double getWeight(double invstd, double d,double & infoweight, double & prob, bool debugg = false);
     virtual VectorXd getWeights(std::vector<double > invstd, MatrixXd mat, bool debugg = false);
     virtual void print();
+    virtual void setTune();
+    virtual double getPower();
 };
 
 }

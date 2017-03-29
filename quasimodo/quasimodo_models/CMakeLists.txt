@@ -59,7 +59,7 @@ target_link_libraries(quasimodo_SignalProcessing ${catkin_LIBRARIES})
 add_library(quasimodo_distribution src/weightfunctions/Distribution.cpp src/weightfunctions/GaussianDistribution.cpp src/weightfunctions/GeneralizedGaussianDistribution.cpp)
 target_link_libraries(quasimodo_distribution ceres glog ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 
-add_library(quasimodo_weightlib src/weightfunctions/DistanceWeightFunction2.cpp src/weightfunctions/DistanceWeightFunction2PPR.cpp src/weightfunctions/DistanceWeightFunction2PPR2.cpp src/weightfunctions/DistanceWeightFunction2PPR3.cpp src/weightfunctions/DistanceWeightFunction2Tdist.cpp)
+add_library(quasimodo_weightlib src/weightfunctions/DistanceWeightFunction2.cpp src/weightfunctions/DistanceWeightFunction2PPR.cpp src/weightfunctions/DistanceWeightFunction2PPR2.cpp src/weightfunctions/DistanceWeightFunction2PPR3.cpp src/weightfunctions/DistanceWeightFunction2Tdist.cpp src/weightfunctions/DistanceWeightFunction2JointDist.cpp)
 target_link_libraries(quasimodo_weightlib quasimodo_SignalProcessing quasimodo_distribution ceres glog ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 
 add_library(quasimodo_superpoint src/core/superpoint.cpp)

@@ -56,7 +56,7 @@ void    Distribution::getMaxdMind(double & maxd, double & mind, double prob){
 			minDist = midDist;
 			minDistScore = midDistScore;
 		}
-		if(fabs(maxDistScore-minDistScore) < prob*0.01){break;}
+        if(fabs(maxDistScore-minDistScore) < prob*0.001){break;}
 	}
 	double midDist = (minDist+maxDist)*0.5;
 	mind = mean-midDist;

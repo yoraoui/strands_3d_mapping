@@ -48,7 +48,7 @@ public:
     virtual void setMinStd(double x);
 	virtual void rescale(double mul);
     virtual void print();
-	virtual void getMaxdMind(double & maxd, double & mind, double prob = 0.00001);
+    virtual void getMaxdMind(double & maxd, double & mind, double prob = 0.001);
     double getDiffScore(std::vector<double> & diffs, std::vector<double> & ratios, double ratioweight);
 };
 

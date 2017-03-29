@@ -26,6 +26,7 @@
 #include "ModelDatabase/ModelDatabase.h"
 #include "ModelStorage/ModelStorage.h"
 #include "Util/Util.h"
+#include "CameraOptimizer/CameraOptimizer.h"
 
 using namespace std;
 
@@ -247,7 +248,7 @@ void saveModelToFB(std::vector<Eigen::Matrix4d> poses, std::vector<double> times
     figurename.pop_back();
     figurename.pop_back();
     figurename.pop_back();
-    printf("Saving map in: %s\n",pathname.c_str());
+    //printf("Saving map in: %s\n",pathname.c_str());
 
     ofstream myfile;
     myfile.open((pathname).c_str());
@@ -288,6 +289,9 @@ void saveModelToFB(std::vector<Eigen::Matrix4d> poses, std::vector<double> times
 }
 
 std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, reglib::DescriptorExtractor * de, string datapath = "./", string benchmarkpath = "./rgbd_benchmark_tools/scripts/", bool visualize = true){
+    CameraOptimizer * co = CameraOptimizer::load("current_CameraOptimizerGridXYZ.bin");
+    //co->show(true);
+
     unsigned int nr_frames = rgb_images_path.size();
     boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
     pcl::PointCloud<pcl::PointXYZ>::Ptr    coordcloud	(new pcl::PointCloud<pcl::PointXYZ>);
@@ -304,7 +308,7 @@ std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, re
         coordcloud->points[2].x = 0.00; coordcloud->points[2].y = 0.02; coordcloud->points[2].z = 0.00;
         coordcloud->points[3].x = 0.00; coordcloud->points[3].y = 0.00; coordcloud->points[3].z = 0.02;
         for(unsigned int i = 0; i < gt_poses.size(); i++){
-            std::cout << gt_poses[i] << std::endl << std::endl;
+            //std::cout << gt_poses[i] << std::endl << std::endl;
             pcl::PointCloud<pcl::PointXYZ>::Ptr    cloudCoord	(new pcl::PointCloud<pcl::PointXYZ>);
             char buf [1024];
             pcl::transformPointCloud (*coordcloud, *cloudCoord, gt_poses[i]);
@@ -339,11 +343,13 @@ std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, re
     reglib::Model * total_model = new reglib::Model();
 
     reglib::MassRegistrationPPR3 * massreg = new reglib::MassRegistrationPPR3(func);
-    massreg->viewer = viewer;
-    massreg->visualizationLvl = 0;//10*int(visualize);
-    massreg->convergence_mul = 1.0;
-    massreg->func_setup = 0;
-    massreg->tune_regularizer = true;
+    massreg->viewer                 = viewer;
+    massreg->visualizationLvl       = 0;//10*int(visualize);
+    massreg->refine_translation     = true;
+    massreg->refine_rotation        = true;
+    massreg->convergence_mul        = 1.0;
+    massreg->func_setup             = 0;
+    massreg->tune_regularizer       = true;
     //massreg->next_regularizer = 0.1;
 
     //register to last kf
@@ -351,7 +357,7 @@ std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, re
     cp.push_back(Eigen::Matrix4d::Identity());
     cp.push_back(Eigen::Matrix4d::Identity());
 
-	int kfstep = 10;
+    int kfstep = 10;
 
     double max_error = 0;
     int max_ind = 0;
@@ -361,7 +367,7 @@ std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, re
     int last_kf_nr = 0;
     bool first = true;
     for(unsigned int i = 0; i < nr_frames; i++){
-        reglib::RGBDFrame * frame = new reglib::RGBDFrame(camera,cv::imread(rgb_images_path[i], CV_LOAD_IMAGE_COLOR),cv::imread(depth_images_path[i], CV_LOAD_IMAGE_UNCHANGED),timestamps[i], Eigen::Matrix4d::Identity(),true,"", false);
+        reglib::RGBDFrame * frame = new reglib::RGBDFrame(camera,cv::imread(rgb_images_path[i], CV_LOAD_IMAGE_COLOR), co->improveDepth(cv::imread(depth_images_path[i], CV_LOAD_IMAGE_UNCHANGED),camera->idepth_scale),timestamps[i], Eigen::Matrix4d::Identity(),true,"", false);
         current->frames[0] = frame;
         current->recomputeModelPoints();
 
@@ -370,6 +376,8 @@ std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, re
         if(!first){//First frame is always a kf
             massreg->addModel(current,1000);
             cp.back() = poses.back();
+            //cp.back() = gt_poses[i];
+//gt_poses[i];//poses.back();
 
             double regStart2 = quasimodo_brain::getTime();
             reglib::MassFusionResults mfr = massreg->getTransforms(cp);
@@ -379,7 +387,7 @@ std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, re
             poses.push_back(mfr.poses.back());
 
             printf("frame %i / %i kf: %i registration time: %5.5fs score: %6.6f ",i,nr_frames,last_kf_nr,regtime,mfr.score);
-			if(mfr.score < 0.8){is_kf = true;}
+            if(mfr.score < 0.75){is_kf = true;}
         }else{
             last_kf_nr = i;
             poses.push_back(Eigen::Matrix4d::Identity());
@@ -403,7 +411,7 @@ std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, re
             max_last_kf_nr = last_kf_nr;
             max_pose = regChange;
         }
-        //printf("error: %5.5f max_error = %5.5f max_ind = %5.5i\n",regerror,max_error,max_ind);
+        printf("error: %5.5f max_error = %5.5f max_ind = %5.5i\n",regerror,max_error,max_ind);
 
 
         if(visualize){
@@ -425,10 +433,11 @@ std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, re
 
 		if(is_kf){
 			//reglib::RGBDFrame * last_kf_frame = new reglib::RGBDFrame(camera,cv::imread(rgb_images_path[last_kf_nr], CV_LOAD_IMAGE_COLOR),cv::imread(depth_images_path[last_kf_nr], CV_LOAD_IMAGE_UNCHANGED),timestamps[last_kf_nr], Eigen::Matrix4d::Identity(),true,"", false);
-			reglib::RGBDFrame * kf_frame = new reglib::RGBDFrame(camera,cv::imread(rgb_images_path[i], CV_LOAD_IMAGE_COLOR),cv::imread(depth_images_path[i], CV_LOAD_IMAGE_UNCHANGED),timestamps[i], Eigen::Matrix4d::Identity(),true,"", true);
+            //reglib::RGBDFrame * kf_frame = new reglib::RGBDFrame(camera,cv::imread(rgb_images_path[i], CV_LOAD_IMAGE_COLOR),co->improveDepth( cv::imread(depth_images_path[i], CV_LOAD_IMAGE_UNCHANGED),camera->idepth_scale),timestamps[i], Eigen::Matrix4d::Identity(),true,"", true);
+            reglib::RGBDFrame * kf_frame = new reglib::RGBDFrame(camera,cv::imread(rgb_images_path[i], CV_LOAD_IMAGE_COLOR),cv::imread(depth_images_path[i], CV_LOAD_IMAGE_UNCHANGED),timestamps[i], Eigen::Matrix4d::Identity(),true,"", true);
 
             last_kf_nr = i;
-			//kf->points.clear();
+            kf->points.clear();
             kf->addSuperPoints( kf->points,poses.back(),frame,kf->modelmasks.back());
 
             if(!first){massreg->removeLastNode();}
@@ -479,8 +488,8 @@ std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, re
     fflush(stdout);
     saveModelToFB(poses,timestamps,datapath,func->name+"_odometry.txt",benchmarkpath);
 
-    printf("max_error = %f\n",max_error);
-    printf("max_ind = %i\n",max_ind);
+//    printf("max_error = %f\n",max_error);
+//    printf("max_ind = %i\n",max_ind);
 
     ModelStorageFile * storage = new ModelStorageFile("fb_model/");
     storage->add(total_model, "xyz");
@@ -550,9 +559,22 @@ int main(int argc, char **argv){
         std::string datapath = std::string(argv[arg]);
         addFBdata2(argv[arg], startind, stopind, framestep);
 
+
         for(unsigned int j = 0; j < des.size(); j++){
-            std::vector<Eigen::Matrix4d> vo = slam_vo3(funcs[funcnr],des[j],datapath,benchmarkpath,true);
+//            camera->fx = 525;//541;
+//            camera->cx = 319.5;//291;
+//            camera->fy = 525;//513;
+//            camera->cy = 239.5;//255;
+            //double fx_start = camera->fx-5;
+            //double fx_stop = camera->fx+5;
+            //std::string name = funcs[funcnr]->name;
+            //for(camera->cy = cy_start; camera->cy <= cy_stop; camera->cy += 1.0){
+            //    sprintf(buf,"%s_camera_%i_%i_%i_%i",name.c_str(),int(10.0*camera->fx),int(10.0*camera->fy),int(10.0*camera->cx),int(10.0*camera->cy));
+            //    funcs[funcnr]->name = std::string(buf);
+                std::vector<Eigen::Matrix4d> vo = slam_vo3(funcs[funcnr],des[j],datapath,benchmarkpath,true);
+            //}
         }
+
         rgb_images.clear();
         depth_images.clear();
         timestamps.clear();

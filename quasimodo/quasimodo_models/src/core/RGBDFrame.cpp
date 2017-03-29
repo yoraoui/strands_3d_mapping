@@ -753,7 +753,7 @@ RGBDFrame::RGBDFrame(Camera * camera_, cv::Mat rgb_, cv::Mat depth_, double capt
 
 		ce = cenms;
 
-		int dilation_size = 2;
+        int dilation_size = 0;
 		cv::dilate( det, det_dilate, getStructuringElement( cv::MORPH_RECT, cv::Size( 2*dilation_size + 1, 2*dilation_size+1 ), cv::Point( dilation_size, dilation_size ) ) );
 		unsigned char * det_dilatedata = (unsigned char*)det_dilate.data;
 

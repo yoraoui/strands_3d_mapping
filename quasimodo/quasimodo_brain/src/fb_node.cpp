@@ -1073,6 +1073,7 @@ std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, re
 	pcl::PointCloud<pcl::PointXYZ>::Ptr    coordcloud	(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr    gt_coordcloud	(new pcl::PointCloud<pcl::PointXYZ>);
 
+    visualize = false;
 	if(visualize){
 		viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer>(new pcl::visualization::PCLVisualizer ("viewer"));
 		viewer->setBackgroundColor(1.0,1.0,1.0);
@@ -1120,7 +1121,7 @@ std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, re
 
 	reglib::MassRegistrationPPR3 * massreg = new reglib::MassRegistrationPPR3(func);
 	massreg->viewer = viewer;
-	massreg->visualizationLvl = 10*int(visualize);
+    massreg->visualizationLvl = 2*int(visualize);
 	massreg->convergence_mul = 1.0;
 	massreg->func_setup = 0;
 	massreg->tune_regularizer = true;
@@ -1151,7 +1152,6 @@ std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, re
 		frame->use_range_information = norange == 0;
 		//        cv::Mat rgbimage    = cv::imread(rgbpath, CV_LOAD_IMAGE_COLOR);
 		//        cv::Mat depthimage  = cv::imread(depthpath, CV_LOAD_IMAGE_UNCHANGED);
-
 		//        rgb_images.push_back(rgbimage);
 		//        depth_images.push_back(depthimage);
 		current->frames[0] = frame;
@@ -1175,7 +1175,6 @@ std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, re
 //                massreg->addModel(current);
 //                reglib::MassFusionResults mfr2 = massreg->getTransforms(cp);
 //                massreg->removeLastNode();
-
 //                massreg->visualizationLvl = 0;
 //            }
 			//fflush(stdout);
@@ -1186,7 +1185,6 @@ std::vector<Eigen::Matrix4d> slam_vo3(reglib::DistanceWeightFunction2 * func, re
 
 		Eigen::Matrix4d currPose = poses.back();
 		Eigen::Matrix4d gtcurrPose = gt_poses[i];
-
 
 			//Eigen::Matrix4d regChange = currPose * poses[last_kf_nr].inverse();
 		Eigen::Matrix4d regChange = poses.back() * cp.back().inverse();
@@ -1291,125 +1289,6 @@ int main(int argc, char **argv){
 
 	vector< reglib::DistanceWeightFunction2 * > funcs;
 
-	//    for(unsigned int setup = 0; setup <= 0b1; setup++){
-	//        for(double sr = 0.0; sr <= 0.1; sr += 0.1){
-	//            reglib::GeneralizedGaussianDistribution * gd = new reglib::GeneralizedGaussianDistribution(true,true);
-	//            gd->nr_refineiters = 6;
-	//            gd->costpen = 3;
-	//            gd->ratio_costpen = 0;
-	//            gd->debugg_print = false;
-	//            reglib::DistanceWeightFunction2PPR3 * sfunc = new reglib::DistanceWeightFunction2PPR3(gd);
-	//            sfunc->startreg                             = sr;
-	//            sfunc->blur                                 = 0.03;
-	//            sfunc->data_per_bin                         = 20;
-	//            sfunc->debugg_print                         = false;
-	//            sfunc->threshold                            = false;//(setup & 0b1) > 0;
-	//            sfunc->useIRLSreweight                      = (setup & 0b1) > 0;
-	//            if(sfunc->useIRLSreweight){
-	//                sprintf(buf,"ppr_%i_ggd",int(100.0*sr));
-	//            }else{
-	//                sprintf(buf,"ppr_%i_gausian",int(100.0*sr));
-	//            }
-	//            sfunc->name = string(buf);
-	//            funcs.push_back(sfunc);
-	//        }
-	//    }
-
-	//    test("verylow", 11, 1000, 100,     0.01,translation_transformations,angle_transformations,funcs);
-	//    test("low",     11, 1000, 1000,    0.01,translation_transformations,angle_transformations,funcs);
-	//    test("medium",  11, 1000, 3000,    0.01,translation_transformations,angle_transformations,funcs);
-	//    test("high",    11, 1000, 10000,   0.01,translation_transformations,angle_transformations,funcs);
-	//    exit(0);
-
-
-//    for(double mul = 3; mul <= 4; mul += 0.5)
-//    {
-//        reglib::DistanceWeightFunction2 * tfunc = new reglib::DistanceWeightFunction2();
-//        tfunc->f                     = reglib::THRESHOLD;
-//        tfunc->p                     = mul*noise;
-//        sprintf(buf,"threshold_%i",int(100.0*mul));
-//        tfunc->name = string(buf);
-//        funcs.push_back(tfunc);
-//    }
-
-//    for(unsigned int setup = 0; setup <= 0b1; setup++){
-//        for(double sr = 0.0; sr <= 0.01; sr += 0.01){
-//            //for(double cp = 0.01; cp <= 0.05; cp += 0.005){
-//                reglib::GeneralizedGaussianDistribution * gd = new reglib::GeneralizedGaussianDistribution(true,(setup & 0b1) > 0,false);
-//                gd->nr_refineiters = 6;
-//                gd->costpen = 5;
-//                gd->ratio_costpen = 0;
-//                gd->debugg_print = false;
-//                reglib::DistanceWeightFunction2PPR3 * sfunc = new reglib::DistanceWeightFunction2PPR3(gd);
-//                sfunc->noise_min                            = 0.0005;
-//                sfunc->startreg                             = sr;
-//                sfunc->blur                                 = 0.02;//0.03;
-//                sfunc->data_per_bin                         = 80;
-//                sfunc->debugg_print                         = false;
-//                sfunc->threshold                            = false;//(setup & 0b1) > 0;
-//                sfunc->useIRLSreweight                      = (setup & 0b1) > 0;
-//                if(sfunc->useIRLSreweight){
-//                    sprintf(buf,"ppr_%i_ggd",int(100.0*sr));
-//                }else{
-//                    sprintf(buf,"ppr_%i_gausian",int(100.0*sr));
-//                }
-//                sfunc->name = string(buf);
-//                funcs.push_back(sfunc);
-//            //}
-//        }
-//    }
-
-
-//    for(double cp = 1.25; cp <= 2.75; cp += 0.25){
-//        for(double dpb = 40.0; dpb <= 40; dpb += 20){
-//            reglib::GeneralizedGaussianDistribution * gd = new reglib::GeneralizedGaussianDistribution(true,false,false);
-//            gd->nr_refineiters = 6;
-//            gd->costpen = cp;
-//            gd->ratio_costpen = 0;
-//            gd->debugg_print = false;
-//            reglib::DistanceWeightFunction2PPR3 * sfunc = new reglib::DistanceWeightFunction2PPR3(gd);
-//            sfunc->noise_min                            = 0.0005;
-//            sfunc->startreg                             = 0.01;
-//            sfunc->blur                                 = 0.02;//0.03;
-//            sfunc->data_per_bin                         = dpb;
-//            sfunc->debugg_print                         = false;
-//            sfunc->threshold                            = false;//(setup & 0b1) > 0;
-//            sfunc->useIRLSreweight                      = false;
-//            if(sfunc->useIRLSreweight){
-//                sprintf(buf,"ppr_%i_%i_%i_ggd",int(100.0*sfunc->startreg),int(100.0*gd->costpen),int(dpb));
-//            }else{
-//                sprintf(buf,"ppr_%i_%i_%i_gausian",int(100.0*sfunc->startreg),int(100.0*gd->costpen),int(dpb));
-//            }
-//            sfunc->name = string(buf);
-//            funcs.push_back(sfunc);
-//        }
-//    }
-
-
-//    {
-//        reglib::GeneralizedGaussianDistribution * gd = new reglib::GeneralizedGaussianDistribution(true,false,false);
-//        gd->nr_refineiters = 6;
-//        gd->costpen = 1;
-//        gd->ratio_costpen = 0;
-//        gd->debugg_print = false;
-//        reglib::DistanceWeightFunction2PPR3 * sfunc = new reglib::DistanceWeightFunction2PPR3(gd);
-//        sfunc->noise_min                            = 0.0005;
-//        sfunc->startreg                             = 0.01;
-//        sfunc->blur                                 = 0.02;//0.02;//0.03;
-//        sfunc->data_per_bin                         = 40;
-//        sfunc->debugg_print                 funcs[funcnr]->name        = false;
-//        sfunc->threshold                            = false;//(setup & 0b1) > 0;
-//        sfunc->useIRLSreweight                      = false;
-//        sfunc->reg_shrinkage                        = 0.8;
-//        if(sfunc->useIRLSreweight){
-//            sprintf(buf,"test_ppr_%i_%i_%i_%i_ggd",int(100.0*sfunc->startreg),int(100.0*gd->costpen),int(sfunc->data_per_bin),int(1000.0*sfunc->blur));
-//        }else{
-//            sprintf(buf,"test_ppr_%i_%i_%i_%i_gausian",int(100.0*sfunc->startreg),int(100.0*gd->costpen),int(sfunc->data_per_bin),int(1000.0*sfunc->blur));
-//        }
-//        sfunc->name = string(buf);
-//        funcs.push_back(sfunc);
-//    }
-//for(double blur = 0.01; blur <= 0.03; blur += 0.01)
 //	{
 //		reglib::GeneralizedGaussianDistribution * gd = new reglib::GeneralizedGaussianDistribution(true,false,false);
 //		gd->nr_refineiters = 6;
@@ -1419,7 +1298,7 @@ int main(int argc, char **argv){
 //		reglib::DistanceWeightFunction2PPR3 * sfunc = new reglib::DistanceWeightFunction2PPR3(gd);
 //		sfunc->noise_min                            = 0.0005;
 //		sfunc->startreg                             = 0.01;
-//		sfunc->blur                                 = 0.02;//0.02;//0.02;//0.03;
+//		sfunc->blur                                 = 0.02;//0.02;//0.03;
 //		sfunc->data_per_bin                         = 40;
 //		sfunc->debugg_print                         = false;
 //		sfunc->threshold                            = false;//(setup & 0b1) > 0;
@@ -1434,32 +1313,24 @@ int main(int argc, char **argv){
 //		sfunc->name = string(buf);
 //		funcs.push_back(sfunc);
 //	}
-
-
-	{
-		reglib::GeneralizedGaussianDistribution * gd = new reglib::GeneralizedGaussianDistribution(true,false,false);
-		gd->nr_refineiters = 6;
-		gd->costpen = 10;
-		gd->ratio_costpen = 0;
-		gd->debugg_print = false;
-		reglib::DistanceWeightFunction2PPR3 * sfunc = new reglib::DistanceWeightFunction2PPR3(gd);
-		sfunc->noise_min                            = 0.0005;
-		sfunc->startreg                             = 0.01;
-		sfunc->blur                                 = 0.02;//0.02;//0.03;
-		sfunc->data_per_bin                         = 40;
-		sfunc->debugg_print                         = false;
-		sfunc->threshold                            = false;//(setup & 0b1) > 0;
-		sfunc->useIRLSreweight                      = false;
-		sfunc->reg_shrinkage                        = 0.8;
-		sfunc->max_under_mean                       = false;
-		if(sfunc->useIRLSreweight){
-			sprintf(buf,"ppr_%i_%i_%i_%i_ggd",int(100.0*sfunc->startreg),int(100.0*gd->costpen),int(sfunc->data_per_bin),int(1000.0*sfunc->blur));
-		}else{
-			sprintf(buf,"ppr_%i_%i_%i_%i_gausian",int(100.0*sfunc->startreg),int(100.0*gd->costpen),int(sfunc->data_per_bin),int(1000.0*sfunc->blur));
-		}
-		sfunc->name = string(buf);
-		funcs.push_back(sfunc);
-	}
+    {
+        reglib::GeneralizedGaussianDistribution * gd = new reglib::GeneralizedGaussianDistribution(true,false,false);
+        gd->nr_refineiters = 1;
+        gd->costpen = 10;
+        gd->ratio_costpen = 0;
+        gd->debugg_print = false;
+        reglib::DistanceWeightFunction2PPR3 * sfunc = new reglib::DistanceWeightFunction2PPR3(gd);
+        sfunc->startreg                             = 1;
+        sfunc->noise_min                            = 0.0005;
+        sfunc->blur                                 = 0.02;//0.03;
+        sfunc->data_per_bin                         = 40;
+        sfunc->debugg_print                         = false;
+        sfunc->max_under_mean                       = false;
+        sfunc->reg_shrinkage                        = 0.5;
+        sfunc->useIRLSreweight                      = false;
+        sfunc->name = "ppr";
+        funcs.push_back(sfunc);
+    }
 
 
 	{
@@ -1609,7 +1480,7 @@ int main(int argc, char **argv){
 		for(unsigned int i = 0; i < regs.size(); i++){
 			for(unsigned int j = 0; j < des.size(); j++){
 				//std::vector<Eigen::Matrix4d> vo = slam_vo2(regs[i],des[j],std::string(argv[arg])+"/"+regs[i]->getString()+"_",true,true);//rrf->useSurfacePoints,rrf->useKeyPoints)
-				std::vector<Eigen::Matrix4d> vo = slam_vo3(funcs[funcnr],regs[i],des[j],datapath,regs[i]->getString(),benchmarkpath,true,true,false,norange);//rrf->useSurfacePoints,rrf->useKeyPoints)
+                std::vector<Eigen::Matrix4d> vo = slam_vo3(funcs[funcnr],regs[i],des[j],datapath,regs[i]->getString(),benchmarkpath,true,true,true,norange);//rrf->useSurfacePoints,rrf->useKeyPoints)
 			}
 		}
 		rgb_images.clear();

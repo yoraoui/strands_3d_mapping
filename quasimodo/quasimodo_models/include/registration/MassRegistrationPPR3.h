@@ -84,6 +84,9 @@ namespace reglib
 	{
 		public:
 
+        bool refine_rotation;
+        bool refine_translation;
+
 		reglib::Timer timer;
 
         int func_setup;

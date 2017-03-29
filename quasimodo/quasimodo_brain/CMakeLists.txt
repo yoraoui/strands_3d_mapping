@@ -90,10 +90,13 @@ target_link_libraries(quasimodo_ModelDatabase
 						quasimodo_ModelStorage quasimodo_brain_util
 					  #${retrieval_libraries}
 					  #${benchmark_libraries}
-                      ${OpenCV_LIBS}
-                      ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES}
-                      ${PCL_LIBRARIES}
-                      ${catkin_LIBRARIES})
+					  ${OpenCV_LIBS}
+					  ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES}
+					  ${PCL_LIBRARIES}
+					  ${catkin_LIBRARIES})
+
+add_library(quasimodo_CameraOptimizer src/CameraOptimizer/CameraOptimizer.cpp src/CameraOptimizer/CameraOptimizerGrid.cpp src/CameraOptimizer/CameraOptimizerGridXYZ.cpp  src/CameraOptimizer/CameraOptimizerGridXY.cpp )
+target_link_libraries(quasimodo_CameraOptimizer quasimodo_brain_util ${catkin_LIBRARIES})
 
 add_executable(			preload_object_data src/preload_object_data.cpp)
 target_link_libraries(	preload_object_data ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${QT_LIBRARIES} metaroom_xml_parser)
@@ -159,6 +162,10 @@ add_executable(			AnnotationTool src/AnnotationTool.cpp)
 add_dependencies(		AnnotationTool roscpp quasimodo_msgs_generate_messages_cpp object_manager_msgs_generate_messages_cpp semantic_map_msgs_generate_messages_cpp)
 target_link_libraries(	AnnotationTool quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
+add_executable(			AnnotationTool2 src/AnnotationTool2.cpp)
+add_dependencies(		AnnotationTool2 roscpp quasimodo_msgs_generate_messages_cpp object_manager_msgs_generate_messages_cpp semantic_map_msgs_generate_messages_cpp)
+target_link_libraries(	AnnotationTool2 quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+
 add_executable(			pcl_multivisualizer src/pcl_multivisualizer.cpp)
 add_dependencies(		pcl_multivisualizer roscpp quasimodo_msgs_generate_messages_cpp object_manager_msgs_generate_messages_cpp semantic_map_msgs_generate_messages_cpp)
 target_link_libraries(	pcl_multivisualizer quasimodo_brain_util quasimodo_ModelDatabase quasimodo_Mesher image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
@@ -174,11 +181,11 @@ target_link_libraries(	synthetic_test quasimodo_DescriptorExtractor quasimodo_di
 
 add_executable(			fb_map_node src/fb_map_node.cpp)
 add_dependencies(		fb_map_node roscpp quasimodo_msgs_generate_messages_cpp)
-target_link_libraries(	fb_map_node quasimodo_DescriptorExtractor quasimodo_distribution quasimodo_KeyPoint quasimodo_descriptor quasimodo_superpoint quasimodo_brain_util quasimodo_ModelDatabase  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(	fb_map_node quasimodo_CameraOptimizer quasimodo_DescriptorExtractor quasimodo_distribution quasimodo_KeyPoint quasimodo_descriptor quasimodo_superpoint quasimodo_brain_util quasimodo_ModelDatabase  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
 add_executable(			camera_opt src/camera_opt.cpp)
 add_dependencies(		camera_opt roscpp quasimodo_msgs_generate_messages_cpp)
-target_link_libraries(	camera_opt quasimodo_DescriptorExtractor quasimodo_distribution quasimodo_KeyPoint quasimodo_descriptor quasimodo_superpoint quasimodo_brain_util quasimodo_ModelDatabase  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(	camera_opt quasimodo_CameraOptimizer quasimodo_DescriptorExtractor quasimodo_distribution quasimodo_KeyPoint quasimodo_descriptor quasimodo_superpoint quasimodo_brain_util quasimodo_ModelDatabase  image_geometry cpp_common roscpp rosconsole tf_conversions metaroom_xml_parser ${QT_QTMAIN_LIBRARY} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
 
 
