@@ -696,6 +696,139 @@ void saveAnnotationResults(std::string filename, std::vector<int> labels,  std::
 
 }
 
+void drawSeg(std::vector<cv::Mat> rgbs, std::vector< std::vector<cv::Mat > > quasuimodo_all_objectMasks, std::vector< std::vector<unsigned int > > quasuimodo_all_imgNumber){
+	std::vector<int> randr;
+	std::vector<int> randg;
+	std::vector<int> randb;
+	for(unsigned int i = 0; i < quasuimodo_all_objectMasks.size(); i++){
+		randr.push_back(rand()%256);
+		randg.push_back(rand()%256);
+		randb.push_back(rand()%256);
+	}
+
+
+	for(unsigned int i = 0; i < rgbs.size(); i++){
+		while(true){
+			cv::Mat rgb = rgbs[i].clone();
+			cv::Mat rgb_cont = rgbs[i].clone();
+			cv::Mat rgb_col = rgbs[i].clone();
+
+			unsigned char * rgb_data = rgb_col.data;
+
+
+			for(unsigned int j = 0; j < quasuimodo_all_objectMasks.size(); j++){
+				for(unsigned int k = 0; k < quasuimodo_all_imgNumber.size(); k++){
+					if(quasuimodo_all_imgNumber[j][k] == i){
+						std::vector<std::vector<cv::Point> > contours;
+						std::vector<cv::Vec4i> hierarchy;
+
+						cv::findContours( quasuimodo_all_objectMasks[j][k], contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0) );
+						for( unsigned int i = 0; i < contours.size(); i++ ){
+							cv::drawContours( rgb_cont, contours, i, cv::Scalar( 0, 0, 255 ), 2, 8, hierarchy, 0, cv::Point() );
+							cv::drawContours( rgb_cont, contours, i, cv::Scalar( 0, 255, 0 ), 1, 8, hierarchy, 0, cv::Point() );
+						}
+
+//						int r = randr[j];
+//						int g = randg[j];
+//						int b = randb[j];
+//						unsigned char * maskdata = quasuimodo_all_objectMasks[j][k].data;
+//						for(unsigned int l = 0; l < 640*480; l++){
+//							if(maskdata[l] != 0){
+//								rgb_data[3*l+0] = b;
+//								rgb_data[3*l+1] = g;
+//								rgb_data[3*l+2] = r;
+//							}
+//						}
+					}
+				}
+			}
+
+			cv::namedWindow( "rgb",cv::WINDOW_AUTOSIZE );
+			cv::imshow( "rgb",rgb );
+
+			cv::namedWindow( "rgb_cont",cv::WINDOW_AUTOSIZE );
+			cv::imshow( "rgb_cont",rgb_cont );
+
+
+			cv::namedWindow( "rgb_col",cv::WINDOW_AUTOSIZE );
+			cv::imshow( "rgb_col",rgb_cont );
+
+			char c = cv::waitKey(0);
+			break;
+			/*
+			std::vector<std::vector<cv::Point> > contours;
+			std::vector<cv::Vec4i> hierarchy;
+
+			cv::findContours( mask, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0) );
+			for( unsigned int i = 0; i < contours.size(); i++ ){
+				cv::drawContours( rgb, contours, i, cv::Scalar( 0, 0, 255 ), 2, 8, hierarchy, 0, cv::Point() );
+				cv::drawContours( rgb, contours, i, cv::Scalar( 0, 255, 0 ), 1, 8, hierarchy, 0, cv::Point() );
+			}
+
+			unsigned int height	= rgb.rows;
+			unsigned int width	= rgb.cols;
+			unsigned int newwidth = width+600;
+
+			unsigned char * rgbdata = rgb.data;
+
+			cv::Mat img;
+			img.create(height,newwidth,CV_8UC3);
+			unsigned char * imgdata = img.data;
+
+			for(unsigned int i = 0; i < 3*height*newwidth; i++){imgdata[i] = 0;}
+
+			for(unsigned int w = 0; w < width;w++){
+				for(unsigned int h = 0; h < height;h++){
+					int oind = h*width+w;
+					int nind = h*newwidth+w;
+					imgdata[3*nind + 0] = rgbdata[3*oind + 0];
+					imgdata[3*nind + 1] = rgbdata[3*oind + 1];
+					imgdata[3*nind + 2] = rgbdata[3*oind + 2];
+				}
+			}
+
+			int textnr = 0;
+			putText(img, "1: correct                   ",       cv::Point(width+10,	30+(textnr++)*25   ),	fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
+			putText(img, "2: junk                      ",       cv::Point(width+10,	30+(textnr++)*25   ),	fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
+			putText(img, "3: undersegmented (correct+junk",     cv::Point(width+10,	30+(textnr++)*25   ),	fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
+			putText(img, "4: undersegmented (correct+correct)", cv::Point(width+10,	30+(textnr++)*25   ),	fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
+			putText(img, "5: severly oversegmented",            cv::Point(width+10,	30+(textnr++)*25   ),	fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
+			putText(img, "6: unknown",                          cv::Point(width+10,	30+(textnr++)*25   ),	fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
+			putText(img, "next: W previous: Q",                 cv::Point(width+10,	30+(textnr++)*25   ),	fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
+
+			char buf [1024];
+			sprintf(buf,"   Image:     %i / %i",current_displayInd+1,objectMasks.size());
+			putText(img, std::string(buf), cv::Point(width+10,			30+(textnr++)*25   ), fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
+
+	//        putText(img, "   Select state(pushed CTRL)",cv::Point(width+10,	30+(textnr++)*25   ),	fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
+	//        putText(img, "--", cv::Point(width+5,	30+state*25   ), fontFace, fontScale, cv::Scalar(0,255,0), thickness, 8);
+
+			cv::namedWindow( "Annotation tool",				cv::WINDOW_AUTOSIZE );	cv::imshow( "Annotation tool",img );
+			char c = cv::waitKey(0);
+			if(c == 'q' || c == 'Q'){
+				current_displayInd = std::max(int(current_displayInd-1),0);
+				rgb = rgbs[imgNumber[current_displayInd]].clone();
+				mask = objectMasks[current_displayInd].clone();
+			}
+
+			if(c == 'w' || c == 'W'){
+				current_displayInd = std::min(int(current_displayInd+1),int(imgNumber.size()-1));
+				rgb = rgbs[imgNumber[current_displayInd]].clone();
+				mask = objectMasks[current_displayInd].clone();
+			}
+
+			if(c == '1'){return 1;}
+			if(c == '2'){return 2;}
+			if(c == '3'){return 3;}
+			if(c == '4'){return 4;}
+			if(c == '5'){return 5;}
+			if(c == '6'){return 5;}
+			*/
+		}
+	}
+
+}
+
 bool annotate(std::string path){
     printf("annotate: %s\n",path.c_str());
 
@@ -708,6 +841,9 @@ bool annotate(std::string path){
     std::vector< std::vector<unsigned int > > quasuimodo_all_imgNumber;
     std::vector<std::string > quasuimodo_all_names;
     getQuasimodoObjects(path,quasuimodo_all_objectMasks,quasuimodo_all_imgNumber,quasuimodo_all_names);
+
+	drawSeg(rgbs,quasuimodo_all_objectMasks,quasuimodo_all_imgNumber);
+
 
     std::vector<int> quasimodo_labels = annotateObjects(rgbs,quasuimodo_all_objectMasks,quasuimodo_all_imgNumber);
     saveAnnotationResults(roomFolder+"quasimodo_annotation.txt", quasimodo_labels, quasuimodo_all_names);
