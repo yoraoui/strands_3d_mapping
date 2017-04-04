@@ -6,19 +6,22 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(PkgConfig)
 pkg_check_modules(GLEW REQUIRED glew)
-find_package(CUDA 5.5 REQUIRED)
+find_package(CUDA REQUIRED)
 
 set(GENCODE_SM20 -gencode=arch=compute_20,code=sm_20)
 set(GENCODE_SM30 -gencode=arch=compute_30,code=sm_30)
 set(GENCODE_SM35 -gencode=arch=compute_35,code=sm_35)
 set(GENCODE_SM50 -gencode=arch=compute_50,code=sm_50)
 set(GENCODE_SM52 -gencode=arch=compute_52,code=sm_52)
+set(GENCODE_SM60 -gencode=arch=compute_60,code=sm_60)
+set(GENCODE_SM61 -gencode=arch=compute_61,code=sm_61)
+set(GENCODE_SM62 -gencode=arch=compute_62,code=sm_62)
 set(CUDA_NVCC_FLAGS -O3;-ftz=true;-prec-sqrt=false;-prec-div=false)
 set(CUDA_PROPAGATE_HOST_FLAGS ON) # propagate -DCUDA_SIFTGPU_ENABLED
 if (${CUDA_VERSION_MAJOR} LESS 7)
-    set(CUDA_OPTIONS ${GENCODE_SM20} ${GENCODE_SM30} ${GENCODE_SM35} ${VERBOSE_PTXAS})
+    set(CUDA_OPTIONS ${GENCODE_SM20} ${GENCODE_SM30} ${GENCODE_SM35} ${VERBOSE_PTXAS} ${GENCODE_SM60}  ${GENCODE_SM61} ${GENCODE_SM62} )
 else()
-    set(CUDA_OPTIONS ${GENCODE_SM20} ${GENCODE_SM30} ${GENCODE_SM35} ${GENCODE_SM50} ${GENCODE_SM52} ${VERBOSE_PTXAS})
+    set(CUDA_OPTIONS ${GENCODE_SM20} ${GENCODE_SM30} ${GENCODE_SM35} ${GENCODE_SM50} ${GENCODE_SM52} ${VERBOSE_PTXAS} ${GENCODE_SM60}  ${GENCODE_SM61} ${GENCODE_SM62} )
 endif()
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCUDA_SIFTGPU_ENABLED")
